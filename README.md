@@ -1,98 +1,177 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# MCDI - Discord Integration Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS-based backend service for Discord integration, managed using Linear for issue tracking and GitHub for version control.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Quick Start
 
 ```bash
-$ npm install
+# Install dependencies
+npm install
+
+# Development
+npm run start:dev
+
+# Production
+npm run start:prod
+
+# Run tests
+npm run test
 ```
 
-## Compile and run the project
+## Development Workflow
+
+### 1. Working with Linear Issues
+
+**Issue States:**
+```
+Backlog → Todo → In Progress → In Review → Done
+```
+
+**Quick Actions:**
+- `C` - Create new issue
+- `K` - Command palette
+- `G → I` - Go to My Issues
+- `S → I` - Set to In Progress
+
+### 2. Branch Naming Convention
+
+Always include the Linear issue ID:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Format: dis-[issue-number]-[short-description]
+dis-23-jwt-token-validation
+dis-45-fix-oauth-callback
+dis-67-member-sync-cron
 ```
 
-## Run tests
+**Create a branch:**
+```bash
+git checkout main
+git pull origin main
+git checkout -b dis-23-jwt-token-validation
+```
+
+### 3. Commit Messages
+
+Include the issue number in every commit:
 
 ```bash
-# unit tests
-$ npm run test
+# Format: [Description] (#DIS-XXX)
+git commit -m "Add JWT token validation middleware (#DIS-23)"
+git commit -m "Fix OAuth callback 401 error (#DIS-45)"
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+# To auto-close issues
+git commit -m "Fixes #DIS-23 - Complete JWT implementation"
 ```
 
-## Deployment
+### 4. Pull Requests
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+**PR Title Format:**
+```
+[DIS-XXX] Short description of changes
+```
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+**PR Description:**
+```markdown
+## Issue
+Closes #DIS-123
+
+## What Changed
+- [Brief description of main changes]
+
+## How to Test
+1. [Step-by-step testing instructions]
+
+## Checklist
+- [ ] Tests added/updated
+- [ ] All tests passing
+- [ ] Code reviewed by self first
+- [ ] Documentation updated (if needed)
+```
+
+## Daily Workflow
+
+1. **Morning:** Check your issues (`G → I` in Linear)
+2. **Start Work:** Move issue to "In Progress" (`S → I`)
+3. **Create Branch:** Use Linear issue number
+4. **Code:** Commit with issue numbers
+5. **Open PR:** Link to Linear issue
+6. **Review:** Move to "In Review" status
+7. **Merge:** Issue auto-closes to "Done"
+
+## Git Conventions
+
+**Branch Naming:**
+```bash
+dis-[#]-[description]
+```
+
+**Commit Format:**
+```bash
+[Description] (#DIS-XXX)
+```
+
+**PR Title:**
+```bash
+[DIS-XXX] Description
+```
+
+## Best Practices
+
+✅ **Do:**
+- Move issues to "In Progress" when you start
+- Include issue number in branches, commits, and PRs
+- Keep PRs small (< 400 lines)
+- Add comments with progress updates
+- Self-review before requesting review
+
+❌ **Don't:**
+- Leave stale "In Progress" issues
+- Work on unassigned issues (assign yourself first)
+- Make huge PRs (> 800 lines)
+- Forget to link PRs to issues
+- Write vague commit messages
+
+## Linear Quick Reference
+
+| Shortcut | Action |
+|----------|--------|
+| `C` | Create issue |
+| `K` | Command palette |
+| `G → I` | Go to My Issues |
+| `S → I` | Set to In Progress |
+| `A` | Assign |
+| `L` | Add label |
+| `M` | Add comment |
+| `Shift + ?` | Show all shortcuts |
+
+## Project Structure
+
+This is a NestJS application. For more information about NestJS:
+- [NestJS Documentation](https://docs.nestjs.com)
+- [NestJS Discord](https://discord.gg/G7Qnnhy)
+
+## Scripts
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Development
+npm run start:dev
+
+# Build
+npm run build
+
+# Lint
+npm run lint
+
+# Format
+npm run format
+
+# Tests
+npm run test
+npm run test:e2e
+npm run test:cov
 ```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED
