@@ -25,23 +25,39 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
+## Quick Start
+
+**For local development, see [DEVELOPMENT.md](./DEVELOPMENT.md) for detailed instructions.**
+
+### Using Docker (Recommended)
 
 ```bash
-$ npm install
+# 1. Copy environment variables
+cp .env.example .env
+
+# 2. Start all services
+docker-compose up -d
+
+# 3. Access the app at http://localhost:3000
 ```
 
-## Compile and run the project
+**All services:**
+- Application: http://localhost:3000
+- phpMyAdmin: http://localhost:8080 (root/root_password)
+- Redis Commander: http://localhost:8081
+- Mailhog: http://localhost:8025
+
+### Using npm directly
 
 ```bash
-# development
-$ npm run start
+# Install dependencies
+npm install
 
-# watch mode
-$ npm run start:dev
+# Development mode with hot reload
+npm run start:dev
 
-# production mode
-$ npm run start:prod
+# Production mode
+npm run start:prod
 ```
 
 ## Run tests
