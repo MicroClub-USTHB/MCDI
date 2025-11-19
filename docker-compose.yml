@@ -37,7 +37,7 @@ services:
     container_name: mcdi-mysql
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3307:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root_password}
       MYSQL_DATABASE: ${DB_DATABASE:-mcdi_db}
@@ -58,7 +58,7 @@ services:
     container_name: mcdi-phpmyadmin
     restart: unless-stopped
     ports:
-      - "${PHPMYADMIN_PORT:-8080}:80"
+      - "8082:80"
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
