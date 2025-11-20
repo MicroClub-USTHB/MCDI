@@ -60,7 +60,7 @@ model Role {
   name           String
   permissions    Json
   color          String
-  hierarchyLevel Int
+  position       Int
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -74,7 +74,6 @@ model Role {
 
 model MemberRole {
   memberId   String
-  discordId  String
   roleId     String
   assignedAt DateTime @default(now())
   createdAt  DateTime @default(now())
@@ -130,11 +129,19 @@ model ChannelRole {
   @@map("channel_roles")
 }
 
+enum PermissionLevel {
+  LOW
+  MEDIUM
+  HIGH
+  ADMIN
+}
+
+
 model Project {
   id              String   @id @default(uuid())
   name            String
   description     String?
-  permissionLevel String
+  permissionLevel PermissionLevel
   apiKeyHash      String?
   rateLimitRpm    Int      @default(60)
   webhookLimit    Int      @default(10)
@@ -168,7 +175,6 @@ model ProjectAllowedChannel {
 
 model ProjectMember {
   memberId  String
-  discordId String
   projectId String
   role      String
   createdAt DateTime @default(now())
