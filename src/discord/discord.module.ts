@@ -27,7 +27,7 @@ const DiscordProvider: Provider = {
       ],
     });
 
-    const TOKEN = configService.get<string>('DISCORD_BOT_TOKEN');
+    const TOKEN = configService.get<string>('discord.token');
 
     await client.login(TOKEN);
 
