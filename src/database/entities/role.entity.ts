@@ -1,4 +1,11 @@
-import { pgTable, timestamp, varchar, integer, boolean, text } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  timestamp,
+  varchar,
+  integer,
+  boolean,
+  text,
+} from 'drizzle-orm/pg-core';
 
 export const roles = pgTable('roles', {
   id: varchar('id', { length: 255 }).primaryKey(), // Discord Role ID
@@ -6,7 +13,6 @@ export const roles = pgTable('roles', {
   color: integer('color'),
   hoist: boolean('hoist').default(false),
   position: integer('position').default(0),
-  permissions: text('permissions'),
   managed: boolean('managed').default(false),
   mentionable: boolean('mentionable').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
