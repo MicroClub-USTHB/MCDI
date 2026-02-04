@@ -4,11 +4,14 @@ import {
   varchar,
   integer,
   boolean,
-  text,
 } from 'drizzle-orm/pg-core';
+import { servers } from './server.entity';
 
 export const roles = pgTable('roles', {
-  id: varchar('id', { length: 255 }).primaryKey(), // Discord Role ID
+  id: varchar('id', { length: 255 }).primaryKey(),
+  serverId: varchar('server_id', { length: 255 })
+    .references(() => servers.id)
+    .notNull(),
   name: varchar('name', { length: 255 }).notNull(),
   color: integer('color'),
   hoist: boolean('hoist').default(false),
