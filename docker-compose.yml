@@ -7,15 +7,16 @@ services:
     container_name: mcdi-app-dev
     restart: unless-stopped
     ports:
-      - "${APP_PORT:-3000}:3000"
+      - '${APP_PORT:-3000}:3000'
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USERNAME=${DB_USERNAME:-root}
-      - DB_PASSWORD=${DB_PASSWORD:-root_password}
-      - DB_DATABASE=${DB_DATABASE:-mcdi_db}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres_password}
+      - DB_DATABASE=${DB_DATABASE:-mcdi_pgdb}
+      - DATABASE_URL=postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres_password}@postgres:5432/${DB_DATABASE:-mcdi_pgdb}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_password}
@@ -23,7 +24,7 @@ services:
       - .:/app
       - /app/node_modules
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -31,20 +32,21 @@ services:
       - mcdi-network
     command: npm run start:dev
 
-  # MySQL Database
-  mysql:
-    image: mysql:8.0
-    container_name: mcdi-mysql
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: mcdi-postgres
     restart: unless-stopped
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - '${DB_PORT:-5432}:5432'
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${DB_DATABASE:-mcdi_db}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${DB_DATABASE:-mcdi_pgdb}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-root_password}"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,21 +54,18 @@ services:
     networks:
       - mcdi-network
 
-  # phpMyAdmin - Database Management UI
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: mcdi-phpmyadmin
+  # pgAdmin - Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: mcdi-pgadmin
     restart: unless-stopped
     ports:
-      - "${PHPMYADMIN_PORT:-8080}:80"
+      - '${PGADMIN_PORT:-8080}:80'
     environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: ${DB_PASSWORD:-root_password}
-      UPLOAD_LIMIT: 100M
+      PGADMIN_DEFAULT_EMAIL: admin@mcdi.com
+      PGADMIN_DEFAULT_PASSWORD: admin
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     networks:
       - mcdi-network
@@ -77,12 +76,12 @@ services:
     container_name: mcdi-redis
     restart: unless-stopped
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - '${REDIS_PORT:-6379}:6379'
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,7 +94,7 @@ services:
     container_name: mcdi-redis-commander
     restart: unless-stopped
     ports:
-      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+      - '${REDIS_COMMANDER_PORT:-8081}:8081'
     environment:
       - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-redis_password}
     depends_on:
@@ -110,8 +109,8 @@ services:
     container_name: mcdi-mailhog
     restart: unless-stopped
     ports:
-      - "${MAILHOG_SMTP_PORT:-1025}:1025"  # SMTP server
-      - "${MAILHOG_UI_PORT:-8025}:8025"    # Web UI
+      - '${MAILHOG_SMTP_PORT:-1025}:1025' # SMTP server
+      - '${MAILHOG_UI_PORT:-8025}:8025' # Web UI
     networks:
       - mcdi-network
 
@@ -120,7 +119,7 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
   redis_data:
     driver: local

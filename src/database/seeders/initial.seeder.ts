@@ -1,0 +1,134 @@
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../entities';
+import { createMemberFactory } from '../factories/member.factory';
+import { createServerFactory } from '../factories/server.factory';
+import { createProjectFactory } from '../factories/project.factory';
+import { createRoleFactory } from '../factories/role.factory';
+import { createPermissionFactory } from '../factories/permission.factory';
+
+export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
+  console.log('Seeding initial data...');
+
+  console.log('Seeding permissions...');
+  const permissionsData = [
+    {
+      name: 'Administrator',
+      code: 'ADMINISTRATOR',
+      description: 'Full access to the discord server',
+      bitfield: BigInt(0x8),
+    },
+    {
+      name: 'Manage Channels',
+      code: 'MANAGE_CHANNELS',
+      description: 'Can add/remove/edit channels',
+      bitfield: BigInt(0x10),
+    },
+    {
+      name: 'View Audit Log',
+      code: 'VIEW_AUDIT_LOG',
+      description: 'Can view server audit logs',
+      bitfield: BigInt(0x80),
+    },
+    {
+      name: 'Manage Roles',
+      code: 'MANAGE_ROLES',
+      description: 'Can create and edit roles',
+      bitfield: BigInt(0x10000000),
+    },
+  ];
+
+  const insertedPermissions = await db
+    .insert(schema.permissions)
+    .values(permissionsData)
+    .onConflictDoNothing()
+    .returning();
+
+  console.log('  - Seeding main server...');
+  const mainServer = createServerFactory({
+    name: 'MicroClub Official',
+    isMain: true,
+    type: 'official',
+  });
+
+  const [insertedServer] = await db
+    .insert(schema.servers)
+    .values(mainServer)
+    .onConflictDoNothing()
+    .returning();
+
+  const serverId = insertedServer?.id || mainServer.id;
+  console.log(`  - Seeding roles for server ${serverId}...`);
+  const rolesData = [
+    createRoleFactory(serverId, { name: 'Admin', position: 1 }),
+    createRoleFactory(serverId, { name: 'Lead', position: 2 }),
+    createRoleFactory(serverId, { name: 'Member', position: 3 }),
+  ];
+  const insertedRoles = await db
+    .insert(schema.roles)
+    .values(rolesData)
+    .onConflictDoNothing()
+    .returning();
+
+  console.log('Seeding role permissions...');
+  if (insertedRoles.length > 0 && insertedPermissions.length > 0) {
+    const adminRole = insertedRoles.find((r) => r.name === 'Admin');
+    if (adminRole) {
+      const rolePermissionsData = insertedPermissions.map((p) => ({
+        roleId: adminRole.id,
+        permissionId: p.id,
+      }));
+      await db
+        .insert(schema.rolePermissions)
+        .values(rolePermissionsData)
+        .onConflictDoNothing();
+    }
+  }
+
+  console.log('Seeding members...');
+  const membersData = Array.from({ length: 10 }).map(() =>
+    createMemberFactory(),
+  );
+  const insertedMembers = await db
+    .insert(schema.members)
+    .values(membersData)
+    .onConflictDoNothing()
+    .returning();
+
+  console.log('Seeding server members...');
+  if (insertedMembers.length > 0) {
+    const serverMembersData = insertedMembers.map((m) => ({
+      serverId: serverId,
+      memberId: m.id,
+      joinedAt: new Date(),
+    }));
+    await db
+      .insert(schema.serverMembers)
+      .values(serverMembersData)
+      .onConflictDoNothing();
+  }
+
+  console.log('Seeding project...');
+  const projectData = createProjectFactory({
+    name: 'MCDI Dashboard',
+    description: 'Internal dashboard for managing MCDI',
+  });
+  const [insertedProject] = await db
+    .insert(schema.projects)
+    .values(projectData)
+    .onConflictDoNothing()
+    .returning();
+
+  if (insertedProject) {
+    console.log('Linking project to server...');
+    await db
+      .insert(schema.projectServers)
+      .values({
+        projectId: insertedProject.id,
+        serverId: serverId,
+        operations: { read: true, write: true, manage_members: true },
+      })
+      .onConflictDoNothing();
+  }
+
+  console.log('Initial seeding completed!');
+}

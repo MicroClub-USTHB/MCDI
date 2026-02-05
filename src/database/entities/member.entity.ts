@@ -1,0 +1,21 @@
+import {
+  boolean,
+  pgTable,
+  text,
+  timestamp,
+  varchar,
+} from 'drizzle-orm/pg-core';
+
+export const members = pgTable('members', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  username: varchar('username', { length: 255 }).notNull(),
+  globalName: varchar('global_name', { length: 255 }),
+  displayName: varchar('display_name', { length: 255 }),
+  avatar: text('avatar'),
+  email: varchar('email', { length: 255 }),
+  isClubMember: boolean('is_club_member').default(false).notNull(),
+  joinedAt: timestamp('joined_at'),
+  syncedAt: timestamp('synced_at', { withTimezone: true }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
