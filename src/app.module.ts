@@ -9,6 +9,8 @@ import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { ServersService } from './servers/servers.service';
+import { ServersService } from './src/modules/servers/servers.service';
 
 @Module({
   imports: [
@@ -22,6 +24,6 @@ import { ProjectsModule } from './modules/projects/projects.module';
     ProjectsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ServersService],
 })
 export class AppModule {}
