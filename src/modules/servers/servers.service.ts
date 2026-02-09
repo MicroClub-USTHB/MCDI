@@ -8,6 +8,14 @@ import { UpdateServerDto } from './dto/update-server.dto';
 import * as databaseModule from '../../database/database.module';
 @Injectable()
 export class ServersService {
+  private readonly DEFAULTS = {
+    name: 'Unknown',
+    type: 'other',
+    isMain: false,
+    isActive: true,
+    syncFrequencyMinutes: 60,
+    defaultPermissionPolicy: 'deny_all' as const,
+  };
 
 constructor(
   @Inject(databaseModule.DRIZZLE) private readonly db: databaseModule.DrizzleDB,
@@ -19,8 +27,18 @@ constructor(
     const now = new Date();
     const guild = await this.discordService.getGuildById(dto.guildId);
 
-    const name = dto.name ?? guild?.name ?? 'Unknown';
-    const icon = dto.icon ?? guild?.iconURL() ?? null;
+    const serverData = {
+      id: dto.guildId,
+      name: dto.name || guild?.name || this.DEFAULTS.name,
+      icon: dto.icon ?? guild?.iconURL() ?? null,
+      type: dto.type || this.DEFAULTS.type,
+      isMain: dto.isMain || this.DEFAULTS.isMain,
+      isActive: dto.isActive ?? this.DEFAULTS.isActive,
+      syncFrequencyMinutes: dto.syncFrequencyMinutes || this.DEFAULTS.syncFrequencyMinutes,
+      defaultPermissionPolicy: dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
+      disabledReason: dto.disabledReason ?? null,
+      updatedAt: now,
+    };
 
     return this.db.transaction(async (tx) => {
       if (dto.isMain) {
@@ -32,31 +50,10 @@ constructor(
 
       const [row] = await tx
         .insert(servers)
-        .values({
-          id: dto.guildId,
-          name,
-          icon,
-          type: dto.type ?? 'other',
-          isMain: dto.isMain ?? false,
-          isActive: dto.isActive ?? true,
-          syncFrequencyMinutes: dto.syncFrequencyMinutes ?? 60,
-          defaultPermissionPolicy: dto.defaultPermissionPolicy ?? 'denyAll',
-          disabledReason: dto.disabledReason ?? null,
-          updatedAt: now,
-        })
+        .values(serverData)
         .onConflictDoUpdate({
           target: servers.id,
-          set: {
-            name,
-            icon,
-            type: dto.type ?? 'other',
-            isMain: dto.isMain ?? false,
-            isActive: dto.isActive ?? true,
-            syncFrequencyMinutes: dto.syncFrequencyMinutes ?? 60,
-            defaultPermissionPolicy: dto.defaultPermissionPolicy ?? 'denyAll',
-            disabledReason: dto.disabledReason ?? null,
-            updatedAt: now,
-          },
+          set: serverData
         })
         .returning();
 
