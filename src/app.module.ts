@@ -9,9 +9,8 @@ import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
-import { ServersService } from './servers/servers.service';
-import { ServersService } from './src/modules/servers/servers.service';
-
+import { APP_GUARD } from '@nestjs/core';
+import { ServerActiveGuard } from './modules/servers/server.guard';
 @Module({
   imports: [
     ConfigModule,
@@ -24,6 +23,9 @@ import { ServersService } from './src/modules/servers/servers.service';
     ProjectsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ServersService],
+  providers: [AppService, {
+    provide:APP_GUARD,
+    useClass: ServerActiveGuard
+  }],
 })
 export class AppModule {}
