@@ -30,6 +30,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "discord.js": "^14.25.0",
     "drizzle-orm": "^0.45.1",
+    "ejs": "^4.0.1",
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

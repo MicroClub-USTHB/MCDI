@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCDI - Login</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-card">
+            <div class="logo-section">
+                <!-- Replace with actual logo path if available -->
+                <div class="logo-placeholder">
+                    <i class="fa-brands fa-discord"></i>
+                </div>
+                <h1>MCDI</h1>
+                <p>MicroClub Discord Interface</p>
+            </div>
+
+            <div class="content-section">
+                <% if (status==='success' ) { %>
+                    <div class="status-message success">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <h2>Authentication Successful</h2>
+                        <p>You have successfully logged in.</p>
+                        <!-- Optional: Add a button to close window or redirect -->
+                    </div>
+                    <% } else if (status==='failed' ) { %>
+                        <div class="status-message error">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <h2>Authentication Failed</h2>
+                            <p>Something went wrong. Please try again.</p>
+                            <a href="/api/auth/discord" class="btn-discord">
+                                <i class="fa-brands fa-discord"></i> Try Again
+                            </a>
+                        </div>
+                        <% } else { %>
+                            <div class="login-actions">
+                                <p>Please log in to continue</p>
+                                <a href="/api/auth/discord" class="btn-discord">
+                                    <i class="fa-brands fa-discord"></i> Login with Discord
+                                </a>
+                            </div>
+                            <% } %>
+            </div>
+
+            <footer>
+                <p>&copy; 2026 MicroClub</p>
+            </footer>
+        </div>
+    </div>
+</body>
+
+</html>
