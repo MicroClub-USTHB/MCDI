@@ -1,3 +1,6 @@
+import { SQL } from 'drizzle-orm';
+import { PgColumn } from 'drizzle-orm/pg-core';
+
 export * from './member.entity';
 export * from './server.entity';
 export * from './role.entity';
