@@ -4,6 +4,10 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
+    "assets": [
+      "views/**/*",
+      "public/**/*"
+    ],
     "watchAssets": true
   },
   "watchOptions": {

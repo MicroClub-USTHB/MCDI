@@ -5,6 +5,7 @@ import { createServerFactory } from '../factories/server.factory';
 import { createProjectFactory } from '../factories/project.factory';
 import { createRoleFactory } from '../factories/role.factory';
 import { createPermissionFactory } from '../factories/permission.factory';
+import { createProjectRoleFactory } from '../factories/project-role.factory';
 
 export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log('Seeding initial data...');
@@ -105,30 +106,150 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .insert(schema.serverMembers)
       .values(serverMembersData)
       .onConflictDoNothing();
+
+    // Assign roles to the first 3 members
+    console.log('Seeding server member roles...');
+    if (insertedRoles.length > 0) {
+      const memberRolesData: { memberId: string; roleId: string; assignedAt: Date }[] = [];
+      
+      // First member gets Admin role
+      if (insertedMembers[0] && insertedRoles[0]) {
+        memberRolesData.push({
+          memberId: insertedMembers[0].id,
+          roleId: insertedRoles[0].id,
+          assignedAt: new Date(),
+        });
+      }
+      
+      // Second member gets Lead role
+      if (insertedMembers[1] && insertedRoles[1]) {
+        memberRolesData.push({
+          memberId: insertedMembers[1].id,
+          roleId: insertedRoles[1].id,
+          assignedAt: new Date(),
+        });
+      }
+      
+      // Third member gets Member role
+      if (insertedMembers[2] && insertedRoles[2]) {
+        memberRolesData.push({
+          memberId: insertedMembers[2].id,
+          roleId: insertedRoles[2].id,
+          assignedAt: new Date(),
+        });
+      }
+      
+      if (memberRolesData.length > 0) {
+        await db
+          .insert(schema.serverMemberRoles)
+          .values(memberRolesData)
+          .onConflictDoNothing();
+      }
+    }
   }
 
-  console.log('Seeding project...');
-  const projectData = createProjectFactory({
+  console.log('Seeding projects...');
+  
+  // 1. Internal project (MicroClub Events) - uses main server, no role restrictions
+  const internalProject = createProjectFactory({
+    name: 'MicroClub Events',
+    description: 'Internal events management platform',
+    apiKey: 'mcdi-internal-events-2024',
+    isInternal: true,
+    redirectUri: 'http://localhost:4000/auth/callback',
+  });
+  
+  // 2. External project (External Dashboard) - requires Lead or Admin role
+  const externalProject = createProjectFactory({
+    name: 'External Dashboard',
+    description: 'External client dashboard with role restrictions',
+    apiKey: 'mcdi-external-dashboard-2024',
+    isInternal: false,
+    redirectUri: 'http://localhost:5000/auth/callback',
+  });
+  
+  // 3. Public project (MCDI Dashboard) - no role restrictions
+  const publicProject = createProjectFactory({
     name: 'MCDI Dashboard',
     description: 'Internal dashboard for managing MCDI',
+    apiKey: 'mcdi-dashboard-2024',
+    isInternal: false,
+    redirectUri: 'http://localhost:3001/auth/callback',
   });
-  const [insertedProject] = await db
+
+  const [insertedInternalProject, insertedExternalProject, insertedPublicProject] = await db
     .insert(schema.projects)
-    .values(projectData)
+    .values([internalProject, externalProject, publicProject])
     .onConflictDoNothing()
     .returning();
 
-  if (insertedProject) {
-    console.log('Linking project to server...');
+  console.log('Linking projects to server...');
+  const projectServersData: { projectId: string; serverId: string; operations: Record<string, boolean> }[] = [];
+  
+  if (insertedInternalProject) {
+    projectServersData.push({
+      projectId: insertedInternalProject.id,
+      serverId: serverId,
+      operations: { read: true, write: true, manage_members: true },
+    });
+  }
+  
+  if (insertedExternalProject) {
+    projectServersData.push({
+      projectId: insertedExternalProject.id,
+      serverId: serverId,
+      operations: { read: true, write: false, manage_members: false },
+    });
+  }
+  
+  if (insertedPublicProject) {
+    projectServersData.push({
+      projectId: insertedPublicProject.id,
+      serverId: serverId,
+      operations: { read: true, write: true, manage_members: false },
+    });
+  }
+  
+  if (projectServersData.length > 0) {
     await db
       .insert(schema.projectServers)
-      .values({
-        projectId: insertedProject.id,
-        serverId: serverId,
-        operations: { read: true, write: true, manage_members: true },
-      })
+      .values(projectServersData)
       .onConflictDoNothing();
   }
 
+  console.log('Seeding project roles (access control)...');
+  // External Dashboard requires Admin or Lead role
+  if (insertedExternalProject && insertedRoles.length >= 2) {
+    const projectRolesData = [
+      createProjectRoleFactory(insertedExternalProject.id, insertedRoles[0].id), // Admin role
+      createProjectRoleFactory(insertedExternalProject.id, insertedRoles[1].id), // Lead role
+    ];
+    
+    await db
+      .insert(schema.projectRoles)
+      .values(projectRolesData)
+      .onConflictDoNothing();
+    
+    console.log(`  - External Dashboard requires: ${insertedRoles[0].name} or ${insertedRoles[1].name} role`);
+  }
+
   console.log('Initial seeding completed!');
+  console.log('\n=== TEST DATA SUMMARY ===');
+  console.log(`Main Server ID: ${serverId}`);
+  console.log(`Roles: ${insertedRoles.map(r => `${r.name} (${r.id})`).join(', ')}`);
+  console.log(`Members: ${insertedMembers.length} total`);
+  console.log(`  - Member 1: ${insertedMembers[0]?.id} (${insertedMembers[0]?.username}) - Admin role`);
+  console.log(`  - Member 2: ${insertedMembers[1]?.id} (${insertedMembers[1]?.username}) - Lead role`);
+  console.log(`  - Member 3: ${insertedMembers[2]?.id} (${insertedMembers[2]?.username}) - Member role`);
+  console.log('\nProjects:');
+  console.log(`  1. Internal: "${internalProject.name}" (API Key: ${internalProject.apiKey})`);
+  console.log(`     - Uses main server automatically`);
+  console.log(`     - No role restrictions`);
+  console.log(`  2. External: "${externalProject.name}" (API Key: ${externalProject.apiKey})`);
+  console.log(`     - Requires explicit serverId`);
+  console.log(`     - Requires Admin OR Lead role`);
+  console.log(`  3. Public: "${publicProject.name}" (API Key: ${publicProject.apiKey})`);
+  console.log(`     - Requires explicit serverId`);
+  console.log(`     - No role restrictions`);
+  console.log('========================\n');
 }

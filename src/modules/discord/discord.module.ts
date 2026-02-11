@@ -29,7 +29,14 @@ const DiscordProvider: Provider = {
 
     const TOKEN = configService.get<string>('discord.token');
 
-    await client.login(TOKEN);
+    try {
+      await client.login(TOKEN);
+    } catch (error) {
+      console.warn(
+        'Discord bot login failed - bot features will be unavailable. OAuth flow still works.',
+        (error as Error).message,
+      );
+    }
 
     return client;
   },
