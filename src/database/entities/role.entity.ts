@@ -24,7 +24,5 @@ export const roles = pgTable(
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
-  (t) => ({
-    serverIdIdx: index('idx_roles_server_id').on(t.serverId),
-  }),
+  (t) => [index('idx_roles_server_id').on(t.serverId)],
 );

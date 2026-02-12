@@ -19,8 +19,8 @@ export const serverMembers = pgTable(
       .notNull(),
     joinedAt: timestamp('joined_at'),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.serverId, t.memberId] }),
-    memberIdIdx: index('idx_server_members_member_id').on(t.memberId),
-  }),
+  (t) => [
+    primaryKey({ columns: [t.serverId, t.memberId] }),
+    index('idx_server_members_member_id').on(t.memberId),
+  ],
 );

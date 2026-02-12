@@ -12,7 +12,5 @@ export const serverMemberRoles = pgTable(
       .references(() => roles.id)
       .notNull(),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.memberId, t.roleId] }),
-  }),
+  (t) => [primaryKey({ columns: [t.memberId, t.roleId] })],
 );
