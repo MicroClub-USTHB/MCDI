@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { AdminMembersService } from './admin-members.service';
 import type {

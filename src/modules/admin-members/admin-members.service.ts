@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, or, sql, SQL } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -131,15 +131,16 @@ export class AdminMembersService {
     // --- Build the member query depending on the filter ---
 
     // Base: members who have at least one server_member row
-    const baseConditions = [];
+    const baseConditions: SQL[] = [];
 
     if (search) {
-      baseConditions.push(
-        or(
-          ilike(schema.members.username, `%${search}%`),
-          ilike(schema.members.globalName, `%${search}%`),
-        ),
+      const searchCondition = or(
+        ilike(schema.members.username, `%${search}%`),
+        ilike(schema.members.globalName, `%${search}%`),
       );
+      if (searchCondition) {
+        baseConditions.push(searchCondition);
+      }
     }
 
     if (filter === 'club') {
