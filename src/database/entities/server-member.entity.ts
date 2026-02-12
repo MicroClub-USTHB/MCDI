@@ -1,4 +1,4 @@
-import { pgTable, varchar, timestamp, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, timestamp, primaryKey, index } from 'drizzle-orm/pg-core';
 import { servers } from './server.entity';
 import { members } from './member.entity';
 
@@ -8,4 +8,5 @@ export const serverMembers = pgTable('server_members', {
   joinedAt: timestamp('joined_at'),
 }, (t) => ({
   pk: primaryKey({ columns: [t.serverId, t.memberId] }),
+  memberIdIdx: index('idx_server_members_member_id').on(t.memberId),
 }));
