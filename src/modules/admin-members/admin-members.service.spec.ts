@@ -37,10 +37,7 @@ describe('AdminMembersService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AdminMembersService,
-        { provide: DRIZZLE, useValue: mockDb },
-      ],
+      providers: [AdminMembersService, { provide: DRIZZLE, useValue: mockDb }],
     }).compile();
 
     service = module.get<AdminMembersService>(AdminMembersService);
