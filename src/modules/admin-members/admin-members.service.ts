@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
@@ -157,9 +153,7 @@ export class AdminMembersService {
         )
         .where(eq(schema.servers.isMain, true));
 
-      baseConditions.push(
-        inArray(schema.members.id, mainServerSubquery),
-      );
+      baseConditions.push(inArray(schema.members.id, mainServerSubquery));
     }
 
     // Count total matching members (who exist in server_members)
@@ -267,8 +261,7 @@ export class AdminMembersService {
           serverName: s.serverName,
           isMainServer: s.isMainServer,
           joinedAt: s.joinedAt?.toISOString() ?? null,
-          roleNames:
-            roleMap.get(m.id)?.get(s.serverId) ?? [],
+          roleNames: roleMap.get(m.id)?.get(s.serverId) ?? [],
         })),
       };
     });
