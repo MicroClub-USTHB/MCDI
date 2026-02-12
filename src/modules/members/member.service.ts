@@ -3,13 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { MemberRepository } from '../repositories/member.repository';
-import { GetMembersQueryDto } from '../dto/get-members-query.dto';
+import { MemberRepository } from './member.repository';
+import { GetMembersQueryDto } from './dto/get-members-query.dto';
 import { plainToInstance } from 'class-transformer';
 import {
   MemberResponseDto,
   MemberSearchResponseDto,
-} from '../dto/member-response.dto';
+} from './dto/member-response.dto';
 
 interface PaginatedResponse<T> {
   data: T[];

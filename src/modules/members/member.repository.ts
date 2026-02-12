@@ -3,9 +3,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { DRIZZLE } from '../../../database/database.module';
+import { DRIZZLE } from './../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import * as schema from '../../../database/entities';
+import * as schema from './../../database/entities';
 import { eq, and, like, or, sql } from 'drizzle-orm';
 
 interface DbPagination {

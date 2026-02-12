@@ -1,20 +1,13 @@
 import { Module } from '@nestjs/common';
-import { DRIZZLE } from '../../database/database.module';
-import { MemberController } from './controllers/member.controller';
-import { MemberService } from './services/member.service';
-import { MemberRepository } from './repositories/member.repository';
+import { DatabaseModule } from '../../database/database.module';
+import { MemberController } from './member.controller';
+import { MemberService } from './member.service';
+import { MemberRepository } from './member.repository';
 
 @Module({
-  imports: [],
+  imports: [DatabaseModule],
   controllers: [MemberController],
-  providers: [
-    MemberService,
-    MemberRepository,
-    {
-      provide: DRIZZLE,
-      useExisting: DRIZZLE,
-    },
-  ],
+  providers: [MemberService, MemberRepository],
   exports: [MemberService],
 })
 export class MembersModule {}

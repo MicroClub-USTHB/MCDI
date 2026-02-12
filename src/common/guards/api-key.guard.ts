@@ -1,8 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Injectable,
   CanActivate,
@@ -16,6 +14,7 @@ import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
+import { Request } from 'express';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -48,14 +47,15 @@ export class ApiKeyGuard implements CanActivate {
     return true;
   }
 
-  private extractApiKey(request: any): string | null {
+  private extractApiKey(request: Request): string | null {
     const authHeader = request.headers.authorization;
 
     if (authHeader?.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 
-    return request.headers['x-api-key'] || request.query.apiKey;
+    const apiKey = request.headers['x-api-key'] || request.query.apiKey;
+    return typeof apiKey === 'string' ? apiKey : null;
   }
 
   private async validateApiKey(

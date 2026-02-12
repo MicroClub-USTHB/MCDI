@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
-import { MemberService } from './services/member.service';
-import { MemberRepository } from './repositories/member.repository';
+import { MemberService } from './member.service';
+import { MemberRepository } from './member.repository';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 describe('MemberService', () => {
