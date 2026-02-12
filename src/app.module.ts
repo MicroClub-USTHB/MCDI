@@ -9,6 +9,7 @@ import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
+import { AdminMembersModule } from './modules/admin-members/admin-members.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
     MembersModule,
     PermissionsModule,
     ProjectsModule,
+    AdminMembersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
