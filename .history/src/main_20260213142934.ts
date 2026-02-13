@@ -12,31 +12,18 @@ async function bootstrap() {
 
   app.setGlobalPrefix(apiPrefix);
 
-  // Swagger documentation
-  const config = new DocumentBuilder()
+  const swaggerConfig = new DocumentBuilder()
     .setTitle('MCDI API')
-    .setDescription('MicroClub Discord Interface - Centralized Discord backend')
+    .setDescription('MCDI backend API documentation')
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        name: 'Authorization',
-        description: 'Enter your project API key',
-        in: 'header',
-      },
-      'api-key',
-    )
+    .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
 
   await app.listen(port);
-  console.log(
-    `Application is running on: http://localhost:${port}/${apiPrefix}`,
-  );
-  console.log(`Swagger documentation: http://localhost:${port}/docs`);
+  console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
+  console.log(`Swagger docs: http://localhost:${port}/docs`);
 }
-void bootstrap();
+bootstrap();

@@ -1,25 +1,58 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { ServersService } from './servers.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
 import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
 
+@ApiTags('Servers')
 @UseGuards(SystemAdminGuard)
 @Controller('servers')
 export class ServersController {
   constructor(private readonly serversService: ServersService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Register or upsert a server by guild ID' })
+  @ApiBody({ type: CreateServerDto })
+  @ApiOkResponse({ description: 'Server registered successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   register(@Body() dto: CreateServerDto) {
     return this.serversService.registerServer(dto);
   }
 
   @Get()
+  @ApiOperation({ summary: 'List all servers with health data' })
+  @ApiOkResponse({ description: 'Servers retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   list() {
     return this.serversService.listServers();
   }
 
   @Patch(':serverId')
+  @ApiOperation({ summary: 'Update server settings/state' })
+  @ApiParam({ name: 'serverId', description: 'Server (guild) ID' })
+  @ApiBody({ type: UpdateServerDto })
+  @ApiOkResponse({ description: 'Server updated successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   update(@Param('serverId') serverId: string, @Body() dto: UpdateServerDto) {
     return this.serversService.updateServer(serverId, dto);
   }
