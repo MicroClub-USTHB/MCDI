@@ -34,7 +34,7 @@ export class CreateServerDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  syncFrequencyHours?: number;
+  syncFrequencyMinutes?: number;
 
   @IsOptional()
   @IsIn(['deny_all', 'allow_all', 'custom'])

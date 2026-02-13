@@ -14,8 +14,8 @@ export const servers = pgTable('servers', {
   isMain: boolean('is_main').default(false).notNull(),
   type: varchar('type', { length: 50 }).default('other').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
-  syncFrequencyHours: integer('sync_frequency_hours')
-    .default(1)
+  syncFrequencyMinutes: integer('sync_frequency_minutes')
+    .default(60)
     .notNull(),
   defaultPermissionPolicy: varchar('default_permission_policy', {
     length: 50,

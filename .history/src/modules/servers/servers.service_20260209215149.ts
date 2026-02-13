@@ -34,7 +34,7 @@ constructor(
       type: dto.type || this.DEFAULTS.type,
       isMain: dto.isMain || this.DEFAULTS.isMain,
       isActive: dto.isActive ?? this.DEFAULTS.isActive,
-      syncFrequencyMinutes: dto.syncFrequencyHours || this.DEFAULTS.syncFrequencyMinutes,
+      syncFrequencyMinutes: dto.syncFrequencyMinutes || this.DEFAULTS.syncFrequencyMinutes,
       defaultPermissionPolicy: dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
       disabledReason: dto.disabledReason ?? null,
       updatedAt: now,
@@ -79,7 +79,7 @@ constructor(
         type: servers.type,
         isMain: servers.isMain,
         isActive: servers.isActive,
-        syncFrequencyMinutes: servers.syncFrequencyHours,
+        syncFrequencyMinutes: servers.syncFrequencyMinutes,
         defaultPermissionPolicy: servers.defaultPermissionPolicy,
         disabledReason: servers.disabledReason,
         syncedAt: servers.syncedAt,
@@ -107,8 +107,8 @@ constructor(
     if (dto.icon !== undefined) patch.icon = dto.icon;
     if (dto.type !== undefined) patch.type = dto.type;
     if (dto.isActive !== undefined) patch.isActive = dto.isActive;
-    if (dto.syncFrequencyHours !== undefined)
-      patch.syncFrequencyHours = dto.syncFrequencyHours;
+    if (dto.syncFrequencyMinutes !== undefined)
+      patch.syncFrequencyMinutes = dto.syncFrequencyMinutes;
     if (dto.defaultPermissionPolicy !== undefined)
       patch.defaultPermissionPolicy = dto.defaultPermissionPolicy;
     if (dto.disabledReason !== undefined)
