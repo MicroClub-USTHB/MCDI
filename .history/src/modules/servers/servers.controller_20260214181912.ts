@@ -22,7 +22,6 @@ import { UpdateServerDto } from './dto/update-server.dto';
 import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
 import { Delete } from '@nestjs/common';
 import { ApiNotFoundResponse } from '@nestjs/swagger';
-import { DisableServerDto } from './dto/disable-server.dto';
 
 @ApiTags('Servers')
 @UseGuards(SystemAdminGuard)

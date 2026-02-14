@@ -1,14 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DiscordService } from '../../discord/discord.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
 import { ServersRepository } from './servers.repository';
-import { DisableServerDto } from './dto/disable-server.dto';
 
 @Injectable()
 export class ServersService {
@@ -27,8 +21,6 @@ export class ServersService {
   ) {}
 
   async registerServer(dto: CreateServerDto) {
-    try {
-
     const now = new Date();
     const guild = await this.discordService.getGuildById(dto.guildId);
 
@@ -52,13 +44,6 @@ export class ServersService {
     }
 
     return this.serversRepository.upsertServer(serverData);
-    } catch (error) {
-    this.logger.error(
-      `registerServer failed for guildId=${dto.guildId}`,
-      error instanceof Error ? error.stack : String(error),
-    );
-    throw new InternalServerErrorException('Failed to register server');
-  }
   }
 
   async listServers() {
@@ -80,11 +65,15 @@ export class ServersService {
     if (dto.name !== undefined) patch.name = dto.name;
     if (dto.icon !== undefined) patch.icon = dto.icon;
     if (dto.type !== undefined) patch.type = dto.type;
+    if (dto.isActive !== undefined) patch.isActive = dto.isActive;
     if (dto.syncFrequencyHours !== undefined) {
       patch.syncFrequencyHours = dto.syncFrequencyHours;
     }
     if (dto.defaultPermissionPolicy !== undefined) {
       patch.defaultPermissionPolicy = dto.defaultPermissionPolicy;
+    }
+    if (dto.disabledReason !== undefined) {
+      patch.disabledReason = dto.disabledReason;
     }
 
     if (dto.isMain) {
@@ -112,29 +101,4 @@ export class ServersService {
     await this.serversRepository.deleteServerCascade(serverId);
     return { message: 'Server deleted successfully', serverId };
   }
-
-  async disableServer(serverId: string, dto: DisableServerDto) {
-  const row = await this.serversRepository.updateById(serverId, {
-    isActive: false,
-    disabledReason: dto.disabledReason ?? null,
-    updatedAt: new Date(),
-  });
-
-  if (!row) throw new NotFoundException('Server not found');
-  return row;
-}
-
-  async enableServer(serverId: string) {
-    const row = await this.serversRepository.updateById(serverId, {
-      isActive: true,
-      disabledReason: null,
-      updatedAt: new Date(),
-    });
-
-    if (!row) throw new NotFoundException('Server not found');
-      return row;
-    }
-
-  private readonly logger = new Logger(ServersService.name);
-
 }

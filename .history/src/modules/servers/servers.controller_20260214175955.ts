@@ -22,7 +22,6 @@ import { UpdateServerDto } from './dto/update-server.dto';
 import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
 import { Delete } from '@nestjs/common';
 import { ApiNotFoundResponse } from '@nestjs/swagger';
-import { DisableServerDto } from './dto/disable-server.dto';
 
 @ApiTags('Servers')
 @UseGuards(SystemAdminGuard)
@@ -80,28 +79,6 @@ export class ServersController {
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   remove(@Param('serverId') serverId: string) {
     return this.serversService.deleteServer(serverId);
-  }
-
-  @Patch(':serverId/disable')
-  @ApiOperation({ summary: 'Disable server' })
-  @ApiParam({ name: 'serverId', description: 'Server (guild) ID' })
-  @ApiBody({ type: DisableServerDto })
-  @ApiOkResponse({ description: 'Server disabled successfully.' })
-  @ApiNotFoundResponse({ description: 'Server not found.' })
-  disable(
-  @Param('serverId') serverId: string,
-  @Body() dto: DisableServerDto,
-  ) {
-    return this.serversService.disableServer(serverId, dto);
-  }
-
-  @Patch(':serverId/enable')
-  @ApiOperation({ summary: 'Enable server' })
-  @ApiParam({ name: 'serverId', description: 'Server (guild) ID' })
-  @ApiOkResponse({ description: 'Server enabled successfully.' })
-  @ApiNotFoundResponse({ description: 'Server not found.' })
-  enable(@Param('serverId') serverId: string) {
-    return this.serversService.enableServer(serverId);
   }
 
     

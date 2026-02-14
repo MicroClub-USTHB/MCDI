@@ -27,8 +27,6 @@ export class ServersService {
   ) {}
 
   async registerServer(dto: CreateServerDto) {
-    try {
-
     const now = new Date();
     const guild = await this.discordService.getGuildById(dto.guildId);
 
@@ -52,13 +50,6 @@ export class ServersService {
     }
 
     return this.serversRepository.upsertServer(serverData);
-    } catch (error) {
-    this.logger.error(
-      `registerServer failed for guildId=${dto.guildId}`,
-      error instanceof Error ? error.stack : String(error),
-    );
-    throw new InternalServerErrorException('Failed to register server');
-  }
   }
 
   async listServers() {
@@ -134,7 +125,5 @@ export class ServersService {
     if (!row) throw new NotFoundException('Server not found');
       return row;
     }
-
-  private readonly logger = new Logger(ServersService.name);
 
 }

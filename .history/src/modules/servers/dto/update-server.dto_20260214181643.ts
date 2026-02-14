@@ -1,6 +1,6 @@
+import { PartialType } from '@nestjs/mapped-types';
 import { CreateServerDto } from './create-server.dto';
-import { OmitType, PartialType } from '@nestjs/swagger';
 
-export class UpdateServerDto extends PartialType(
+export class UpdateServerDto extends PartialType(CreateServerDto) {
     OmitType(CreateServerDto, ['guildId', 'isActive', 'disabledReason'] as const),
-) {}
+}
