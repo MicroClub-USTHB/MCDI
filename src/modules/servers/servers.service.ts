@@ -4,7 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-import { DiscordService } from '../../discord/discord.service';
+import { DiscordService } from '../discord/discord.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
 import { ServersRepository } from './servers.repository';

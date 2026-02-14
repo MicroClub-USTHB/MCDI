@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { DiscordService } from '../../discord/discord.service';
+import { DiscordService } from '../discord/discord.service';
 import { ServersService } from './servers.service';
 import { Guild } from 'discord.js';
 
