@@ -16,11 +16,6 @@ export class ServerActiveGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
-    // this allows admin server-management endpoints to bypass active check
-    const url = req.originalUrl ?? '';
-      if (/\/servers(?:\/|$)/.test(url)) {
-        return true;
-      }
 
     const serverId =
       req.params?.serverId ||
