@@ -86,15 +86,21 @@ export class CrossServerListServerDto {
   @ApiProperty({
     description: 'Discord server ID',
     example: '123456789012345678',
+    type: String,
   })
   serverId: string;
 
-  @ApiProperty({ description: 'Server name', example: 'MicroClub Main' })
+  @ApiProperty({
+    description: 'Server name',
+    example: 'MicroClub Main',
+    type: String,
+  })
   serverName: string;
 
   @ApiProperty({
     description: 'Whether this is the main club server',
     example: true,
+    type: Boolean,
   })
   isMainServer: boolean;
 
@@ -102,6 +108,7 @@ export class CrossServerListServerDto {
     description: 'ISO date when the member joined this server',
     example: '2025-01-15T10:30:00.000Z',
     nullable: true,
+    type: String,
   })
   joinedAt: string | null;
 
@@ -124,28 +131,39 @@ export class CrossServerListItemDto {
   })
   memberId: string;
 
-  @ApiProperty({ description: 'Discord username', example: 'john_doe' })
+  @ApiProperty({
+    description: 'Discord username',
+    example: 'john_doe',
+    type: String,
+  })
   username: string;
 
   @ApiPropertyOptional({
     description: 'Discord global display name',
     example: 'John Doe',
     nullable: true,
+    type: String,
   })
   globalName: string | null;
 
-  @ApiPropertyOptional({ description: 'Avatar hash', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Avatar hash',
+    nullable: true,
+    type: String,
+  })
   avatar: string | null;
 
   @ApiProperty({
     description: 'Whether the member is in the main club server',
     example: true,
+    type: Boolean,
   })
   isClubMember: boolean;
 
   @ApiProperty({
     description: 'Number of managed servers the member is in',
     example: 3,
+    type: Number,
   })
   serverCount: number;
 
@@ -169,15 +187,16 @@ export class PaginatedCrossServerListDto {
   @ApiProperty({
     description: 'Total number of matching members',
     example: 150,
+    type: Number,
   })
   total: number;
 
-  @ApiProperty({ description: 'Current page number', example: 1 })
+  @ApiProperty({ description: 'Current page number', example: 1, type: Number })
   page: number;
 
-  @ApiProperty({ description: 'Items per page', example: 20 })
+  @ApiProperty({ description: 'Items per page', example: 20, type: Number })
   limit: number;
 
-  @ApiProperty({ description: 'Total number of pages', example: 8 })
+  @ApiProperty({ description: 'Total number of pages', example: 8, type: Number })
   totalPages: number;
 }
