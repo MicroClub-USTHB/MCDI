@@ -7,16 +7,22 @@ export class RoleDto {
   @ApiProperty({
     description: 'Discord role ID',
     example: '111222333444555666',
+    type: String,
   })
   id: string;
 
-  @ApiProperty({ description: 'Role name', example: 'Moderator' })
+  @ApiProperty({
+    description: 'Role name',
+    example: 'Moderator',
+    type: String,
+  })
   name: string;
 
   @ApiPropertyOptional({
     description: 'Role color as an integer',
     example: 16711680,
     nullable: true,
+    type: Number,
   })
   color: number | null;
 
@@ -24,6 +30,7 @@ export class RoleDto {
     description: 'Role position in the hierarchy',
     example: 5,
     nullable: true,
+    type: Number,
   })
   position: number | null;
 }
@@ -36,18 +43,28 @@ export class MemberServerDetailDto {
   @ApiProperty({
     description: 'Discord server ID',
     example: '123456789012345678',
+    type: String,
   })
   serverId: string;
 
-  @ApiProperty({ description: 'Server name', example: 'MicroClub Main' })
+  @ApiProperty({
+    description: 'Server name',
+    example: 'MicroClub Main',
+    type: String,
+  })
   serverName: string;
 
-  @ApiPropertyOptional({ description: 'Server icon hash', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Server icon hash',
+    nullable: true,
+    type: String,
+  })
   serverIcon: string | null;
 
   @ApiProperty({
     description: 'Whether this is the main club server',
     example: true,
+    type: Boolean,
   })
   isMainServer: boolean;
 
@@ -55,6 +72,7 @@ export class MemberServerDetailDto {
     description: 'ISO date when the member joined this server',
     example: '2025-01-15T10:30:00.000Z',
     nullable: true,
+    type: String,
   })
   joinedAt: string | null;
 
@@ -76,13 +94,18 @@ export class MemberCrossServerViewDto {
   })
   memberId: string;
 
-  @ApiProperty({ description: 'Discord username', example: 'john_doe' })
+  @ApiProperty({
+    description: 'Discord username',
+    example: 'john_doe',
+    type: String,
+  })
   username: string;
 
   @ApiPropertyOptional({
     description: 'Discord global display name',
     example: 'John Doe',
     nullable: true,
+    type: String,
   })
   globalName: string | null;
 
@@ -90,15 +113,21 @@ export class MemberCrossServerViewDto {
     description: 'Server-specific display name',
     example: 'Johnny',
     nullable: true,
+    type: String,
   })
   displayName: string | null;
 
-  @ApiPropertyOptional({ description: 'Avatar hash', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Avatar hash',
+    nullable: true,
+    type: String,
+  })
   avatar: string | null;
 
   @ApiProperty({
     description: 'Whether the member is in the main club server',
     example: true,
+    type: Boolean,
   })
   isClubMember: boolean;
 
