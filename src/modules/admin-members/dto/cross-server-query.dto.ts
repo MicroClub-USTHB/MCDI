@@ -120,6 +120,7 @@ export class CrossServerListItemDto {
   @ApiProperty({
     description: 'Discord user ID',
     example: '876543210987654321',
+    type: String,
   })
   memberId: string;
 
