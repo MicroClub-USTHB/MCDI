@@ -139,10 +139,7 @@ export class AdminMembersRepository {
   /**
    * Count members matching the given filter/search criteria.
    */
-  async countMembers(
-    filter: 'club' | 'all',
-    search?: string,
-  ): Promise<number> {
+  async countMembers(filter: 'club' | 'all', search?: string): Promise<number> {
     const conditions = this.buildMemberConditions(filter, search);
 
     const [{ count }] = await this.db
