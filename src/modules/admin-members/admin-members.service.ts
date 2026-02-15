@@ -28,8 +28,7 @@ export class AdminMembersService {
     discordId: string,
   ): Promise<MemberCrossServerViewDto> {
     // 1. Fetch member
-    const member =
-      await this.adminMembersRepository.findMemberById(discordId);
+    const member = await this.adminMembersRepository.findMemberById(discordId);
 
     if (!member) {
       throw new NotFoundException(`Member ${discordId} not found`);
