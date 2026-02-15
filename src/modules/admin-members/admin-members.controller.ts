@@ -54,7 +54,10 @@ export class AdminMembersController {
     description: 'Member cross-server view returned successfully',
     type: MemberCrossServerViewDto,
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized – invalid or missing admin credentials',
+  })
   @ApiResponse({ status: 404, description: 'Member not found' })
   async getMemberServers(
     @Param('discordId') discordId: string,
@@ -80,7 +83,10 @@ export class AdminMembersController {
     type: PaginatedCrossServerListDto,
   })
   @ApiResponse({ status: 400, description: 'Invalid query parameters' })
-  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized – invalid or missing admin credentials',
+  })
   async getCrossServerList(
     @Query() query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
@@ -100,7 +106,10 @@ export class AdminMembersController {
       'Exports the cross-server member report as a downloadable CSV or JSON file.',
   })
   @ApiResponse({ status: 200, description: 'File download (CSV or JSON)' })
-  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized – invalid or missing admin credentials',
+  })
   async exportMembers(
     @Query() query: ExportQueryDto,
     @Res() res: Response,

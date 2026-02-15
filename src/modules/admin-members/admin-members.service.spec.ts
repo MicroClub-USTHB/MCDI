@@ -1,46 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AdminMembersService } from './admin-members.service';
-import { DRIZZLE } from '../../database/database.module';
+import { AdminMembersRepository } from './admin-members.repository';
 
 describe('AdminMembersService', () => {
   let service: AdminMembersService;
-  let mockDb: any;
-
-  // Helpers to create chainable query builders
-  const chainable = (resolveValue: any) => {
-    const chain: any = {};
-    const methods = [
-      'select',
-      'selectDistinct',
-      'from',
-      'where',
-      'innerJoin',
-      'leftJoin',
-      'orderBy',
-      'limit',
-      'offset',
-      'then',
-    ];
-    for (const m of methods) {
-      chain[m] = jest.fn().mockReturnValue(chain);
-    }
-    // Make it thenable so await works
-    chain.then = jest.fn((resolve: any) => resolve(resolveValue));
-    return chain;
-  };
+  let repository: jest.Mocked<AdminMembersRepository>;
 
   beforeEach(async () => {
-    mockDb = {
-      select: jest.fn(),
-      selectDistinct: jest.fn(),
+    const mockRepository: Partial<jest.Mocked<AdminMembersRepository>> = {
+      findMemberById: jest.fn(),
+      findMembershipsByMemberId: jest.fn(),
+      findRolesByMemberId: jest.fn(),
+      countMembers: jest.fn(),
+      findMembersPaginated: jest.fn(),
+      findMembershipsByMemberIds: jest.fn(),
+      findRoleNamesByMemberIds: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AdminMembersService, { provide: DRIZZLE, useValue: mockDb }],
+      providers: [
+        AdminMembersService,
+        { provide: AdminMembersRepository, useValue: mockRepository },
+      ],
     }).compile();
 
     service = module.get<AdminMembersService>(AdminMembersService);
+    repository = module.get(AdminMembersRepository);
   });
 
   it('should be defined', () => {
@@ -49,9 +35,7 @@ describe('AdminMembersService', () => {
 
   describe('getMemberCrossServerView', () => {
     it('should throw NotFoundException when member does not exist', async () => {
-      // First select returns empty array (member not found)
-      const memberQuery = chainable([]);
-      mockDb.select.mockReturnValue(memberQuery);
+      repository.findMemberById.mockResolvedValue(null);
 
       await expect(
         service.getMemberCrossServerView('unknown-id'),
@@ -66,10 +50,12 @@ describe('AdminMembersService', () => {
         displayName: 'Test',
         avatar: 'avatar-hash',
         isClubMember: true,
+        syncedAt: new Date(),
       };
 
       const memberships = [
         {
+          memberId: '123',
           serverId: 's1',
           joinedAt: new Date('2025-01-01'),
           serverName: 'Main Server',
@@ -88,17 +74,9 @@ describe('AdminMembersService', () => {
         },
       ];
 
-      // Call 1: member lookup
-      const memberChain = chainable([member]);
-      // Call 2: memberships
-      const membershipChain = chainable(memberships);
-      // Call 3: roles
-      const roleChain = chainable(roles);
-
-      mockDb.select
-        .mockReturnValueOnce(memberChain)
-        .mockReturnValueOnce(membershipChain)
-        .mockReturnValueOnce(roleChain);
+      repository.findMemberById.mockResolvedValue(member);
+      repository.findMembershipsByMemberId.mockResolvedValue(memberships);
+      repository.findRolesByMemberId.mockResolvedValue(roles);
 
       const result = await service.getMemberCrossServerView('123');
 
@@ -109,6 +87,55 @@ describe('AdminMembersService', () => {
       expect(result.servers[0].serverId).toBe('s1');
       expect(result.servers[0].roles).toHaveLength(1);
       expect(result.servers[0].roles[0].name).toBe('Admin');
+    });
+  });
+
+  describe('getCrossServerList', () => {
+    it('should return empty data when no members match', async () => {
+      repository.countMembers.mockResolvedValue(0);
+      repository.findMembersPaginated.mockResolvedValue([]);
+
+      const result = await service.getCrossServerList({
+        filter: 'all',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.data).toEqual([]);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should return paginated cross-server list', async () => {
+      repository.countMembers.mockResolvedValue(1);
+      repository.findMembersPaginated.mockResolvedValue([
+        { id: '123', username: 'testuser', globalName: 'Test', avatar: null },
+      ]);
+      repository.findMembershipsByMemberIds.mockResolvedValue([
+        {
+          memberId: '123',
+          serverId: 's1',
+          joinedAt: new Date('2025-01-01'),
+          serverName: 'Main Server',
+          isMainServer: true,
+        },
+      ]);
+      repository.findRoleNamesByMemberIds.mockResolvedValue([
+        { memberId: '123', serverId: 's1', roleName: 'Admin' },
+      ]);
+
+      const result = await service.getCrossServerList({
+        filter: 'all',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].memberId).toBe('123');
+      expect(result.data[0].isClubMember).toBe(true);
+      expect(result.data[0].servers[0].roleNames).toContain('Admin');
+      expect(result.total).toBe(1);
+      expect(result.totalPages).toBe(1);
     });
   });
 });

@@ -7,7 +7,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
-  
+
   const port = configService.get<number>('app.port') || 3000;
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api';
 
@@ -34,7 +34,11 @@ async function bootstrap() {
   SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
 
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
-  console.log(`Swagger docs available at: http://localhost:${port}/${apiPrefix}/docs`);
+  console.log(
+    `Application is running on: http://localhost:${port}/${apiPrefix}`,
+  );
+  console.log(
+    `Swagger docs available at: http://localhost:${port}/${apiPrefix}/docs`,
+  );
 }
 bootstrap();
