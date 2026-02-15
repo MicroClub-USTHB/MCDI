@@ -1,8 +1,5 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, ilike, inArray, or, sql, SQL } from 'drizzle-orm';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { DRIZZLE } from '../../database/database.module';
-import * as schema from '../../database/entities';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { AdminMembersRepository } from './admin-members.repository';
 import {
   CrossServerListItemDto,
   CrossServerQueryDto,
@@ -15,8 +12,7 @@ import {
 @Injectable()
 export class AdminMembersService {
   constructor(
-    @Inject(DRIZZLE)
-    private readonly db: NodePgDatabase<typeof schema>,
+    private readonly adminMembersRepository: AdminMembersRepository,
   ) {}
 
   // ───────────────────────── Per-member detail ─────────────────────────
@@ -32,48 +28,20 @@ export class AdminMembersService {
     discordId: string,
   ): Promise<MemberCrossServerViewDto> {
     // 1. Fetch member
-    const member = await this.db
-      .select()
-      .from(schema.members)
-      .where(eq(schema.members.id, discordId))
-      .limit(1)
-      .then((rows) => rows[0]);
+    const member =
+      await this.adminMembersRepository.findMemberById(discordId);
 
     if (!member) {
       throw new NotFoundException(`Member ${discordId} not found`);
     }
 
     // 2. Fetch all server memberships joined with server info
-    const memberships = await this.db
-      .select({
-        serverId: schema.serverMembers.serverId,
-        joinedAt: schema.serverMembers.joinedAt,
-        serverName: schema.servers.name,
-        serverIcon: schema.servers.icon,
-        isMainServer: schema.servers.isMain,
-      })
-      .from(schema.serverMembers)
-      .innerJoin(
-        schema.servers,
-        eq(schema.serverMembers.serverId, schema.servers.id),
-      )
-      .where(eq(schema.serverMembers.memberId, discordId));
+    const memberships =
+      await this.adminMembersRepository.findMembershipsByMemberId(discordId);
 
     // 3. Fetch all roles for this member across servers
-    const memberRoles = await this.db
-      .select({
-        roleId: schema.serverMemberRoles.roleId,
-        roleName: schema.roles.name,
-        roleColor: schema.roles.color,
-        rolePosition: schema.roles.position,
-        serverId: schema.roles.serverId,
-      })
-      .from(schema.serverMemberRoles)
-      .innerJoin(
-        schema.roles,
-        eq(schema.serverMemberRoles.roleId, schema.roles.id),
-      )
-      .where(eq(schema.serverMemberRoles.memberId, discordId));
+    const memberRoles =
+      await this.adminMembersRepository.findRolesByMemberId(discordId);
 
     // 4. Group roles by server
     const rolesByServer = new Map<string, RoleDto[]>();
@@ -128,63 +96,19 @@ export class AdminMembersService {
     const { filter, page, limit, search } = query;
     const offset = (page - 1) * limit;
 
-    // --- Build the member query depending on the filter ---
-
-    // Base: members who have at least one server_member row
-    const baseConditions: SQL[] = [];
-
-    if (search) {
-      const searchCondition = or(
-        ilike(schema.members.username, `%${search}%`),
-        ilike(schema.members.globalName, `%${search}%`),
-      );
-      if (searchCondition) {
-        baseConditions.push(searchCondition);
-      }
-    }
-
-    if (filter === 'club') {
-      // Members who are in the main server
-      const mainServerSubquery = this.db
-        .select({ memberId: schema.serverMembers.memberId })
-        .from(schema.serverMembers)
-        .innerJoin(
-          schema.servers,
-          eq(schema.serverMembers.serverId, schema.servers.id),
-        )
-        .where(eq(schema.servers.isMain, true));
-
-      baseConditions.push(inArray(schema.members.id, mainServerSubquery));
-    }
-
-    // Count total matching members (who exist in server_members)
-    const allMemberIdsInServers = this.db
-      .selectDistinct({ memberId: schema.serverMembers.memberId })
-      .from(schema.serverMembers);
-
-    const countConditions = [
-      inArray(schema.members.id, allMemberIdsInServers),
-      ...baseConditions,
-    ];
-
-    const [{ count: totalCount }] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.members)
-      .where(and(...countConditions));
+    // Count total matching members
+    const totalCount = await this.adminMembersRepository.countMembers(
+      filter,
+      search,
+    );
 
     // Fetch the page of members
-    const memberRows = await this.db
-      .select({
-        id: schema.members.id,
-        username: schema.members.username,
-        globalName: schema.members.globalName,
-        avatar: schema.members.avatar,
-      })
-      .from(schema.members)
-      .where(and(...countConditions))
-      .orderBy(schema.members.username)
-      .limit(limit)
-      .offset(offset);
+    const memberRows = await this.adminMembersRepository.findMembersPaginated(
+      filter,
+      search,
+      limit,
+      offset,
+    );
 
     if (memberRows.length === 0) {
       return {
@@ -199,34 +123,12 @@ export class AdminMembersService {
     const memberIds = memberRows.map((m) => m.id);
 
     // Fetch server memberships for these members
-    const memberships = await this.db
-      .select({
-        memberId: schema.serverMembers.memberId,
-        serverId: schema.serverMembers.serverId,
-        joinedAt: schema.serverMembers.joinedAt,
-        serverName: schema.servers.name,
-        isMainServer: schema.servers.isMain,
-      })
-      .from(schema.serverMembers)
-      .innerJoin(
-        schema.servers,
-        eq(schema.serverMembers.serverId, schema.servers.id),
-      )
-      .where(inArray(schema.serverMembers.memberId, memberIds));
+    const memberships =
+      await this.adminMembersRepository.findMembershipsByMemberIds(memberIds);
 
     // Fetch roles for these members
-    const memberRoles = await this.db
-      .select({
-        memberId: schema.serverMemberRoles.memberId,
-        serverId: schema.roles.serverId,
-        roleName: schema.roles.name,
-      })
-      .from(schema.serverMemberRoles)
-      .innerJoin(
-        schema.roles,
-        eq(schema.serverMemberRoles.roleId, schema.roles.id),
-      )
-      .where(inArray(schema.serverMemberRoles.memberId, memberIds));
+    const memberRoles =
+      await this.adminMembersRepository.findRoleNamesByMemberIds(memberIds);
 
     // Index memberships & roles by memberId
     const membershipMap = new Map<string, typeof memberships>();
