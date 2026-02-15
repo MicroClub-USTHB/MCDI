@@ -197,6 +197,10 @@ export class PaginatedCrossServerListDto {
   @ApiProperty({ description: 'Items per page', example: 20, type: Number })
   limit: number;
 
-  @ApiProperty({ description: 'Total number of pages', example: 8, type: Number })
+  @ApiProperty({
+    description: 'Total number of pages',
+    example: 8,
+    type: Number,
+  })
   totalPages: number;
 }
