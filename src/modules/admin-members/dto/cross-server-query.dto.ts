@@ -83,19 +83,33 @@ export class ExportQueryDto {
  * Server summary within a cross-server list item.
  */
 export class CrossServerListServerDto {
-  @ApiProperty({ description: 'Discord server ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
   serverId: string;
 
   @ApiProperty({ description: 'Server name', example: 'MicroClub Main' })
   serverName: string;
 
-  @ApiProperty({ description: 'Whether this is the main club server', example: true })
+  @ApiProperty({
+    description: 'Whether this is the main club server',
+    example: true,
+  })
   isMainServer: boolean;
 
-  @ApiPropertyOptional({ description: 'ISO date when the member joined this server', example: '2025-01-15T10:30:00.000Z', nullable: true })
+  @ApiPropertyOptional({
+    description: 'ISO date when the member joined this server',
+    example: '2025-01-15T10:30:00.000Z',
+    nullable: true,
+  })
   joinedAt: string | null;
 
-  @ApiProperty({ description: 'Role names the member holds in this server', type: [String], example: ['Admin', 'Moderator'] })
+  @ApiProperty({
+    description: 'Role names the member holds in this server',
+    type: [String],
+    example: ['Admin', 'Moderator'],
+  })
   roleNames: string[];
 }
 
@@ -103,25 +117,41 @@ export class CrossServerListServerDto {
  * A row in the cross-server list view (lighter than the full detail view).
  */
 export class CrossServerListItemDto {
-  @ApiProperty({ description: 'Discord user ID', example: '876543210987654321' })
+  @ApiProperty({
+    description: 'Discord user ID',
+    example: '876543210987654321',
+  })
   memberId: string;
 
   @ApiProperty({ description: 'Discord username', example: 'john_doe' })
   username: string;
 
-  @ApiPropertyOptional({ description: 'Discord global display name', example: 'John Doe', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Discord global display name',
+    example: 'John Doe',
+    nullable: true,
+  })
   globalName: string | null;
 
   @ApiPropertyOptional({ description: 'Avatar hash', nullable: true })
   avatar: string | null;
 
-  @ApiProperty({ description: 'Whether the member is in the main club server', example: true })
+  @ApiProperty({
+    description: 'Whether the member is in the main club server',
+    example: true,
+  })
   isClubMember: boolean;
 
-  @ApiProperty({ description: 'Number of managed servers the member is in', example: 3 })
+  @ApiProperty({
+    description: 'Number of managed servers the member is in',
+    example: 3,
+  })
   serverCount: number;
 
-  @ApiProperty({ description: 'Server details', type: [CrossServerListServerDto] })
+  @ApiProperty({
+    description: 'Server details',
+    type: [CrossServerListServerDto],
+  })
   servers: CrossServerListServerDto[];
 }
 
@@ -129,10 +159,16 @@ export class CrossServerListItemDto {
  * Paginated response for the cross-server member list.
  */
 export class PaginatedCrossServerListDto {
-  @ApiProperty({ description: 'List of members', type: [CrossServerListItemDto] })
+  @ApiProperty({
+    description: 'List of members',
+    type: [CrossServerListItemDto],
+  })
   data: CrossServerListItemDto[];
 
-  @ApiProperty({ description: 'Total number of matching members', example: 150 })
+  @ApiProperty({
+    description: 'Total number of matching members',
+    example: 150,
+  })
   total: number;
 
   @ApiProperty({ description: 'Current page number', example: 1 })
