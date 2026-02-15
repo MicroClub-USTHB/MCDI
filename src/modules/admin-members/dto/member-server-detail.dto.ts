@@ -49,7 +49,7 @@ export class MemberServerDetailDto {
   })
   joinedAt: string | null;
 
-  @ApiProperty({ description: 'Roles held in this server', type: [RoleDto] })
+  @ApiProperty({ description: 'Roles held in this server', type: () => [RoleDto] })
   roles: RoleDto[];
 }
 
@@ -75,6 +75,6 @@ export class MemberCrossServerViewDto {
   @ApiProperty({ description: 'Whether the member is in the main club server', example: true })
   isClubMember: boolean;
 
-  @ApiProperty({ description: 'Servers the member belongs to', type: [MemberServerDetailDto] })
+  @ApiProperty({ description: 'Servers the member belongs to', type: () => [MemberServerDetailDto] })
   servers: MemberServerDetailDto[];
 }

@@ -150,7 +150,7 @@ export class CrossServerListItemDto {
 
   @ApiProperty({
     description: 'Server details',
-    type: [CrossServerListServerDto],
+    type: () => [CrossServerListServerDto],
   })
   servers: CrossServerListServerDto[];
 }
@@ -161,7 +161,7 @@ export class CrossServerListItemDto {
 export class PaginatedCrossServerListDto {
   @ApiProperty({
     description: 'List of members',
-    type: [CrossServerListItemDto],
+    type: () => [CrossServerListItemDto],
   })
   data: CrossServerListItemDto[];
 

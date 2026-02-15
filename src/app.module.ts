@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DiscordModule } from './discord/discord.module';
+// import { DiscordModule } from './discord/discord.module'; // temporarily disabled for Swagger preview
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -15,7 +15,7 @@ import { AdminMembersModule } from './modules/admin-members/admin-members.module
   imports: [
     ConfigModule,
     DatabaseModule,
-    DiscordModule,
+    // DiscordModule, // temporarily disabled for Swagger preview
     AuthModule,
     ServersModule,
     MembersModule,
