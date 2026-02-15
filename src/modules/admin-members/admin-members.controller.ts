@@ -1,12 +1,32 @@
-import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { AdminMembersService } from './admin-members.service';
-import type {
+import {
+  CrossServerQueryDto,
+  ExportQueryDto,
   MemberCrossServerViewDto,
   PaginatedCrossServerListDto,
 } from './dto';
 
+@ApiTags('Admin Members')
+@ApiBearerAuth()
 @Controller('admin/members')
 @UseGuards(SystemAdminGuard)
 export class AdminMembersController {
@@ -19,6 +39,23 @@ export class AdminMembersController {
    * roles, join date, and club-member classification.
    */
   @Get(':discordId/servers')
+  @ApiOperation({
+    summary: 'Get member cross-server view',
+    description:
+      'Returns a full cross-server view for a single member: every managed server they belong to, their roles, join date, and whether they qualify as a "club member".',
+  })
+  @ApiParam({
+    name: 'discordId',
+    description: 'Discord user ID (snowflake)',
+    example: '876543210987654321',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Member cross-server view returned successfully',
+    type: MemberCrossServerViewDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
+  @ApiResponse({ status: 404, description: 'Member not found' })
   async getMemberServers(
     @Param('discordId') discordId: string,
   ): Promise<MemberCrossServerViewDto> {
@@ -31,22 +68,23 @@ export class AdminMembersController {
    * Paginated cross-server list for admin dashboard.
    */
   @Get('cross-server')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary: 'List members across servers (paginated)',
+    description:
+      'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated cross-server member list',
+    type: PaginatedCrossServerListDto,
+  })
+  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
   async getCrossServerList(
-    @Query('filter') filter: string = 'all',
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '20',
-    @Query('search') search?: string,
+    @Query() query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
-    const validFilter = filter === 'club' ? 'club' : 'all';
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-
-    return this.adminMembersService.getCrossServerList({
-      filter: validFilter,
-      page: pageNum,
-      limit: limitNum,
-      search: search || undefined,
-    });
+    return this.adminMembersService.getCrossServerList(query);
   }
 
   /**
@@ -55,27 +93,33 @@ export class AdminMembersController {
    * Exports the cross-server member report as CSV or JSON.
    */
   @Get('export')
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary: 'Export members report',
+    description:
+      'Exports the cross-server member report as a downloadable CSV or JSON file.',
+  })
+  @ApiResponse({ status: 200, description: 'File download (CSV or JSON)' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – invalid or missing admin credentials' })
   async exportMembers(
-    @Query('filter') filter: string = 'all',
-    @Query('format') format: string = 'json',
+    @Query() query: ExportQueryDto,
     @Res() res: Response,
   ): Promise<void> {
-    const validFilter = filter === 'club' ? 'club' : 'all';
-    const rows = await this.adminMembersService.getExportData(validFilter);
+    const rows = await this.adminMembersService.getExportData(query.filter);
 
-    if (format === 'csv') {
+    if (query.format === 'csv') {
       const csv = this.toCsv(rows);
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="members-${validFilter}-${Date.now()}.csv"`,
+        `attachment; filename="members-${query.filter}-${Date.now()}.csv"`,
       );
       res.send(csv);
     } else {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="members-${validFilter}-${Date.now()}.json"`,
+        `attachment; filename="members-${query.filter}-${Date.now()}.json"`,
       );
       res.json(rows);
     }
