@@ -1,4 +1,4 @@
-import { DiscordModule } from '@/modules/discord/discord.module';
+import { DiscordModule } from '@/discord/discord.module';
 import { Module } from '@nestjs/common';
 import { ServersController } from './servers.controller';
 import { ServersService } from './servers.service';
