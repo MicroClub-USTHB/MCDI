@@ -1,8 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, ilike, inArray, or, sql, SQL } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { DRIZZLE } from '../../database/database.module';
-import * as schema from '../../database/entities';
+import { DRIZZLE } from '../../../database/database.module';
+import * as schema from '../../../database/entities';
 
 /** Raw member row returned from the database */
 export interface RawMemberRow {
@@ -67,9 +67,6 @@ export class AdminMembersRepository {
 
   // ───────────────────────── Single member queries ─────────────────────────
 
-  /**
-   * Find a member by their Discord ID.
-   */
   async findMemberById(discordId: string): Promise<RawMemberRow | null> {
     const rows = await this.db
       .select()
@@ -91,9 +88,6 @@ export class AdminMembersRepository {
     };
   }
 
-  /**
-   * Find all server memberships for a given member, joined with server info.
-   */
   async findMembershipsByMemberId(
     discordId: string,
   ): Promise<RawMembershipRow[]> {
@@ -114,9 +108,6 @@ export class AdminMembersRepository {
       .where(eq(schema.serverMembers.memberId, discordId));
   }
 
-  /**
-   * Find all roles for a member across all servers.
-   */
   async findRolesByMemberId(discordId: string): Promise<RawMemberRoleRow[]> {
     return this.db
       .select({
@@ -136,9 +127,6 @@ export class AdminMembersRepository {
 
   // ──────────────────────── Cross-server list queries ──────────────────────
 
-  /**
-   * Count members matching the given filter/search criteria.
-   */
   async countMembers(filter: 'club' | 'all', search?: string): Promise<number> {
     const conditions = this.buildMemberConditions(filter, search);
 
@@ -150,9 +138,6 @@ export class AdminMembersRepository {
     return count;
   }
 
-  /**
-   * Fetch a paginated list of members matching the given filter/search criteria.
-   */
   async findMembersPaginated(
     filter: 'club' | 'all',
     search: string | undefined,
@@ -175,9 +160,6 @@ export class AdminMembersRepository {
       .offset(offset);
   }
 
-  /**
-   * Fetch server memberships for a batch of member IDs.
-   */
   async findMembershipsByMemberIds(
     memberIds: string[],
   ): Promise<RawBatchMembershipRow[]> {
@@ -197,9 +179,6 @@ export class AdminMembersRepository {
       .where(inArray(schema.serverMembers.memberId, memberIds));
   }
 
-  /**
-   * Fetch roles (name only) for a batch of member IDs.
-   */
   async findRoleNamesByMemberIds(
     memberIds: string[],
   ): Promise<RawBatchMemberRoleRow[]> {
@@ -219,14 +198,10 @@ export class AdminMembersRepository {
 
   // ──────────────────────── Private helpers ─────────────────────────────
 
-  /**
-   * Build common WHERE conditions for member list queries.
-   */
   private buildMemberConditions(
     filter: 'club' | 'all',
     search?: string,
   ): SQL[] {
-    // Only members who exist in at least one server
     const allMemberIdsInServers = this.db
       .selectDistinct({ memberId: schema.serverMembers.memberId })
       .from(schema.serverMembers);

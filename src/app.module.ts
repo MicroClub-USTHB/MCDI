@@ -9,7 +9,6 @@ import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
-import { AdminMembersModule } from './modules/admin-members/admin-members.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 
@@ -23,12 +22,14 @@ import { ServerActiveGuard } from './modules/servers/server.guard';
     MembersModule,
     PermissionsModule,
     ProjectsModule,
-    AdminMembersModule,
   ],
   controllers: [AppController],
-  providers: [AppService, {
-    provide:APP_GUARD,
-    useClass: ServerActiveGuard
-  }],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ServerActiveGuard,
+    },
+  ],
 })
 export class AppModule {}

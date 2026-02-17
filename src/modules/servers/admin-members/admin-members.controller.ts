@@ -16,7 +16,7 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { SystemAdminGuard } from '../../../common/guards/system-admin.guard';
 import { AdminMembersService } from './admin-members.service';
 import {
   CrossServerQueryDto,

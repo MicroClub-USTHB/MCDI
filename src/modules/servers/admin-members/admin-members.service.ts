@@ -17,32 +17,21 @@ export class AdminMembersService {
 
   // ───────────────────────── Per-member detail ─────────────────────────
 
-  /**
-   * GET /admin/members/:discordId/servers
-   *
-   * Returns full cross-server view for a single member:
-   * every managed server they belong to, their roles, join date,
-   * and whether they qualify as a "club member".
-   */
   async getMemberCrossServerView(
     discordId: string,
   ): Promise<MemberCrossServerViewDto> {
-    // 1. Fetch member
     const member = await this.adminMembersRepository.findMemberById(discordId);
 
     if (!member) {
       throw new NotFoundException(`Member ${discordId} not found`);
     }
 
-    // 2. Fetch all server memberships joined with server info
     const memberships =
       await this.adminMembersRepository.findMembershipsByMemberId(discordId);
 
-    // 3. Fetch all roles for this member across servers
     const memberRoles =
       await this.adminMembersRepository.findRolesByMemberId(discordId);
 
-    // 4. Group roles by server
     const rolesByServer = new Map<string, RoleDto[]>();
     for (const r of memberRoles) {
       const list = rolesByServer.get(r.serverId) ?? [];
@@ -55,7 +44,6 @@ export class AdminMembersService {
       rolesByServer.set(r.serverId, list);
     }
 
-    // 5. Build response
     const isClubMember = memberships.some((m) => m.isMainServer);
 
     const servers: MemberServerDetailDto[] = memberships.map((m) => ({
@@ -82,26 +70,17 @@ export class AdminMembersService {
 
   // ──────────────────────── Cross-server list ──────────────────────────
 
-  /**
-   * GET /admin/members/cross-server?filter=club|all&page=&limit=&search=
-   *
-   * Paginated list of members across all managed servers.
-   * filter=club  → only members present in the main server
-   * filter=all   → any member in any managed server
-   */
   async getCrossServerList(
     query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
     const { filter, page, limit, search } = query;
     const offset = (page - 1) * limit;
 
-    // Count total matching members
     const totalCount = await this.adminMembersRepository.countMembers(
       filter,
       search,
     );
 
-    // Fetch the page of members
     const memberRows = await this.adminMembersRepository.findMembersPaginated(
       filter,
       search,
@@ -121,15 +100,12 @@ export class AdminMembersService {
 
     const memberIds = memberRows.map((m) => m.id);
 
-    // Fetch server memberships for these members
     const memberships =
       await this.adminMembersRepository.findMembershipsByMemberIds(memberIds);
 
-    // Fetch roles for these members
     const memberRoles =
       await this.adminMembersRepository.findRoleNamesByMemberIds(memberIds);
 
-    // Index memberships & roles by memberId
     const membershipMap = new Map<string, typeof memberships>();
     for (const m of memberships) {
       const list = membershipMap.get(m.memberId) ?? [];
@@ -146,7 +122,6 @@ export class AdminMembersService {
       srvMap.set(r.serverId, list);
     }
 
-    // Build response items
     const data: CrossServerListItemDto[] = memberRows.map((m) => {
       const srvs = membershipMap.get(m.id) ?? [];
       const isClubMember = srvs.some((s) => s.isMainServer);
@@ -179,21 +154,15 @@ export class AdminMembersService {
 
   // ─────────────────────────── Export ───────────────────────────────
 
-  /**
-   * Build export data (all matching members, no pagination).
-   * Returns an array of flat objects suitable for CSV/JSON.
-   */
   async getExportData(
     filter: 'club' | 'all',
   ): Promise<Record<string, unknown>[]> {
-    // Re-use the list query with a very high limit
     const result = await this.getCrossServerList({
       filter,
       page: 1,
       limit: 100_000,
     });
 
-    // Flatten for CSV
     const rows: Record<string, unknown>[] = [];
     for (const item of result.data) {
       for (const srv of item.servers) {
