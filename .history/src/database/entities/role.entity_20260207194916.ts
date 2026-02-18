@@ -6,7 +6,6 @@ import {
   boolean,
 } from 'drizzle-orm/pg-core';
 import { servers } from './server.entity';
-import { index } from 'drizzle-orm/pg-core';
 
 export const roles = pgTable('roles', {
   id: varchar('id', { length: 255 }).primaryKey(),
@@ -21,8 +20,4 @@ export const roles = pgTable('roles', {
   mentionable: boolean('mentionable').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-},
-(t) => ({
-  serverIdIdx: index('roles_server_id_idx').on(t.serverId),
-})
-);
+});

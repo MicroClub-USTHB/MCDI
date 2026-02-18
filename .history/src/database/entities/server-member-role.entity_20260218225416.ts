@@ -15,6 +15,6 @@ export const serverMemberRoles = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.memberId, t.roleId] }),
-    roleIdIdx: index('server_member_roles_role_id_idx').on(t.roleId),
+    roleIdIdx: index()'server_member_roles_role_id_idx').on(t.roleId),
   }),
 );

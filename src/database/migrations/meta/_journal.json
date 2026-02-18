@@ -22,6 +22,13 @@
       "when": 1771410562273,
       "tag": "0002_outgoing_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771452209394,
+      "tag": "0003_shiny_nighthawk",
+      "breakpoints": true
     }
   ]
 }
