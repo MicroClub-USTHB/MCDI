@@ -11,7 +11,7 @@ export function buildDiscordOAuthUrl(
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: 'identify email guilds.members.read',
+        scope: 'identify email guilds guilds.members.read',
         state,
     };
     Object.entries(params).forEach(([key, value]) =>

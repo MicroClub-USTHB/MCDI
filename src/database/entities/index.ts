@@ -13,3 +13,4 @@ export * from './session.entity';
 export * from './server-sync-log.entity';
 export * from './authorization-code.entity';
 export * from './oauth-client.entity';
+export * from './oauth-state.entity';

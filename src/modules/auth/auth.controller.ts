@@ -49,13 +49,15 @@ export class AuthController {
             'If the API key is invalid, an error page is shown instead.',
     })
     @ApiQuery({ name: 'api_key', required: true, description: 'Platform API key', example: 'mcdi-internal-events-2024' })
-    @ApiQuery({ name: 'server_id', required: false, description: 'Discord server ID (required for external platforms)', example: '942073196237642827' })
+    @ApiQuery({ name: 'server_id', required: false, description: 'Discord server ID (for external platforms)', example: '942073196237642827' })
+    @ApiQuery({ name: 'server_name', required: false, description: 'Discord server name (alternative to server_id for external platforms)', example: 'Main Server' })
     @ApiQuery({ name: 'redirect_uri', required: false, description: 'Override callback URI for the platform (defaults to project config)' })
     @ApiProduces('text/html')
     @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
     async login(
         @Query('api_key') apiKey: string,
         @Query('server_id') serverId: string,
+        @Query('server_name') serverName: string,
         @Query('redirect_uri') redirectUri: string,
     ) {
         // If no API key, show error
@@ -65,7 +67,7 @@ export class AuthController {
 
         try {
             // Validate API key and resolve project context
-            const context = await this.authService.validateLoginRequest(apiKey, serverId, redirectUri);
+            const context = await this.authService.validateLoginRequest(apiKey, serverId, serverName, redirectUri);
 
             // Pass validated context to the view so the Discord button works
             return {
@@ -94,19 +96,21 @@ export class AuthController {
             'Builds the Discord OAuth URL with project context encoded in state and redirects the user.',
     })
     @ApiQuery({ name: 'api_key', required: true, description: 'Platform API key', example: 'mcdi-internal-events-2024' })
-    @ApiQuery({ name: 'server_id', required: true, description: 'Resolved Discord server ID', example: '942073196237642827' })
+    @ApiQuery({ name: 'server_id', required: false, description: 'Discord server ID', example: '942073196237642827' })
+    @ApiQuery({ name: 'server_name', required: false, description: 'Discord server name', example: 'Main Server' })
     @ApiQuery({ name: 'redirect_uri', required: true, description: 'Platform callback URI', example: 'http://localhost:4000/auth/callback' })
     @ApiResponse({ status: 302, description: 'Redirects to Discord OAuth authorization page' })
     async startDiscordAuth(
         @Query('api_key') apiKey: string,
         @Query('server_id') serverId: string,
+        @Query('server_name') serverName: string,
         @Query('redirect_uri') redirectUri: string,
         @Res() res: Response,
     ) {
         // Validate again (in case someone hits this directly)
-        const context = await this.authService.validateLoginRequest(apiKey, serverId, redirectUri);
+        const context = await this.authService.validateLoginRequest(apiKey, serverId, serverName, redirectUri);
 
-        const result = this.authService.buildDiscordLoginUrl(
+        const result = await this.authService.buildDiscordLoginUrl(
             context.project.id,
             context.project.apiKey,
             context.serverId,

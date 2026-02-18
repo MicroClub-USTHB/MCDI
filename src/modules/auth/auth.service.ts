@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
+import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { randomBytes } from 'crypto';
 import { buildDiscordOAuthUrl, buildErrorRedirect, validateApiKeyAndGetProject } from './utils';
 
@@ -22,6 +23,7 @@ export class AuthService {
         private readonly sessionRepository: SessionRepository,
         private readonly memberRepository: MemberRepository,
         private readonly projectRepository: ProjectRepository,
+        private readonly oauthStateRepository: OAuthStateRepository,
         private readonly configService: ConfigService,
     ) {
         this.discordClientId = this.configService.get<string>('discord.clientId')!;
@@ -37,11 +39,18 @@ export class AuthService {
      *
      * Flow:
      *  1. Look up the project by API key
-     *  2. If external → serverId is required
+     *  2. If external → serverId or serverName is required
      *  3. If internal → use main server
-     *  4. Return project info so the login page can render
+     *  4. Validate redirect URI against allowlist
+     *  5. Check project has access to the target server
+     *  6. Return project info so the login page can render
      */
-    async validateLoginRequest(apiKey: string, serverId?: string, redirectUri?: string) {
+    async validateLoginRequest(
+        apiKey: string,
+        serverId?: string,
+        serverName?: string,
+        redirectUri?: string,
+    ) {
         const project = await validateApiKeyAndGetProject(this.projectRepository, apiKey);
 
         // Determine target server
@@ -54,12 +63,33 @@ export class AuthService {
             }
             targetServerId = mainServer.id;
         } else {
-            if (!serverId) {
+            // External platforms: resolve serverId from serverName if provided
+            if (!serverId && serverName) {
+                const server = await this.projectRepository.findServerByName(serverName);
+                if (!server) {
+                    throw new BadRequestException(
+                        `Server with name "${serverName}" not found`,
+                    );
+                }
+                targetServerId = server.id;
+            } else if (serverId) {
+                targetServerId = serverId;
+            } else {
                 throw new BadRequestException(
-                    'serverId is required for external platforms',
+                    'serverId or serverName is required for external platforms',
                 );
             }
-            targetServerId = serverId;
+
+            // Verify project has access to this server
+            const hasAccess = await this.projectRepository.hasServerAccess(
+                project.id,
+                targetServerId,
+            );
+            if (!hasAccess) {
+                throw new ForbiddenException(
+                    'Project does not have access to this server',
+                );
+            }
         }
 
         // Resolve redirect URI
@@ -67,6 +97,17 @@ export class AuthService {
         if (!finalRedirectUri) {
             throw new BadRequestException(
                 'No redirect URI configured for this project',
+            );
+        }
+
+        // Validate redirect URI against allowlist
+        const isAllowed = await this.projectRepository.isRedirectUriAllowed(
+            project.id,
+            finalRedirectUri,
+        );
+        if (!isAllowed) {
+            throw new ForbiddenException(
+                'Redirect URI not allowed for this project',
             );
         }
 
@@ -82,11 +123,24 @@ export class AuthService {
     /**
      * Build the Discord OAuth URL with project context encoded in state.
      * Called when the user clicks "Login with Discord" on the MCDI page.
+     * State is stored in DB for one-time use with 10-minute expiration.
      */
-    buildDiscordLoginUrl(projectId: string, apiKey: string, serverId: string, redirectUri: string) {
-        const state = Buffer.from(
-            JSON.stringify({ projectId, serverId, redirectUri, apiKey }),
-        ).toString('base64url');
+    async buildDiscordLoginUrl(projectId: string, apiKey: string, serverId: string, redirectUri: string) {
+        // Generate secure random state token
+        const state = randomBytes(32).toString('hex');
+
+        // Store state in database with 10-minute expiration
+        const expiresAt = new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+        await this.oauthStateRepository.create({
+            state,
+            projectId,
+            serverId,
+            redirectUri,
+            apiKey,
+            expiresAt,
+        });
 
         return { url: buildDiscordOAuthUrl(this.discordClientId, this.discordRedirectUri, state) };
     }
@@ -98,7 +152,7 @@ export class AuthService {
      * This is the core step: it does everything in one shot.
      *
      * Flow:
-     *  1. Decode state → get projectId, serverId, redirectUri
+     *  1. Validate state token (one-time use, not expired)
      *  2. Exchange Discord code for access token
      *  3. Fetch Discord profile (identify + email)
      *  4. Upsert member in DB
@@ -107,19 +161,25 @@ export class AuthService {
      *  7. Create session token (30 days)
      *  8. Redirect back to platform with token + member + roles
      */
-    async handleDiscordCallback(discordCode: string, stateBase64: string) {
-        // 1. Decode state
-        let state: {
-            projectId: string;
-            serverId: string;
-            redirectUri: string;
-            apiKey: string;
-        };
-        try {
-            state = JSON.parse(Buffer.from(stateBase64, 'base64url').toString());
-        } catch {
-            throw new BadRequestException('Invalid state parameter');
+    async handleDiscordCallback(discordCode: string, stateToken: string) {
+        // 1. Validate state token (checks if unused and not expired)
+        const stateData = await this.oauthStateRepository.findValidState(stateToken);
+        
+        if (!stateData) {
+            // Return generic error to prevent state enumeration attacks
+            const fallbackUri = this.configService.get<string>('app.baseUrl') + '/error';
+            return buildErrorRedirect(
+                fallbackUri,
+                'invalid_state',
+                'Invalid or expired authentication request',
+            );
         }
+
+        // Mark state as used immediately to prevent replay attacks
+        await this.oauthStateRepository.markAsUsed(stateToken);
+
+        // Extract project context from state
+        const { projectId, serverId, redirectUri } = stateData;
 
         // 2. Exchange Discord code for tokens
         const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
@@ -135,7 +195,7 @@ export class AuthService {
         });
 
         if (!tokenRes.ok) {
-            return buildErrorRedirect(state.redirectUri, 'discord_error', 'Failed to authenticate with Discord');
+            return buildErrorRedirect(redirectUri, 'discord_error', 'Failed to authenticate with Discord');
         }
 
         const { access_token: accessToken } = await tokenRes.json();
@@ -146,7 +206,7 @@ export class AuthService {
         });
 
         if (!profileRes.ok) {
-            return buildErrorRedirect(state.redirectUri, 'profile_error', 'Failed to fetch Discord profile');
+            return buildErrorRedirect(redirectUri, 'profile_error', 'Failed to fetch Discord profile');
         }
 
         const profile = await profileRes.json();
@@ -164,26 +224,54 @@ export class AuthService {
 
         // 5. Verify server membership via Discord API
         const guildMemberRes = await fetch(
-            `https://discord.com/api/users/@me/guilds/${state.serverId}/member`,
+            `https://discord.com/api/users/@me/guilds/${serverId}/member`,
             { headers: { Authorization: `Bearer ${accessToken}` } },
         );
 
         if (!guildMemberRes.ok) {
-            return buildErrorRedirect(state.redirectUri, 'not_in_server', 'You must be a member of the required Discord server');
+            const errBody = await guildMemberRes.text().catch(() => '');
+            console.error(
+                `[Auth] Guild member check failed for user=${profile.id} server=${serverId} ` +
+                `status=${guildMemberRes.status} body=${errBody}`,
+            );
+            // status 404 → user not in server; 403 → missing scope or bot not in guild
+            const reason =
+                guildMemberRes.status === 403
+                    ? `Missing guild access (scope or bot not in server). Discord status: 403`
+                    : `You must be a member of the required Discord server (ID: ${serverId})`;
+            return buildErrorRedirect(redirectUri, 'not_in_server', reason);
         }
 
         const guildMemberData = await guildMemberRes.json();
         const userDiscordRoleIds: string[] = guildMemberData.roles || [];
 
+        // 5b. Fetch full role objects from Discord to get name/color/position,
+        //     then sync the member's server membership + roles into MCDI DB.
+        let discordRolesForSync: { id: string; name: string; color?: number; position?: number }[] = [];
+        if (userDiscordRoleIds.length > 0) {
+            const guildRolesRes = await fetch(
+                `https://discord.com/api/guilds/${serverId}/roles`,
+                { headers: { Authorization: `Bot ${this.configService.get<string>('discord.token')}` } },
+            );
+            if (guildRolesRes.ok) {
+                const allGuildRoles: { id: string; name: string; color: number; position: number }[] =
+                    await guildRolesRes.json();
+                discordRolesForSync = allGuildRoles.filter((r) =>
+                    userDiscordRoleIds.includes(r.id),
+                );
+            }
+        }
+        await this.projectRepository.syncMemberServerData(member.id, serverId, discordRolesForSync);
+
         // 6. Check role-based access
         const allowedRoleIds = await this.projectRepository.findAllowedRoleIds(
-            state.projectId,
+            projectId,
         );
 
         if (allowedRoleIds.length > 0) {
             const hasRole = userDiscordRoleIds.some((r) => allowedRoleIds.includes(r));
             if (!hasRole) {
-                return buildErrorRedirect(state.redirectUri, 'insufficient_roles', 'You do not have the required roles to access this platform');
+                return buildErrorRedirect(redirectUri, 'insufficient_roles', 'You do not have the required roles to access this platform');
             }
         }
 
@@ -194,8 +282,8 @@ export class AuthService {
 
         await this.sessionRepository.create({
             memberId: member.id,
-            projectId: state.projectId,
-            serverId: state.serverId,
+            projectId: projectId,
+            serverId: serverId,
             token,
             expiresAt,
         });
@@ -203,11 +291,11 @@ export class AuthService {
         // 8. Get member's roles in the server (from our DB)
         const roles = await this.projectRepository.getMemberRolesInServer(
             member.id,
-            state.serverId,
+            serverId,
         );
 
         // 9. Redirect back to platform with token + member + roles
-        const redirectUrl = new URL(state.redirectUri);
+        const redirectUrl = new URL(redirectUri);
         redirectUrl.searchParams.set('token', token);
         redirectUrl.searchParams.set('expires_at', expiresAt.toISOString());
         redirectUrl.searchParams.set('member', JSON.stringify({
@@ -271,6 +359,7 @@ export class AuthService {
     async cleanupExpired() {
         await Promise.all([
             this.sessionRepository.deleteExpired(),
+            this.oauthStateRepository.deleteExpired(),
         ]);
         return { success: true };
     }

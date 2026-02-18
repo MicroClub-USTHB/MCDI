@@ -10,9 +10,31 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
-
   const port = configService.get<number>('app.port') || 3000;
   const apiPrefix = configService.get<string>('app.apiPrefix') || 'api';
+  const nodeEnv = configService.get<string>('app.nodeEnv') || 'development';
+
+  // CORS — allow Swagger UI, the configured redirect_uri origin, and any
+  // localhost port used by platform clients during development.
+  const allowedOrigins: (string | RegExp)[] = [
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  ];
+
+  if (nodeEnv !== 'development') {
+    // In production, load explicit allowed origins from env
+    const corsOrigins = process.env.CORS_ORIGINS;
+    if (corsOrigins) {
+      corsOrigins.split(',').forEach((o) => allowedOrigins.push(o.trim()));
+    }
+  }
+
+  app.enableCors({
+    origin: nodeEnv === 'development' ? true : allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    credentials: true,
+  });
 
   // Enable validation pipes globally
   app.useGlobalPipes(new ValidationPipe({

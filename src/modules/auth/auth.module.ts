@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
+import { OAuthStateRepository } from './repositories/oauth-state.repository';
 
 @Module({
   controllers: [AuthController],
@@ -12,12 +13,14 @@ import { ProjectRepository } from './repositories/project.repository';
     SessionRepository,
     MemberRepository,
     ProjectRepository,
+    OAuthStateRepository,
   ],
   exports: [
     AuthService,
     SessionRepository,
     MemberRepository,
     ProjectRepository,
+    OAuthStateRepository,
   ],
 })
 export class AuthModule { }

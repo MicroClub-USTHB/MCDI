@@ -46,6 +46,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
 
   console.log('  - Seeding main server...');
   const mainServer = createServerFactory({
+    id: '1231588159960387596', // Real Discord Guild ID
     name: 'MicroClub Official',
     isMain: true,
     type: 'official',
@@ -177,9 +178,18 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     redirectUri: 'http://localhost:3001/auth/callback',
   });
 
-  const [insertedInternalProject, insertedExternalProject, insertedPublicProject] = await db
+  // 4. Test project for development
+  const testProject = createProjectFactory({
+    name: 'Test Project',
+    description: 'Test project for development',
+    apiKey: 'mcdi-proj-test123456789',
+    isInternal: false,
+    redirectUri: 'http://localhost:4000/auth/callback',
+  });
+
+  const [insertedInternalProject, insertedExternalProject, insertedPublicProject, insertedTestProject] = await db
     .insert(schema.projects)
-    .values([internalProject, externalProject, publicProject])
+    .values([internalProject, externalProject, publicProject, testProject])
     .onConflictDoNothing()
     .returning();
 
@@ -205,6 +215,14 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   if (insertedPublicProject) {
     projectServersData.push({
       projectId: insertedPublicProject.id,
+      serverId: serverId,
+      operations: { read: true, write: true, manage_members: false },
+    });
+  }
+
+  if (insertedTestProject) {
+    projectServersData.push({
+      projectId: insertedTestProject.id,
       serverId: serverId,
       operations: { read: true, write: true, manage_members: false },
     });
@@ -250,6 +268,9 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log(`     - Requires Admin OR Lead role`);
   console.log(`  3. Public: "${publicProject.name}" (API Key: ${publicProject.apiKey})`);
   console.log(`     - Requires explicit serverId`);
+  console.log(`     - No role restrictions`);
+  console.log(`  4. Test: "${testProject.name}" (API Key: ${testProject.apiKey})`);
+  console.log(`     - Server: ${serverId}`);
   console.log(`     - No role restrictions`);
   console.log('========================\n');
 }

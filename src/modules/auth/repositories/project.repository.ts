@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
@@ -111,5 +111,116 @@ export class ProjectRepository {
             .limit(1);
 
         return rows.length > 0;
+    }
+
+    /** Find a server by its name */
+    async findServerByName(name: string) {
+        const results = await this.db
+            .select()
+            .from(schema.servers)
+            .where(eq(schema.servers.name, name))
+            .limit(1);
+
+        return results[0] || null;
+    }
+
+    /** Check if a project has access to a specific server */
+    async hasServerAccess(projectId: string, serverId: string): Promise<boolean> {
+        const rows = await this.db
+            .select()
+            .from(schema.projectServers)
+            .where(
+                and(
+                    eq(schema.projectServers.projectId, projectId),
+                    eq(schema.projectServers.serverId, serverId),
+                ),
+            )
+            .limit(1);
+
+        return rows.length > 0;
+    }
+
+    /** Validate redirect URI against project's allowed URIs */
+    async isRedirectUriAllowed(projectId: string, redirectUri: string): Promise<boolean> {
+        const project = await this.db
+            .select({ redirectUri: schema.projects.redirectUri })
+            .from(schema.projects)
+            .where(eq(schema.projects.id, projectId))
+            .limit(1);
+
+        if (!project[0]?.redirectUri) return false;
+
+        // Support comma-separated list of allowed URIs
+        const allowedUris = project[0].redirectUri
+            .split(',')
+            .map(uri => uri.trim());
+
+        return allowedUris.includes(redirectUri);
+    }
+
+    /**
+     * Sync a member's server membership and Discord roles into the MCDI DB.
+     * Called during OAuth callback so roles are always up-to-date.
+     */
+    async syncMemberServerData(
+        memberId: string,
+        serverId: string,
+        discordRoles: { id: string; name: string; color?: number; position?: number }[],
+    ): Promise<void> {
+        // 1. Ensure server_members row exists
+        await this.db
+            .insert(schema.serverMembers)
+            .values({ memberId, serverId, joinedAt: new Date() })
+            .onConflictDoNothing();
+
+        if (discordRoles.length === 0) return;
+
+        // 2. Upsert roles into the roles table (Discord role ID is PK)
+        await this.db
+            .insert(schema.roles)
+            .values(
+                discordRoles.map((r) => ({
+                    id: r.id,
+                    serverId,
+                    name: r.name,
+                    color: r.color ?? null,
+                    position: r.position ?? 0,
+                })),
+            )
+            .onConflictDoUpdate({
+                target: schema.roles.id,
+                set: {
+                    name: sql`excluded.name`,
+                    color: sql`excluded.color`,
+                    position: sql`excluded.position`,
+                    updatedAt: new Date(),
+                },
+            });
+
+        // 3. Upsert server_member_roles
+        await this.db
+            .insert(schema.serverMemberRoles)
+            .values(
+                discordRoles.map((r) => ({
+                    memberId,
+                    roleId: r.id,
+                })),
+            )
+            .onConflictDoNothing();
+    }
+
+    /** Regenerate API key for a project */
+    async regenerateApiKey(projectId: string, newApiKey: string) {
+        const projects = await this.db
+            .update(schema.projects)
+            .set({
+                apiKey: newApiKey,
+                apiKeyCreatedAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(schema.projects.id, projectId))
+            .returning();
+
+        return projects[0] || null;
     }
 }
