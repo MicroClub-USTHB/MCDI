@@ -15,6 +15,13 @@
       "when": 1770989156337,
       "tag": "0001_slow_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771427258428,
+      "tag": "0002_damp_magik",
+      "breakpoints": true
     }
   ]
 }
