@@ -118,6 +118,6 @@ export class PermissionsService {
   }
 
   async listInheritanceRules() {
-    return this.permissionsRepository.listInheritanceRules();
+    return [];
   }
 }
