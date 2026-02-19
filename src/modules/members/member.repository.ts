@@ -295,4 +295,11 @@ export class MemberRepository {
       );
     return result.rowCount ?? 0;
   }
+
+  // role deletion
+  async deleteMemberRolesByRoleId(roleId: string): Promise<void> {
+    await this.db
+      .delete(serverMemberRoles)
+      .where(eq(serverMemberRoles.roleId, roleId));
+  }
 }

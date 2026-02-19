@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { SyncService } from './sync.service';
-import { Client, GuildMember, User } from 'discord.js';
+import { Client, GuildMember, User, Role } from 'discord.js';
 
 @Injectable()
 export class SyncListener implements OnModuleInit, OnModuleDestroy {
@@ -35,6 +35,11 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
       this.handleGuildMemberUpdate.bind(this),
     );
     this.client.on('userUpdate', this.handleUserUpdate.bind(this));
+
+    //role event listeners
+    this.client.on('roleCreate', this.handleRoleCreate.bind(this));
+    this.client.on('roleUpdate', this.handleRoleUpdate.bind(this));
+    this.client.on('roleDelete', this.handleRoleDelete.bind(this));
   }
 
   onModuleDestroy() {
@@ -43,6 +48,9 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
     this.client.removeAllListeners('guildMemberRemove');
     this.client.removeAllListeners('guildMemberUpdate');
     this.client.removeAllListeners('userUpdate');
+    this.client.removeAllListeners('roleCreate');
+    this.client.removeAllListeners('roleUpdate');
+    this.client.removeAllListeners('roleDelete');
   }
 
   private async handleGuildMemberAdd(member: GuildMember): Promise<void> {
@@ -87,6 +95,40 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(
         `Error in userUpdate handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // role event handlers
+  private async handleRoleCreate(role: Role): Promise<void> {
+    try {
+      await this.syncService.handleRoleCreate(role);
+    } catch (error) {
+      this.logger.error(
+        `Error in roleCreate handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async handleRoleUpdate(oldRole: Role, newRole: Role): Promise<void> {
+    try {
+      await this.syncService.handleRoleUpdate(newRole);
+    } catch (error) {
+      this.logger.error(
+        `Error in roleUpdate handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async handleRoleDelete(role: Role): Promise<void> {
+    try {
+      await this.syncService.handleRoleDelete(role);
+    } catch (error) {
+      this.logger.error(
+        `Error in roleDelete handler: ${error.message}`,
         error.stack,
       );
     }

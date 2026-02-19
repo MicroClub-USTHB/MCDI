@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/only-throw-error */
 import {
   Injectable,
   Logger,
@@ -8,13 +9,15 @@ import { DiscordService } from '../discord/discord.service';
 import { MemberRepository } from '../members/member.repository';
 import { ServersRepository } from '../servers/servers.repository';
 import { SyncRepository } from './sync.repository';
-import { Guild, GuildMember, User } from 'discord.js';
+import { Guild, GuildMember, User, Role } from 'discord.js';
 import { members } from '../../database/entities/member.entity';
 import { SyncStatusDto } from './dto/sync-status.dto';
 
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY_MS = 1000;
 
   constructor(
     private readonly discordService: DiscordService,
@@ -22,6 +25,28 @@ export class SyncService {
     private readonly serversRepository: ServersRepository,
     private readonly syncRepository: SyncRepository,
   ) {}
+
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    context: string,
+  ): Promise<T> {
+    let lastError: Error | undefined;
+    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        this.logger.warn(
+          `Retry ${attempt}/${this.MAX_RETRIES} for ${context} failed: ${lastError.message}`,
+        );
+        if (attempt < this.MAX_RETRIES) {
+          const delay = this.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    }
+    throw lastError;
+  }
 
   async triggerFullSync(serverId: string): Promise<{ syncId: number }> {
     const server = await this.serversRepository.findById(serverId);
@@ -71,6 +96,30 @@ export class SyncService {
     let rolesSynced = 0;
 
     try {
+      // Sync all roles
+      this.logger.debug(`Fetching all roles for guild ${serverId}`);
+      const guildRoles = await guild.roles.fetch();
+      for (const [, role] of guildRoles) {
+        await this.withRetry(
+          () =>
+            this.serversRepository.upsertRole({
+              id: role.id,
+              serverId: guild.id,
+              name: role.name,
+              color: role.color,
+              hoist: role.hoist,
+              position: role.position,
+              managed: role.managed,
+              mentionable: role.mentionable,
+            }),
+          `upsertRole(${role.id})`,
+        );
+      }
+      this.logger.log(
+        `Upserted ${guildRoles.size} roles for server ${serverId}`,
+      );
+
+      // Sync members
       let lastId: string | undefined;
       let hasMore = true;
 
@@ -93,6 +142,7 @@ export class SyncService {
         hasMore = fetched.size === 1000;
       }
 
+      // Mark inactive members
       const deactivatedCount =
         await this.memberRepository.markInactiveForServer(serverId, syncStart);
       this.logger.log(
@@ -122,6 +172,7 @@ export class SyncService {
     guildMember: GuildMember,
     syncTime: Date,
   ): Promise<void> {
+    // Upsert member
     const memberData: typeof members.$inferInsert = {
       id: guildMember.id,
       username: guildMember.user.username,
@@ -133,25 +184,38 @@ export class SyncService {
       joinedAt: guildMember.joinedAt ?? null,
       syncedAt: syncTime,
     };
-    await this.memberRepository.upsertMember(memberData);
+    await this.withRetry(
+      () => this.memberRepository.upsertMember(memberData),
+      `upsertMember(${guildMember.id})`,
+    );
 
-    await this.memberRepository.upsertServerMembership({
-      serverId: guild.id,
-      memberId: guildMember.id,
-      joinedAt: guildMember.joinedAt ?? null,
-      isActive: true,
-      lastSyncedAt: syncTime,
-    });
+    // Upsert server membership
+    await this.withRetry(
+      () =>
+        this.memberRepository.upsertServerMembership({
+          serverId: guild.id,
+          memberId: guildMember.id,
+          joinedAt: guildMember.joinedAt ?? null,
+          isActive: true,
+          lastSyncedAt: syncTime,
+        }),
+      `upsertServerMembership(${guildMember.id})`,
+    );
 
+    // Replace roles
     const roleIds = [...guildMember.roles.cache.keys()];
-    await this.memberRepository.replaceMemberRoles(
-      guild.id,
-      guildMember.id,
-      roleIds,
+    await this.withRetry(
+      () =>
+        this.memberRepository.replaceMemberRoles(
+          guild.id,
+          guildMember.id,
+          roleIds,
+        ),
+      `replaceMemberRoles(${guildMember.id})`,
     );
   }
 
-  // EVENT HANDLERS
+  //Event Handlers
   async handleMemberAdd(guildMember: GuildMember): Promise<void> {
     this.logger.debug(
       `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
@@ -163,13 +227,17 @@ export class SyncService {
     this.logger.debug(
       `Member removed: ${guildMember.id} in ${guildMember.guild.id}`,
     );
-    await this.memberRepository.upsertServerMembership({
-      serverId: guildMember.guild.id,
-      memberId: guildMember.id,
-      joinedAt: guildMember.joinedAt ?? null,
-      isActive: false,
-      lastSyncedAt: new Date(),
-    });
+    await this.withRetry(
+      () =>
+        this.memberRepository.upsertServerMembership({
+          serverId: guildMember.guild.id,
+          memberId: guildMember.id,
+          joinedAt: guildMember.joinedAt ?? null,
+          isActive: false,
+          lastSyncedAt: new Date(),
+        }),
+      `handleMemberRemove upsertServerMembership(${guildMember.id})`,
+    );
   }
 
   async handleMemberUpdate(
@@ -182,72 +250,129 @@ export class SyncService {
 
     const syncTime = new Date();
 
+    // Update member profile
     if (
       oldMember.user.username !== newMember.user.username ||
       oldMember.user.globalName !== newMember.user.globalName ||
-      oldMember.user.avatar !== newMember.user.avatar
+      oldMember.user.avatar !== newMember.user.avatar ||
+      oldMember.nickname !== newMember.nickname
     ) {
-      await this.memberRepository.upsertMember({
-        id: newMember.id,
-        username: newMember.user.username,
-        globalName: newMember.user.globalName ?? null,
-        displayName: newMember.nickname ?? null,
-        avatar: newMember.user.avatarURL(),
-        email: null,
-        isClubMember: false,
-        joinedAt: newMember.joinedAt ?? null,
-        syncedAt: syncTime,
-      });
-    } else if (oldMember.nickname !== newMember.nickname) {
-      await this.memberRepository.upsertMember({
-        id: newMember.id,
-        username: newMember.user.username,
-        globalName: newMember.user.globalName ?? null,
-        displayName: newMember.nickname ?? null,
-        avatar: newMember.user.avatarURL(),
-        email: null,
-        isClubMember: false,
-        joinedAt: newMember.joinedAt ?? null,
-        syncedAt: syncTime,
-      });
+      await this.withRetry(
+        () =>
+          this.memberRepository.upsertMember({
+            id: newMember.id,
+            username: newMember.user.username,
+            globalName: newMember.user.globalName ?? null,
+            displayName: newMember.nickname ?? null,
+            avatar: newMember.user.avatarURL(),
+            email: null,
+            isClubMember: false,
+            joinedAt: newMember.joinedAt ?? null,
+            syncedAt: syncTime,
+          }),
+        `handleMemberUpdate upsertMember(${newMember.id})`,
+      );
     }
 
+    // Update roles
     const oldRoles = oldMember.roles.cache;
     const newRoles = newMember.roles.cache;
     if (
       oldRoles.size !== newRoles.size ||
       !oldRoles.every((role) => newRoles.has(role.id))
     ) {
-      await this.memberRepository.replaceMemberRoles(
-        newMember.guild.id,
-        newMember.id,
-        [...newRoles.keys()],
+      await this.withRetry(
+        () =>
+          this.memberRepository.replaceMemberRoles(
+            newMember.guild.id,
+            newMember.id,
+            [...newRoles.keys()],
+          ),
+        `handleMemberUpdate replaceMemberRoles(${newMember.id})`,
       );
     }
 
-    await this.memberRepository.upsertServerMembership({
-      serverId: newMember.guild.id,
-      memberId: newMember.id,
-      joinedAt: newMember.joinedAt ?? null,
-      isActive: true,
-      lastSyncedAt: syncTime,
-    });
+    // Update membership
+    await this.withRetry(
+      () =>
+        this.memberRepository.upsertServerMembership({
+          serverId: newMember.guild.id,
+          memberId: newMember.id,
+          joinedAt: newMember.joinedAt ?? null,
+          isActive: true,
+          lastSyncedAt: syncTime,
+        }),
+      `handleMemberUpdate upsertServerMembership(${newMember.id})`,
+    );
   }
 
   async handleUserUpdate(oldUser: User, newUser: User): Promise<void> {
     this.logger.debug(`User updated: ${newUser.id}`);
 
-    await this.memberRepository.upsertMember({
-      id: newUser.id,
-      username: newUser.username,
-      globalName: newUser.globalName ?? null,
-      displayName: null,
-      avatar: newUser.avatarURL(),
-      email: null,
-      isClubMember: false,
-      joinedAt: null,
-      syncedAt: new Date(),
-    });
+    await this.withRetry(
+      () =>
+        this.memberRepository.upsertMember({
+          id: newUser.id,
+          username: newUser.username,
+          globalName: newUser.globalName ?? null,
+          displayName: null,
+          avatar: newUser.avatarURL(),
+          email: null,
+          isClubMember: false,
+          joinedAt: null,
+          syncedAt: new Date(),
+        }),
+      `handleUserUpdate upsertMember(${newUser.id})`,
+    );
+  }
+
+  // Role Event Handlers
+  async handleRoleCreate(role: Role): Promise<void> {
+    this.logger.debug(`Role created: ${role.id} in ${role.guild.id}`);
+    await this.withRetry(
+      () =>
+        this.serversRepository.upsertRole({
+          id: role.id,
+          serverId: role.guild.id,
+          name: role.name,
+          color: role.color,
+          hoist: role.hoist,
+          position: role.position,
+          managed: role.managed,
+          mentionable: role.mentionable,
+        }),
+      `handleRoleCreate upsertRole(${role.id})`,
+    );
+  }
+
+  async handleRoleUpdate(role: Role): Promise<void> {
+    this.logger.debug(`Role updated: ${role.id} in ${role.guild.id}`);
+    await this.withRetry(
+      () =>
+        this.serversRepository.upsertRole({
+          id: role.id,
+          serverId: role.guild.id,
+          name: role.name,
+          color: role.color,
+          hoist: role.hoist,
+          position: role.position,
+          managed: role.managed,
+          mentionable: role.mentionable,
+        }),
+      `handleRoleUpdate upsertRole(${role.id})`,
+    );
+  }
+
+  async handleRoleDelete(role: Role): Promise<void> {
+    this.logger.debug(`Role deleted: ${role.id} from ${role.guild.id}`);
+    await this.withRetry(
+      () => this.memberRepository.deleteMemberRolesByRoleId(role.id),
+      `handleRoleDelete deleteMemberRolesByRoleId(${role.id})`,
+    );
+    await this.withRetry(
+      () => this.serversRepository.deleteRole(role.id),
+      `handleRoleDelete deleteRole(${role.id})`,
+    );
   }
 
   async getSyncStatus(serverId: string): Promise<SyncStatusDto | null> {
