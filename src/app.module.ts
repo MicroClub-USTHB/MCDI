@@ -11,6 +11,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
+import { SyncModule } from './modules/sync/sync.module';
 @Module({
   imports: [
     ConfigModule,
@@ -21,11 +22,15 @@ import { ServerActiveGuard } from './modules/servers/server.guard';
     MembersModule,
     PermissionsModule,
     ProjectsModule,
+    SyncModule,
   ],
   controllers: [AppController],
-  providers: [AppService, {
-    provide:APP_GUARD,
-    useClass: ServerActiveGuard
-  }],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ServerActiveGuard,
+    },
+  ],
 })
 export class AppModule {}

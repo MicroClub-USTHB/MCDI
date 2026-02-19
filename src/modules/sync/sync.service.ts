@@ -1,4 +1,268 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import { DiscordService } from '../discord/discord.service';
+import { MemberRepository } from '../members/member.repository';
+import { ServersRepository } from '../servers/servers.repository';
+import { SyncRepository } from './sync.repository';
+import { Guild, GuildMember, User } from 'discord.js';
+import { members } from '../../database/entities/member.entity';
+import { SyncStatusDto } from './dto/sync-status.dto';
 
 @Injectable()
-export class SyncService {}
+export class SyncService {
+  private readonly logger = new Logger(SyncService.name);
+
+  constructor(
+    private readonly discordService: DiscordService,
+    private readonly memberRepository: MemberRepository,
+    private readonly serversRepository: ServersRepository,
+    private readonly syncRepository: SyncRepository,
+  ) {}
+
+  async triggerFullSync(serverId: string): Promise<{ syncId: number }> {
+    const server = await this.serversRepository.findById(serverId);
+    if (!server) {
+      throw new NotFoundException('Server not found');
+    }
+
+    const inProgress = await this.syncRepository.getInProgressLog(serverId);
+    if (inProgress) {
+      throw new ConflictException(
+        'A sync is already in progress for this server',
+      );
+    }
+
+    const startedAt = new Date();
+    const log = await this.syncRepository.createLog(
+      serverId,
+      'manual',
+      'in_progress',
+      startedAt,
+    );
+
+    this.runFullSync(serverId, log.id).catch((err: unknown) => {
+      const errorStack = err instanceof Error ? err.stack : String(err);
+      this.logger.error(
+        `Background sync failed for server ${serverId}`,
+        errorStack,
+      );
+    });
+
+    return { syncId: log.id };
+  }
+
+  private async runFullSync(serverId: string, syncId: number): Promise<void> {
+    const guild = await this.discordService.getGuildById(serverId);
+    if (!guild) {
+      await this.syncRepository.updateLog(syncId, {
+        status: 'failed',
+        message: 'Guild not found or bot not in server',
+        finishedAt: new Date(),
+      });
+      return;
+    }
+
+    const syncStart = new Date();
+    let membersSynced = 0;
+    let rolesSynced = 0;
+
+    try {
+      let lastId: string | undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
+        if (lastId) {
+          fetchOptions.after = lastId;
+        }
+
+        const fetched = await guild.members.fetch(fetchOptions);
+        if (fetched.size === 0) break;
+
+        for (const [, guildMember] of fetched) {
+          await this.processMember(guild, guildMember, syncStart);
+          membersSynced++;
+          rolesSynced += guildMember.roles.cache.size;
+        }
+
+        lastId = fetched.last()?.id;
+        hasMore = fetched.size === 1000;
+      }
+
+      const deactivatedCount =
+        await this.memberRepository.markInactiveForServer(serverId, syncStart);
+      this.logger.log(
+        `Deactivated ${deactivatedCount} members in server ${serverId}`,
+      );
+
+      await this.syncRepository.updateLog(syncId, {
+        status: 'success',
+        membersSynced,
+        rolesSynced,
+        finishedAt: new Date(),
+        message: `Sync completed. ${deactivatedCount} members marked inactive.`,
+      });
+    } catch (error: unknown) {
+      const errorStack = error instanceof Error ? error.stack : String(error);
+      this.logger.error(`Full sync failed for server ${serverId}`, errorStack);
+      await this.syncRepository.updateLog(syncId, {
+        status: 'failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        finishedAt: new Date(),
+      });
+    }
+  }
+
+  async processMember(
+    guild: Guild,
+    guildMember: GuildMember,
+    syncTime: Date,
+  ): Promise<void> {
+    const memberData: typeof members.$inferInsert = {
+      id: guildMember.id,
+      username: guildMember.user.username,
+      globalName: guildMember.user.globalName ?? null,
+      displayName: guildMember.nickname ?? null,
+      avatar: guildMember.user.avatarURL(),
+      email: null,
+      isClubMember: false,
+      joinedAt: guildMember.joinedAt ?? null,
+      syncedAt: syncTime,
+    };
+    await this.memberRepository.upsertMember(memberData);
+
+    await this.memberRepository.upsertServerMembership({
+      serverId: guild.id,
+      memberId: guildMember.id,
+      joinedAt: guildMember.joinedAt ?? null,
+      isActive: true,
+      lastSyncedAt: syncTime,
+    });
+
+    const roleIds = [...guildMember.roles.cache.keys()];
+    await this.memberRepository.replaceMemberRoles(
+      guild.id,
+      guildMember.id,
+      roleIds,
+    );
+  }
+
+  // EVENT HANDLERS
+  async handleMemberAdd(guildMember: GuildMember): Promise<void> {
+    this.logger.debug(
+      `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
+    );
+    await this.processMember(guildMember.guild, guildMember, new Date());
+  }
+
+  async handleMemberRemove(guildMember: GuildMember): Promise<void> {
+    this.logger.debug(
+      `Member removed: ${guildMember.id} in ${guildMember.guild.id}`,
+    );
+    await this.memberRepository.upsertServerMembership({
+      serverId: guildMember.guild.id,
+      memberId: guildMember.id,
+      joinedAt: guildMember.joinedAt ?? null,
+      isActive: false,
+      lastSyncedAt: new Date(),
+    });
+  }
+
+  async handleMemberUpdate(
+    oldMember: GuildMember,
+    newMember: GuildMember,
+  ): Promise<void> {
+    this.logger.debug(
+      `Member updated: ${newMember.id} in ${newMember.guild.id}`,
+    );
+
+    const syncTime = new Date();
+
+    if (
+      oldMember.user.username !== newMember.user.username ||
+      oldMember.user.globalName !== newMember.user.globalName ||
+      oldMember.user.avatar !== newMember.user.avatar
+    ) {
+      await this.memberRepository.upsertMember({
+        id: newMember.id,
+        username: newMember.user.username,
+        globalName: newMember.user.globalName ?? null,
+        displayName: newMember.nickname ?? null,
+        avatar: newMember.user.avatarURL(),
+        email: null,
+        isClubMember: false,
+        joinedAt: newMember.joinedAt ?? null,
+        syncedAt: syncTime,
+      });
+    } else if (oldMember.nickname !== newMember.nickname) {
+      await this.memberRepository.upsertMember({
+        id: newMember.id,
+        username: newMember.user.username,
+        globalName: newMember.user.globalName ?? null,
+        displayName: newMember.nickname ?? null,
+        avatar: newMember.user.avatarURL(),
+        email: null,
+        isClubMember: false,
+        joinedAt: newMember.joinedAt ?? null,
+        syncedAt: syncTime,
+      });
+    }
+
+    const oldRoles = oldMember.roles.cache;
+    const newRoles = newMember.roles.cache;
+    if (
+      oldRoles.size !== newRoles.size ||
+      !oldRoles.every((role) => newRoles.has(role.id))
+    ) {
+      await this.memberRepository.replaceMemberRoles(
+        newMember.guild.id,
+        newMember.id,
+        [...newRoles.keys()],
+      );
+    }
+
+    await this.memberRepository.upsertServerMembership({
+      serverId: newMember.guild.id,
+      memberId: newMember.id,
+      joinedAt: newMember.joinedAt ?? null,
+      isActive: true,
+      lastSyncedAt: syncTime,
+    });
+  }
+
+  async handleUserUpdate(oldUser: User, newUser: User): Promise<void> {
+    this.logger.debug(`User updated: ${newUser.id}`);
+
+    await this.memberRepository.upsertMember({
+      id: newUser.id,
+      username: newUser.username,
+      globalName: newUser.globalName ?? null,
+      displayName: null,
+      avatar: newUser.avatarURL(),
+      email: null,
+      isClubMember: false,
+      joinedAt: null,
+      syncedAt: new Date(),
+    });
+  }
+
+  async getSyncStatus(serverId: string): Promise<SyncStatusDto | null> {
+    const log = await this.syncRepository.getLatestLog(serverId);
+    if (!log) return null;
+
+    return {
+      serverId: log.serverId,
+      lastSyncAt: log.finishedAt?.toISOString() ?? null,
+      status: log.status,
+      membersSynced: log.membersSynced,
+      rolesSynced: log.rolesSynced,
+      message: log.message ?? undefined,
+      startedAt: log.startedAt.toISOString(),
+      finishedAt: log.finishedAt?.toISOString(),
+    };
+  }
+}
