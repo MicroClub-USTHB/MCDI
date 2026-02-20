@@ -15,6 +15,7 @@ import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
+import { validateScope } from '../utils/scope.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
 @Injectable()
@@ -47,7 +48,7 @@ export class ApiKeyGuard implements CanActivate {
     // Check required scope if set on the route via @RequireScope()
     const requiredScope = this.reflector.get<string>(SCOPE_KEY, context.getHandler());
     if (requiredScope) {
-      await this.validateScope(project.id, requiredScope);
+      await validateScope(this.db, project.id, requiredScope);
     }
 
     // Checking if project has access to the requested server
@@ -95,25 +96,6 @@ export class ApiKeyGuard implements CanActivate {
     // Constant-time hash comparison — prevents timing attacks
     const isValid = verifyApiKey(secret, project.apiKeyHash);
     return isValid ? project : null;
-  }
-
-  private async validateScope(projectId: string, requiredScope: string): Promise<void> {
-    const [scope] = await this.db
-      .select()
-      .from(schema.projectScopes)
-      .where(
-        and(
-          eq(schema.projectScopes.projectId, projectId),
-          eq(schema.projectScopes.scope, requiredScope),
-        ),
-      )
-      .limit(1);
-
-    if (!scope) {
-      throw new ForbiddenException(
-        `Insufficient scope: '${requiredScope}' is required`,
-      );
-    }
   }
 
   private async validateServerAccess(
