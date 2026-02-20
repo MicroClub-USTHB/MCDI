@@ -14,6 +14,7 @@ import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
 import { verifyApiKey } from '../utils/api-key.util';
+import { extractApiKey } from '../utils/auth.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
 @Injectable()
@@ -61,14 +62,7 @@ export class ApiKeyGuard implements CanActivate {
   }
 
   private extractApiKey(request: Request): string | null {
-    const authHeader = request.headers.authorization;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-
-    const apiKey = request.headers['x-api-key'] || request.query.apiKey;
-    return typeof apiKey === 'string' ? apiKey : null;
+    return extractApiKey(request);
   }
 
   private async validateApiKey(
