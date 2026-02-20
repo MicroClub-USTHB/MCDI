@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   CanActivate,
@@ -10,16 +7,20 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
+import { verifyApiKey } from '../utils/api-key.util';
+import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -34,6 +35,18 @@ export class ApiKeyGuard implements CanActivate {
 
     if (!project) {
       throw new UnauthorizedException('Invalid API key');
+    }
+
+    // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
+    void this.db
+      .update(schema.projects)
+      .set({ apiKeyLastUsedAt: new Date() })
+      .where(eq(schema.projects.id, project.id));
+
+    // Check required scope if set on the route via @RequireScope()
+    const requiredScope = this.reflector.get<string>(SCOPE_KEY, context.getHandler());
+    if (requiredScope) {
+      await this.validateScope(project.id, requiredScope);
     }
 
     // Checking if project has access to the requested server
@@ -61,13 +74,52 @@ export class ApiKeyGuard implements CanActivate {
   private async validateApiKey(
     apiKey: string,
   ): Promise<typeof schema.projects.$inferSelect | null> {
+
+    const dotIndex = apiKey.indexOf('.');
+    if (dotIndex === -1) return null;
+
+    const prefix = apiKey.substring(0, dotIndex);
+    const secret = apiKey.substring(dotIndex + 1);
+
+    if (!prefix || !secret) return null;
+
     const [project] = await this.db
       .select()
       .from(schema.projects)
-      .where(eq(schema.projects.apiKey, apiKey))
+      .where(
+        and(
+          eq(schema.projects.apiKeyPrefix, prefix),
+          eq(schema.projects.isActive, true),
+        ),
+      )
       .limit(1);
 
-    return project || null;
+    if (!project || !project.apiKeyHash) {
+      return null;
+    }
+
+    // Constant-time hash comparison — prevents timing attacks
+    const isValid = verifyApiKey(secret, project.apiKeyHash);
+    return isValid ? project : null;
+  }
+
+  private async validateScope(projectId: string, requiredScope: string): Promise<void> {
+    const [scope] = await this.db
+      .select()
+      .from(schema.projectScopes)
+      .where(
+        and(
+          eq(schema.projectScopes.projectId, projectId),
+          eq(schema.projectScopes.scope, requiredScope),
+        ),
+      )
+      .limit(1);
+
+    if (!scope) {
+      throw new ForbiddenException(
+        `Insufficient scope: '${requiredScope}' is required`,
+      );
+    }
   }
 
   private async validateServerAccess(
