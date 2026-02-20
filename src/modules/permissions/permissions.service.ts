@@ -25,7 +25,7 @@ export class PermissionsService {
       return { allowed: false, source: 'none' as const };
     }
 
-    const hasGlobal = await this.permissionsRepository.hasGlobalPermission(
+    const hasGlobal = await this.permissionsRepository.hasGlobalRolePermission(
       memberId,
       permissionId,
     );
