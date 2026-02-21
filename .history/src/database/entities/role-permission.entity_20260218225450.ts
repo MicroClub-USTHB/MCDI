@@ -8,7 +8,7 @@ export const rolePermissions = pgTable('role_permissions', {
   permissionId: integer('permission_id').references(() => permissions.id).notNull(),
 }, (t) => ({
   pk: primaryKey({ columns: [t.roleId, t.permissionId] }),
-  permissionIdIdx: index('role_permissions_permission_id_idx').on(
+  permissionIdIdx: index()('role_permissions_permission_id_idx').on(
       t.permissionId,
     ),
 }));

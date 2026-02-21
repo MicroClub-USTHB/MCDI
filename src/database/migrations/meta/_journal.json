@@ -15,6 +15,34 @@
       "when": 1770989156337,
       "tag": "0001_slow_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771410562273,
+      "tag": "0002_outgoing_frightful_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771452209394,
+      "tag": "0003_shiny_nighthawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771594222489,
+      "tag": "0004_luxuriant_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771598106320,
+      "tag": "0005_mute_mathemanic",
+      "breakpoints": true
     }
   ]
 }
