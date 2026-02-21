@@ -8,6 +8,6 @@ import { MemberRepository } from './member.repository';
   imports: [DatabaseModule],
   controllers: [MemberController],
   providers: [MemberService, MemberRepository],
-  exports: [MemberService],
+  exports: [MemberService, MemberRepository],
 })
 export class MembersModule {}

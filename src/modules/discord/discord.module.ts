@@ -29,8 +29,15 @@ const DiscordProvider: Provider = {
 
     const TOKEN = configService.get<string>('discord.token');
 
-    await client.login(TOKEN);
-
+    try {
+      await client.login(TOKEN);
+    } catch (err) {
+      console.warn(
+        '[DiscordModule] Failed to login with Discord token:',
+        (err as Error).message,
+        '— Discord features will be unavailable.',
+      );
+    }
     return client;
   },
   inject: [ConfigService],
@@ -53,6 +60,10 @@ export class DiscordModule implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     console.log('Destroying Discord client');
-    await this.client.destroy();
+    try {
+      await this.client.destroy();
+    } catch {
+      // ignore errors on shutdown
+    }
   }
 }

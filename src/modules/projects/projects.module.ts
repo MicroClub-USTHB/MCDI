@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ProjectsAccessRepository } from './projects-access.repository';
-import { ProjectsAccessService } from './projects-access.service';
-import { ProjectsAccessController } from './projects-access.controller';
+import { ProjectsService } from './projects.service';
+import { ProjectsController } from './projects.controller';
+import { ProjectsRepository } from './projects.repository';
+import { DatabaseModule } from '@/database/database.module';
 
 @Module({
-  controllers: [ProjectsAccessController],
-  providers: [ProjectsAccessRepository, ProjectsAccessService],
-  exports: [ProjectsAccessService],    
+  imports: [DatabaseModule],
+  controllers: [ProjectsController],
+  providers: [ProjectsService, ProjectsRepository],
 })
 export class ProjectsModule {}
