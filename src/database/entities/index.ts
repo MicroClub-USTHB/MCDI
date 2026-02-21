@@ -10,6 +10,7 @@ export * from './role-permission.entity';
 export * from './server-member.entity';
 export * from './server-member-role.entity';
 export * from './project-server.entity';
+export * from './project-scope.entity';
 export * from './session.entity';
 export * from './server-sync-log.entity';
 

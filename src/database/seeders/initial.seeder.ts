@@ -3,8 +3,9 @@ import * as schema from '../entities';
 import { createMemberFactory } from '../factories/member.factory';
 import { createServerFactory } from '../factories/server.factory';
 import { createProjectFactory } from '../factories/project.factory';
+import { createAllScopesFactory } from '../factories/project-scope.factory';
 import { createRoleFactory } from '../factories/role.factory';
-import { createPermissionFactory } from '../factories/permission.factory';
+import { createSessionFactory } from '../factories/session.factory';
 
 export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log('Seeding initial data...');
@@ -59,7 +60,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const serverId = insertedServer?.id || mainServer.id;
   console.log(`  - Seeding roles for server ${serverId}...`);
   const rolesData = [
-    createRoleFactory(serverId, { name: 'Admin', position: 1 }),
+    createRoleFactory(serverId, { name: 'Executive', position: 1 }),
     createRoleFactory(serverId, { name: 'Lead', position: 2 }),
     createRoleFactory(serverId, { name: 'Member', position: 3 }),
   ];
@@ -71,10 +72,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
 
   console.log('Seeding role permissions...');
   if (insertedRoles.length > 0 && insertedPermissions.length > 0) {
-    const adminRole = insertedRoles.find((r) => r.name === 'Admin');
-    if (adminRole) {
+    const executiveRole = insertedRoles.find((r) => r.name === 'Executive');
+    if (executiveRole) {
       const rolePermissionsData = insertedPermissions.map((p) => ({
-        roleId: adminRole.id,
+        roleId: executiveRole.id,
         permissionId: p.id,
       }));
       await db
@@ -94,9 +95,23 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .onConflictDoNothing()
     .returning();
 
+  // Seed a dedicated admin member with Executive role for testing
+  const adminMember = createMemberFactory({
+    username: 'mcdi_admin',
+    globalName: 'MCDI Admin',
+    isClubMember: true,
+  });
+  const [insertedAdmin] = await db
+    .insert(schema.members)
+    .values(adminMember)
+    .onConflictDoNothing()
+    .returning();
+
+  const allMembers = [...insertedMembers, ...(insertedAdmin ? [insertedAdmin] : [])];
+
   console.log('Seeding server members...');
-  if (insertedMembers.length > 0) {
-    const serverMembersData = insertedMembers.map((m) => ({
+  if (allMembers.length > 0) {
+    const serverMembersData = allMembers.map((m) => ({
       serverId: serverId,
       memberId: m.id,
       joinedAt: new Date(),
@@ -105,6 +120,24 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .insert(schema.serverMembers)
       .values(serverMembersData)
       .onConflictDoNothing();
+  }
+
+  // Assign Executive role to the admin member
+  if (insertedAdmin) {
+    const executiveRole = insertedRoles.find((r) => r.name === 'Executive');
+    if (executiveRole) {
+      await db
+        .insert(schema.serverMemberRoles)
+        .values({ memberId: insertedAdmin.id, roleId: executiveRole.id })
+        .onConflictDoNothing();
+    }
+
+    // Seed a test session for the admin member (expires in 30 days)
+    const adminSession = createSessionFactory(insertedAdmin.id, {
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+    await db.insert(schema.sessions).values(adminSession).onConflictDoNothing();
+    console.log(`  - Admin session token: ${adminSession.token}`);
   }
 
   console.log('Seeding project...');
@@ -119,7 +152,14 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .returning();
 
   if (insertedProject) {
-    console.log('Linking project to server...');
+    console.log('  - Seeding project scopes...');
+    const scopesData = createAllScopesFactory(insertedProject.id);
+    await db
+      .insert(schema.projectScopes)
+      .values(scopesData)
+      .onConflictDoNothing();
+
+    console.log('  - Linking project to server...');
     await db
       .insert(schema.projectServers)
       .values({
@@ -128,6 +168,9 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
         operations: { read: true, write: true, manage_members: true },
       })
       .onConflictDoNothing();
+
+    console.log(`  - Project API key prefix: ${projectData.apiKeyPrefix}`);
+    console.log('    (Full key is not stored — regenerate via admin endpoint if needed)');
   }
 
   console.log('Initial seeding completed!');

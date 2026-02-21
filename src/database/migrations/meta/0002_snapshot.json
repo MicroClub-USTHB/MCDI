@@ -1,5 +1,5 @@
 {
-  "id": "96f46afa-6330-4564-8dd9-33083f6b5d9a",
+  "id": "6170fa5a-833a-4d31-a8c3-814aca3c67e7",
   "prevId": "a9d64fd0-1051-48d1-9949-f8aea6f72ba4",
   "version": "7",
   "dialect": "postgresql",
@@ -229,11 +229,23 @@
           "primaryKey": false,
           "notNull": false
         },
-        "api_key": {
-          "name": "api_key",
+        "api_key_hash": {
+          "name": "api_key_hash",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "api_key_prefix": {
+          "name": "api_key_prefix",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "api_key_last_used_at": {
+          "name": "api_key_last_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "api_key_created_at": {
           "name": "api_key_created_at",
@@ -241,6 +253,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "webhook_url": {
           "name": "webhook_url",
@@ -274,11 +293,11 @@
             "name"
           ]
         },
-        "projects_api_key_unique": {
-          "name": "projects_api_key_unique",
+        "projects_api_key_hash_unique": {
+          "name": "projects_api_key_hash_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "api_key"
+            "api_key_hash"
           ]
         }
       },
@@ -417,7 +436,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_roles_server_id": {
+          "name": "idx_roles_server_id",
+          "columns": [
+            {
+              "expression": "server_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "roles_server_id_servers_id_fk": {
           "name": "roles_server_id_servers_id_fk",
@@ -520,22 +555,25 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "last_synced_at": {
-          "name": "last_synced_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_server_members_member_id": {
+          "name": "idx_server_members_member_id",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "server_members_server_id_servers_id_fk": {
           "name": "server_members_server_id_servers_id_fk",

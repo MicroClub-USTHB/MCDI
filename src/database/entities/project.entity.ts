@@ -1,14 +1,17 @@
-import { pgTable, text, timestamp, varchar, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, uuid, boolean } from 'drizzle-orm/pg-core';
 
 export const projects = pgTable('projects', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name', { length: 255 }).notNull().unique(),
   description: text('description'),
-  apiKey: varchar('api_key', { length: 255 }).notNull().unique(),
+  apiKeyHash: varchar('api_key_hash', { length: 255 }).notNull().unique(),
+  apiKeyPrefix: varchar('api_key_prefix', { length: 40 }),
+  apiKeyLastUsedAt: timestamp('api_key_last_used_at', { withTimezone: true }),
   apiKeyCreatedAt: timestamp('api_key_created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),
-  webhookUrl: text('webhook_url'),
+  isActive : boolean('is_active').default(true).notNull(),
+  webhokUrl: text('webhook_url'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
