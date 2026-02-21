@@ -76,7 +76,10 @@ export class ServersRepository {
     return row;
   }
 
-  async updateById(serverId: string, patch: Partial<typeof servers.$inferInsert>) {
+  async updateById(
+    serverId: string,
+    patch: Partial<typeof servers.$inferInsert>,
+  ) {
     const [row] = await this.db
       .update(servers)
       .set(patch)
@@ -104,10 +107,46 @@ export class ServersRepository {
         .where(inArray(serverMemberRoles.roleId, roleIds));
     }
 
-    await this.db.delete(projectServers).where(eq(projectServers.serverId, serverId));
-    await this.db.delete(serverSyncLogs).where(eq(serverSyncLogs.serverId, serverId));
-    await this.db.delete(serverMembers).where(eq(serverMembers.serverId, serverId));
+    await this.db
+      .delete(projectServers)
+      .where(eq(projectServers.serverId, serverId));
+    await this.db
+      .delete(serverSyncLogs)
+      .where(eq(serverSyncLogs.serverId, serverId));
+    await this.db
+      .delete(serverMembers)
+      .where(eq(serverMembers.serverId, serverId));
     await this.db.delete(roles).where(eq(roles.serverId, serverId));
     await this.db.delete(servers).where(eq(servers.id, serverId));
+  }
+
+  // role sync
+  async upsertRole(
+    roleData: typeof roles.$inferInsert,
+  ): Promise<typeof roles.$inferSelect> {
+    const [row] = await this.db
+      .insert(roles)
+      .values({
+        ...roleData,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: roles.id,
+        set: {
+          name: roleData.name,
+          color: roleData.color,
+          hoist: roleData.hoist,
+          position: roleData.position,
+          managed: roleData.managed,
+          mentionable: roleData.mentionable,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async deleteRole(roleId: string): Promise<void> {
+    await this.db.delete(roles).where(eq(roles.id, roleId));
   }
 }

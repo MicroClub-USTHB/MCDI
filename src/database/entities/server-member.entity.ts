@@ -3,6 +3,7 @@ import {
   varchar,
   timestamp,
   primaryKey,
+  boolean,
   index,
 } from 'drizzle-orm/pg-core';
 import { servers } from './server.entity';
@@ -18,6 +19,12 @@ export const serverMembers = pgTable(
       .references(() => members.id)
       .notNull(),
     joinedAt: timestamp('joined_at'),
+    isActive: boolean('is_active').default(true).notNull(),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.serverId, t.memberId] }),
+  }),
   },
   (t) => [
     primaryKey({ columns: [t.serverId, t.memberId] }),

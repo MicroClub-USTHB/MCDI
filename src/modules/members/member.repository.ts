@@ -6,7 +6,11 @@ import { Inject } from '@nestjs/common';
 import { DRIZZLE } from './../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from './../../database/entities';
-import { eq, and, like, or, sql } from 'drizzle-orm';
+import { eq, and, like, or, sql, inArray, lt } from 'drizzle-orm';
+import { members } from '../../database/entities/member.entity';
+import { serverMembers } from '../../database/entities/server-member.entity';
+import { serverMemberRoles } from '../../database/entities/server-member-role.entity';
+import { roles } from '../../database/entities/role.entity';
 
 interface DbPagination {
   offset: number;
@@ -187,5 +191,115 @@ export class MemberRepository {
       members,
       total,
     };
+  }
+
+  // SYNC METHODS
+
+  async upsertMember(
+    data: typeof members.$inferInsert,
+  ): Promise<typeof members.$inferSelect> {
+    const [row] = await this.db
+      .insert(members)
+      .values({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: members.id,
+        set: {
+          username: data.username,
+          globalName: data.globalName,
+          displayName: data.displayName,
+          avatar: data.avatar,
+          email: data.email,
+          isClubMember: data.isClubMember,
+          syncedAt: data.syncedAt,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async upsertServerMembership(
+    data: typeof serverMembers.$inferInsert,
+  ): Promise<typeof serverMembers.$inferSelect> {
+    const [row] = await this.db
+      .insert(serverMembers)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [serverMembers.serverId, serverMembers.memberId],
+        set: {
+          joinedAt: data.joinedAt,
+          isActive: data.isActive,
+          lastSyncedAt: data.lastSyncedAt,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async replaceMemberRoles(
+    serverId: string,
+    memberId: string,
+    roleIds: string[],
+  ): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const existingRoles = await tx
+        .select({ roleId: serverMemberRoles.roleId })
+        .from(serverMemberRoles)
+        .innerJoin(roles, eq(serverMemberRoles.roleId, roles.id))
+        .where(
+          and(
+            eq(serverMemberRoles.memberId, memberId),
+            eq(roles.serverId, serverId),
+          ),
+        );
+
+      if (existingRoles.length > 0) {
+        const roleIdsToDelete = existingRoles.map((r) => r.roleId);
+        await tx
+          .delete(serverMemberRoles)
+          .where(
+            and(
+              eq(serverMemberRoles.memberId, memberId),
+              inArray(serverMemberRoles.roleId, roleIdsToDelete),
+            ),
+          );
+      }
+
+      if (roleIds.length > 0) {
+        await tx.insert(serverMemberRoles).values(
+          roleIds.map((roleId) => ({
+            memberId,
+            roleId,
+          })),
+        );
+      }
+    });
+  }
+
+  async markInactiveForServer(
+    serverId: string,
+    syncStart: Date,
+  ): Promise<number> {
+    const result = await this.db
+      .update(serverMembers)
+      .set({ isActive: false, lastSyncedAt: new Date() })
+      .where(
+        and(
+          eq(serverMembers.serverId, serverId),
+          eq(serverMembers.isActive, true),
+          lt(serverMembers.lastSyncedAt, syncStart),
+        ),
+      );
+    return result.rowCount ?? 0;
+  }
+
+  // role deletion
+  async deleteMemberRolesByRoleId(roleId: string): Promise<void> {
+    await this.db
+      .delete(serverMemberRoles)
+      .where(eq(serverMemberRoles.roleId, roleId));
   }
 }
