@@ -4,6 +4,7 @@ import {
   timestamp,
   primaryKey,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core';
 import { servers } from './server.entity';
 import { members } from './member.entity';
@@ -24,4 +25,9 @@ export const serverMembers = pgTable(
   (t) => ({
     pk: primaryKey({ columns: [t.serverId, t.memberId] }),
   }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.serverId, t.memberId] }),
+    index('idx_server_members_member_id').on(t.memberId),
+  ],
 );

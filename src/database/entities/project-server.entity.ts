@@ -13,7 +13,5 @@ export const projectServers = pgTable(
       .notNull(),
     operations: jsonb('operations').default({ read: true }).notNull(),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.projectId, t.serverId] }),
-  }),
+  (t) => [primaryKey({ columns: [t.projectId, t.serverId] })],
 );
