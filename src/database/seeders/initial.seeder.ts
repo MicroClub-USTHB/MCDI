@@ -125,7 +125,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .values({
         projectId: insertedProject.id,
         serverId: serverId,
-        operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: true },
+        operations: { read: true, write: true, manage_members: true },
       })
       .onConflictDoNothing();
   }

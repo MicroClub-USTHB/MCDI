@@ -1,7 +1,6 @@
 import { pgTable, varchar, primaryKey } from 'drizzle-orm/pg-core';
 import { roles } from './role.entity';
 import { members } from './member.entity';
-import { index } from 'drizzle-orm/pg-core';
 
 export const serverMemberRoles = pgTable(
   'server_member_roles',
@@ -15,6 +14,5 @@ export const serverMemberRoles = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.memberId, t.roleId] }),
-    roleIdIdx: index('server_member_roles_role_id_idx').on(t.roleId),
   }),
 );
