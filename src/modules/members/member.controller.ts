@@ -23,6 +23,8 @@ import {
   MemberResponseDto,
   MemberSearchResponseDto,
 } from './dto/member-response.dto';
+import { RequireProjectOperation } from '../../common/decorators/require-project-operation.decorator';
+
 
 interface PaginationMeta {
   page: number;
@@ -36,6 +38,7 @@ interface PaginationMeta {
 @ApiTags('members')
 @ApiBearerAuth('api-key')
 @ApiExtraModels(MemberSearchResponseDto)
+@RequireProjectOperation('READ')
 @Controller('servers/:serverId/members')
 @UseGuards(ApiKeyGuard)
 export class MemberController {
