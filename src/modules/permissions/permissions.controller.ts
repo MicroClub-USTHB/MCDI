@@ -10,7 +10,7 @@ import {
 import { CheckPermissionDto } from './dto/check-permission.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
 import { PermissionsService } from './permissions.service';
-import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 @ApiTags('Permissions')
 @Controller('permissions')

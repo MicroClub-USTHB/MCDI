@@ -21,7 +21,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ProjectsAccessService } from './projects-access.service';
 import { SetProjectServerAccessDto } from './dto/set-project-server-access.dto';
 
