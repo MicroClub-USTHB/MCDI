@@ -1,76 +1,9 @@
 {
-  "id": "855aa819-3cfc-48cc-b614-d057078984f3",
+  "id": "6170fa5a-833a-4d31-a8c3-814aca3c67e7",
   "prevId": "a9d64fd0-1051-48d1-9949-f8aea6f72ba4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.member_global_permissions": {
-      "name": "member_global_permissions",
-      "schema": "",
-      "columns": {
-        "member_id": {
-          "name": "member_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "permission_id": {
-          "name": "permission_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "member_global_permissions_member_id_members_id_fk": {
-          "name": "member_global_permissions_member_id_members_id_fk",
-          "tableFrom": "member_global_permissions",
-          "tableTo": "members",
-          "columnsFrom": [
-            "member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "member_global_permissions_permission_id_permissions_id_fk": {
-          "name": "member_global_permissions_permission_id_permissions_id_fk",
-          "tableFrom": "member_global_permissions",
-          "tableTo": "permissions",
-          "columnsFrom": [
-            "permission_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "member_global_permissions_member_id_permission_id_pk": {
-          "name": "member_global_permissions_member_id_permission_id_pk",
-          "columns": [
-            "member_id",
-            "permission_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.members": {
       "name": "members",
       "schema": "",
@@ -296,11 +229,23 @@
           "primaryKey": false,
           "notNull": false
         },
-        "api_key": {
-          "name": "api_key",
+        "api_key_hash": {
+          "name": "api_key_hash",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "api_key_prefix": {
+          "name": "api_key_prefix",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "api_key_last_used_at": {
+          "name": "api_key_last_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "api_key_created_at": {
           "name": "api_key_created_at",
@@ -308,6 +253,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "webhook_url": {
           "name": "webhook_url",
@@ -341,141 +293,14 @@
             "name"
           ]
         },
-        "projects_api_key_unique": {
-          "name": "projects_api_key_unique",
+        "projects_api_key_hash_unique": {
+          "name": "projects_api_key_hash_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "api_key"
+            "api_key_hash"
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.role_inheritance_rule_targets": {
-      "name": "role_inheritance_rule_targets",
-      "schema": "",
-      "columns": {
-        "rule_id": {
-          "name": "rule_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_server_id": {
-          "name": "target_server_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "role_inheritance_rule_targets_rule_id_role_inheritance_rules_id_fk": {
-          "name": "role_inheritance_rule_targets_rule_id_role_inheritance_rules_id_fk",
-          "tableFrom": "role_inheritance_rule_targets",
-          "tableTo": "role_inheritance_rules",
-          "columnsFrom": [
-            "rule_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "role_inheritance_rule_targets_target_server_id_servers_id_fk": {
-          "name": "role_inheritance_rule_targets_target_server_id_servers_id_fk",
-          "tableFrom": "role_inheritance_rule_targets",
-          "tableTo": "servers",
-          "columnsFrom": [
-            "target_server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "role_inheritance_rule_targets_rule_id_target_server_id_pk": {
-          "name": "role_inheritance_rule_targets_rule_id_target_server_id_pk",
-          "columns": [
-            "rule_id",
-            "target_server_id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.role_inheritance_rules": {
-      "name": "role_inheritance_rules",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "source_role_id": {
-          "name": "source_role_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_scope": {
-          "name": "target_scope",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'all'"
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "role_inheritance_rules_source_role_id_roles_id_fk": {
-          "name": "role_inheritance_rules_source_role_id_roles_id_fk",
-          "tableFrom": "role_inheritance_rules",
-          "tableTo": "roles",
-          "columnsFrom": [
-            "source_role_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -611,7 +436,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_roles_server_id": {
+          "name": "idx_roles_server_id",
+          "columns": [
+            {
+              "expression": "server_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "roles_server_id_servers_id_fk": {
           "name": "roles_server_id_servers_id_fk",
@@ -716,7 +557,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_server_members_member_id": {
+          "name": "idx_server_members_member_id",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "server_members_server_id_servers_id_fk": {
           "name": "server_members_server_id_servers_id_fk",

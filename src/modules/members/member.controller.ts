@@ -19,6 +19,7 @@ import {
 import { MemberService } from './member.service';
 import { GetMembersQueryDto } from './dto/get-members-query.dto';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { RequireScope } from '../../common/decorators/require-scope.decorator';
 import {
   MemberResponseDto,
   MemberSearchResponseDto,
@@ -45,6 +46,7 @@ export class MemberController {
   constructor(private readonly memberService: MemberService) {}
 
   @Get(':discordId')
+  @RequireScope('read_members')
   @ApiOperation({
     summary: 'Get a single member by Discord ID',
     description:
@@ -80,6 +82,7 @@ export class MemberController {
   }
 
   @Get()
+  @RequireScope('read_members')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Search members',

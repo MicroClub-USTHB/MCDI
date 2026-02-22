@@ -6,8 +6,9 @@ import { ServersListener } from './servers.listener';
 import { ServersRepository } from '../servers/servers.repository';
 
 @Module({
-    imports: [DiscordModule],
-    controllers: [ServersController],
-    providers: [ServersRepository, ServersService, ServersListener],
+  imports: [DiscordModule],
+  controllers: [ServersController],
+  providers: [ServersRepository, ServersService, ServersListener],
+  exports: [ServersRepository, ServersService],
 })
 export class ServersModule {}

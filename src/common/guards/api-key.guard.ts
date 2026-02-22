@@ -19,6 +19,10 @@ import { Reflector } from '@nestjs/core';
 import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
 import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
 import type { ProjectServerOperation } from '../../modules/projects/projects-access.types';
+import { verifyApiKey } from '../utils/api-key.util';
+import { extractApiKey } from '../utils/auth.util';
+import { validateScope } from '../utils/scope.util';
+import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -42,9 +46,27 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
+    // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
+    void this.db
+      .update(schema.projects)
+      .set({ apiKeyLastUsedAt: new Date() })
+      .where(eq(schema.projects.id, project.id));
+
+    // Check required scope if set on the route via @RequireScope()
+    const requiredScope = this.reflector.get<string>(
+      SCOPE_KEY,
+      context.getHandler(),
+    );
+    if (requiredScope) {
+      await validateScope(this.db, project.id, requiredScope);
+    }
+
     // Checking if project has access to the requested server
     const serverId = this.extractServerId(request);
-    if (!serverId) return true;
+    if (!serverId) {
+      request.project = project;
+      return true;
+    }
 
     if (!/^\d{17,20}$/.test(serverId)) {
       throw new BadRequestException('Invalid server ID format');
@@ -74,35 +96,48 @@ export class ApiKeyGuard implements CanActivate {
       requiredOperation,
     );
 
+    request.project = project;
+
     return true;
   }
 
   private extractApiKey(request: Request): string | null {
-    const authHeader = request.headers.authorization;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-
-    const apiKey = request.headers['x-api-key'] || request.query.apiKey;
-    return typeof apiKey === 'string' ? apiKey : null;
+    return extractApiKey(request);
   }
 
   private async validateApiKey(
     apiKey: string,
   ): Promise<typeof schema.projects.$inferSelect | null> {
+    const dotIndex = apiKey.indexOf('.');
+    if (dotIndex === -1) return null;
+
+    const prefix = apiKey.substring(0, dotIndex);
+    const secret = apiKey.substring(dotIndex + 1);
+
+    if (!prefix || !secret) return null;
+
     const [project] = await this.db
       .select()
       .from(schema.projects)
-      .where(eq(schema.projects.apiKey, apiKey))
+      .where(
+        and(
+          eq(schema.projects.apiKeyPrefix, prefix),
+          eq(schema.projects.isActive, true),
+        ),
+      )
       .limit(1);
 
-    return project || null;
+    if (!project || !project.apiKeyHash) {
+      return null;
+    }
+
+    // Constant-time hash comparison — prevents timing attacks
+    const isValid = verifyApiKey(secret, project.apiKeyHash);
+    return isValid ? project : null;
   }
 
   private extractServerId(request: Request): string | null {
     const serverId = request.params.serverId || request.query.serverId;
     return typeof serverId === 'string' ? serverId : null;
   }
-
 }

@@ -19,29 +19,8 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1771410562273,
-      "tag": "0002_outgoing_frightful_four",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771452209394,
-      "tag": "0003_shiny_nighthawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1771594222489,
-      "tag": "0004_luxuriant_mole_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1771598106320,
-      "tag": "0005_mute_mathemanic",
+      "when": 1771596724723,
+      "tag": "0002_gray_johnny_blaze",
       "breakpoints": true
     }
   ]

@@ -9,6 +9,6 @@ import { ProjectsModule } from '../projects/projects.module';
   imports: [DatabaseModule, ProjectsModule],
   controllers: [MemberController],
   providers: [MemberService, MemberRepository],
-  exports: [MemberService],
+  exports: [MemberService, MemberRepository],
 })
 export class MembersModule {}
