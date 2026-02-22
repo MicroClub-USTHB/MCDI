@@ -16,3 +16,6 @@ export const roleInheritanceRuleTargets = pgTable(
     pk: primaryKey({ columns: [t.ruleId, t.targetServerId] }),
   }),
 );
+
+export type RoleInheritanceRuleTarget =
+  typeof roleInheritanceRuleTargets.$inferSelect;

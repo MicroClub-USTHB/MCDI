@@ -178,10 +178,11 @@ export class ProjectsAccessRepository {
   }
 
   async listAudit(limit = 100) {
+    const safeLimit = Math.max(limit, 1);
     return this.db
       .select()
       .from(projectServerAccessAudit)
       .orderBy(desc(projectServerAccessAudit.changedAt))
-      .limit(limit);
+      .limit(safeLimit);
   }
 }

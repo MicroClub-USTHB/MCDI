@@ -33,3 +33,5 @@ export const roleInheritanceRules = pgTable(
     ),
   }),
 );
+
+export type RoleInheritanceRule = typeof roleInheritanceRules.$inferSelect;

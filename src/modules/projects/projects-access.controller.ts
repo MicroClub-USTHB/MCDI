@@ -37,6 +37,8 @@ type RequestWithUser = Request & {
 @UseGuards(SystemAdminGuard)
 @Controller('projects/access')
 export class ProjectsAccessController {
+  private static readonly DEFAULT_AUDIT_LIMIT = 100;
+
   constructor(private readonly accessService: ProjectsAccessService) {}
 
   private resolveActor(req: RequestWithUser): string {
@@ -113,7 +115,10 @@ export class ProjectsAccessController {
   listAccessAudit(
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
-    const safeLimit = Math.min(Math.max(limit ?? 100, 1), 500);
+    const safeLimit = Math.min(
+      Math.max(limit ?? ProjectsAccessController.DEFAULT_AUDIT_LIMIT, 1),
+      500,
+    );
     return this.accessService.listAudit(safeLimit);
   }
 }

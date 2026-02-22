@@ -38,26 +38,25 @@ export class PermissionsRepository {
   }
 
   async hasGlobalRolePermission(
-  memberId: string,
-  permissionId: number,
-): Promise<boolean> {
-  const [row] = await this.db
-    .select({ roleId: serverMemberRoles.roleId })
-    .from(serverMemberRoles)
-    .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
-    .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
-    .where(
-      and(
-        eq(serverMemberRoles.memberId, memberId),
-        eq(roles.isGlobal, true),
-        eq(rolePermissions.permissionId, permissionId),
-      ),
-    )
-    .limit(1);
+    memberId: string,
+    permissionId: number,
+  ): Promise<boolean> {
+    const [row] = await this.db
+      .select({ roleId: serverMemberRoles.roleId })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.isGlobal, true),
+          eq(rolePermissions.permissionId, permissionId),
+        ),
+      )
+      .limit(1);
 
-  return Boolean(row);
-}
-
+    return Boolean(row);
+  }
 
   async hasServerPermission(
     memberId: string,

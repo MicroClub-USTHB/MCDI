@@ -141,6 +141,7 @@ export class ProjectsAccessService {
   }
 
   async listAudit(limit = 100) {
-    return this.repository.listAudit(limit);
+    const safeLimit = Math.min(Math.max(limit, 1), 500);
+    return this.repository.listAudit(safeLimit);
   }
 }

@@ -1,8 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayNotEmpty, IsArray, IsBoolean, IsIn, IsOptional, IsString, ValidateIf } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpsertInheritanceRuleDto {
-  @ApiProperty({ example: '112233445566778899', description: 'Role ID from main server' })
+  @ApiProperty({
+    example: '112233445566778899',
+    description: 'Role ID from main server',
+  })
   @IsString()
   sourceRoleId!: string;
 

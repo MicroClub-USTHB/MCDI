@@ -14,3 +14,8 @@ export const DEFAULT_PROJECT_SERVER_OPERATIONS: ProjectServerOperations = {
   SEND_MESSAGES: false,
   MANAGE_WEBHOOKS: false,
 };
+
+export const isProjectServerOperation = (
+  value: string,
+): value is ProjectServerOperation =>
+  PROJECT_SERVER_OPERATION_VALUES.includes(value as ProjectServerOperation);

@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-class AccessOperationsDto {
+export class AccessOperationsDto {
   @ApiPropertyOptional({ default: true })
   @IsOptional()
   @IsBoolean()

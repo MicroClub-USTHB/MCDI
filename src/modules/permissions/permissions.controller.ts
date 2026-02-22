@@ -18,7 +18,9 @@ export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Post('check')
-  @ApiOperation({ summary: 'Check user permission in a specific server context' })
+  @ApiOperation({
+    summary: 'Check user permission in a specific server context',
+  })
   @ApiBody({ type: CheckPermissionDto })
   @ApiOkResponse({ description: 'Permission check result returned.' })
   checkPermission(@Body() dto: CheckPermissionDto) {

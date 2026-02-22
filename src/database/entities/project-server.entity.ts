@@ -4,7 +4,6 @@ import { servers } from './server.entity';
 import { timestamp } from 'drizzle-orm/pg-core';
 import { index } from 'drizzle-orm/pg-core';
 
-
 export type ProjectServerOperations = {
   READ: boolean;
   SEND_MESSAGES: boolean;

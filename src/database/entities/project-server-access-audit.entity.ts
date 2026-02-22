@@ -28,10 +28,12 @@ export const projectServerAccessAudit = pgTable(
       .references(() => servers.id)
       .notNull(),
     action: projectServerAccessActionEnum('action').notNull(),
-    operationsBefore:
-      jsonb('operations_before').$type<ProjectServerOperations | null>(),
-    operationsAfter:
-      jsonb('operations_after').$type<ProjectServerOperations | null>(),
+    operationsBefore: jsonb(
+      'operations_before',
+    ).$type<ProjectServerOperations | null>(),
+    operationsAfter: jsonb(
+      'operations_after',
+    ).$type<ProjectServerOperations | null>(),
     changedBy: varchar('changed_by', { length: 255 }).notNull(),
     changedAt: timestamp('changed_at').defaultNow().notNull(),
   },
