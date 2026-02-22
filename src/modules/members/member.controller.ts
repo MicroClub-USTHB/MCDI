@@ -25,7 +25,7 @@ import {
   MemberSearchResponseDto,
 } from './dto/member-response.dto';
 import { RequireProjectOperation } from '../../common/decorators/require-project-operation.decorator';
-
+import { PermissionsService } from '../permissions/permissions.service';
 
 interface PaginationMeta {
   page: number;
@@ -43,7 +43,10 @@ interface PaginationMeta {
 @Controller('servers/:serverId/members')
 @UseGuards(ApiKeyGuard)
 export class MemberController {
-  constructor(private readonly memberService: MemberService) {}
+  constructor(
+    private readonly memberService: MemberService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   @Get(':discordId')
   @RequireScope('read_members')
@@ -128,5 +131,57 @@ export class MemberController {
     @Query() queryDto: GetMembersQueryDto,
   ): Promise<{ data: MemberSearchResponseDto[]; pagination: PaginationMeta }> {
     return await this.memberService.searchMembers(serverId, queryDto);
+  }
+
+  @Get(':discordId/permissions')
+  @RequireScope('read_members')
+  @ApiOperation({
+    summary: 'Get all effective permissions of a member in a server',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'discordId',
+    description: 'Discord user ID',
+    example: '876543210987654321',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Effective permissions returned',
+    schema: {
+      type: 'object',
+      properties: {
+        discordId: { type: 'string' },
+        serverId: { type: 'string' },
+        permissions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['SYSTEM_ADMIN', 'READ_MEMBERS'],
+        },
+        sources: {
+          type: 'object',
+          properties: {
+            global: { type: 'array', items: { type: 'string' } },
+            server: { type: 'array', items: { type: 'string' } },
+            inherited: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Invalid Discord ID format' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
+  @ApiResponse({
+    status: 403,
+    description: 'Project does not have access to this server',
+  })
+  async getMemberPermissions(
+    @Param('serverId') serverId: string,
+    @Param('discordId') discordId: string,
+  ) {
+    return this.permissionsService.getMemberPermissions(serverId, discordId);
   }
 }

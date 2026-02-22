@@ -120,4 +120,60 @@ export class PermissionsService {
   async listInheritanceRules() {
     return this.permissionsRepository.listInheritanceRules();
   }
+
+  private normalizePermissionNames(names: string[]): string[] {
+    return Array.from(
+      new Set(
+        names.map((n) => n.trim().toUpperCase()).filter((n) => n.length > 0),
+      ),
+    ).sort();
+  }
+
+  async getMemberPermissions(serverId: string, discordId: string) {
+    const memberId = discordId?.trim();
+    const normalizedServerId = serverId?.trim();
+
+    if (!memberId || !normalizedServerId) {
+      throw new BadRequestException('discordId and serverId are required');
+    }
+
+    if (
+      !/^\d{17,20}$/.test(memberId) ||
+      !/^\d{17,20}$/.test(normalizedServerId)
+    ) {
+      throw new BadRequestException('Invalid discordId or serverId format');
+    }
+
+    const [globalPermissions, serverPermissions, inheritedPermissions] =
+      await Promise.all([
+        this.permissionsRepository.listGlobalPermissionNames(memberId),
+        this.permissionsRepository.listServerPermissionNames(
+          memberId,
+          normalizedServerId,
+        ),
+        this.permissionsRepository.listInheritedPermissionNames(
+          memberId,
+          normalizedServerId,
+        ),
+      ]);
+
+    const global = this.normalizePermissionNames(globalPermissions);
+    const server = this.normalizePermissionNames(serverPermissions);
+    const inherited = this.normalizePermissionNames(inheritedPermissions);
+
+    const permissions = Array.from(
+      new Set([...global, ...server, ...inherited]),
+    ).sort();
+
+    return {
+      discordId: memberId,
+      serverId: normalizedServerId,
+      permissions,
+      sources: {
+        global,
+        server,
+        inherited,
+      },
+    };
+  }
 }

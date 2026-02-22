@@ -292,4 +292,108 @@ export class PermissionsRepository {
 
     return Array.from(byId.values()).sort((a, b) => b.id - a.id);
   }
+  async listGlobalPermissionNames(memberId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ name: permissions.name })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(
+        and(eq(serverMemberRoles.memberId, memberId), eq(roles.isGlobal, true)),
+      );
+
+    return Array.from(new Set(rows.map((r) => r.name)));
+  }
+
+  async listServerPermissionNames(
+    memberId: string,
+    serverId: string,
+  ): Promise<string[]> {
+    const rows = await this.db
+      .select({ name: permissions.name })
+      .from(serverMembers)
+      .innerJoin(
+        serverMemberRoles,
+        eq(serverMemberRoles.memberId, serverMembers.memberId),
+      )
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(
+        and(
+          eq(serverMembers.memberId, memberId),
+          eq(serverMembers.serverId, serverId),
+          eq(roles.serverId, serverId),
+        ),
+      );
+
+    return Array.from(new Set(rows.map((r) => r.name)));
+  }
+
+  async listInheritedPermissionNames(
+    memberId: string,
+    serverId: string,
+  ): Promise<string[]> {
+    const mainServerId = await this.getMainServerId();
+    if (!mainServerId || mainServerId === serverId) return [];
+
+    const inheritedRoleRows = await this.db
+      .select({ roleName: roles.name })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .innerJoin(
+        roleInheritanceRules,
+        and(
+          eq(roleInheritanceRules.sourceRoleId, roles.id),
+          eq(roleInheritanceRules.enabled, true),
+        ),
+      )
+      .leftJoin(
+        roleInheritanceRuleTargets,
+        and(
+          eq(roleInheritanceRuleTargets.ruleId, roleInheritanceRules.id),
+          eq(roleInheritanceRuleTargets.targetServerId, serverId),
+        ),
+      )
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, mainServerId),
+          or(
+            eq(roleInheritanceRules.targetScope, 'all'),
+            and(
+              eq(roleInheritanceRules.targetScope, 'selected'),
+              eq(roleInheritanceRuleTargets.targetServerId, serverId),
+            ),
+          ),
+        ),
+      );
+
+    if (!inheritedRoleRows.length) return [];
+
+    const inheritedRoleNames = new Set(
+      inheritedRoleRows.map((r) => r.roleName.trim().toLowerCase()),
+    );
+
+    const targetRows = await this.db
+      .select({
+        roleName: roles.name,
+        permissionName: permissions.name,
+      })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(eq(roles.serverId, serverId));
+
+    return Array.from(
+      new Set(
+        targetRows
+          .filter((r) =>
+            inheritedRoleNames.has(r.roleName.trim().toLowerCase()),
+          )
+          .map((r) => r.permissionName),
+      ),
+    );
+  }
 }
