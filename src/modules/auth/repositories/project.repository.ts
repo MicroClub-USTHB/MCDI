@@ -1,0 +1,226 @@
+import { Injectable, Inject } from '@nestjs/common';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { eq, and, inArray, sql } from 'drizzle-orm';
+import { DRIZZLE } from '../../../database/database.module';
+import * as schema from '../../../database/entities';
+
+@Injectable()
+export class ProjectRepository {
+    constructor(
+        @Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>,
+    ) { }
+
+    /** Find a project by its API key */
+    async findByApiKey(apiKey: string) {
+        const results = await this.db
+            .select()
+            .from(schema.projects)
+            .where(eq(schema.projects.apiKey, apiKey))
+            .limit(1);
+
+        return results[0] || null;
+    }
+
+    /** Get the role IDs that are allowed to access a project */
+    async findAllowedRoleIds(projectId: string): Promise<string[]> {
+        const rows = await this.db
+            .select({ roleId: schema.projectRoles.roleId })
+            .from(schema.projectRoles)
+            .where(eq(schema.projectRoles.projectId, projectId));
+
+        return rows.map((r) => r.roleId);
+    }
+
+    /** Get the allowed roles with full role details */
+    async findAllowedRoles(projectId: string) {
+        const rows = await this.db
+            .select({
+                roleId: schema.projectRoles.roleId,
+                roleName: schema.roles.name,
+                roleColor: schema.roles.color,
+                rolePosition: schema.roles.position,
+            })
+            .from(schema.projectRoles)
+            .innerJoin(schema.roles, eq(schema.projectRoles.roleId, schema.roles.id))
+            .where(eq(schema.projectRoles.projectId, projectId));
+
+        return rows;
+    }
+
+    /** Get the main Discord server (isMain = true) */
+    async findMainServer() {
+        const results = await this.db
+            .select()
+            .from(schema.servers)
+            .where(eq(schema.servers.isMain, true))
+            .limit(1);
+
+        return results[0] || null;
+    }
+
+    /** Check if a member exists in a specific server */
+    async isMemberInServer(memberId: string, serverId: string): Promise<boolean> {
+        const rows = await this.db
+            .select()
+            .from(schema.serverMembers)
+            .where(
+                and(
+                    eq(schema.serverMembers.memberId, memberId),
+                    eq(schema.serverMembers.serverId, serverId),
+                ),
+            )
+            .limit(1);
+
+        return rows.length > 0;
+    }
+
+    /** Get a member's role IDs in a specific server */
+    async getMemberRolesInServer(memberId: string, serverId: string) {
+        const rows = await this.db
+            .select({
+                roleId: schema.serverMemberRoles.roleId,
+                roleName: schema.roles.name,
+                roleColor: schema.roles.color,
+                rolePosition: schema.roles.position,
+            })
+            .from(schema.serverMemberRoles)
+            .innerJoin(schema.roles, eq(schema.serverMemberRoles.roleId, schema.roles.id))
+            .where(
+                and(
+                    eq(schema.serverMemberRoles.memberId, memberId),
+                    eq(schema.roles.serverId, serverId),
+                ),
+            );
+
+        return rows;
+    }
+
+    /** Check if a member holds any of the required roles */
+    async memberHasAnyRole(memberId: string, roleIds: string[]): Promise<boolean> {
+        if (roleIds.length === 0) return true; // No role restriction
+
+        const rows = await this.db
+            .select()
+            .from(schema.serverMemberRoles)
+            .where(
+                and(
+                    eq(schema.serverMemberRoles.memberId, memberId),
+                    inArray(schema.serverMemberRoles.roleId, roleIds),
+                ),
+            )
+            .limit(1);
+
+        return rows.length > 0;
+    }
+
+    /** Find a server by its name */
+    async findServerByName(name: string) {
+        const results = await this.db
+            .select()
+            .from(schema.servers)
+            .where(eq(schema.servers.name, name))
+            .limit(1);
+
+        return results[0] || null;
+    }
+
+    /** Check if a project has access to a specific server */
+    async hasServerAccess(projectId: string, serverId: string): Promise<boolean> {
+        const rows = await this.db
+            .select()
+            .from(schema.projectServers)
+            .where(
+                and(
+                    eq(schema.projectServers.projectId, projectId),
+                    eq(schema.projectServers.serverId, serverId),
+                ),
+            )
+            .limit(1);
+
+        return rows.length > 0;
+    }
+
+    /** Validate redirect URI against project's allowed URIs */
+    async isRedirectUriAllowed(projectId: string, redirectUri: string): Promise<boolean> {
+        const project = await this.db
+            .select({ redirectUri: schema.projects.redirectUri })
+            .from(schema.projects)
+            .where(eq(schema.projects.id, projectId))
+            .limit(1);
+
+        if (!project[0]?.redirectUri) return false;
+
+        // Support comma-separated list of allowed URIs
+        const allowedUris = project[0].redirectUri
+            .split(',')
+            .map(uri => uri.trim());
+
+        return allowedUris.includes(redirectUri);
+    }
+
+    /**
+     * Sync a member's server membership and Discord roles into the MCDI DB.
+     * Called during OAuth callback so roles are always up-to-date.
+     */
+    async syncMemberServerData(
+        memberId: string,
+        serverId: string,
+        discordRoles: { id: string; name: string; color?: number; position?: number }[],
+    ): Promise<void> {
+        // 1. Ensure server_members row exists
+        await this.db
+            .insert(schema.serverMembers)
+            .values({ memberId, serverId, joinedAt: new Date() })
+            .onConflictDoNothing();
+
+        if (discordRoles.length === 0) return;
+
+        // 2. Upsert roles into the roles table (Discord role ID is PK)
+        await this.db
+            .insert(schema.roles)
+            .values(
+                discordRoles.map((r) => ({
+                    id: r.id,
+                    serverId,
+                    name: r.name,
+                    color: r.color ?? null,
+                    position: r.position ?? 0,
+                })),
+            )
+            .onConflictDoUpdate({
+                target: schema.roles.id,
+                set: {
+                    name: sql`excluded.name`,
+                    color: sql`excluded.color`,
+                    position: sql`excluded.position`,
+                    updatedAt: new Date(),
+                },
+            });
+
+        // 3. Upsert server_member_roles
+        await this.db
+            .insert(schema.serverMemberRoles)
+            .values(
+                discordRoles.map((r) => ({
+                    memberId,
+                    roleId: r.id,
+                })),
+            )
+            .onConflictDoNothing();
+    }
+
+    /** Regenerate API key for a project */
+    async regenerateApiKey(projectId: string, newApiKey: string) {
+        const projects = await this.db
+            .update(schema.projects)
+            .set({
+                apiKey: newApiKey,
+                apiKeyCreatedAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(schema.projects.id, projectId))
+            .returning();
+
+        return projects[0] || null;
+    }
+}

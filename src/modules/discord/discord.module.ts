@@ -31,13 +31,13 @@ const DiscordProvider: Provider = {
 
     try {
       await client.login(TOKEN);
-    } catch (err) {
+    } catch (error) {
       console.warn(
-        '[DiscordModule] Failed to login with Discord token:',
-        (err as Error).message,
-        '— Discord features will be unavailable.',
+        'Discord bot login failed - bot features will be unavailable. OAuth flow still works.',
+        (error as Error).message,
       );
     }
+
     return client;
   },
   inject: [ConfigService],

@@ -23,6 +23,11 @@ export const createProjectFactory = (
     apiKeyHash: hash,
     apiKeyPrefix: prefix,
     apiKeyCreatedAt: new Date(),
+    webhookUrl: faker.internet.url(),
+    isInternal: false,
+    redirectUri: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isActive: true,
     ...overrides,
   };
