@@ -19,7 +19,7 @@ import {
 import { SyncService } from './sync.service';
 import { TriggerSyncDto } from './dto/trigger-sync.dto';
 import { SyncStatusDto } from './dto/sync-status.dto';
-import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 @ApiTags('Admin Sync')
 @ApiBearerAuth()

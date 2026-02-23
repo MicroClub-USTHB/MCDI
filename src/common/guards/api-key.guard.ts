@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   CanActivate,
@@ -7,12 +10,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
+import { Reflector } from '@nestjs/core';
+import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
+import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
+import type { ProjectServerOperation } from '../../modules/projects/projects-access.types';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
 import { validateScope } from '../utils/scope.util';
@@ -23,6 +29,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
+    private readonly projectsAccessService: ProjectsAccessService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -46,16 +53,48 @@ export class ApiKeyGuard implements CanActivate {
       .where(eq(schema.projects.id, project.id));
 
     // Check required scope if set on the route via @RequireScope()
-    const requiredScope = this.reflector.get<string>(SCOPE_KEY, context.getHandler());
+    const requiredScope = this.reflector.get<string>(
+      SCOPE_KEY,
+      context.getHandler(),
+    );
     if (requiredScope) {
       await validateScope(this.db, project.id, requiredScope);
     }
 
     // Checking if project has access to the requested server
-    const serverId = request.params.serverId;
-    if (serverId) {
-      await this.validateServerAccess(project.id, serverId);
+    const serverId = this.extractServerId(request);
+    if (!serverId) {
+      request.project = project;
+      return true;
     }
+
+    if (!/^\d{17,20}$/.test(serverId)) {
+      throw new BadRequestException('Invalid server ID format');
+    }
+
+    const [server] = await this.db
+      .select({ id: schema.servers.id })
+      .from(schema.servers)
+      .where(
+        and(eq(schema.servers.id, serverId), eq(schema.servers.isActive, true)),
+      )
+      .limit(1);
+
+    if (!server) {
+      throw new ForbiddenException('Server not found or inactive');
+    }
+
+    const requiredOperation =
+      this.reflector.getAllAndOverride<ProjectServerOperation>(
+        PROJECT_OPERATION_KEY,
+        [context.getHandler(), context.getClass()],
+      ) ?? 'READ';
+
+    await this.projectsAccessService.assertProjectAccessOperation(
+      project.id,
+      serverId,
+      requiredOperation,
+    );
 
     request.project = project;
 
@@ -69,7 +108,6 @@ export class ApiKeyGuard implements CanActivate {
   private async validateApiKey(
     apiKey: string,
   ): Promise<typeof schema.projects.$inferSelect | null> {
-
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 
@@ -98,52 +136,8 @@ export class ApiKeyGuard implements CanActivate {
     return isValid ? project : null;
   }
 
-  private async validateServerAccess(
-    projectId: string,
-    serverId: string,
-  ): Promise<void> {
-    // Validating the server ID format
-    if (!/^\d{17,20}$/.test(serverId)) {
-      throw new BadRequestException('Invalid server ID format');
-    }
-
-    // Checking if server exists and is active
-    const [server] = await this.db
-      .select()
-      .from(schema.servers)
-      .where(
-        and(eq(schema.servers.id, serverId), eq(schema.servers.isActive, true)),
-      )
-      .limit(1);
-
-    if (!server) {
-      throw new ForbiddenException('Server not found or inactive');
-    }
-
-    // Checking if project has access to this server
-    const [access] = await this.db
-      .select()
-      .from(schema.projectServers)
-      .where(
-        and(
-          eq(schema.projectServers.projectId, projectId),
-          eq(schema.projectServers.serverId, serverId),
-        ),
-      )
-      .limit(1);
-
-    if (!access) {
-      throw new ForbiddenException(
-        'Project does not have access to this server',
-      );
-    }
-
-    // Checking if read operation is allowed
-    const operations = access.operations as { read?: boolean };
-    if (!operations?.read) {
-      throw new ForbiddenException(
-        'Project does not have read permission for this server',
-      );
-    }
+  private extractServerId(request: Request): string | null {
+    const serverId = request.params.serverId || request.query.serverId;
+    return typeof serverId === 'string' ? serverId : null;
   }
 }

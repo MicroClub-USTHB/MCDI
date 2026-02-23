@@ -107,7 +107,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .onConflictDoNothing()
     .returning();
 
-  const allMembers = [...insertedMembers, ...(insertedAdmin ? [insertedAdmin] : [])];
+  const allMembers = [
+    ...insertedMembers,
+    ...(insertedAdmin ? [insertedAdmin] : []),
+  ];
 
   console.log('Seeding server members...');
   if (allMembers.length > 0) {
@@ -165,12 +168,18 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .values({
         projectId: insertedProject.id,
         serverId: serverId,
-        operations: { read: true, write: true, manage_members: true },
+        operations: {
+          READ: true,
+          SEND_MESSAGES: true,
+          MANAGE_WEBHOOKS: true,
+        },
       })
       .onConflictDoNothing();
 
     console.log(`  - Project API key prefix: ${projectData.apiKeyPrefix}`);
-    console.log('    (Full key is not stored — regenerate via admin endpoint if needed)');
+    console.log(
+      '    (Full key is not stored — regenerate via admin endpoint if needed)',
+    );
   }
 
   console.log('Initial seeding completed!');
