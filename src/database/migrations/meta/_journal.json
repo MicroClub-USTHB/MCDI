@@ -5,8 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771377608135,
-      "tag": "0000_free_spirit",
+      "when": 1770492634555,
+      "tag": "0000_petite_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770989156337,
+      "tag": "0001_slow_jack_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771596724723,
+      "tag": "0002_gray_johnny_blaze",
       "breakpoints": true
     }
   ]

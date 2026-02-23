@@ -9,6 +9,8 @@
       "public/**/*"
     ],
     "watchAssets": true
+    "watchAssets": true,
+    "plugins": ["@nestjs/swagger"]
   },
   "watchOptions": {
     "usePolling": true

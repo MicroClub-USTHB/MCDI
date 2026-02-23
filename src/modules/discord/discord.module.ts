@@ -60,6 +60,10 @@ export class DiscordModule implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     console.log('Destroying Discord client');
-    await this.client.destroy();
+    try {
+      await this.client.destroy();
+    } catch {
+      // ignore errors on shutdown
+    }
   }
 }

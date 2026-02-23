@@ -1,46 +1,43 @@
 import {
-    CanActivate,
-    ExecutionContext,
-    Injectable,
-    UnauthorizedException,
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Request } from 'express';
+import { DRIZZLE } from '../../database/database.module';
+import * as schema from '../../database/entities';
+import { extractBearerToken, validateSession } from '../utils/auth.util';
+import { isAdminMember } from '../utils/admin.util';
 
-/**
- * Guard to protect admin-only endpoints
- * 
- * TODO: Implement proper authentication logic
- * Currently acts as a placeholder. In production, this should:
- * - Verify JWT token or session
- * - Check user has admin role
- * - Validate permissions against specific resources
- * - Log access attempts
- */
 @Injectable()
 export class SystemAdminGuard implements CanActivate {
-    canActivate(
-        context: ExecutionContext,
-    ): boolean | Promise<boolean> | Observable<boolean> {
-        const request = context.switchToHttp().getRequest();
-        
-        // TODO: Implement actual admin authentication
-        // For now, this is a placeholder that allows all requests
-        // In production, you would:
-        // 1. Extract and validate JWT/session token
-        // 2. Check if user has 'system_admin' role
-        // 3. Optionally validate specific permissions
-        
-        // Temporary: Check for an 'X-Admin-Key' header as a simple placeholder
-        const adminKey = request.headers['x-admin-key'];
-        
-        if (!adminKey) {
-            throw new UnauthorizedException(
-                'Admin authentication required. This endpoint is protected.',
-            );
-        }
-        
-        // In production, validate the admin key against database or auth service
-        // For now, just check if it exists
-        return true;
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<Request>();
+    const token = extractBearerToken(request);
+
+    if (!token) {
+      throw new UnauthorizedException('Session token is required');
     }
+
+    // 1. Validate session — must exist and not be expired
+    const memberId = await validateSession(this.db, token);
+
+    // 2. Check member has Lead+ role in the main server
+    const admin = await isAdminMember(this.db, memberId);
+    if (!admin) {
+      throw new ForbiddenException(
+        'Access restricted to Lead or Executive members',
+      );
+    }
+
+    return true;
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "id": "37e2307c-eea0-4605-81a8-dfbe9aab4579",
+  "id": "8faf08b4-2d8b-4add-b9a2-496028dad4f8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1033,6 +1033,26 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "sync_frequency_minutes": {
+          "name": "sync_frequency_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
+        },
+        "default_permission_policy": {
+          "name": "default_permission_policy",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'deny_all'"
+        },
+        "disabled_reason": {
+          "name": "disabled_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "synced_at": {
           "name": "synced_at",

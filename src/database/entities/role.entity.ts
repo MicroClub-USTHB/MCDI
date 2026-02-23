@@ -4,20 +4,26 @@ import {
   varchar,
   integer,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core';
 import { servers } from './server.entity';
 
-export const roles = pgTable('roles', {
-  id: varchar('id', { length: 255 }).primaryKey(),
-  serverId: varchar('server_id', { length: 255 })
-    .references(() => servers.id)
-    .notNull(),
-  name: varchar('name', { length: 255 }).notNull(),
-  color: integer('color'),
-  hoist: boolean('hoist').default(false),
-  position: integer('position').default(0),
-  managed: boolean('managed').default(false),
-  mentionable: boolean('mentionable').default(false),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+export const roles = pgTable(
+  'roles',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    serverId: varchar('server_id', { length: 255 })
+      .references(() => servers.id)
+      .notNull(),
+    name: varchar('name', { length: 255 }).notNull(),
+    color: integer('color'),
+    hoist: boolean('hoist').default(false),
+    position: integer('position').default(0),
+    managed: boolean('managed').default(false),
+    mentionable: boolean('mentionable').default(false),
+    isGlobal: boolean('is_global').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [index('idx_roles_server_id').on(t.serverId)],
+);
