@@ -34,7 +34,6 @@ export class GetMembersQueryDto {
   })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{17,20}$/, { message: 'Invalid role ID format' })
   roleId?: string;
 
   @ApiProperty({

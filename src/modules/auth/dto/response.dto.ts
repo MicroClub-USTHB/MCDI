@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // ── Member ───────────────────────────────────────────────────
 
-export class MemberResponseDto {
+export class AuthMemberResponseDto {
     @ApiProperty({ description: 'Member ID (Discord ID)', example: '123456789012345678' })
     id: string;
 
@@ -59,8 +59,8 @@ export class RoleResponseDto {
 // ── Validate session response ────────────────────────────────
 
 export class ValidateSessionResponseDto {
-    @ApiProperty({ description: 'Authenticated member', type: MemberResponseDto })
-    member: MemberResponseDto;
+    @ApiProperty({ description: 'Authenticated member', type: AuthMemberResponseDto })
+    member: AuthMemberResponseDto;
 
     @ApiProperty({
         description: "Member's roles in the verified Discord server",

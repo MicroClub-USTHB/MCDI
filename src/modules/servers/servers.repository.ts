@@ -149,4 +149,11 @@ export class ServersRepository {
   async deleteRole(roleId: string): Promise<void> {
     await this.db.delete(roles).where(eq(roles.id, roleId));
   }
+
+  async findAllActive(): Promise<typeof servers.$inferSelect[]> {
+    return this.db
+      .select()
+      .from(servers)
+      .where(eq(servers.isActive, true));
+  }
 }

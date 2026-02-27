@@ -33,7 +33,6 @@ export class SetProjectServerAccessDto {
 
   @ApiProperty({ example: '123456789012345678' })
   @IsString()
-  @Matches(/^\d{17,20}$/)
   serverId!: string;
 
   @ApiPropertyOptional({ type: AccessOperationsDto })
