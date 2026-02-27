@@ -3,7 +3,7 @@ import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { serverSyncLogs } from '../../database/entities/server-sync-log.entity';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 @Injectable()
 export class SyncRepository {
@@ -69,5 +69,27 @@ export class SyncRepository {
       .orderBy(desc(serverSyncLogs.startedAt))
       .limit(1);
     return log ?? null;
+  }
+
+  async getLogs(
+    serverId: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<typeof serverSyncLogs.$inferSelect[]> {
+    return this.db
+      .select()
+      .from(serverSyncLogs)
+      .where(eq(serverSyncLogs.serverId, serverId))
+      .orderBy(desc(serverSyncLogs.startedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countLogs(serverId: string): Promise<number> {
+    const [result] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(serverSyncLogs)
+      .where(eq(serverSyncLogs.serverId, serverId));
+    return result?.count ?? 0;
   }
 }

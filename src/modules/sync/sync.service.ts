@@ -12,6 +12,8 @@ import { SyncRepository } from './sync.repository';
 import { Guild, GuildMember, User, Role } from 'discord.js';
 import { members } from '../../database/entities/member.entity';
 import { SyncStatusDto } from './dto/sync-status.dto';
+import { SyncLogDto, SyncLogsResponseDto } from './dto/sync-log.dto';
+import { SyncTarget } from './dto/trigger-sync.dto';
 
 @Injectable()
 export class SyncService {
@@ -24,7 +26,7 @@ export class SyncService {
     private readonly memberRepository: MemberRepository,
     private readonly serversRepository: ServersRepository,
     private readonly syncRepository: SyncRepository,
-  ) {}
+  ) { }
 
   private async withRetry<T>(
     operation: () => Promise<T>,
@@ -48,7 +50,7 @@ export class SyncService {
     throw lastError;
   }
 
-  async triggerFullSync(serverId: string): Promise<{ syncId: number }> {
+  async triggerFullSync(serverId: string, target: SyncTarget = SyncTarget.ALL): Promise<{ syncId: number }> {
     const server = await this.serversRepository.findById(serverId);
     if (!server) {
       throw new NotFoundException('Server not found');
@@ -69,7 +71,7 @@ export class SyncService {
       startedAt,
     );
 
-    this.runFullSync(serverId, log.id).catch((err: unknown) => {
+    this.runFullSync(serverId, log.id, target).catch((err: unknown) => {
       const errorStack = err instanceof Error ? err.stack : String(err);
       this.logger.error(
         `Background sync failed for server ${serverId}`,
@@ -80,7 +82,34 @@ export class SyncService {
     return { syncId: log.id };
   }
 
-  private async runFullSync(serverId: string, syncId: number): Promise<void> {
+  async triggerMultipleSyncs(
+    serverIds: string[],
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<{ results: { serverId: string; syncId?: number; error?: string }[] }> {
+    const results: { serverId: string; syncId?: number; error?: string }[] = [];
+    let targetsToSync = serverIds;
+
+    if (!targetsToSync || targetsToSync.length === 0) {
+      const activeServers = await this.serversRepository.findAllActive();
+      targetsToSync = activeServers.map((s) => s.id);
+      this.logger.log(`No serverIds provided. Scheduled sync for all ${targetsToSync.length} active servers.`);
+    }
+
+    for (const serverId of targetsToSync) {
+      try {
+        const result = await this.triggerFullSync(serverId, target);
+        results.push({ serverId, syncId: result.syncId });
+      } catch (err: unknown) {
+        results.push({
+          serverId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { results };
+  }
+
+  private async runFullSync(serverId: string, syncId: number, target: SyncTarget = SyncTarget.ALL): Promise<void> {
     const guild = await this.discordService.getGuildById(serverId);
     if (!guild) {
       await this.syncRepository.updateLog(syncId, {
@@ -96,58 +125,75 @@ export class SyncService {
     let rolesSynced = 0;
 
     try {
+      // Update server basic information
+      await this.withRetry(
+        () =>
+          this.serversRepository.updateById(serverId, {
+            name: guild.name,
+            icon: guild.iconURL(),
+            syncedAt: syncStart,
+            updatedAt: new Date(),
+          }),
+        `updateServerInfo(${serverId})`,
+      );
+
       // Sync all roles
-      this.logger.debug(`Fetching all roles for guild ${serverId}`);
-      const guildRoles = await guild.roles.fetch();
-      for (const [, role] of guildRoles) {
-        await this.withRetry(
-          () =>
-            this.serversRepository.upsertRole({
-              id: role.id,
-              serverId: guild.id,
-              name: role.name,
-              color: role.color,
-              hoist: role.hoist,
-              position: role.position,
-              managed: role.managed,
-              mentionable: role.mentionable,
-            }),
-          `upsertRole(${role.id})`,
+      if (target === SyncTarget.ALL || target === SyncTarget.ROLES) {
+        this.logger.debug(`Fetching all roles for guild ${serverId}`);
+        const guildRoles = await guild.roles.fetch();
+        for (const [, role] of guildRoles) {
+          await this.withRetry(
+            () =>
+              this.serversRepository.upsertRole({
+                id: role.id,
+                serverId: guild.id,
+                name: role.name,
+                color: role.color,
+                hoist: role.hoist,
+                position: role.position,
+                managed: role.managed,
+                mentionable: role.mentionable,
+              }),
+            `upsertRole(${role.id})`,
+          );
+        }
+        this.logger.log(
+          `Upserted ${guildRoles.size} roles for server ${serverId}`,
         );
       }
-      this.logger.log(
-        `Upserted ${guildRoles.size} roles for server ${serverId}`,
-      );
 
       // Sync members
-      let lastId: string | undefined;
-      let hasMore = true;
+      let deactivatedCount = 0;
+      if (target === SyncTarget.ALL || target === SyncTarget.MEMBERS) {
+        let lastId: string | undefined;
+        let hasMore = true;
 
-      while (hasMore) {
-        const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
-        if (lastId) {
-          fetchOptions.after = lastId;
+        while (hasMore) {
+          const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
+          if (lastId) {
+            fetchOptions.after = lastId;
+          }
+
+          const fetched = await guild.members.fetch(fetchOptions);
+          if (fetched.size === 0) break;
+
+          for (const [, guildMember] of fetched) {
+            await this.processMember(guild, guildMember, syncStart);
+            membersSynced++;
+            rolesSynced += guildMember.roles.cache.size;
+          }
+
+          lastId = fetched.last()?.id;
+          hasMore = fetched.size === 1000;
         }
 
-        const fetched = await guild.members.fetch(fetchOptions);
-        if (fetched.size === 0) break;
-
-        for (const [, guildMember] of fetched) {
-          await this.processMember(guild, guildMember, syncStart);
-          membersSynced++;
-          rolesSynced += guildMember.roles.cache.size;
-        }
-
-        lastId = fetched.last()?.id;
-        hasMore = fetched.size === 1000;
+        // Mark inactive members
+        deactivatedCount =
+          await this.memberRepository.markInactiveForServer(serverId, syncStart);
+        this.logger.log(
+          `Deactivated ${deactivatedCount} members in server ${serverId}`,
+        );
       }
-
-      // Mark inactive members
-      const deactivatedCount =
-        await this.memberRepository.markInactiveForServer(serverId, syncStart);
-      this.logger.log(
-        `Deactivated ${deactivatedCount} members in server ${serverId}`,
-      );
 
       await this.syncRepository.updateLog(syncId, {
         status: 'success',
@@ -389,5 +435,172 @@ export class SyncService {
       startedAt: log.startedAt.toISOString(),
       finishedAt: log.finishedAt?.toISOString(),
     };
+  }
+
+  // ─── Startup Sync ─────────────────────────────────────────
+
+  /**
+   * Called once on bot ready — triggers a full sync for every active server
+   * the bot is currently in. Errors on one server never block others.
+   */
+  async startupSyncAll(): Promise<void> {
+    const activeServers = await this.serversRepository.findAllActive();
+    this.logger.log(
+      `Bot ready — starting boot sync for ${activeServers.length} active server(s)`,
+    );
+
+    for (const server of activeServers) {
+      try {
+        const guild = await this.discordService.getGuildById(server.id);
+        if (!guild) {
+          this.logger.warn(
+            `Bot not in server ${server.id} (${server.name}) — skipping boot sync`,
+          );
+          continue;
+        }
+
+        const inProgress = await this.syncRepository.getInProgressLog(server.id);
+        if (inProgress) {
+          this.logger.log(
+            `Skipping boot sync for ${server.id} — sync already in progress`,
+          );
+          continue;
+        }
+
+        const log = await this.syncRepository.createLog(
+          server.id,
+          'full',
+          'in_progress',
+          new Date(),
+        );
+        this.runFullSync(server.id, log.id).catch((err: unknown) => {
+          this.logger.error(
+            `Boot sync failed for server ${server.id}`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        });
+      } catch (err: unknown) {
+        this.logger.error(
+          `Error scheduling boot sync for server ${server.id}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+  }
+
+  // ─── Bot Guild Events ──────────────────────────────────────
+
+  /**
+   * Bot was added to a new server — register it and kick off a full sync.
+   */
+  async handleGuildCreate(guild: Guild): Promise<void> {
+    this.logger.log(`Bot joined server: ${guild.id} (${guild.name})`);
+
+    await this.serversRepository.upsertServer({
+      id: guild.id,
+      name: guild.name,
+      icon: guild.iconURL(),
+      isMain: false,
+      isActive: true,
+      type: 'other',
+    });
+
+    const inProgress = await this.syncRepository.getInProgressLog(guild.id);
+    if (inProgress) return;
+
+    const log = await this.syncRepository.createLog(
+      guild.id,
+      'full',
+      'in_progress',
+      new Date(),
+    );
+    this.runFullSync(guild.id, log.id).catch((err: unknown) => {
+      this.logger.error(
+        `guildCreate sync failed for ${guild.id}`,
+        err instanceof Error ? err.stack : String(err),
+      );
+    });
+  }
+
+  /**
+   * Bot was removed from a server — mark it as inactive in the DB.
+   */
+  async handleGuildDelete(guild: Guild): Promise<void> {
+    this.logger.log(`Bot removed from server: ${guild.id} (${guild.name})`);
+    await this.serversRepository.updateById(guild.id, {
+      isActive: false,
+      disabledReason: 'Bot removed from server',
+      updatedAt: new Date(),
+    });
+  }
+
+  /**
+   * Server information was updated in Discord.
+   */
+  async handleGuildUpdate(oldGuild: Guild, newGuild: Guild): Promise<void> {
+    this.logger.debug(`Guild updated: ${newGuild.id} (${newGuild.name})`);
+    await this.withRetry(
+      () =>
+        this.serversRepository.updateById(newGuild.id, {
+          name: newGuild.name,
+          icon: newGuild.iconURL(),
+          updatedAt: new Date(),
+        }),
+      `handleGuildUpdate updateById(${newGuild.id})`,
+    );
+  }
+
+  // ─── Sync Logs ────────────────────────────────────────────
+
+  async getSyncLogs(
+    serverId: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SyncLogsResponseDto> {
+    const [logs, total] = await Promise.all([
+      this.syncRepository.getLogs(serverId, limit, offset),
+      this.syncRepository.countLogs(serverId),
+    ]);
+
+    return {
+      total,
+      logs: logs.map(
+        (log): SyncLogDto => ({
+          id: log.id,
+          serverId: log.serverId,
+          syncType: log.syncType,
+          status: log.status,
+          membersSynced: log.membersSynced,
+          rolesSynced: log.rolesSynced,
+          message: log.message ?? undefined,
+          startedAt: log.startedAt.toISOString(),
+          finishedAt: log.finishedAt?.toISOString(),
+        }),
+      ),
+    };
+  }
+
+  // ─── All-Servers Status ───────────────────────────────────
+
+  async getAllServersSyncStatus(): Promise<SyncStatusDto[]> {
+    const activeServers = await this.serversRepository.findAllActive();
+
+    const statuses = await Promise.all(
+      activeServers.map(async (server): Promise<SyncStatusDto> => {
+        const log = await this.syncRepository.getLatestLog(server.id);
+        return {
+          serverId: server.id,
+          lastSyncAt: log?.finishedAt?.toISOString() ?? null,
+          status: log?.status ?? 'never',
+          membersSynced: log?.membersSynced ?? 0,
+          rolesSynced: log?.rolesSynced ?? 0,
+          message: log?.message ?? undefined,
+          startedAt: log?.startedAt?.toISOString() ?? '',
+          finishedAt: log?.finishedAt?.toISOString(),
+        };
+      }),
+    );
+
+    return statuses;
   }
 }

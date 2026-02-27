@@ -5,7 +5,7 @@ import { PermissionsRepository } from './permissions.repository';
 
 @Injectable()
 export class PermissionsService {
-  constructor(private readonly permissionsRepository: PermissionsRepository) {}
+  constructor(private readonly permissionsRepository: PermissionsRepository) { }
 
   async checkPermission(dto: CheckPermissionDto) {
     const memberId = dto.discordId?.trim();
@@ -137,12 +137,6 @@ export class PermissionsService {
       throw new BadRequestException('discordId and serverId are required');
     }
 
-    if (
-      !/^\d{17,20}$/.test(memberId) ||
-      !/^\d{17,20}$/.test(normalizedServerId)
-    ) {
-      throw new BadRequestException('Invalid discordId or serverId format');
-    }
 
     const [globalPermissions, serverPermissions, inheritedPermissions] =
       await Promise.all([

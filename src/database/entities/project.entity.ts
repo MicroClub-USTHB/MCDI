@@ -14,8 +14,7 @@ export const projects = pgTable('projects', {
   isInternal: boolean('is_internal').default(false).notNull(),
   webhookUrl: text('webhook_url'),
   redirectUri: text('redirect_uri'),
-  isActive : boolean('is_active').default(true).notNull(),
-  webhokUrl: text('webhook_url'),
+  isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

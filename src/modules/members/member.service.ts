@@ -25,18 +25,12 @@ interface PaginatedResponse<T> {
 
 @Injectable()
 export class MemberService {
-  constructor(private readonly memberRepository: MemberRepository) {}
+  constructor(private readonly memberRepository: MemberRepository) { }
 
   async getMember(
     serverId: string,
     discordId: string,
   ): Promise<MemberResponseDto> {
-    // Validate Discord ID format
-    if (!this.isValidSnowflake(discordId)) {
-      throw new BadRequestException(
-        'Invalid Discord ID format. Must be 17-20 digit number.',
-      );
-    }
 
     const member = await this.memberRepository.findMemberByDiscordId(
       serverId,
@@ -60,12 +54,6 @@ export class MemberService {
   ): Promise<PaginatedResponse<MemberSearchResponseDto>> {
     const { query, roleId } = queryDto;
 
-    // Validate role ID
-    if (roleId && !this.isValidSnowflake(roleId)) {
-      throw new BadRequestException(
-        'Invalid role ID format. Must be 17-20 digit number.',
-      );
-    }
 
     const dbPagination = queryDto.getDbPagination();
 
@@ -95,7 +83,5 @@ export class MemberService {
     return { data, pagination };
   }
 
-  private isValidSnowflake(id: string): boolean {
-    return /^\d{17,20}$/.test(id);
-  }
+
 }
