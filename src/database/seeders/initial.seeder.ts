@@ -174,7 +174,6 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const internalProject = createProjectFactory({
     name: 'MicroClub Events',
     description: 'Internal events management platform',
-    apiKey: 'mcdi-internal-events-2024',
     isInternal: true,
     redirectUri: 'http://localhost:4000/auth/callback',
   });
@@ -183,13 +182,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const externalProject = createProjectFactory({
     name: 'External Dashboard',
     description: 'External client dashboard with role restrictions',
-    apiKey: 'mcdi-external-dashboard-2024',
     isInternal: false,
     redirectUri: 'http://localhost:5000/auth/callback',
   });
   
-  // 3. Public project (MCDI Dashboard) - no role restrictions
-  const publicProject = createProjectFactory({
   // Assign Executive role to the admin member
   if (insertedAdmin) {
     const executiveRole = insertedRoles.find((r) => r.name === 'Executive');
@@ -208,11 +204,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     console.log(`  - Admin session token: ${adminSession.token}`);
   }
 
-  console.log('Seeding project...');
-  const projectData = createProjectFactory({
+  // 3. Public project (MCDI Dashboard) - no role restrictions
+  const publicProject = createProjectFactory({
     name: 'MCDI Dashboard',
-    description: 'Internal dashboard for managing MCDI',
-    apiKey: 'mcdi-dashboard-2024',
+    description: 'Public dashboard for MicroClub',
     isInternal: false,
     redirectUri: 'http://localhost:3001/auth/callback',
   });
@@ -221,7 +216,6 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const testProject = createProjectFactory({
     name: 'Test Project',
     description: 'Test project for development',
-    apiKey: 'mcdi-proj-test123456789',
     isInternal: false,
     redirectUri: 'http://localhost:4000/auth/callback',
   });
@@ -233,13 +227,13 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .returning();
 
   console.log('Linking projects to server...');
-  const projectServersData: { projectId: string; serverId: string; operations: Record<string, boolean> }[] = [];
+  const projectServersData: { projectId: string; serverId: string; operations: { READ: boolean; SEND_MESSAGES: boolean; MANAGE_WEBHOOKS: boolean } }[] = [];
   
   if (insertedInternalProject) {
     projectServersData.push({
       projectId: insertedInternalProject.id,
       serverId: serverId,
-      operations: { read: true, write: true, manage_members: true },
+      operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: true },
     });
   }
   
@@ -247,7 +241,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     projectServersData.push({
       projectId: insertedExternalProject.id,
       serverId: serverId,
-      operations: { read: true, write: false, manage_members: false },
+      operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false },
     });
   }
   
@@ -255,7 +249,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     projectServersData.push({
       projectId: insertedPublicProject.id,
       serverId: serverId,
-      operations: { read: true, write: true, manage_members: false },
+      operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: false },
     });
   }
 
@@ -263,7 +257,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     projectServersData.push({
       projectId: insertedTestProject.id,
       serverId: serverId,
-      operations: { read: true, write: true, manage_members: false },
+      operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: false },
     });
   }
   
@@ -288,32 +282,18 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .onConflictDoNothing();
     
     console.log(`  - External Dashboard requires: ${insertedRoles[0].name} or ${insertedRoles[1].name} role`);
-  if (insertedProject) {
-    console.log('  - Seeding project scopes...');
-    const scopesData = createAllScopesFactory(insertedProject.id);
-    await db
-      .insert(schema.projectScopes)
-      .values(scopesData)
-      .onConflictDoNothing();
+  }
 
-    console.log('  - Linking project to server...');
-    await db
-      .insert(schema.projectServers)
-      .values({
-        projectId: insertedProject.id,
-        serverId: serverId,
-        operations: {
-          READ: true,
-          SEND_MESSAGES: true,
-          MANAGE_WEBHOOKS: true,
-        },
-      })
-      .onConflictDoNothing();
-
-    console.log(`  - Project API key prefix: ${projectData.apiKeyPrefix}`);
-    console.log(
-      '    (Full key is not stored — regenerate via admin endpoint if needed)',
-    );
+  // Seed scopes for all inserted projects
+  const allInsertedProjects = [insertedInternalProject, insertedExternalProject, insertedPublicProject, insertedTestProject].filter(Boolean);
+  for (const proj of allInsertedProjects) {
+    if (proj) {
+      const scopesData = createAllScopesFactory(proj.id);
+      await db
+        .insert(schema.projectScopes)
+        .values(scopesData)
+        .onConflictDoNothing();
+    }
   }
 
   console.log('Initial seeding completed!');
@@ -325,16 +305,16 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log(`  - Member 2: ${insertedMembers[1]?.id} (${insertedMembers[1]?.username}) - Lead role`);
   console.log(`  - Member 3: ${insertedMembers[2]?.id} (${insertedMembers[2]?.username}) - Member role`);
   console.log('\nProjects:');
-  console.log(`  1. Internal: "${internalProject.name}" (API Key: ${internalProject.apiKey})`);
+  console.log(`  1. Internal: "${internalProject.name}" (Prefix: ${internalProject.apiKeyPrefix})`);
   console.log(`     - Uses main server automatically`);
   console.log(`     - No role restrictions`);
-  console.log(`  2. External: "${externalProject.name}" (API Key: ${externalProject.apiKey})`);
+  console.log(`  2. External: "${externalProject.name}" (Prefix: ${externalProject.apiKeyPrefix})`);
   console.log(`     - Requires explicit serverId`);
   console.log(`     - Requires Admin OR Lead role`);
-  console.log(`  3. Public: "${publicProject.name}" (API Key: ${publicProject.apiKey})`);
+  console.log(`  3. Public: "${publicProject.name}" (Prefix: ${publicProject.apiKeyPrefix})`);
   console.log(`     - Requires explicit serverId`);
   console.log(`     - No role restrictions`);
-  console.log(`  4. Test: "${testProject.name}" (API Key: ${testProject.apiKey})`);
+  console.log(`  4. Test: "${testProject.name}" (Prefix: ${testProject.apiKeyPrefix})`);
   console.log(`     - Server: ${serverId}`);
   console.log(`     - No role restrictions`);
   console.log('========================\n');

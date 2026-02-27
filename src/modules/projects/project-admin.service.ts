@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ProjectRepository } from '../auth/repositories/project.repository';
-import { randomBytes } from 'crypto';
+import { generateApiKey } from '../../common/utils/api-key.util';
 
 @Injectable()
 export class ProjectAdminService {
@@ -9,15 +9,15 @@ export class ProjectAdminService {
     /**
      * Regenerate API key for a project.
      * Generates a cryptographically secure random key and updates the project.
+     * Returns the full key once — it cannot be retrieved again.
      */
     async regenerateApiKey(projectId: string) {
-        // Generate a new secure API key
-        const newApiKey = `mcdi-proj-${randomBytes(32).toString('hex')}`;
+        const { fullKey, prefix, hash } = generateApiKey();
 
-        // Update the project with the new key
         const project = await this.projectRepository.regenerateApiKey(
             projectId,
-            newApiKey,
+            hash,
+            prefix,
         );
 
         if (!project) {
@@ -26,7 +26,8 @@ export class ProjectAdminService {
 
         return {
             projectId: project.id,
-            apiKey: project.apiKey,
+            apiKey: fullKey,
+            apiKeyPrefix: project.apiKeyPrefix,
             apiKeyCreatedAt: project.apiKeyCreatedAt,
         };
     }

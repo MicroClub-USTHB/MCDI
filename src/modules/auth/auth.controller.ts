@@ -71,7 +71,7 @@ export class AuthController {
 
             // Pass validated context to the view so the Discord button works
             return {
-                apiKey: context.project.apiKey,
+                apiKey,
                 projectName: context.project.name,
                 serverId: context.serverId,
                 redirectUri: context.redirectUri,
@@ -112,7 +112,7 @@ export class AuthController {
 
         const result = await this.authService.buildDiscordLoginUrl(
             context.project.id,
-            context.project.apiKey,
+            apiKey,
             context.serverId,
             context.redirectUri,
         );

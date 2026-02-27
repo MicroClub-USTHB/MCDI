@@ -3,6 +3,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
+import { verifyApiKey } from '../../../common/utils/api-key.util';
 
 @Injectable()
 export class ProjectRepository {
@@ -10,15 +11,30 @@ export class ProjectRepository {
         @Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>,
     ) { }
 
-    /** Find a project by its API key */
+    /** Find a project by its raw API key (prefix.secret format) */
     async findByApiKey(apiKey: string) {
+        const dotIndex = apiKey.indexOf('.');
+        if (dotIndex === -1) return null;
+
+        const prefix = apiKey.substring(0, dotIndex);
+        const secret = apiKey.substring(dotIndex + 1);
+        if (!prefix || !secret) return null;
+
         const results = await this.db
             .select()
             .from(schema.projects)
-            .where(eq(schema.projects.apiKey, apiKey))
+            .where(
+                and(
+                    eq(schema.projects.apiKeyPrefix, prefix),
+                    eq(schema.projects.isActive, true),
+                ),
+            )
             .limit(1);
 
-        return results[0] || null;
+        const project = results[0] || null;
+        if (!project || !project.apiKeyHash) return null;
+
+        return verifyApiKey(secret, project.apiKeyHash) ? project : null;
     }
 
     /** Get the role IDs that are allowed to access a project */
@@ -210,11 +226,12 @@ export class ProjectRepository {
     }
 
     /** Regenerate API key for a project */
-    async regenerateApiKey(projectId: string, newApiKey: string) {
+    async regenerateApiKey(projectId: string, newHash: string, newPrefix: string) {
         const projects = await this.db
             .update(schema.projects)
             .set({
-                apiKey: newApiKey,
+                apiKeyHash: newHash,
+                apiKeyPrefix: newPrefix,
                 apiKeyCreatedAt: new Date(),
                 updatedAt: new Date(),
             })
