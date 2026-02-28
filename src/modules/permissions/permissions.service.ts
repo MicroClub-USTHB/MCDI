@@ -220,4 +220,49 @@ export class PermissionsService {
 
     return result;
   }
+
+  async hasAllPermissions(
+    serverId: string,
+    discordId: string,
+    requestedPermissions: string[],
+  ) {
+    const resolved = await this.getMemberPermissions(serverId, discordId);
+    const allPerms = resolved.permissions;
+
+    // ADMINISTRATOR = full access
+    if (allPerms.includes('ADMINISTRATOR')) {
+      return { allowed: true, missing: [] };
+    }
+
+    const normalized = requestedPermissions
+      .map((p) => p.trim().toUpperCase())
+      .filter((p) => p.length > 0);
+
+    const missing = normalized.filter((p) => !allPerms.includes(p));
+    return { allowed: missing.length === 0, missing };
+  }
+
+  async hasAnyPermission(
+    serverId: string,
+    discordId: string,
+    requestedPermissions: string[],
+  ) {
+    const resolved = await this.getMemberPermissions(serverId, discordId);
+    const allPerms = resolved.permissions;
+
+    // ADMINISTRATOR = full access
+    if (allPerms.includes('ADMINISTRATOR')) {
+      return {
+        allowed: true,
+        matched: requestedPermissions.map((p) => p.trim().toUpperCase()),
+      };
+    }
+
+    const normalized = requestedPermissions
+      .map((p) => p.trim().toUpperCase())
+      .filter((p) => p.length > 0);
+
+    const matched = normalized.filter((p) => allPerms.includes(p));
+    return { allowed: matched.length > 0, matched };
+  }
 }
