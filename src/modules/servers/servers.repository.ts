@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq, inArray, sql } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
+  permissions,
   projectServers,
   rolePermissions,
   roles,
@@ -16,7 +17,7 @@ export class ServersRepository {
   constructor(
     @Inject(databaseModule.DRIZZLE)
     private readonly db: databaseModule.DrizzleDB,
-  ) {}
+  ) { }
 
   async clearMainServer(now: Date) {
     await this.db
@@ -122,12 +123,13 @@ export class ServersRepository {
 
   // role sync
   async upsertRole(
-    roleData: typeof roles.$inferInsert,
+    roleData: Omit<typeof roles.$inferInsert, 'permissionsBits'> & { permissionsBits?: bigint },
   ): Promise<typeof roles.$inferSelect> {
     const [row] = await this.db
       .insert(roles)
       .values({
         ...roleData,
+        permissionsBits: roleData.permissionsBits ?? 0n,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -139,11 +141,44 @@ export class ServersRepository {
           position: roleData.position,
           managed: roleData.managed,
           mentionable: roleData.mentionable,
+          permissionsBits: roleData.permissionsBits ?? 0n,
           updatedAt: new Date(),
         },
       })
       .returning();
     return row;
+  }
+
+  /**
+   * Resolves a Discord role's permission bitfield against the permissions table
+   * and upserts the matching rows into role_permissions.
+   * This replaces the full set for the given role so stale entries are removed.
+   */
+  async syncRolePermissions(roleId: string, permissionsBits: bigint): Promise<void> {
+    // Load all known permissions
+    const allPermissions = await this.db
+      .select({ id: permissions.id, bitfield: permissions.bitfield })
+      .from(permissions);
+
+    // Which permissions does this role actually have?
+    const matchingPermIds = allPermissions
+      .filter((p) => p.bitfield !== null && (permissionsBits & p.bitfield) !== 0n)
+      .map((p) => p.id);
+
+    await this.db.transaction(async (tx) => {
+      // Remove all existing permission links for this role
+      await tx
+        .delete(rolePermissions)
+        .where(eq(rolePermissions.roleId, roleId));
+
+      // Insert fresh set (skip insert if no permissions matched)
+      if (matchingPermIds.length > 0) {
+        await tx
+          .insert(rolePermissions)
+          .values(matchingPermIds.map((permissionId) => ({ roleId, permissionId })))
+          .onConflictDoNothing();
+      }
+    });
   }
 
   async deleteRole(roleId: string): Promise<void> {

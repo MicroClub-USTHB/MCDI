@@ -153,8 +153,13 @@ export class SyncService {
                 position: role.position,
                 managed: role.managed,
                 mentionable: role.mentionable,
+                permissionsBits: role.permissions.bitfield,
               }),
             `upsertRole(${role.id})`,
+          );
+          await this.withRetry(
+            () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+            `syncRolePermissions(${role.id})`,
           );
         }
         this.logger.log(
@@ -386,8 +391,13 @@ export class SyncService {
           position: role.position,
           managed: role.managed,
           mentionable: role.mentionable,
+          permissionsBits: role.permissions.bitfield,
         }),
       `handleRoleCreate upsertRole(${role.id})`,
+    );
+    await this.withRetry(
+      () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+      `handleRoleCreate syncRolePermissions(${role.id})`,
     );
   }
 
@@ -404,8 +414,13 @@ export class SyncService {
           position: role.position,
           managed: role.managed,
           mentionable: role.mentionable,
+          permissionsBits: role.permissions.bitfield,
         }),
       `handleRoleUpdate upsertRole(${role.id})`,
+    );
+    await this.withRetry(
+      () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+      `handleRoleUpdate syncRolePermissions(${role.id})`,
     );
   }
 

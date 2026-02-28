@@ -19,4 +19,4 @@ import { SyncRepository } from './sync.repository';
   providers: [SyncService, SyncListener, SyncRepository],
   exports: [SyncService],
 })
-export class SyncModule {}
+export class SyncModule { }

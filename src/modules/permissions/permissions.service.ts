@@ -2,10 +2,14 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { CheckPermissionDto } from './dto/check-permission.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
 import { PermissionsRepository } from './permissions.repository';
+import { PermissionCacheService } from './permission-cache.service';
 
 @Injectable()
 export class PermissionsService {
-  constructor(private readonly permissionsRepository: PermissionsRepository) { }
+  constructor(
+    private readonly permissionsRepository: PermissionsRepository,
+    private readonly permissionCache: PermissionCacheService,
+  ) { }
 
   async checkPermission(dto: CheckPermissionDto) {
     const memberId = dto.discordId?.trim();
@@ -18,16 +22,48 @@ export class PermissionsService {
       );
     }
 
-    const permissionId =
-      await this.permissionsRepository.findPermissionIdByName(permissionName);
+    // ── Fast path: use cached permission set if available ──────────────
+    const cached = this.permissionCache.get(memberId, serverId);
+    if (cached) {
+      const allPerms = cached.permissions;
+      // ADMINISTRATOR in any source = full access
+      if (allPerms.includes('ADMINISTRATOR')) {
+        return { allowed: true, source: 'cached' as const };
+      }
+      if (allPerms.includes(permissionName)) {
+        return { allowed: true, source: 'cached' as const };
+      }
+      return { allowed: false, source: 'cached' as const };
+    }
 
-    if (!permissionId) {
+    // ── Slow path: DB queries ──────────────────────────────────────────
+    const reqPermId = await this.permissionsRepository.findPermissionIdByName(permissionName);
+    const adminPermId = await this.permissionsRepository.findPermissionIdByName('ADMINISTRATOR');
+
+    if (!reqPermId && !adminPermId) {
+      return { allowed: false, source: 'none' as const };
+    }
+
+    // Attempt to bypass with ADMINISTRATOR privilege early
+    if (adminPermId) {
+      const isGlobalAdmin = await this.permissionsRepository.hasGlobalRolePermission(memberId, adminPermId);
+      if (isGlobalAdmin) return { allowed: true, source: 'global' as const };
+
+      const isServerAdmin = await this.permissionsRepository.hasServerPermission(memberId, serverId, adminPermId);
+      if (isServerAdmin) return { allowed: true, source: 'server' as const };
+
+      const isInheritAdmin = await this.permissionsRepository.hasInheritedPermission(memberId, serverId, adminPermId);
+      if (isInheritAdmin) return { allowed: true, source: 'inherited' as const };
+    }
+
+    // Not an admin, check standard specifically requested permission
+    if (!reqPermId) {
       return { allowed: false, source: 'none' as const };
     }
 
     const hasGlobal = await this.permissionsRepository.hasGlobalRolePermission(
       memberId,
-      permissionId,
+      reqPermId,
     );
     if (hasGlobal) {
       return { allowed: true, source: 'global' as const };
@@ -36,17 +72,17 @@ export class PermissionsService {
     const hasServer = await this.permissionsRepository.hasServerPermission(
       memberId,
       serverId,
-      permissionId,
+      reqPermId,
     );
     if (hasServer) {
       return { allowed: true, source: 'server' as const };
     }
-    const hasInherited =
-      await this.permissionsRepository.hasInheritedPermission(
-        memberId,
-        serverId,
-        permissionId,
-      );
+
+    const hasInherited = await this.permissionsRepository.hasInheritedPermission(
+      memberId,
+      serverId,
+      reqPermId,
+    );
     if (hasInherited) {
       return { allowed: true, source: 'inherited' as const };
     }
@@ -137,7 +173,17 @@ export class PermissionsService {
       throw new BadRequestException('discordId and serverId are required');
     }
 
+    // ── Cache hit ────────────────────────────────────────────────────────
+    const cached = this.permissionCache.get(memberId, normalizedServerId);
+    if (cached) {
+      return {
+        discordId: memberId,
+        serverId: normalizedServerId,
+        ...cached,
+      };
+    }
 
+    // ── Cache miss: resolve from DB ──────────────────────────────────────
     const [globalPermissions, serverPermissions, inheritedPermissions] =
       await Promise.all([
         this.permissionsRepository.listGlobalPermissionNames(memberId),
@@ -159,15 +205,19 @@ export class PermissionsService {
       new Set([...global, ...server, ...inherited]),
     ).sort();
 
-    return {
+    const result = {
       discordId: memberId,
       serverId: normalizedServerId,
       permissions,
-      sources: {
-        global,
-        server,
-        inherited,
-      },
+      sources: { global, server, inherited },
     };
+
+    // Populate cache for future calls
+    this.permissionCache.set(memberId, normalizedServerId, {
+      permissions,
+      sources: { global, server, inherited },
+    });
+
+    return result;
   }
 }
