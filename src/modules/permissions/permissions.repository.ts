@@ -25,13 +25,13 @@ export class PermissionsRepository {
   constructor(
     @Inject(databaseModule.DRIZZLE)
     private readonly db: databaseModule.DrizzleDB,
-  ) {}
+  ) { }
 
   async findPermissionIdByName(permissionName: string): Promise<number | null> {
     const [row] = await this.db
       .select({ id: permissions.id })
       .from(permissions)
-      .where(eq(permissions.name, permissionName))
+      .where(eq(permissions.key, permissionName))
       .limit(1);
 
     return row?.id ?? null;
@@ -294,7 +294,7 @@ export class PermissionsRepository {
   }
   async listGlobalPermissionNames(memberId: string): Promise<string[]> {
     const rows = await this.db
-      .select({ name: permissions.name })
+      .select({ name: permissions.key })
       .from(serverMemberRoles)
       .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
@@ -311,7 +311,7 @@ export class PermissionsRepository {
     serverId: string,
   ): Promise<string[]> {
     const rows = await this.db
-      .select({ name: permissions.name })
+      .select({ name: permissions.key })
       .from(serverMembers)
       .innerJoin(
         serverMemberRoles,
@@ -379,7 +379,7 @@ export class PermissionsRepository {
     const targetRows = await this.db
       .select({
         roleName: roles.name,
-        permissionName: permissions.name,
+        permissionName: permissions.key,
       })
       .from(roles)
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
