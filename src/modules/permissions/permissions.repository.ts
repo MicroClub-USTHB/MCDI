@@ -85,6 +85,98 @@ export class PermissionsRepository {
     return Boolean(row);
   }
 
+  /**
+   * F6 gap closure: vertical hierarchy inheritance within a single server.
+   * If a member holds a role at hierarchyLevel N, they also get permissions
+   * from all roles with a LOWER hierarchyLevel (higher hierarchyLevel number = lower rank)
+   * in the same server.
+   * Convention: lower hierarchyLevel value = higher rank (e.g. Executive=1, Lead=2, Member=3).
+   */
+  async hasHierarchyPermission(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+  ): Promise<boolean> {
+    // Find the highest rank (lowest hierarchyLevel) the member holds in this server
+    const memberRoles = await this.db
+      .select({ hierarchyLevel: roles.hierarchyLevel })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      );
+
+    if (!memberRoles.length) return false;
+
+    const highestRank = Math.min(
+      ...memberRoles.map((r) => r.hierarchyLevel!),
+    );
+
+    // Check if any role at a lower rank (higher or equal hierarchyLevel number)
+    // in this server has the requested permission
+    const [row] = await this.db
+      .select({ roleId: roles.id })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+          sql`${roles.hierarchyLevel} >= ${highestRank}`,
+          eq(rolePermissions.permissionId, permissionId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  /**
+   * F6 gap closure: list all permission names the member inherits via hierarchy
+   * (from lower-ranked roles in the same server).
+   */
+  async listHierarchyPermissionNames(
+    memberId: string,
+    serverId: string,
+  ): Promise<string[]> {
+    const memberRoles = await this.db
+      .select({ hierarchyLevel: roles.hierarchyLevel })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      );
+
+    if (!memberRoles.length) return [];
+
+    const highestRank = Math.min(
+      ...memberRoles.map((r) => r.hierarchyLevel!),
+    );
+
+    const rows = await this.db
+      .select({ name: permissions.key })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+          sql`${roles.hierarchyLevel} >= ${highestRank}`,
+        ),
+      );
+
+    return Array.from(new Set(rows.map((r) => r.name)));
+  }
+
   async getMainServerId(): Promise<string | null> {
     const [row] = await this.db
       .select({ id: servers.id })

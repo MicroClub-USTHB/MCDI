@@ -23,6 +23,7 @@ export * from './server-sync-log.entity';
 export * from './role-inheritance-rule.entity';
 export * from './role-inheritance-rule-target.entity';
 export * from './project-server-access-audit.entity';
+export * from './sync-change-detail.entity';
 
 export function transaction(arg0: (tx: any) => Promise<any>) {
   throw new Error('Function not implemented.');

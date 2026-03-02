@@ -52,6 +52,9 @@ export class PermissionsService {
       const isServerAdmin = await this.permissionsRepository.hasServerPermission(memberId, serverId, adminPermId);
       if (isServerAdmin) return { allowed: true, source: 'server' as const };
 
+      const isHierarchyAdmin = await this.permissionsRepository.hasHierarchyPermission(memberId, serverId, adminPermId);
+      if (isHierarchyAdmin) return { allowed: true, source: 'hierarchy' as const };
+
       const isInheritAdmin = await this.permissionsRepository.hasInheritedPermission(memberId, serverId, adminPermId);
       if (isInheritAdmin) return { allowed: true, source: 'inherited' as const };
     }
@@ -76,6 +79,16 @@ export class PermissionsService {
     );
     if (hasServer) {
       return { allowed: true, source: 'server' as const };
+    }
+
+    // Check same-server vertical hierarchy (higher-rank roles inherit lower-rank permissions)
+    const hasHierarchy = await this.permissionsRepository.hasHierarchyPermission(
+      memberId,
+      serverId,
+      reqPermId,
+    );
+    if (hasHierarchy) {
+      return { allowed: true, source: 'hierarchy' as const };
     }
 
     const hasInherited = await this.permissionsRepository.hasInheritedPermission(
@@ -184,10 +197,14 @@ export class PermissionsService {
     }
 
     // ── Cache miss: resolve from DB ──────────────────────────────────────
-    const [globalPermissions, serverPermissions, inheritedPermissions] =
+    const [globalPermissions, serverPermissions, hierarchyPermissions, inheritedPermissions] =
       await Promise.all([
         this.permissionsRepository.listGlobalPermissionNames(memberId),
         this.permissionsRepository.listServerPermissionNames(
+          memberId,
+          normalizedServerId,
+        ),
+        this.permissionsRepository.listHierarchyPermissionNames(
           memberId,
           normalizedServerId,
         ),
@@ -199,23 +216,24 @@ export class PermissionsService {
 
     const global = this.normalizePermissionNames(globalPermissions);
     const server = this.normalizePermissionNames(serverPermissions);
+    const hierarchy = this.normalizePermissionNames(hierarchyPermissions);
     const inherited = this.normalizePermissionNames(inheritedPermissions);
 
     const permissions = Array.from(
-      new Set([...global, ...server, ...inherited]),
+      new Set([...global, ...server, ...hierarchy, ...inherited]),
     ).sort();
 
     const result = {
       discordId: memberId,
       serverId: normalizedServerId,
       permissions,
-      sources: { global, server, inherited },
+      sources: { global, server, hierarchy, inherited },
     };
 
     // Populate cache for future calls
     this.permissionCache.set(memberId, normalizedServerId, {
       permissions,
-      sources: { global, server, inherited },
+      sources: { global, server, hierarchy, inherited },
     });
 
     return result;

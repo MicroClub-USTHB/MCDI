@@ -23,10 +23,15 @@ export class CreateServerDto {
   @IsString()
   icon?: string | null;
 
-  @ApiPropertyOptional({ example: 'community', default: 'other' })
+  @ApiPropertyOptional({
+    example: 'other',
+    default: 'other',
+    enum: ['main', 'competition', 'event', 'other'],
+    description: 'Server category type',
+  })
   @IsOptional()
-  @IsString()
-  type?: string;
+  @IsIn(['main', 'competition', 'event', 'other'])
+  type?: 'main' | 'competition' | 'event' | 'other';
 
   @ApiPropertyOptional({ example: false, default: false })
   @IsOptional()

@@ -3,6 +3,7 @@ import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { serverSyncLogs } from '../../database/entities/server-sync-log.entity';
+import { syncChangeDetails } from '../../database/entities/sync-change-detail.entity';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 @Injectable()
@@ -90,6 +91,61 @@ export class SyncRepository {
       .select({ count: sql<number>`count(*)::int` })
       .from(serverSyncLogs)
       .where(eq(serverSyncLogs.serverId, serverId));
+    return result?.count ?? 0;
+  }
+
+  // ─── Sync Change Details ────────────────────────────────────
+
+  async createChangeDetail(data: {
+    syncLogId: number;
+    serverId: string;
+    entityType: string;
+    entityId: string;
+    action: string;
+    description?: string;
+    details?: string;
+  }): Promise<typeof syncChangeDetails.$inferSelect> {
+    const [row] = await this.db
+      .insert(syncChangeDetails)
+      .values(data)
+      .returning();
+    return row;
+  }
+
+  async createChangeDetails(
+    items: {
+      syncLogId: number;
+      serverId: string;
+      entityType: string;
+      entityId: string;
+      action: string;
+      description?: string;
+      details?: string;
+    }[],
+  ): Promise<void> {
+    if (!items.length) return;
+    await this.db.insert(syncChangeDetails).values(items);
+  }
+
+  async getChangeDetails(
+    syncLogId: number,
+    limit = 100,
+    offset = 0,
+  ): Promise<typeof syncChangeDetails.$inferSelect[]> {
+    return this.db
+      .select()
+      .from(syncChangeDetails)
+      .where(eq(syncChangeDetails.syncLogId, syncLogId))
+      .orderBy(desc(syncChangeDetails.id))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async countChangeDetails(syncLogId: number): Promise<number> {
+    const [result] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(syncChangeDetails)
+      .where(eq(syncChangeDetails.syncLogId, syncLogId));
     return result?.count ?? 0;
   }
 }

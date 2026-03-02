@@ -14,6 +14,10 @@ import { members } from '../../database/entities/member.entity';
 import { SyncStatusDto } from './dto/sync-status.dto';
 import { SyncLogDto, SyncLogsResponseDto } from './dto/sync-log.dto';
 import { SyncTarget } from './dto/trigger-sync.dto';
+import {
+  SyncChangeDetailDto,
+  SyncChangeDetailsResponseDto,
+} from './dto/sync-change-detail.dto';
 
 @Injectable()
 export class SyncService {
@@ -123,6 +127,15 @@ export class SyncService {
     const syncStart = new Date();
     let membersSynced = 0;
     let rolesSynced = 0;
+    const changeBuffer: {
+      syncLogId: number;
+      serverId: string;
+      entityType: string;
+      entityId: string;
+      action: string;
+      description?: string;
+      details?: string;
+    }[] = [];
 
     try {
       // Update server basic information
@@ -136,6 +149,15 @@ export class SyncService {
           }),
         `updateServerInfo(${serverId})`,
       );
+
+      changeBuffer.push({
+        syncLogId: syncId,
+        serverId,
+        entityType: 'server',
+        entityId: serverId,
+        action: 'updated',
+        description: `Server info synced: ${guild.name}`,
+      });
 
       // Sync all roles
       if (target === SyncTarget.ALL || target === SyncTarget.ROLES) {
@@ -161,6 +183,16 @@ export class SyncService {
             () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
             `syncRolePermissions(${role.id})`,
           );
+
+          changeBuffer.push({
+            syncLogId: syncId,
+            serverId,
+            entityType: 'role',
+            entityId: role.id,
+            action: 'updated',
+            description: `Role synced: ${role.name}`,
+            details: JSON.stringify({ name: role.name, position: role.position, managed: role.managed }),
+          });
         }
         this.logger.log(
           `Upserted ${guildRoles.size} roles for server ${serverId}`,
@@ -186,6 +218,20 @@ export class SyncService {
             await this.processMember(guild, guildMember, syncStart);
             membersSynced++;
             rolesSynced += guildMember.roles.cache.size;
+
+            changeBuffer.push({
+              syncLogId: syncId,
+              serverId,
+              entityType: 'member',
+              entityId: guildMember.id,
+              action: 'updated',
+              description: `Member synced: ${guildMember.user.username}`,
+              details: JSON.stringify({
+                username: guildMember.user.username,
+                nickname: guildMember.nickname,
+                roles: [...guildMember.roles.cache.keys()],
+              }),
+            });
           }
 
           lastId = fetched.last()?.id;
@@ -198,7 +244,21 @@ export class SyncService {
         this.logger.log(
           `Deactivated ${deactivatedCount} members in server ${serverId}`,
         );
+
+        if (deactivatedCount > 0) {
+          changeBuffer.push({
+            syncLogId: syncId,
+            serverId,
+            entityType: 'member',
+            entityId: serverId,
+            action: 'deactivated',
+            description: `${deactivatedCount} members marked inactive`,
+          });
+        }
       }
+
+      // Flush all change details
+      await this.flushChangeBuffer(changeBuffer);
 
       await this.syncRepository.updateLog(syncId, {
         status: 'success',
@@ -210,11 +270,36 @@ export class SyncService {
     } catch (error: unknown) {
       const errorStack = error instanceof Error ? error.stack : String(error);
       this.logger.error(`Full sync failed for server ${serverId}`, errorStack);
+
+      // Best-effort flush of whatever we collected so far
+      await this.flushChangeBuffer(changeBuffer).catch(() => { /* swallow */ });
+
       await this.syncRepository.updateLog(syncId, {
         status: 'failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         finishedAt: new Date(),
       });
+    }
+  }
+
+  /**
+   * Batch-insert change detail records in chunks of 500 to avoid
+   * exceeding DB parameter limits.
+   */
+  private async flushChangeBuffer(
+    buffer: {
+      syncLogId: number;
+      serverId: string;
+      entityType: string;
+      entityId: string;
+      action: string;
+      description?: string;
+      details?: string;
+    }[],
+  ): Promise<void> {
+    const CHUNK = 500;
+    for (let i = 0; i < buffer.length; i += CHUNK) {
+      await this.syncRepository.createChangeDetails(buffer.slice(i, i + CHUNK));
     }
   }
 
@@ -272,6 +357,8 @@ export class SyncService {
       `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
     );
     await this.processMember(guildMember.guild, guildMember, new Date());
+    await this.recordEventChange(guildMember.guild.id, 'member', guildMember.id, 'added',
+      `Member joined: ${guildMember.user.username}`);
   }
 
   async handleMemberRemove(guildMember: GuildMember): Promise<void> {
@@ -289,6 +376,8 @@ export class SyncService {
         }),
       `handleMemberRemove upsertServerMembership(${guildMember.id})`,
     );
+    await this.recordEventChange(guildMember.guild.id, 'member', guildMember.id, 'removed',
+      `Member left: ${guildMember.user.username}`);
   }
 
   async handleMemberUpdate(
@@ -355,6 +444,24 @@ export class SyncService {
         }),
       `handleMemberUpdate upsertServerMembership(${newMember.id})`,
     );
+
+    // Record the change
+    const changes: string[] = [];
+    if (oldMember.user.username !== newMember.user.username)
+      changes.push(`username: ${oldMember.user.username} → ${newMember.user.username}`);
+    if (oldMember.nickname !== newMember.nickname)
+      changes.push(`nickname: ${oldMember.nickname ?? '(none)'} → ${newMember.nickname ?? '(none)'}`);
+    if (oldRoles.size !== newRoles.size || !oldRoles.every((r) => newRoles.has(r.id)))
+      changes.push('roles changed');
+
+    await this.recordEventChange(
+      newMember.guild.id,
+      'member',
+      newMember.id,
+      'updated',
+      `Member updated: ${newMember.user.username}`,
+      changes.length > 0 ? JSON.stringify({ changes }) : undefined,
+    );
   }
 
   async handleUserUpdate(oldUser: User, newUser: User): Promise<void> {
@@ -399,6 +506,8 @@ export class SyncService {
       () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
       `handleRoleCreate syncRolePermissions(${role.id})`,
     );
+    await this.recordEventChange(role.guild.id, 'role', role.id, 'added',
+      `Role created: ${role.name}`);
   }
 
   async handleRoleUpdate(role: Role): Promise<void> {
@@ -422,6 +531,8 @@ export class SyncService {
       () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
       `handleRoleUpdate syncRolePermissions(${role.id})`,
     );
+    await this.recordEventChange(role.guild.id, 'role', role.id, 'updated',
+      `Role updated: ${role.name}`);
   }
 
   async handleRoleDelete(role: Role): Promise<void> {
@@ -434,6 +545,50 @@ export class SyncService {
       () => this.serversRepository.deleteRole(role.id),
       `handleRoleDelete deleteRole(${role.id})`,
     );
+    await this.recordEventChange(role.guild.id, 'role', role.id, 'removed',
+      `Role deleted: ${role.name}`);
+  }
+
+  /**
+   * Creates a lightweight "incremental" sync log for a real-time gateway event
+   * and records the single change detail against it.
+   */
+  private async recordEventChange(
+    serverId: string,
+    entityType: string,
+    entityId: string,
+    action: string,
+    description?: string,
+    details?: string,
+  ): Promise<void> {
+    try {
+      const now = new Date();
+      const log = await this.syncRepository.createLog(
+        serverId,
+        'incremental',
+        'success',
+        now,
+      );
+      await this.syncRepository.updateLog(log.id, {
+        membersSynced: entityType === 'member' ? 1 : 0,
+        rolesSynced: entityType === 'role' ? 1 : 0,
+        finishedAt: now,
+        message: description,
+      });
+      await this.syncRepository.createChangeDetail({
+        syncLogId: log.id,
+        serverId,
+        entityType,
+        entityId,
+        action,
+        description,
+        details,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record event change detail: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   async getSyncStatus(serverId: string): Promise<SyncStatusDto | null> {
@@ -617,5 +772,35 @@ export class SyncService {
     );
 
     return statuses;
+  }
+
+  // ─── Sync Change Details ──────────────────────────────────
+
+  async getSyncChangeDetails(
+    syncLogId: number,
+    limit = 100,
+    offset = 0,
+  ): Promise<SyncChangeDetailsResponseDto> {
+    const [changes, total] = await Promise.all([
+      this.syncRepository.getChangeDetails(syncLogId, limit, offset),
+      this.syncRepository.countChangeDetails(syncLogId),
+    ]);
+
+    return {
+      total,
+      changes: changes.map(
+        (c): SyncChangeDetailDto => ({
+          id: c.id,
+          syncLogId: c.syncLogId,
+          serverId: c.serverId,
+          entityType: c.entityType,
+          entityId: c.entityId,
+          action: c.action,
+          description: c.description ?? undefined,
+          details: c.details ?? undefined,
+          createdAt: c.createdAt.toISOString(),
+        }),
+      ),
+    };
   }
 }

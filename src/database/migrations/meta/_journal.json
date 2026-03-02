@@ -36,6 +36,13 @@
       "when": 1772292121509,
       "tag": "0004_normal_warbird",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772492482093,
+      "tag": "0005_curved_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

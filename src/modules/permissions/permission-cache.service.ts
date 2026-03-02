@@ -6,6 +6,7 @@ interface CacheEntry {
     sources: {
         global: string[];
         server: string[];
+        hierarchy: string[];
         inherited: string[];
     };
     expiresAt: number;
@@ -40,7 +41,7 @@ export class PermissionCacheService {
     ): CacheEntry['permissions'] extends string[]
         ? {
             permissions: string[];
-            sources: { global: string[]; server: string[]; inherited: string[] };
+            sources: { global: string[]; server: string[]; hierarchy: string[]; inherited: string[] };
         }
         : never | null {
         const entry = this.store.get(this.key(memberId, serverId));

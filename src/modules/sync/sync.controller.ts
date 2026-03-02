@@ -8,6 +8,8 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,12 +17,17 @@ import {
   ApiOperation,
   ApiResponse,
   ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { SyncService } from './sync.service';
 import { TriggerSyncDto } from './dto/trigger-sync.dto';
 import { SyncStatusDto } from './dto/sync-status.dto';
 import { SyncLogsQueryDto } from './dto/sync-logs-query.dto';
 import { SyncLogsResponseDto } from './dto/sync-log.dto';
+import {
+  SyncChangeDetailsQueryDto,
+  SyncChangeDetailsResponseDto,
+} from './dto/sync-change-detail.dto';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 @ApiTags('Admin Sync')
@@ -97,6 +104,31 @@ export class SyncController {
       query.serverId,
       query.limit,
       query.offset,
+    );
+  }
+
+  // ─── Sync Change Details ───────────────────────────────────
+
+  @Get('logs/:syncLogId/changes')
+  @ApiOperation({
+    summary: 'Get granular change details for a specific sync log',
+    description:
+      'Returns a paginated list of individual entity-level changes ' +
+      '(member added/removed, role updated, etc.) recorded during a sync operation.',
+  })
+  @ApiParam({ name: 'syncLogId', type: Number, example: 42 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 100 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
+  @ApiResponse({ status: 200, type: SyncChangeDetailsResponseDto })
+  async getSyncChangeDetails(
+    @Param('syncLogId', ParseIntPipe) syncLogId: number,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ): Promise<SyncChangeDetailsResponseDto> {
+    return this.syncService.getSyncChangeDetails(
+      syncLogId,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
     );
   }
 }
