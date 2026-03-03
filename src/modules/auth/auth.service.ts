@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
@@ -18,6 +19,7 @@ import {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
   private readonly discordClientSecret: string;
   private readonly discordRedirectUri: string;
@@ -254,10 +256,10 @@ export class AuthService {
     const member = await this.memberRepository.upsert({
       id: profile.id,
       username: profile.username,
-      globalName: profile.global_name || null,
-      displayName: profile.display_name || profile.global_name || null,
-      avatar: profile.avatar || null,
-      email: profile.email || null,
+      globalName: profile.global_name || undefined,
+      displayName: profile.display_name || profile.global_name || undefined,
+      avatar: profile.avatar || undefined,
+      email: profile.email || undefined,
       syncedAt: new Date(),
     });
 
@@ -269,8 +271,8 @@ export class AuthService {
 
     if (!guildMemberRes.ok) {
       const errBody = await guildMemberRes.text().catch(() => '');
-      console.error(
-        `[Auth] Guild member check failed for user=${profile.id} server=${serverId} ` +
+      this.logger.error(
+        `Guild member check failed for user=${profile.id} server=${serverId} ` +
           `status=${guildMemberRes.status} body=${errBody}`,
       );
       // status 404 → user not in server; 403 → missing scope or bot not in guild

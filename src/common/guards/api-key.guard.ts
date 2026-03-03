@@ -34,7 +34,7 @@ export class ApiKeyGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const apiKey = this.extractApiKey(request);
+    const apiKey = extractApiKey(request);
 
     if (!apiKey) {
       throw new UnauthorizedException('API key is required');
@@ -99,10 +99,6 @@ export class ApiKeyGuard implements CanActivate {
     request.project = project;
 
     return true;
-  }
-
-  private extractApiKey(request: Request): string | null {
-    return extractApiKey(request);
   }
 
   private async validateApiKey(
