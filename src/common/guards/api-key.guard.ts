@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   CanActivate,
@@ -24,6 +21,12 @@ import { extractApiKey } from '../utils/auth.util';
 import { validateScope } from '../utils/scope.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
+type ProjectRow = typeof schema.projects.$inferSelect;
+
+interface RequestWithProject extends Request {
+  project?: ProjectRow;
+}
+
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
   constructor(
@@ -33,7 +36,7 @@ export class ApiKeyGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<RequestWithProject>();
     const apiKey = extractApiKey(request);
 
     if (!apiKey) {
@@ -103,7 +106,7 @@ export class ApiKeyGuard implements CanActivate {
 
   private async validateApiKey(
     apiKey: string,
-  ): Promise<typeof schema.projects.$inferSelect | null> {
+  ): Promise<ProjectRow | null> {
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 
@@ -132,8 +135,8 @@ export class ApiKeyGuard implements CanActivate {
     return isValid ? project : null;
   }
 
-  private extractServerId(request: Request): string | null {
-    const serverId = request.params.serverId || request.query.serverId;
+  private extractServerId(request: RequestWithProject): string | null {
+    const serverId = request.params['serverId'] ?? request.query['serverId'];
     return typeof serverId === 'string' ? serverId : null;
   }
 }
