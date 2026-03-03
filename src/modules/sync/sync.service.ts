@@ -30,7 +30,7 @@ export class SyncService {
     private readonly memberRepository: MemberRepository,
     private readonly serversRepository: ServersRepository,
     private readonly syncRepository: SyncRepository,
-  ) { }
+  ) {}
 
   private async withRetry<T>(
     operation: () => Promise<T>,
@@ -54,7 +54,10 @@ export class SyncService {
     throw lastError;
   }
 
-  async triggerFullSync(serverId: string, target: SyncTarget = SyncTarget.ALL): Promise<{ syncId: number }> {
+  async triggerFullSync(
+    serverId: string,
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<{ syncId: number }> {
     const server = await this.serversRepository.findById(serverId);
     if (!server) {
       throw new NotFoundException('Server not found');
@@ -89,14 +92,18 @@ export class SyncService {
   async triggerMultipleSyncs(
     serverIds: string[],
     target: SyncTarget = SyncTarget.ALL,
-  ): Promise<{ results: { serverId: string; syncId?: number; error?: string }[] }> {
+  ): Promise<{
+    results: { serverId: string; syncId?: number; error?: string }[];
+  }> {
     const results: { serverId: string; syncId?: number; error?: string }[] = [];
     let targetsToSync = serverIds;
 
     if (!targetsToSync || targetsToSync.length === 0) {
       const activeServers = await this.serversRepository.findAllActive();
       targetsToSync = activeServers.map((s) => s.id);
-      this.logger.log(`No serverIds provided. Scheduled sync for all ${targetsToSync.length} active servers.`);
+      this.logger.log(
+        `No serverIds provided. Scheduled sync for all ${targetsToSync.length} active servers.`,
+      );
     }
 
     for (const serverId of targetsToSync) {
@@ -113,7 +120,11 @@ export class SyncService {
     return { results };
   }
 
-  private async runFullSync(serverId: string, syncId: number, target: SyncTarget = SyncTarget.ALL): Promise<void> {
+  private async runFullSync(
+    serverId: string,
+    syncId: number,
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<void> {
     const guild = await this.discordService.getGuildById(serverId);
     if (!guild) {
       await this.syncRepository.updateLog(syncId, {
@@ -180,7 +191,11 @@ export class SyncService {
             `upsertRole(${role.id})`,
           );
           await this.withRetry(
-            () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+            () =>
+              this.serversRepository.syncRolePermissions(
+                role.id,
+                role.permissions.bitfield,
+              ),
             `syncRolePermissions(${role.id})`,
           );
 
@@ -191,7 +206,11 @@ export class SyncService {
             entityId: role.id,
             action: 'updated',
             description: `Role synced: ${role.name}`,
-            details: JSON.stringify({ name: role.name, position: role.position, managed: role.managed }),
+            details: JSON.stringify({
+              name: role.name,
+              position: role.position,
+              managed: role.managed,
+            }),
           });
         }
         this.logger.log(
@@ -206,7 +225,9 @@ export class SyncService {
         let hasMore = true;
 
         while (hasMore) {
-          const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
+          const fetchOptions: { limit: number; after?: string } = {
+            limit: 1000,
+          };
           if (lastId) {
             fetchOptions.after = lastId;
           }
@@ -239,8 +260,10 @@ export class SyncService {
         }
 
         // Mark inactive members
-        deactivatedCount =
-          await this.memberRepository.markInactiveForServer(serverId, syncStart);
+        deactivatedCount = await this.memberRepository.markInactiveForServer(
+          serverId,
+          syncStart,
+        );
         this.logger.log(
           `Deactivated ${deactivatedCount} members in server ${serverId}`,
         );
@@ -272,7 +295,9 @@ export class SyncService {
       this.logger.error(`Full sync failed for server ${serverId}`, errorStack);
 
       // Best-effort flush of whatever we collected so far
-      await this.flushChangeBuffer(changeBuffer).catch(() => { /* swallow */ });
+      await this.flushChangeBuffer(changeBuffer).catch(() => {
+        /* swallow */
+      });
 
       await this.syncRepository.updateLog(syncId, {
         status: 'failed',
@@ -357,8 +382,13 @@ export class SyncService {
       `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
     );
     await this.processMember(guildMember.guild, guildMember, new Date());
-    await this.recordEventChange(guildMember.guild.id, 'member', guildMember.id, 'added',
-      `Member joined: ${guildMember.user.username}`);
+    await this.recordEventChange(
+      guildMember.guild.id,
+      'member',
+      guildMember.id,
+      'added',
+      `Member joined: ${guildMember.user.username}`,
+    );
   }
 
   async handleMemberRemove(guildMember: GuildMember): Promise<void> {
@@ -376,8 +406,13 @@ export class SyncService {
         }),
       `handleMemberRemove upsertServerMembership(${guildMember.id})`,
     );
-    await this.recordEventChange(guildMember.guild.id, 'member', guildMember.id, 'removed',
-      `Member left: ${guildMember.user.username}`);
+    await this.recordEventChange(
+      guildMember.guild.id,
+      'member',
+      guildMember.id,
+      'removed',
+      `Member left: ${guildMember.user.username}`,
+    );
   }
 
   async handleMemberUpdate(
@@ -448,10 +483,17 @@ export class SyncService {
     // Record the change
     const changes: string[] = [];
     if (oldMember.user.username !== newMember.user.username)
-      changes.push(`username: ${oldMember.user.username} → ${newMember.user.username}`);
+      changes.push(
+        `username: ${oldMember.user.username} → ${newMember.user.username}`,
+      );
     if (oldMember.nickname !== newMember.nickname)
-      changes.push(`nickname: ${oldMember.nickname ?? '(none)'} → ${newMember.nickname ?? '(none)'}`);
-    if (oldRoles.size !== newRoles.size || !oldRoles.every((r) => newRoles.has(r.id)))
+      changes.push(
+        `nickname: ${oldMember.nickname ?? '(none)'} → ${newMember.nickname ?? '(none)'}`,
+      );
+    if (
+      oldRoles.size !== newRoles.size ||
+      !oldRoles.every((r) => newRoles.has(r.id))
+    )
       changes.push('roles changed');
 
     await this.recordEventChange(
@@ -503,11 +545,20 @@ export class SyncService {
       `handleRoleCreate upsertRole(${role.id})`,
     );
     await this.withRetry(
-      () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+      () =>
+        this.serversRepository.syncRolePermissions(
+          role.id,
+          role.permissions.bitfield,
+        ),
       `handleRoleCreate syncRolePermissions(${role.id})`,
     );
-    await this.recordEventChange(role.guild.id, 'role', role.id, 'added',
-      `Role created: ${role.name}`);
+    await this.recordEventChange(
+      role.guild.id,
+      'role',
+      role.id,
+      'added',
+      `Role created: ${role.name}`,
+    );
   }
 
   async handleRoleUpdate(role: Role): Promise<void> {
@@ -528,11 +579,20 @@ export class SyncService {
       `handleRoleUpdate upsertRole(${role.id})`,
     );
     await this.withRetry(
-      () => this.serversRepository.syncRolePermissions(role.id, role.permissions.bitfield),
+      () =>
+        this.serversRepository.syncRolePermissions(
+          role.id,
+          role.permissions.bitfield,
+        ),
       `handleRoleUpdate syncRolePermissions(${role.id})`,
     );
-    await this.recordEventChange(role.guild.id, 'role', role.id, 'updated',
-      `Role updated: ${role.name}`);
+    await this.recordEventChange(
+      role.guild.id,
+      'role',
+      role.id,
+      'updated',
+      `Role updated: ${role.name}`,
+    );
   }
 
   async handleRoleDelete(role: Role): Promise<void> {
@@ -545,8 +605,13 @@ export class SyncService {
       () => this.serversRepository.deleteRole(role.id),
       `handleRoleDelete deleteRole(${role.id})`,
     );
-    await this.recordEventChange(role.guild.id, 'role', role.id, 'removed',
-      `Role deleted: ${role.name}`);
+    await this.recordEventChange(
+      role.guild.id,
+      'role',
+      role.id,
+      'removed',
+      `Role deleted: ${role.name}`,
+    );
   }
 
   /**
@@ -629,7 +694,9 @@ export class SyncService {
           continue;
         }
 
-        const inProgress = await this.syncRepository.getInProgressLog(server.id);
+        const inProgress = await this.syncRepository.getInProgressLog(
+          server.id,
+        );
         if (inProgress) {
           this.logger.log(
             `Skipping boot sync for ${server.id} — sync already in progress`,

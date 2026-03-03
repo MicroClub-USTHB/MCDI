@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, Matches, IsOptional, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SyncLogsQueryDto {
@@ -10,7 +10,10 @@ export class SyncLogsQueryDto {
   @IsString()
   serverId: string;
 
-  @ApiPropertyOptional({ default: 20, description: 'Max results to return (1-100)' })
+  @ApiPropertyOptional({
+    default: 20,
+    description: 'Max results to return (1-100)',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

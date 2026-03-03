@@ -1,4 +1,10 @@
-import { IsString, MaxLength, IsOptional, IsEnum, IsArray } from 'class-validator';
+import {
+  IsString,
+  MaxLength,
+  IsOptional,
+  IsEnum,
+  IsArray,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum ProjectScope {

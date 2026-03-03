@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBody,
   ApiForbiddenResponse,
@@ -28,7 +21,7 @@ import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 @ApiTags('Permissions')
 @Controller('permissions')
 export class PermissionsController {
-  constructor(private readonly permissionsService: PermissionsService) { }
+  constructor(private readonly permissionsService: PermissionsService) {}
 
   // ─── Permission Checking API (project-scoped) ──────────────────────
 
@@ -47,8 +40,7 @@ export class PermissionsController {
   @Post('check-batch')
   @UseGuards(ApiKeyGuard)
   @ApiOperation({
-    summary:
-      'Check multiple permissions (ALL must match, or ANY must match)',
+    summary: 'Check multiple permissions (ALL must match, or ANY must match)',
   })
   @ApiBody({ type: CheckPermissionsBatchDto })
   @ApiOkResponse({ description: 'Batch permission check result returned.' })

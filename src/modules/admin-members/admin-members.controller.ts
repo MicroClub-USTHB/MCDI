@@ -141,7 +141,12 @@ export class AdminMembersController {
 
     const headers = Object.keys(rows[0]);
     const escape = (val: unknown): string => {
-      const str = String(val ?? '');
+      const str =
+        val == null
+          ? ''
+          : typeof val === 'object'
+            ? JSON.stringify(val)
+            : String(val as string | number | boolean);
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
       }

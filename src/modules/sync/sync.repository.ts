@@ -76,7 +76,7 @@ export class SyncRepository {
     serverId: string,
     limit = 20,
     offset = 0,
-  ): Promise<typeof serverSyncLogs.$inferSelect[]> {
+  ): Promise<(typeof serverSyncLogs.$inferSelect)[]> {
     return this.db
       .select()
       .from(serverSyncLogs)
@@ -131,7 +131,7 @@ export class SyncRepository {
     syncLogId: number,
     limit = 100,
     offset = 0,
-  ): Promise<typeof syncChangeDetails.$inferSelect[]> {
+  ): Promise<(typeof syncChangeDetails.$inferSelect)[]> {
     return this.db
       .select()
       .from(syncChangeDetails)

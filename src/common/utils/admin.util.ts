@@ -20,10 +20,7 @@ export async function isAdminMember(
     .select({ id: schema.servers.id })
     .from(schema.servers)
     .where(
-      and(
-        eq(schema.servers.isMain, true),
-        eq(schema.servers.isActive, true),
-      ),
+      and(eq(schema.servers.isMain, true), eq(schema.servers.isActive, true)),
     )
     .limit(1);
 

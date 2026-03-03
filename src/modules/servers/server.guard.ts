@@ -15,12 +15,18 @@ export class ServerActiveGuard implements CanActivate {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<{
+      originalUrl: string;
+      params?: Record<string, string>;
+      query?: Record<string, string>;
+      body?: Record<string, string>;
+      headers: Record<string, string>;
+    }>();
     // this allows admin server-management endpoints to bypass active check
     const url = req.originalUrl ?? '';
-      if (/\/servers(?:\/|$)/.test(url)) {
-        return true;
-      }
+    if (/\/servers(?:\/|$)/.test(url)) {
+      return true;
+    }
 
     const serverId =
       req.params?.serverId ||

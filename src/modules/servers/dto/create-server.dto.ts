@@ -9,7 +9,10 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateServerDto {
-  @ApiProperty({ example: '123456789012345678', description: 'Discord guild ID' })
+  @ApiProperty({
+    example: '123456789012345678',
+    description: 'Discord guild ID',
+  })
   @IsString()
   guildId!: string;
 
@@ -18,7 +21,10 @@ export class CreateServerDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ example: 'https://cdn.discordapp.com/icons/.../icon.png', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://cdn.discordapp.com/icons/.../icon.png',
+    nullable: true,
+  })
   @IsOptional()
   @IsString()
   icon?: string | null;
@@ -43,7 +49,11 @@ export class CreateServerDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ example: 2, minimum: 1, description: 'Sync frequency in hours' })
+  @ApiPropertyOptional({
+    example: 2,
+    minimum: 1,
+    description: 'Sync frequency in hours',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

@@ -25,7 +25,7 @@ export class PermissionsRepository {
   constructor(
     @Inject(databaseModule.DRIZZLE)
     private readonly db: databaseModule.DrizzleDB,
-  ) { }
+  ) {}
 
   async findPermissionIdByName(permissionName: string): Promise<number | null> {
     const [row] = await this.db
@@ -112,9 +112,7 @@ export class PermissionsRepository {
 
     if (!memberRoles.length) return false;
 
-    const highestRank = Math.min(
-      ...memberRoles.map((r) => r.hierarchyLevel!),
-    );
+    const highestRank = Math.min(...memberRoles.map((r) => r.hierarchyLevel!));
 
     // Check if any role at a lower rank (higher or equal hierarchyLevel number)
     // in this server has the requested permission
@@ -157,9 +155,7 @@ export class PermissionsRepository {
 
     if (!memberRoles.length) return [];
 
-    const highestRank = Math.min(
-      ...memberRoles.map((r) => r.hierarchyLevel!),
-    );
+    const highestRank = Math.min(...memberRoles.map((r) => r.hierarchyLevel!));
 
     const rows = await this.db
       .select({ name: permissions.key })

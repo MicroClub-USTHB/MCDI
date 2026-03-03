@@ -12,7 +12,7 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
     {
       provide: DRIZZLE,
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
+      useFactory: (configService: ConfigService) => {
         const databaseUrl = configService.get<string>('database.url');
         const pool = new Pool({ connectionString: databaseUrl });
         return drizzle(pool, { schema });

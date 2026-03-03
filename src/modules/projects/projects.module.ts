@@ -11,8 +11,12 @@ import { ProjectsAccessRepository } from './projects-access.repository';
 import { ProjectsAccessService } from './projects-access.service';
 
 @Module({
-  imports: [AuthModule,DatabaseModule],
-  controllers: [ProjectAdminController,ProjectsController, ProjectsAccessController],
+  imports: [AuthModule, DatabaseModule],
+  controllers: [
+    ProjectAdminController,
+    ProjectsController,
+    ProjectsAccessController,
+  ],
   providers: [
     ProjectAdminService,
     ProjectsService,

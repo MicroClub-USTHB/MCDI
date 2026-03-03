@@ -31,7 +31,7 @@ export class UpsertInheritanceRuleDto {
     example: ['998877665544332211', '887766554433221100'],
     description: 'Required when targetScope = selected',
   })
-  @ValidateIf((o) => o.targetScope === 'selected')
+  @ValidateIf((o: { targetScope?: string }) => o.targetScope === 'selected')
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })

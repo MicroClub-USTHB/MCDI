@@ -1,0 +1,274 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
+import { ServersService } from './servers.service';
+import { ServersRepository } from './servers.repository';
+import { DiscordService } from '../discord/discord.service';
+
+// ── Mocks ─────────────────────────────────────────────────────────────────
+
+const mockServersRepo = {
+  clearMainServer: jest.fn(),
+  upsertServer: jest.fn(),
+  listServersWithLastSync: jest.fn(),
+  findById: jest.fn(),
+  updateById: jest.fn(),
+  deleteServerCascade: jest.fn(),
+};
+
+const mockDiscordService = {
+  getGuildById: jest.fn(),
+  getClient: jest.fn(),
+};
+
+const fakeServer = (overrides = {}) => ({
+  id: 'guild-1',
+  name: 'Test Guild',
+  icon: null,
+  type: 'main',
+  isMain: false,
+  isActive: true,
+  syncFrequencyHours: 1,
+  defaultPermissionPolicy: 'deny_all',
+  disabledReason: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  syncedAt: null,
+  ...overrides,
+});
+
+// ── Suite ──────────────────────────────────────────────────────────────────
+
+describe('ServersService', () => {
+  let service: ServersService;
+
+  beforeEach(async () => {
+    mockDiscordService.getClient.mockReturnValue({
+      isReady: () => false,
+      guilds: { cache: { has: () => false } },
+    });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ServersService,
+        { provide: ServersRepository, useValue: mockServersRepo },
+        { provide: DiscordService, useValue: mockDiscordService },
+      ],
+    }).compile();
+    service = module.get(ServersService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  // ── registerServer ─────────────────────────────────────────────────────
+
+  describe('registerServer', () => {
+    it('upserts server data and returns the row', async () => {
+      const server = fakeServer();
+      mockDiscordService.getGuildById.mockResolvedValue({
+        name: 'Guild',
+        iconURL: () => null,
+      });
+      mockServersRepo.upsertServer.mockResolvedValue(server);
+
+      const result = await service.registerServer({
+        guildId: 'guild-1',
+        name: 'Test Guild',
+        type: 'main',
+      });
+      expect(result).toEqual(server);
+      expect(mockServersRepo.upsertServer).toHaveBeenCalled();
+    });
+
+    it('calls clearMainServer when isMain is true', async () => {
+      const server = fakeServer({ isMain: true });
+      mockDiscordService.getGuildById.mockResolvedValue(null);
+      mockServersRepo.clearMainServer.mockResolvedValue(undefined);
+      mockServersRepo.upsertServer.mockResolvedValue(server);
+
+      await service.registerServer({
+        guildId: 'guild-1',
+        name: 'G',
+        isMain: true,
+      });
+      expect(mockServersRepo.clearMainServer).toHaveBeenCalled();
+    });
+
+    it('uses guild name from Discord when name is not provided', async () => {
+      mockDiscordService.getGuildById.mockResolvedValue({
+        name: 'DiscordName',
+        iconURL: () => 'http://icon',
+      });
+      mockServersRepo.upsertServer.mockResolvedValue(
+        fakeServer({ name: 'DiscordName' }),
+      );
+
+      await service.registerServer({ guildId: 'guild-1' });
+      const callArg = mockServersRepo.upsertServer.mock.calls[0][0];
+      expect(callArg.name).toBe('DiscordName');
+    });
+  });
+
+  // ── getServerById ──────────────────────────────────────────────────────
+
+  describe('getServerById', () => {
+    it('returns the server when found', async () => {
+      const server = fakeServer();
+      mockServersRepo.findById.mockResolvedValue(server);
+      expect(await service.getServerById('guild-1')).toEqual(server);
+    });
+
+    it('throws NotFoundException when server does not exist', async () => {
+      mockServersRepo.findById.mockResolvedValue(null);
+      await expect(service.getServerById('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ── updateServer ───────────────────────────────────────────────────────
+
+  describe('updateServer', () => {
+    it('returns the updated server', async () => {
+      const server = fakeServer({ name: 'Updated' });
+      mockServersRepo.updateById.mockResolvedValue(server);
+
+      const result = await service.updateServer('guild-1', { name: 'Updated' });
+      expect(result.name).toBe('Updated');
+    });
+
+    it('throws NotFoundException when server does not exist', async () => {
+      mockServersRepo.updateById.mockResolvedValue(null);
+      await expect(service.updateServer('missing', {})).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ── deleteServer ───────────────────────────────────────────────────────
+
+  describe('deleteServer', () => {
+    it('deletes the server and returns confirmation message', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
+      mockServersRepo.deleteServerCascade.mockResolvedValue(undefined);
+
+      const result = await service.deleteServer('guild-1');
+      expect(result.message).toContain('deleted');
+      expect(mockServersRepo.deleteServerCascade).toHaveBeenCalledWith(
+        'guild-1',
+      );
+    });
+
+    it('throws NotFoundException when server does not exist', async () => {
+      mockServersRepo.findById.mockResolvedValue(null);
+      await expect(service.deleteServer('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ── disableServer ──────────────────────────────────────────────────────
+
+  describe('disableServer', () => {
+    it('sets isActive=false and stores the reason', async () => {
+      const server = fakeServer({
+        isActive: false,
+        disabledReason: 'Maintenance',
+      });
+      mockServersRepo.updateById.mockResolvedValue(server);
+
+      const result = await service.disableServer('guild-1', {
+        disabledReason: 'Maintenance',
+      });
+      expect(result.isActive).toBe(false);
+      const callArgs = mockServersRepo.updateById.mock.calls[0][1];
+      expect(callArgs.isActive).toBe(false);
+    });
+
+    it('throws NotFoundException when server does not exist', async () => {
+      mockServersRepo.updateById.mockResolvedValue(null);
+      await expect(
+        service.disableServer('missing', { disabledReason: 'x' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── enableServer ───────────────────────────────────────────────────────
+
+  describe('enableServer', () => {
+    it('sets isActive=true and clears disabledReason', async () => {
+      const server = fakeServer({ isActive: true, disabledReason: null });
+      mockServersRepo.updateById.mockResolvedValue(server);
+
+      const result = await service.enableServer('guild-1');
+      expect(result.isActive).toBe(true);
+      const callArgs = mockServersRepo.updateById.mock.calls[0][1];
+      expect(callArgs.isActive).toBe(true);
+      expect(callArgs.disabledReason).toBeNull();
+    });
+
+    it('throws NotFoundException when server does not exist', async () => {
+      mockServersRepo.updateById.mockResolvedValue(null);
+      await expect(service.enableServer('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  // ── listServers ────────────────────────────────────────────────────────
+
+  describe('listServers', () => {
+    it('returns servers with botConnected=false when client is not ready', async () => {
+      mockServersRepo.listServersWithLastSync.mockResolvedValue([
+        { id: 'guild-1', name: 'Guild' },
+      ]);
+      mockDiscordService.getClient.mockReturnValue({
+        isReady: () => false,
+        guilds: { cache: { has: () => false } },
+      });
+
+      const result = await service.listServers();
+      expect(result[0].botConnected).toBe(false);
+    });
+
+    it('returns botConnected=true when client is ready and guild is cached', async () => {
+      mockServersRepo.listServersWithLastSync.mockResolvedValue([
+        { id: 'guild-1', name: 'Guild' },
+      ]);
+      mockDiscordService.getClient.mockReturnValue({
+        isReady: () => true,
+        guilds: { cache: { has: (id: string) => id === 'guild-1' } },
+      });
+
+      const result = await service.listServers();
+      expect(result[0].botConnected).toBe(true);
+    });
+  });
+
+  // ── registerServer — error path ──────────────────────────────────────────
+
+  describe('registerServer (error path)', () => {
+    it('rethrows HttpException from inner code', async () => {
+      mockDiscordService.getGuildById.mockRejectedValue(
+        new NotFoundException('Guild not found'),
+      );
+
+      await expect(
+        service.registerServer({ guildId: 'bad-id' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── updateServer — isMain=false branch ──────────────────────────────────
+
+  describe('updateServer (additional branches)', () => {
+    it('sets isMain=false in patch when dto.isMain is explicitly false', async () => {
+      const server = fakeServer({ isMain: false });
+      mockServersRepo.updateById.mockResolvedValue(server);
+
+      await service.updateServer('guild-1', { isMain: false });
+
+      const patch = mockServersRepo.updateById.mock.calls[0][1];
+      expect(patch.isMain).toBe(false);
+    });
+  });
+});

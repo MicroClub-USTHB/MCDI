@@ -12,7 +12,9 @@ import { SyncService } from './sync.service';
 import { Client, Guild, GuildMember, User, Role } from 'discord.js';
 
 @Injectable()
-export class SyncListener implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap {
+export class SyncListener
+  implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap
+{
   private readonly logger = new Logger(SyncListener.name);
   private client: Client;
 
@@ -28,8 +30,14 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy, OnApplicatio
 
     // Member events
     this.client.on('guildMemberAdd', this.handleGuildMemberAdd.bind(this));
-    this.client.on('guildMemberRemove', this.handleGuildMemberRemove.bind(this));
-    this.client.on('guildMemberUpdate', this.handleGuildMemberUpdate.bind(this));
+    this.client.on(
+      'guildMemberRemove',
+      this.handleGuildMemberRemove.bind(this),
+    );
+    this.client.on(
+      'guildMemberUpdate',
+      this.handleGuildMemberUpdate.bind(this),
+    );
     this.client.on('userUpdate', this.handleUserUpdate.bind(this));
 
     // Role events
@@ -101,7 +109,10 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy, OnApplicatio
     }
   }
 
-  private async handleGuildUpdate(oldGuild: Guild, newGuild: Guild): Promise<void> {
+  private async handleGuildUpdate(
+    oldGuild: Guild,
+    newGuild: Guild,
+  ): Promise<void> {
     try {
       await this.syncService.handleGuildUpdate(oldGuild, newGuild);
     } catch (error) {

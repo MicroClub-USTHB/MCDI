@@ -88,10 +88,7 @@ export class ServersController {
   @ApiBody({ type: DisableServerDto })
   @ApiOkResponse({ description: 'Server disabled successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
-  disable(
-  @Param('serverId') serverId: string,
-  @Body() dto: DisableServerDto,
-  ) {
+  disable(@Param('serverId') serverId: string, @Body() dto: DisableServerDto) {
     return this.serversService.disableServer(serverId, dto);
   }
 
@@ -103,6 +100,4 @@ export class ServersController {
   enable(@Param('serverId') serverId: string) {
     return this.serversService.enableServer(serverId);
   }
-
-    
 }

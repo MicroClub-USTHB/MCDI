@@ -15,7 +15,7 @@ import { SystemAdminGuard } from './guards/system-admin.guard';
     MemberRepository,
     ProjectRepository,
     OAuthStateRepository,
-    SystemAdminGuard
+    SystemAdminGuard,
   ],
   exports: [
     AuthService,
@@ -23,8 +23,7 @@ import { SystemAdminGuard } from './guards/system-admin.guard';
     MemberRepository,
     ProjectRepository,
     OAuthStateRepository,
-    SystemAdminGuard
+    SystemAdminGuard,
   ],
 })
 export class AuthModule {}
-

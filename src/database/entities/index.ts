@@ -25,11 +25,11 @@ export * from './role-inheritance-rule-target.entity';
 export * from './project-server-access-audit.entity';
 export * from './sync-change-detail.entity';
 
-export function transaction(arg0: (tx: any) => Promise<any>) {
+export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');
 }
 
-export function select(arg0: {
+export function select(_arg0: {
   serverId: PgColumn<
     {
       name: 'server_id';
@@ -48,7 +48,7 @@ export function select(arg0: {
       identity: undefined;
       generated: undefined;
     },
-    {},
+    object,
     { length: 255 }
   >;
   lastSyncAt: SQL.Aliased<unknown>;

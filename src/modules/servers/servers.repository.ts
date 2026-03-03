@@ -17,7 +17,7 @@ export class ServersRepository {
   constructor(
     @Inject(databaseModule.DRIZZLE)
     private readonly db: databaseModule.DrizzleDB,
-  ) { }
+  ) {}
 
   async clearMainServer(now: Date) {
     await this.db
@@ -123,7 +123,9 @@ export class ServersRepository {
 
   // role sync
   async upsertRole(
-    roleData: Omit<typeof roles.$inferInsert, 'permissionsBits'> & { permissionsBits?: bigint },
+    roleData: Omit<typeof roles.$inferInsert, 'permissionsBits'> & {
+      permissionsBits?: bigint;
+    },
   ): Promise<typeof roles.$inferSelect> {
     const [row] = await this.db
       .insert(roles)
@@ -154,7 +156,10 @@ export class ServersRepository {
    * and upserts the matching rows into role_permissions.
    * This replaces the full set for the given role so stale entries are removed.
    */
-  async syncRolePermissions(roleId: string, permissionsBits: bigint): Promise<void> {
+  async syncRolePermissions(
+    roleId: string,
+    permissionsBits: bigint,
+  ): Promise<void> {
     // Load all known permissions
     const allPermissions = await this.db
       .select({ id: permissions.id, bitfield: permissions.bitfield })
@@ -162,7 +167,9 @@ export class ServersRepository {
 
     // Which permissions does this role actually have?
     const matchingPermIds = allPermissions
-      .filter((p) => p.bitfield !== null && (permissionsBits & p.bitfield) !== 0n)
+      .filter(
+        (p) => p.bitfield !== null && (permissionsBits & p.bitfield) !== 0n,
+      )
       .map((p) => p.id);
 
     await this.db.transaction(async (tx) => {
@@ -175,7 +182,9 @@ export class ServersRepository {
       if (matchingPermIds.length > 0) {
         await tx
           .insert(rolePermissions)
-          .values(matchingPermIds.map((permissionId) => ({ roleId, permissionId })))
+          .values(
+            matchingPermIds.map((permissionId) => ({ roleId, permissionId })),
+          )
           .onConflictDoNothing();
       }
     });
@@ -185,10 +194,7 @@ export class ServersRepository {
     await this.db.delete(roles).where(eq(roles.id, roleId));
   }
 
-  async findAllActive(): Promise<typeof servers.$inferSelect[]> {
-    return this.db
-      .select()
-      .from(servers)
-      .where(eq(servers.isActive, true));
+  async findAllActive(): Promise<(typeof servers.$inferSelect)[]> {
+    return this.db.select().from(servers).where(eq(servers.isActive, true));
   }
 }

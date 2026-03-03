@@ -127,7 +127,7 @@ export class ProjectsAccessRepository {
     const access = await this.findAccessMapping(projectId, serverId);
     if (!access) return false;
 
-    const operations = access.operations as ProjectServerOperations;
+    const operations = access.operations;
     return Boolean(operations?.[operation]);
   }
 

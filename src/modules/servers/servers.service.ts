@@ -29,38 +29,37 @@ export class ServersService {
 
   async registerServer(dto: CreateServerDto) {
     try {
+      const now = new Date();
+      const guild = await this.discordService.getGuildById(dto.guildId);
 
-    const now = new Date();
-    const guild = await this.discordService.getGuildById(dto.guildId);
+      const serverData = {
+        id: dto.guildId,
+        name: dto.name || guild?.name || this.DEFAULTS.name,
+        icon: dto.icon ?? guild?.iconURL() ?? null,
+        type: dto.type || this.DEFAULTS.type,
+        isMain: dto.isMain ?? this.DEFAULTS.isMain,
+        isActive: dto.isActive ?? this.DEFAULTS.isActive,
+        syncFrequencyHours:
+          dto.syncFrequencyHours ?? this.DEFAULTS.syncFrequencyHours,
+        defaultPermissionPolicy:
+          dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
+        disabledReason: dto.disabledReason ?? null,
+        updatedAt: now,
+      };
 
-    const serverData = {
-      id: dto.guildId,
-      name: dto.name || guild?.name || this.DEFAULTS.name,
-      icon: dto.icon ?? guild?.iconURL() ?? null,
-      type: dto.type || this.DEFAULTS.type,
-      isMain: dto.isMain ?? this.DEFAULTS.isMain,
-      isActive: dto.isActive ?? this.DEFAULTS.isActive,
-      syncFrequencyHours:
-        dto.syncFrequencyHours ?? this.DEFAULTS.syncFrequencyHours,
-      defaultPermissionPolicy:
-        dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
-      disabledReason: dto.disabledReason ?? null,
-      updatedAt: now,
-    };
+      if (dto.isMain) {
+        await this.serversRepository.clearMainServer(now);
+      }
 
-    if (dto.isMain) {
-      await this.serversRepository.clearMainServer(now);
-    }
-
-    return this.serversRepository.upsertServer(serverData);
+      return this.serversRepository.upsertServer(serverData);
     } catch (error) {
-    this.logger.error(
-      `registerServer failed for guildId=${dto.guildId}`,
-      error instanceof Error ? error.stack : String(error),
-    );
-    if (error instanceof HttpException) throw error;
-    throw new InternalServerErrorException('Failed to register server');
-  }
+      this.logger.error(
+        `registerServer failed for guildId=${dto.guildId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Failed to register server');
+    }
   }
 
   async listServers() {
@@ -116,15 +115,15 @@ export class ServersService {
   }
 
   async disableServer(serverId: string, dto: DisableServerDto) {
-  const row = await this.serversRepository.updateById(serverId, {
-    isActive: false,
-    disabledReason: dto.disabledReason ?? null,
-    updatedAt: new Date(),
-  });
+    const row = await this.serversRepository.updateById(serverId, {
+      isActive: false,
+      disabledReason: dto.disabledReason ?? null,
+      updatedAt: new Date(),
+    });
 
-  if (!row) throw new NotFoundException('Server not found');
-  return row;
-}
+    if (!row) throw new NotFoundException('Server not found');
+    return row;
+  }
 
   async enableServer(serverId: string) {
     const row = await this.serversRepository.updateById(serverId, {
@@ -134,9 +133,8 @@ export class ServersService {
     });
 
     if (!row) throw new NotFoundException('Server not found');
-      return row;
-    }
+    return row;
+  }
 
   private readonly logger = new Logger(ServersService.name);
-
 }

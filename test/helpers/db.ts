@@ -1,0 +1,191 @@
+/**
+ * E2E database utilities.
+ *
+ * Connects directly to the database via `DATABASE_URL` so tests can seed/clear
+ * data independently of the NestJS application bootstrap.
+ *
+ * Usage pattern:
+ *   const db = getTestDb();
+ *   afterAll(() => closeTestDb());
+ *   beforeEach(() => clearAllTables(db));
+ */
+import { Pool } from 'pg';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
+import * as schema from '../../src/database/entities';
+import { createHash, randomBytes } from 'crypto';
+
+export type TestDb = NodePgDatabase<typeof schema>;
+
+let pool: Pool | undefined;
+
+/** Returns a shared Drizzle instance connected to `DATABASE_URL`. */
+export function getTestDb(): TestDb {
+  if (!pool) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error('DATABASE_URL is required for E2E tests');
+    pool = new Pool({ connectionString: url });
+  }
+  return drizzle(pool, { schema });
+}
+
+/** Closes the shared pool. Call in `afterAll`. */
+export async function closeTestDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = undefined;
+  }
+}
+
+/**
+ * Truncates every table in the public schema (except Drizzle migration tables).
+ * Fast: single SQL statement with CASCADE.
+ */
+export async function clearAllTables(db: TestDb): Promise<void> {
+  await (db as any).execute(`
+    DO $$ DECLARE
+      r RECORD;
+    BEGIN
+      FOR r IN (
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = current_schema()
+          AND tablename NOT LIKE '%drizzle%'
+      ) LOOP
+        EXECUTE 'TRUNCATE TABLE "' || r.tablename || '" CASCADE;';
+      END LOOP;
+    END $$;
+  `);
+}
+
+// ─── Fixture factories ──────────────────────────────────────────────────────
+
+export interface AdminContext {
+  /** Bearer token to pass as `Authorization: Bearer <token>` */
+  bearerToken: string;
+  memberId: string;
+  serverId: string;
+  roleId: string;
+}
+
+/**
+ * Seeds the minimum data required for `SystemAdminGuard` to pass:
+ *   main server → member → server membership → Executive role → session
+ *
+ * Returns auth context containing the bearer token and key IDs.
+ */
+export async function seedAdminContext(db: TestDb): Promise<AdminContext> {
+  const serverId = '900000000000000001';
+  const memberId = '800000000000000001';
+  const roleId   = '700000000000000001';
+  const token    = randomBytes(32).toString('hex');
+
+  // 1. Main server
+  await db.insert(schema.servers).values({
+    id: serverId,
+    name: 'Test Main Server',
+    icon: null,
+    isMain: true,
+    isActive: true,
+    type: 'club',
+    syncedAt: new Date(),
+  });
+
+  // 2. Member
+  await db.insert(schema.members).values({
+    id: memberId,
+    username: 'testadmin',
+    globalName: 'Test Admin',
+    displayName: 'Test Admin',
+    avatar: null,
+    email: 'admin@test.com',
+    isClubMember: true,
+    joinedAt: new Date(),
+    syncedAt: new Date(),
+  });
+
+  // 3. Server membership
+  await db.insert(schema.serverMembers).values({
+    serverId,
+    memberId,
+    joinedAt: new Date(),
+  });
+
+  // 4. Executive role in the main server
+  await db.insert(schema.roles).values({
+    id: roleId,
+    serverId,
+    name: 'Executive',
+    color: 0xffd700,
+    hoist: true,
+    position: 1,
+    managed: false,
+    mentionable: true,
+  });
+
+  // 5. Assign role to member
+  await db.insert(schema.serverMemberRoles).values({ memberId, roleId });
+
+  // 6. Active session
+  await db.insert(schema.sessions).values({
+    id: crypto.randomUUID(),
+    memberId,
+    token,
+    expiresAt: new Date(Date.now() + 86_400_000), // +1 day
+  });
+
+  return { bearerToken: token, memberId, serverId, roleId };
+}
+
+export interface ProjectFixture {
+  id: string;
+  /** Plaintext API key: `<prefix>.<secret>` — pass to `?api_key=` */
+  apiKey: string;
+  prefix: string;
+  hash: string;
+}
+
+/**
+ * Inserts a test project and returns a usable plaintext API key.
+ *
+ * The auth service compares `SHA-256(secret)` against `apiKeyHash` in the DB.
+ */
+export async function seedTestProject(
+  db: TestDb,
+  serverId: string,
+  overrides: Partial<{
+    name: string;
+    isInternal: boolean;
+    isActive: boolean;
+    redirectUri: string | null;
+  }> = {},
+): Promise<ProjectFixture> {
+  const id        = crypto.randomUUID();
+  const prefixId  = randomBytes(4).toString('hex');
+  const secret    = randomBytes(16).toString('hex');
+  const prefix    = `mcdi_pk_test_${prefixId}`;
+  const hash      = createHash('sha256').update(secret).digest('hex');
+  const apiKey    = `${prefix}.${secret}`;
+
+  await db.insert(schema.projects).values({
+    id,
+    name: overrides.name ?? 'Test Project',
+    description: 'E2E test project',
+    apiKeyHash: hash,
+    apiKeyPrefix: prefix,
+    apiKeyCreatedAt: new Date(),
+    webhookUrl: null,
+    isInternal: overrides.isInternal ?? false,
+    redirectUri: overrides.redirectUri ?? 'http://localhost:4000/callback',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    isActive: overrides.isActive ?? true,
+  });
+
+  // Link the project to the given server
+  await db.insert(schema.projectServers).values({
+    projectId: id,
+    serverId,
+  });
+
+  return { id, apiKey, prefix, hash };
+}

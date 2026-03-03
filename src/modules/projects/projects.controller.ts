@@ -65,7 +65,8 @@ export class ProjectsController {
   @Get()
   @ApiOperation({
     summary: 'List all projects',
-    description: 'Returns all registered projects. API key hash is never exposed.',
+    description:
+      'Returns all registered projects. API key hash is never exposed.',
   })
   @ApiResponse({ status: 200, description: 'List of projects returned' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -86,7 +87,8 @@ export class ProjectsController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Update a project',
-    description: 'Updates name, description, or scopes. Cannot update the API key via this endpoint.',
+    description:
+      'Updates name, description, or scopes. Cannot update the API key via this endpoint.',
   })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiResponse({ status: 200, description: 'Project updated' })
@@ -115,12 +117,12 @@ export class ProjectsController {
     return this.projectsService.regenerateKey(id);
   }
 
-
   @Delete(':id/key')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Revoke API key',
-    description: 'Disables the project API key. The key stops working immediately. Project data is preserved.',
+    description:
+      'Disables the project API key. The key stops working immediately. Project data is preserved.',
   })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiResponse({ status: 204, description: 'API key revoked' })
@@ -129,7 +131,6 @@ export class ProjectsController {
   revokeKey(@Param('id') id: string) {
     return this.projectsService.revokeKey(id);
   }
-
 
   @Post(':id/restore-key')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -144,7 +145,6 @@ export class ProjectsController {
   restoreKey(@Param('id') id: string) {
     return this.projectsService.restoreKey(id);
   }
-
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

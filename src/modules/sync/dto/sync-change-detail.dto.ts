@@ -22,7 +22,14 @@ export class SyncChangeDetailDto {
   entityId: string;
 
   @ApiProperty({
-    enum: ['added', 'removed', 'updated', 'deactivated', 'role_assigned', 'role_removed'],
+    enum: [
+      'added',
+      'removed',
+      'updated',
+      'deactivated',
+      'role_assigned',
+      'role_removed',
+    ],
     example: 'added',
   })
   action: string;
@@ -30,7 +37,9 @@ export class SyncChangeDetailDto {
   @ApiPropertyOptional({ example: 'Member JohnDoe joined the server' })
   description?: string;
 
-  @ApiPropertyOptional({ example: '{"nickname":"OldNick","newNickname":"NewNick"}' })
+  @ApiPropertyOptional({
+    example: '{"nickname":"OldNick","newNickname":"NewNick"}',
+  })
   details?: string;
 
   @ApiProperty({ example: '2025-03-15T10:30:00.000Z' })
@@ -52,7 +61,10 @@ export class SyncChangeDetailsQueryDto {
   @Type(() => Number)
   syncLogId: number;
 
-  @ApiPropertyOptional({ default: 100, description: 'Max results to return (1-500)' })
+  @ApiPropertyOptional({
+    default: 100,
+    description: 'Max results to return (1-500)',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)

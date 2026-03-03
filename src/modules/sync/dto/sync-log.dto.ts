@@ -22,7 +22,9 @@ export class SyncLogDto {
   @ApiProperty({ example: 42 })
   rolesSynced: number;
 
-  @ApiPropertyOptional({ example: 'Sync completed. 3 members marked inactive.' })
+  @ApiPropertyOptional({
+    example: 'Sync completed. 3 members marked inactive.',
+  })
   message?: string;
 
   @ApiProperty({ example: '2025-03-15T10:30:00.000Z' })

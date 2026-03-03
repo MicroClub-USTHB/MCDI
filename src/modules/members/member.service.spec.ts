@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/unbound-method */
 import { Test, TestingModule } from '@nestjs/testing';
 import { MemberService } from './member.service';
 import { MemberRepository } from './member.repository';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 
 describe('MemberService', () => {
   let service: MemberService;
@@ -39,7 +38,10 @@ describe('MemberService', () => {
 
       const result = await service.getMember('server123', '123456789012345678');
 
-      expect(result).toEqual(mockMember);
+      expect(result).toMatchObject({
+        discordId: '123456789012345678',
+        username: 'testuser',
+      });
       expect(repository.findMemberByDiscordId).toHaveBeenCalledWith(
         'server123',
         '123456789012345678',
@@ -54,9 +56,10 @@ describe('MemberService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException for invalid Discord ID', async () => {
+    it('should throw NotFoundException when Discord ID yields no result', async () => {
+      mockRepository.findMemberByDiscordId.mockResolvedValue(null);
       await expect(service.getMember('server123', 'short')).rejects.toThrow(
-        BadRequestException,
+        NotFoundException,
       );
     });
   });

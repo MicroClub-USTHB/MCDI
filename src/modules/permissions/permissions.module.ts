@@ -9,8 +9,11 @@ import { ProjectsModule } from '../projects/projects.module';
 @Module({
   imports: [DatabaseModule, ProjectsModule],
   controllers: [PermissionsController],
-  providers: [PermissionsRepository, PermissionsService, PermissionCacheService],
+  providers: [
+    PermissionsRepository,
+    PermissionsService,
+    PermissionCacheService,
+  ],
   exports: [PermissionsService, PermissionCacheService],
 })
-export class PermissionsModule { }
-
+export class PermissionsModule {}

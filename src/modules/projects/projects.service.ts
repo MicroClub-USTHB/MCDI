@@ -28,8 +28,6 @@ export class ProjectsService {
     return { apiKey: fullKey, project };
   }
 
-
-
   async findAll(): Promise<ProjectRow[]> {
     return this.projectsRepository.findAll();
   }
@@ -39,7 +37,6 @@ export class ProjectsService {
     if (!project) throw new NotFoundException(`Project ${id} not found`);
     return project;
   }
-
 
   async update(id: string, dto: UpdateProjectDto): Promise<ProjectRow> {
     // Update name/description if provided
@@ -56,7 +53,6 @@ export class ProjectsService {
 
     return this.findOne(id);
   }
-
 
   async regenerateKey(id: string): Promise<{ apiKey: string }> {
     await this.findOne(id); // throws 404 if not found
@@ -77,7 +73,6 @@ export class ProjectsService {
     await this.findOne(id); // throws 404 if not found
     await this.projectsRepository.setActive(id, true);
   }
-
 
   async delete(id: string): Promise<void> {
     const deleted = await this.projectsRepository.delete(id);

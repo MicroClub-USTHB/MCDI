@@ -23,7 +23,9 @@ export const roles = pgTable(
     position: integer('position').default(0),
     managed: boolean('managed').default(false),
     mentionable: boolean('mentionable').default(false),
-    permissionsBits: bigint('permissions_bits', { mode: 'bigint' }).default(sql`0`),
+    permissionsBits: bigint('permissions_bits', { mode: 'bigint' }).default(
+      sql`0`,
+    ),
     hierarchyLevel: integer('hierarchy_level'),
     isGlobal: boolean('is_global').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -31,4 +33,3 @@ export const roles = pgTable(
   },
   (t) => [index('idx_roles_server_id').on(t.serverId)],
 );
-

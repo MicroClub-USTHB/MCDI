@@ -6,12 +6,12 @@ import { ProjectRepository } from '../repositories/project.repository';
  * Throws UnauthorizedException if the key is invalid.
  */
 export async function validateApiKeyAndGetProject(
-    projectRepository: ProjectRepository,
-    apiKey: string,
+  projectRepository: ProjectRepository,
+  apiKey: string,
 ) {
-    const project = await projectRepository.findByApiKey(apiKey);
-    if (!project) {
-        throw new UnauthorizedException('Invalid API key');
-    }
-    return project;
+  const project = await projectRepository.findByApiKey(apiKey);
+  if (!project) {
+    throw new UnauthorizedException('Invalid API key');
+  }
+  return project;
 }

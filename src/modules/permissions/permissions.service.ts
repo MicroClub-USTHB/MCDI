@@ -9,7 +9,7 @@ export class PermissionsService {
   constructor(
     private readonly permissionsRepository: PermissionsRepository,
     private readonly permissionCache: PermissionCacheService,
-  ) { }
+  ) {}
 
   async checkPermission(dto: CheckPermissionDto) {
     const memberId = dto.discordId?.trim();
@@ -37,8 +37,10 @@ export class PermissionsService {
     }
 
     // ── Slow path: DB queries ──────────────────────────────────────────
-    const reqPermId = await this.permissionsRepository.findPermissionIdByName(permissionName);
-    const adminPermId = await this.permissionsRepository.findPermissionIdByName('ADMINISTRATOR');
+    const reqPermId =
+      await this.permissionsRepository.findPermissionIdByName(permissionName);
+    const adminPermId =
+      await this.permissionsRepository.findPermissionIdByName('ADMINISTRATOR');
 
     if (!reqPermId && !adminPermId) {
       return { allowed: false, source: 'none' as const };
@@ -46,17 +48,38 @@ export class PermissionsService {
 
     // Attempt to bypass with ADMINISTRATOR privilege early
     if (adminPermId) {
-      const isGlobalAdmin = await this.permissionsRepository.hasGlobalRolePermission(memberId, adminPermId);
+      const isGlobalAdmin =
+        await this.permissionsRepository.hasGlobalRolePermission(
+          memberId,
+          adminPermId,
+        );
       if (isGlobalAdmin) return { allowed: true, source: 'global' as const };
 
-      const isServerAdmin = await this.permissionsRepository.hasServerPermission(memberId, serverId, adminPermId);
+      const isServerAdmin =
+        await this.permissionsRepository.hasServerPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
       if (isServerAdmin) return { allowed: true, source: 'server' as const };
 
-      const isHierarchyAdmin = await this.permissionsRepository.hasHierarchyPermission(memberId, serverId, adminPermId);
-      if (isHierarchyAdmin) return { allowed: true, source: 'hierarchy' as const };
+      const isHierarchyAdmin =
+        await this.permissionsRepository.hasHierarchyPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
+      if (isHierarchyAdmin)
+        return { allowed: true, source: 'hierarchy' as const };
 
-      const isInheritAdmin = await this.permissionsRepository.hasInheritedPermission(memberId, serverId, adminPermId);
-      if (isInheritAdmin) return { allowed: true, source: 'inherited' as const };
+      const isInheritAdmin =
+        await this.permissionsRepository.hasInheritedPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
+      if (isInheritAdmin)
+        return { allowed: true, source: 'inherited' as const };
     }
 
     // Not an admin, check standard specifically requested permission
@@ -82,20 +105,22 @@ export class PermissionsService {
     }
 
     // Check same-server vertical hierarchy (higher-rank roles inherit lower-rank permissions)
-    const hasHierarchy = await this.permissionsRepository.hasHierarchyPermission(
-      memberId,
-      serverId,
-      reqPermId,
-    );
+    const hasHierarchy =
+      await this.permissionsRepository.hasHierarchyPermission(
+        memberId,
+        serverId,
+        reqPermId,
+      );
     if (hasHierarchy) {
       return { allowed: true, source: 'hierarchy' as const };
     }
 
-    const hasInherited = await this.permissionsRepository.hasInheritedPermission(
-      memberId,
-      serverId,
-      reqPermId,
-    );
+    const hasInherited =
+      await this.permissionsRepository.hasInheritedPermission(
+        memberId,
+        serverId,
+        reqPermId,
+      );
     if (hasInherited) {
       return { allowed: true, source: 'inherited' as const };
     }
@@ -197,22 +222,26 @@ export class PermissionsService {
     }
 
     // ── Cache miss: resolve from DB ──────────────────────────────────────
-    const [globalPermissions, serverPermissions, hierarchyPermissions, inheritedPermissions] =
-      await Promise.all([
-        this.permissionsRepository.listGlobalPermissionNames(memberId),
-        this.permissionsRepository.listServerPermissionNames(
-          memberId,
-          normalizedServerId,
-        ),
-        this.permissionsRepository.listHierarchyPermissionNames(
-          memberId,
-          normalizedServerId,
-        ),
-        this.permissionsRepository.listInheritedPermissionNames(
-          memberId,
-          normalizedServerId,
-        ),
-      ]);
+    const [
+      globalPermissions,
+      serverPermissions,
+      hierarchyPermissions,
+      inheritedPermissions,
+    ] = await Promise.all([
+      this.permissionsRepository.listGlobalPermissionNames(memberId),
+      this.permissionsRepository.listServerPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+      this.permissionsRepository.listHierarchyPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+      this.permissionsRepository.listInheritedPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+    ]);
 
     const global = this.normalizePermissionNames(globalPermissions);
     const server = this.normalizePermissionNames(serverPermissions);

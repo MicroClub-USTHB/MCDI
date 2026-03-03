@@ -2,22 +2,22 @@ import 'dotenv/config';
 import { Pool } from 'pg';
 
 async function main() {
-    const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL;
 
-    if (!databaseUrl) {
-        throw new Error('DATABASE_URL is not defined in environment variables');
-    }
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL is not defined in environment variables');
+  }
 
-    const pool = new Pool({
-        connectionString: databaseUrl,
-    });
+  const pool = new Pool({
+    connectionString: databaseUrl,
+  });
 
-    try {
-        console.log('Clearing database tables...');
+  try {
+    console.log('Clearing database tables...');
 
-        // We use a raw query to extract public schema tables and TRUNCATE them WITH CASCADE
-        // We explicitly exclude Drizzle's internal migration tables if any exist
-        await pool.query(`
+    // We use a raw query to extract public schema tables and TRUNCATE them WITH CASCADE
+    // We explicitly exclude Drizzle's internal migration tables if any exist
+    await pool.query(`
       DO $$ DECLARE
           r RECORD;
       BEGIN
@@ -27,14 +27,14 @@ async function main() {
       END $$;
     `);
 
-        console.log('✅ All tables successfully cleared!');
-    } catch (error) {
-        console.error('❌ Clearing database failed:');
-        console.error(error);
-        process.exit(1);
-    } finally {
-        await pool.end();
-    }
+    console.log('✅ All tables successfully cleared!');
+  } catch (error) {
+    console.error('❌ Clearing database failed:');
+    console.error(error);
+    process.exit(1);
+  } finally {
+    await pool.end();
+  }
 }
 
-main();
+void main();

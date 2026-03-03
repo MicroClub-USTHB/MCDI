@@ -61,7 +61,6 @@ export class ProjectsRepository {
     return this.toProjectRow(project, data.scopes);
   }
 
-
   async findAll(): Promise<ProjectRow[]> {
     const projects = await this.db
       .select({
@@ -108,7 +107,10 @@ export class ProjectsRepository {
     return { ...project, scopes };
   }
 
-  async update(id: string, data: UpdateProjectData): Promise<ProjectRow | null> {
+  async update(
+    id: string,
+    data: UpdateProjectData,
+  ): Promise<ProjectRow | null> {
     const [project] = await this.db
       .update(schema.projects)
       .set({ ...data, updatedAt: new Date() })
@@ -137,9 +139,9 @@ export class ProjectsRepository {
       .where(eq(schema.projectScopes.projectId, projectId));
 
     if (scopes.length > 0) {
-      await this.db.insert(schema.projectScopes).values(
-        scopes.map((scope) => ({ projectId, scope })),
-      );
+      await this.db
+        .insert(schema.projectScopes)
+        .values(scopes.map((scope) => ({ projectId, scope })));
     }
   }
 

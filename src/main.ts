@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -37,11 +37,13 @@ async function bootstrap() {
   });
 
   // Enable validation pipes globally
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   app.setGlobalPrefix(apiPrefix);
   app.useStaticAssets(join(__dirname, '..', 'public'));
@@ -79,7 +81,11 @@ async function bootstrap() {
   });
 
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}/${apiPrefix}`);
-  console.log(`Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`);
+  console.log(
+    `Application is running on: http://localhost:${port}/${apiPrefix}`,
+  );
+  console.log(
+    `Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`,
+  );
 }
 void bootstrap();

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { MemberRepository } from './member.repository';
 import { GetMembersQueryDto } from './dto/get-members-query.dto';
 import { plainToInstance } from 'class-transformer';
@@ -25,13 +21,12 @@ interface PaginatedResponse<T> {
 
 @Injectable()
 export class MemberService {
-  constructor(private readonly memberRepository: MemberRepository) { }
+  constructor(private readonly memberRepository: MemberRepository) {}
 
   async getMember(
     serverId: string,
     discordId: string,
   ): Promise<MemberResponseDto> {
-
     const member = await this.memberRepository.findMemberByDiscordId(
       serverId,
       discordId,
@@ -53,7 +48,6 @@ export class MemberService {
     queryDto: GetMembersQueryDto,
   ): Promise<PaginatedResponse<MemberSearchResponseDto>> {
     const { query, roleId } = queryDto;
-
 
     const dbPagination = queryDto.getDbPagination();
 
@@ -82,6 +76,4 @@ export class MemberService {
 
     return { data, pagination };
   }
-
-
 }
