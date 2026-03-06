@@ -33,17 +33,13 @@ describe('ProjectsAccessController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('setProjectServerAccess calls grantAccess with actor from request', async () => {
+  it('setProjectServerAccess calls grantAccess with IDs from params and actor from request', async () => {
     mockAccessService.grantAccess.mockResolvedValue({
       projectId: 'p1',
       serverId: 's1',
     });
-    const dto = {
-      projectId: 'p1',
-      serverId: 's1',
-      operations: { READ: true },
-    } as any;
-    await controller.setProjectServerAccess(dto, mockReq({ id: 'admin-1' }));
+    const dto = { operations: { READ: true } } as any;
+    await controller.setProjectServerAccess('p1', 's1', dto, mockReq({ id: 'admin-1' }));
     expect(mockAccessService.grantAccess).toHaveBeenCalledWith(
       expect.objectContaining({
         projectId: 'p1',
