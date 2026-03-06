@@ -10,6 +10,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { DiscordService } from '../discord/discord.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,13 @@ const mockOAuthStateRepo = {
   findValidState: jest.fn(),
   markAsUsed: jest.fn(),
   deleteExpired: jest.fn(),
+};
+
+const mockDiscordService = {
+  exchangeOAuthCode: jest.fn(),
+  fetchOAuthProfile: jest.fn(),
+  fetchOAuthGuildMember: jest.fn(),
+  fetchGuildRolesForMember: jest.fn(),
 };
 
 const mockConfig = {
@@ -76,12 +84,15 @@ describe('AuthService', () => {
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: DiscordService, useValue: mockDiscordService },
       ],
     }).compile();
     service = module.get(AuthService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
   // ── validateLoginRequest ────────────────────────────────────────────────
 
@@ -350,9 +361,8 @@ describe('AuthService', () => {
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' })) // token exchange OK
-        .mockResolvedValueOnce(mockFetchResponse({}, false, 401)); // profile fetch fails
+      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null); // profile fetch fails
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
@@ -373,14 +383,16 @@ describe('AuthService', () => {
         username: 'alice',
       });
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' })) // token exchange
-        .mockResolvedValueOnce(
-          mockFetchResponse({ id: 'user-1', username: 'alice' }),
-        ) // profile
-        .mockResolvedValueOnce(
-          mockFetchResponse({ message: '404: Not Found' }, false, 404),
-        ); // guild member
+      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: false,
+        status: 404,
+        roleIds: [],
+      }); // not in server
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
@@ -403,12 +415,18 @@ describe('AuthService', () => {
       mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' }))
-        .mockResolvedValueOnce(
-          mockFetchResponse({ id: 'user-1', username: 'alice', email: null }),
-        )
-        .mockResolvedValueOnce(mockFetchResponse({ roles: ['role-other'] })); // guild member — no matching role
+      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        email: null,
+      });
+      mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        status: 200,
+        roleIds: ['role-other'], // user has role-other, not role-required
+      });
+      mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
@@ -439,19 +457,21 @@ describe('AuthService', () => {
         { name: 'Member' },
       ]);
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' }))
-        .mockResolvedValueOnce(
-          mockFetchResponse({
-            id: 'user-1',
-            username: 'alice',
-            global_name: null,
-            display_name: null,
-            avatar: null,
-            email: null,
-          }),
-        )
-        .mockResolvedValueOnce(mockFetchResponse({ roles: [] })); // guild member
+      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        global_name: null,
+        display_name: null,
+        avatar: null,
+        email: null,
+      });
+      mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        status: 200,
+        roleIds: [],
+      });
+      mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({ url: expect.stringContaining('token=') });

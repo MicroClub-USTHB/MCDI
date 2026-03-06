@@ -10,7 +10,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import { DiscordService } from '../discord/discord.service';
+import { DiscordService, DiscordOAuthProfile } from '../discord/discord.service';
 import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
@@ -181,54 +181,122 @@ export class AuthService {
    *  8. Redirect back to platform with token + member + roles
    */
   async handleDiscordCallback(discordCode: string, stateToken: string) {
-    // 1. Validate state token (checks if unused and not expired)
-    const stateData =
-      await this.oauthStateRepository.findValidState(stateToken);
+    const stateResult = await this.validateAndConsumeState(stateToken);
+    if (!stateResult.ok) return stateResult.redirect;
+    const { projectId, serverId, redirectUri } = stateResult.data;
+
+    const tokenResult = await this.exchangeCodeForToken(discordCode, redirectUri);
+    if (!tokenResult.ok) return tokenResult.redirect;
+    const accessToken = tokenResult.data;
+
+    const profileResult = await this.resolveDiscordProfile(accessToken, redirectUri);
+    if (!profileResult.ok) return profileResult.redirect;
+    const profile = profileResult.data;
+
+    const member = await this.upsertMemberFromProfile(profile);
+
+    const guildResult = await this.verifyGuildAndSyncRoles(
+      serverId,
+      accessToken,
+      profile.id,
+      member.id,
+      redirectUri,
+    );
+    if (!guildResult.ok) return guildResult.redirect;
+    const userDiscordRoleIds = guildResult.data;
+
+    const accessResult = await this.checkProjectRoleAccess(
+      projectId,
+      userDiscordRoleIds,
+      redirectUri,
+    );
+    if (!accessResult.ok) return accessResult.redirect;
+
+    const { token, expiresAt, roles } = await this.createSessionWithRoles(
+      member.id,
+      projectId,
+      serverId,
+    );
+
+    return buildSuccessRedirect(redirectUri, token, expiresAt, {
+      id: member.id,
+      username: member.username,
+      globalName: member.globalName,
+      displayName: member.displayName,
+      avatar: member.avatar,
+      email: member.email,
+    }, roles);
+  }
+
+  // ─── Step 1 — Validate & consume state token ─────────────
+
+  private async validateAndConsumeState(stateToken: string) {
+    const stateData = await this.oauthStateRepository.findValidState(stateToken);
 
     if (!stateData) {
-      // Return generic error to prevent state enumeration attacks
-      const fallbackUri =
-        this.configService.get<string>('app.baseUrl') + '/error';
-      return buildErrorRedirect(
-        fallbackUri,
-        'invalid_state',
-        'Invalid or expired authentication request',
-      );
+      // Generic error to prevent state enumeration attacks
+      const fallbackUri = this.configService.get<string>('app.baseUrl') + '/error';
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(
+          fallbackUri,
+          'invalid_state',
+          'Invalid or expired authentication request',
+        ),
+      };
     }
 
-    // Mark state as used immediately to prevent replay attacks
+    // Mark as used immediately to prevent replay attacks
     await this.oauthStateRepository.markAsUsed(stateToken);
 
-    // Extract project context from state
-    const { projectId, serverId, redirectUri } = stateData;
+    return { ok: true as const, data: stateData };
+  }
 
-    // 2. Exchange Discord code for access token
+  // ─── Step 2 — Exchange Discord code for access token ─────
+
+  private async exchangeCodeForToken(code: string, redirectUri: string) {
     const accessToken = await this.discordService.exchangeOAuthCode(
-      discordCode,
+      code,
       this.discordRedirectUri,
     );
 
     if (!accessToken) {
-      return buildErrorRedirect(
-        redirectUri,
-        'discord_error',
-        'Failed to authenticate with Discord',
-      );
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(
+          redirectUri,
+          'discord_error',
+          'Failed to authenticate with Discord',
+        ),
+      };
     }
 
-    // 3. Fetch Discord profile
+    return { ok: true as const, data: accessToken };
+  }
+
+  // ─── Step 3 — Fetch Discord profile ──────────────────────
+
+  private async resolveDiscordProfile(accessToken: string, redirectUri: string) {
     const profile = await this.discordService.fetchOAuthProfile(accessToken);
 
     if (!profile) {
-      return buildErrorRedirect(
-        redirectUri,
-        'profile_error',
-        'Failed to fetch Discord profile',
-      );
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(
+          redirectUri,
+          'profile_error',
+          'Failed to fetch Discord profile',
+        ),
+      };
     }
 
-    // 4. Upsert member
-    const member = await this.memberRepository.upsert({
+    return { ok: true as const, data: profile };
+  }
+
+  // ─── Step 4 — Upsert member ───────────────────────────────
+
+  private async upsertMemberFromProfile(profile: DiscordOAuthProfile) {
+    return this.memberRepository.upsert({
       id: profile.id,
       username: profile.username,
       globalName: profile.global_name || undefined,
@@ -237,8 +305,17 @@ export class AuthService {
       email: profile.email || undefined,
       syncedAt: new Date(),
     });
+  }
 
-    // 5. Verify server membership via Discord API
+  // ─── Steps 5 + 5b — Verify guild membership & sync roles ─
+
+  private async verifyGuildAndSyncRoles(
+    serverId: string,
+    accessToken: string,
+    discordUserId: string,
+    memberId: string,
+    redirectUri: string,
+  ) {
     const guildMember = await this.discordService.fetchOAuthGuildMember(
       serverId,
       accessToken,
@@ -246,81 +323,74 @@ export class AuthService {
 
     if (!guildMember.ok) {
       this.logger.error(
-        `Guild member check failed for user=${profile.id} server=${serverId} status=${guildMember.status}`,
+        `Guild member check failed for user=${discordUserId} server=${serverId} status=${guildMember.status}`,
       );
-      // status 404 → user not in server; 403 → missing scope or bot not in guild
       const reason =
         guildMember.status === 403
           ? `Missing guild access (scope or bot not in server). Discord status: 403`
           : `You must be a member of the required Discord server (ID: ${serverId})`;
-      return buildErrorRedirect(redirectUri, 'not_in_server', reason);
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(redirectUri, 'not_in_server', reason),
+      };
     }
 
-    const userDiscordRoleIds = guildMember.roleIds;
-
-    // 5b. Fetch full role objects for the member and sync server data
     const discordRolesForSync = await this.discordService.fetchGuildRolesForMember(
       serverId,
-      userDiscordRoleIds,
+      guildMember.roleIds,
     );
 
     await this.projectRepository.syncMemberServerData(
-      member.id,
+      memberId,
       serverId,
       discordRolesForSync,
     );
 
-    // 6. Check role-based access
-    const allowedRoleIds =
-      await this.projectRepository.findAllowedRoleIds(projectId);
+    return { ok: true as const, data: guildMember.roleIds };
+  }
+
+  // ─── Step 6 — Check project role access ──────────────────
+
+  private async checkProjectRoleAccess(
+    projectId: string,
+    userDiscordRoleIds: string[],
+    redirectUri: string,
+  ) {
+    const allowedRoleIds = await this.projectRepository.findAllowedRoleIds(projectId);
 
     if (allowedRoleIds.length > 0) {
-      const hasRole = userDiscordRoleIds.some((r) =>
-        allowedRoleIds.includes(r),
-      );
+      const hasRole = userDiscordRoleIds.some((r) => allowedRoleIds.includes(r));
       if (!hasRole) {
-        return buildErrorRedirect(
-          redirectUri,
-          'insufficient_roles',
-          'You do not have the required roles to access this platform',
-        );
+        return {
+          ok: false as const,
+          redirect: buildErrorRedirect(
+            redirectUri,
+            'insufficient_roles',
+            'You do not have the required roles to access this platform',
+          ),
+        };
       }
     }
 
-    // 7. Create session token (30 days)
+    return { ok: true as const };
+  }
+
+  // ─── Steps 7 + 8 — Create session & fetch DB roles ───────
+
+  private async createSessionWithRoles(
+    memberId: string,
+    projectId: string,
+    serverId: string,
+  ) {
     const token = randomBytes(48).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    await this.sessionRepository.create({
-      memberId: member.id,
-      projectId: projectId,
-      serverId: serverId,
-      token,
-      expiresAt,
-    });
+    await this.sessionRepository.create({ memberId, projectId, serverId, token, expiresAt });
 
-    // 8. Get member's roles in the server (from our DB)
-    const roles = await this.projectRepository.getMemberRolesInServer(
-      member.id,
-      serverId,
-    );
+    const roles = await this.projectRepository.getMemberRolesInServer(memberId, serverId);
 
-    // 9. Redirect back to platform with token + member + roles
-    return buildSuccessRedirect(
-      redirectUri,
-      token,
-      expiresAt,
-      {
-        id: member.id,
-        username: member.username,
-        globalName: member.globalName,
-        displayName: member.displayName,
-        avatar: member.avatar,
-        email: member.email,
-      },
-      roles,
-    );
+    return { token, expiresAt, roles };
   }
 
   // ─── Validate session
