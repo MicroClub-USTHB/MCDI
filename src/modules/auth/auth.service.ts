@@ -10,10 +10,12 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { DiscordService } from '../discord/discord.service';
 import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
   buildErrorRedirect,
+  buildSuccessRedirect,
   validateApiKeyAndGetProject,
 } from './utils';
 
@@ -21,7 +23,6 @@ import {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
-  private readonly discordClientSecret: string;
   private readonly discordRedirectUri: string;
 
   constructor(
@@ -30,11 +31,9 @@ export class AuthService {
     private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly configService: ConfigService,
+    private readonly discordService: DiscordService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
-    this.discordClientSecret = this.configService.get<string>(
-      'discord.clientSecret',
-    )!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
     )!;
@@ -138,7 +137,6 @@ export class AuthService {
    */
   async buildDiscordLoginUrl(
     projectId: string,
-    apiKey: string,
     serverId: string,
     redirectUri: string,
   ) {
@@ -154,7 +152,6 @@ export class AuthService {
       projectId,
       serverId,
       redirectUri,
-      apiKey,
       expiresAt,
     });
 
@@ -205,20 +202,13 @@ export class AuthService {
     // Extract project context from state
     const { projectId, serverId, redirectUri } = stateData;
 
-    // 2. Exchange Discord code for tokens
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: this.discordClientId,
-        client_secret: this.discordClientSecret,
-        grant_type: 'authorization_code',
-        code: discordCode,
-        redirect_uri: this.discordRedirectUri,
-      }),
-    });
+    // 2. Exchange Discord code for access token
+    const accessToken = await this.discordService.exchangeOAuthCode(
+      discordCode,
+      this.discordRedirectUri,
+    );
 
-    if (!tokenRes.ok) {
+    if (!accessToken) {
       return buildErrorRedirect(
         redirectUri,
         'discord_error',
@@ -226,31 +216,16 @@ export class AuthService {
       );
     }
 
-    const { access_token: accessToken } = (await tokenRes.json()) as {
-      access_token: string;
-    };
-
     // 3. Fetch Discord profile
-    const profileRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const profile = await this.discordService.fetchOAuthProfile(accessToken);
 
-    if (!profileRes.ok) {
+    if (!profile) {
       return buildErrorRedirect(
         redirectUri,
         'profile_error',
         'Failed to fetch Discord profile',
       );
     }
-
-    const profile = (await profileRes.json()) as {
-      id: string;
-      username: string;
-      global_name?: string | null;
-      display_name?: string | null;
-      avatar?: string | null;
-      email?: string | null;
-    };
 
     // 4. Upsert member
     const member = await this.memberRepository.upsert({
@@ -264,59 +239,31 @@ export class AuthService {
     });
 
     // 5. Verify server membership via Discord API
-    const guildMemberRes = await fetch(
-      `https://discord.com/api/users/@me/guilds/${serverId}/member`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    const guildMember = await this.discordService.fetchOAuthGuildMember(
+      serverId,
+      accessToken,
     );
 
-    if (!guildMemberRes.ok) {
-      const errBody = await guildMemberRes.text().catch(() => '');
+    if (!guildMember.ok) {
       this.logger.error(
-        `Guild member check failed for user=${profile.id} server=${serverId} ` +
-          `status=${guildMemberRes.status} body=${errBody}`,
+        `Guild member check failed for user=${profile.id} server=${serverId} status=${guildMember.status}`,
       );
       // status 404 → user not in server; 403 → missing scope or bot not in guild
       const reason =
-        guildMemberRes.status === 403
+        guildMember.status === 403
           ? `Missing guild access (scope or bot not in server). Discord status: 403`
           : `You must be a member of the required Discord server (ID: ${serverId})`;
       return buildErrorRedirect(redirectUri, 'not_in_server', reason);
     }
 
-    const guildMemberData = (await guildMemberRes.json()) as {
-      roles?: string[];
-    };
-    const userDiscordRoleIds: string[] = guildMemberData.roles ?? [];
+    const userDiscordRoleIds = guildMember.roleIds;
 
-    // 5b. Fetch full role objects from Discord to get name/color/position,
-    //     then sync the member's server membership + roles into MCDI DB.
-    let discordRolesForSync: {
-      id: string;
-      name: string;
-      color?: number;
-      position?: number;
-    }[] = [];
-    if (userDiscordRoleIds.length > 0) {
-      const guildRolesRes = await fetch(
-        `https://discord.com/api/guilds/${serverId}/roles`,
-        {
-          headers: {
-            Authorization: `Bot ${this.configService.get<string>('discord.token')}`,
-          },
-        },
-      );
-      if (guildRolesRes.ok) {
-        const allGuildRoles = (await guildRolesRes.json()) as {
-          id: string;
-          name: string;
-          color: number;
-          position: number;
-        }[];
-        discordRolesForSync = allGuildRoles.filter((r) =>
-          userDiscordRoleIds.includes(r.id),
-        );
-      }
-    }
+    // 5b. Fetch full role objects for the member and sync server data
+    const discordRolesForSync = await this.discordService.fetchGuildRolesForMember(
+      serverId,
+      userDiscordRoleIds,
+    );
+
     await this.projectRepository.syncMemberServerData(
       member.id,
       serverId,
@@ -360,23 +307,20 @@ export class AuthService {
     );
 
     // 9. Redirect back to platform with token + member + roles
-    const redirectUrl = new URL(redirectUri);
-    redirectUrl.searchParams.set('token', token);
-    redirectUrl.searchParams.set('expires_at', expiresAt.toISOString());
-    redirectUrl.searchParams.set(
-      'member',
-      JSON.stringify({
+    return buildSuccessRedirect(
+      redirectUri,
+      token,
+      expiresAt,
+      {
         id: member.id,
         username: member.username,
         globalName: member.globalName,
         displayName: member.displayName,
         avatar: member.avatar,
         email: member.email,
-      }),
+      },
+      roles,
     );
-    redirectUrl.searchParams.set('roles', JSON.stringify(roles));
-
-    return { url: redirectUrl.toString() };
   }
 
   // ─── Validate session

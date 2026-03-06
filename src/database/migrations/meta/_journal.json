@@ -43,6 +43,13 @@
       "when": 1772492482093,
       "tag": "0005_curved_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772833238679,
+      "tag": "0006_lumpy_phil_sheldon",
+      "breakpoints": true
     }
   ]
 }

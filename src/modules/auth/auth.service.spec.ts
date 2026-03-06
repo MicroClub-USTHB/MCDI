@@ -153,7 +153,6 @@ describe('AuthService', () => {
 
       const result = await service.buildDiscordLoginUrl(
         'proj-1',
-        'pk_test.key',
         'guild-1',
         'http://localhost/callback',
       );

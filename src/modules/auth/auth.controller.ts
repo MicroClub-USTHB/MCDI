@@ -170,7 +170,6 @@ export class AuthController {
 
     const result = await this.authService.buildDiscordLoginUrl(
       context.project.id,
-      apiKey,
       context.serverId,
       context.redirectUri,
     );
