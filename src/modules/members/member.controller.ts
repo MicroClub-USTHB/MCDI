@@ -10,9 +10,13 @@ import {
 import {
   ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiSecurity,
+  ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
   getSchemaPath,
   ApiExtraModels,
 } from '@nestjs/swagger';
@@ -65,18 +69,11 @@ export class MemberController {
     description: 'Discord user ID',
     example: '876543210987654321',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Member found',
-    type: MemberResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid Discord ID format' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
-  @ApiResponse({
-    status: 403,
-    description: 'Project does not have access to this server',
-  })
-  @ApiResponse({ status: 404, description: 'Member not found in this server' })
+  @ApiOkResponse({ description: 'Member found.', type: MemberResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
+  @ApiNotFoundResponse({ description: 'Member not found in this server.' })
   async getMember(
     @Param('serverId') serverId: string,
     @Param('discordId') discordId: string,
@@ -96,9 +93,8 @@ export class MemberController {
     description: 'Discord server ID',
     example: '123456789012345678',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Paginated list of matching members',
+  @ApiOkResponse({
+    description: 'Paginated list of matching members.',
     schema: {
       type: 'object',
       properties: {
@@ -120,12 +116,9 @@ export class MemberController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
-  @ApiResponse({
-    status: 403,
-    description: 'Project does not have access to this server',
-  })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
   async searchMembers(
     @Param('serverId') serverId: string,
     @Query() queryDto: GetMembersQueryDto,
@@ -148,9 +141,8 @@ export class MemberController {
     description: 'Discord user ID',
     example: '876543210987654321',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Effective permissions returned',
+  @ApiOkResponse({
+    description: 'Effective permissions returned.',
     schema: {
       type: 'object',
       properties: {
@@ -172,12 +164,9 @@ export class MemberController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Invalid Discord ID format' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
-  @ApiResponse({
-    status: 403,
-    description: 'Project does not have access to this server',
-  })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
   async getMemberPermissions(
     @Param('serverId') serverId: string,
     @Param('discordId') discordId: string,

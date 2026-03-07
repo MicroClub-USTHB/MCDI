@@ -18,6 +18,9 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
   ApiQuery,
   ApiParam,
   ApiBody,
@@ -32,7 +35,6 @@ import {
   LogoutAllDto,
   ValidateSessionResponseDto,
   SuccessResponseDto,
-  ErrorResponseDto,
   CreateLoginSessionDto,
   LoginSessionResponseDto,
   AdminPasswordLoginDto,
@@ -58,16 +60,8 @@ export class AuthController {
       'This keeps the API key out of browser URLs, logs, and history.',
   })
   @ApiBody({ type: CreateLoginSessionDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Login URL created',
-    type: LoginSessionResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid API key',
-    type: ErrorResponseDto,
-  })
+  @ApiOkResponse({ description: 'Login URL created.', type: LoginSessionResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid API key.' })
   async createLoginSession(
     @Headers('x-api-key') apiKey: string,
     @Body() dto: CreateLoginSessionDto,
@@ -106,7 +100,7 @@ export class AuthController {
     description: 'Short-lived login token from POST /auth/login-session',
   })
   @ApiProduces('text/html')
-  @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
+  @ApiOkResponse({ description: 'Login page rendered (HTML).' })
   async login(
     @Param('token') token: string,
     @Res({ passthrough: true }) res: Response,
@@ -240,16 +234,8 @@ export class AuthController {
       'so they always reflect the latest state.',
   })
   @ApiBody({ type: ValidateSessionDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Session valid — member + roles',
-    type: ValidateSessionResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired session token',
-    type: ErrorResponseDto,
-  })
+  @ApiOkResponse({ description: 'Session valid — member + roles.', type: ValidateSessionResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired session token.' })
   async validateSession(@Body() dto: ValidateSessionDto) {
     return this.authService.validateSession(dto.token);
   }
@@ -264,11 +250,7 @@ export class AuthController {
       'External platforms call this when their user logs out to invalidate the MCDI session token.',
   })
   @ApiBody({ type: LogoutDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Logout successful',
-    type: SuccessResponseDto,
-  })
+  @ApiOkResponse({ description: 'Logout successful.', type: SuccessResponseDto })
   async logout(@Body() dto: LogoutDto) {
     return this.authService.logout(dto.token);
   }
@@ -282,11 +264,7 @@ export class AuthController {
       'Typically called by MCDI admin operations.',
   })
   @ApiBody({ type: LogoutAllDto })
-  @ApiResponse({
-    status: 200,
-    description: 'All sessions invalidated',
-    type: SuccessResponseDto,
-  })
+  @ApiOkResponse({ description: 'All sessions invalidated.', type: SuccessResponseDto })
   async logoutAll(@Body() dto: LogoutAllDto) {
     return this.authService.logoutAll(dto.memberId);
   }
@@ -304,9 +282,9 @@ export class AuthController {
       'Returns a 24-hour Bearer token.',
   })
   @ApiBody({ type: AdminPasswordLoginDto })
-  @ApiResponse({ status: 200, description: 'Login successful', type: AdminLoginResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  @ApiResponse({ status: 403, description: 'Not a system admin' })
+  @ApiOkResponse({ description: 'Login successful.', type: AdminLoginResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
+  @ApiForbiddenResponse({ description: 'Not a system admin.' })
   async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
     return this.authService.adminPasswordLogin(dto.username, dto.password);
   }
@@ -321,7 +299,7 @@ export class AuthController {
       'The admin opens the URL, authenticates with Discord, ' +
       'and is redirected to the admin callback endpoint.',
   })
-  @ApiResponse({ status: 200, description: 'Discord authorization URL', schema: { example: { url: 'https://discord.com/api/oauth2/authorize?...' } } })
+  @ApiOkResponse({ description: 'Discord authorization URL.', schema: { example: { url: 'https://discord.com/api/oauth2/authorize?...' } } })
   async adminDiscordLogin() {
     return this.authService.buildAdminDiscordLoginUrl();
   }
@@ -375,11 +353,7 @@ export class AuthController {
     description:
       'Removes expired sessions. Should be called by a scheduled job.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Cleanup completed',
-    type: SuccessResponseDto,
-  })
+  @ApiOkResponse({ description: 'Cleanup completed.', type: SuccessResponseDto })
   async cleanupExpired() {
     return this.authService.cleanupExpired();
   }
