@@ -8,13 +8,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
-import { ProjectRepository } from '../projects/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { DiscordService, DiscordOAuthProfile } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { ProjectsAccessRepository } from '../projects/projects-access.repository';
+import { ServersRepository } from '../servers/servers.repository';
 import { randomBytes } from 'crypto';
 import { compare } from 'bcryptjs';
 import {
@@ -35,12 +34,11 @@ export class AuthService {
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly memberRepository: MemberRepository,
-    private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly loginTokenRepository: LoginTokenRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly projectsRepository: ProjectsRepository,
-    private readonly projectsAccessRepository: ProjectsAccessRepository,
+    private readonly serversRepository: ServersRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
   ) {
@@ -75,7 +73,7 @@ export class AuthService {
     redirectUri?: string,
   ) {
     const project = await validateApiKeyAndGetProject(
-      this.projectRepository,
+      this.projectsRepository,
       apiKey,
     );
 
@@ -83,7 +81,7 @@ export class AuthService {
     let targetServerId: string;
 
     if (project.isInternal) {
-      const mainServer = await this.projectRepository.findMainServer();
+      const mainServer = await this.serversRepository.findMain();
       if (!mainServer) {
         throw new BadRequestException('Main server not configured');
       }
@@ -92,7 +90,7 @@ export class AuthService {
       // External platforms: resolve serverId from serverName if provided
       if (!serverId && serverName) {
         const server =
-          await this.projectRepository.findServerByName(serverName);
+          await this.serversRepository.findByName(serverName);
         if (!server) {
           throw new BadRequestException(
             `Server with name "${serverName}" not found`,
@@ -108,7 +106,7 @@ export class AuthService {
       }
 
       // Verify project has access to this server
-      const hasAccess = await this.projectsAccessRepository.hasServerAccess(
+      const hasAccess = await this.projectsRepository.hasServerAccess(
         project.id,
         targetServerId,
       );
@@ -457,7 +455,7 @@ export class AuthService {
 
     await this.sessionRepository.create({ memberId, projectId, serverId, token, expiresAt });
 
-    const roles = await this.projectRepository.getMemberRolesInServer(memberId, serverId);
+    const roles = await this.memberRepository.getMemberRolesInServer(memberId, serverId);
 
     return { token, expiresAt, roles };
   }
@@ -481,7 +479,7 @@ export class AuthService {
     }
 
     const roles = session.serverId
-      ? await this.projectRepository.getMemberRolesInServer(
+      ? await this.memberRepository.getMemberRolesInServer(
           session.memberId,
           session.serverId,
         )

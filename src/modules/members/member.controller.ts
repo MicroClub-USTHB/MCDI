@@ -36,7 +36,7 @@ interface PaginationMeta {
   hasPrev: boolean;
 }
 
-@ApiTags('members')
+@ApiTags('Members')
 @ApiSecurity('api-key')
 @ApiExtraModels(MemberSearchResponseDto)
 @RequireProjectOperation('READ')

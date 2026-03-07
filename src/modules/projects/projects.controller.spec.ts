@@ -13,6 +13,15 @@ const mockProjectsService = {
   revokeKey: jest.fn(),
   restoreKey: jest.fn(),
   delete: jest.fn(),
+  regenerateApiKeyAdmin: jest.fn(),
+  updateRedirectUri: jest.fn(),
+  // access methods
+  grantAccess: jest.fn(),
+  revokeAccess: jest.fn(),
+  listAccessMatrix: jest.fn(),
+  listServersByProject: jest.fn(),
+  listProjectsByServer: jest.fn(),
+  listAudit: jest.fn(),
 };
 
 describe('ProjectsController', () => {
@@ -89,5 +98,29 @@ describe('ProjectsController', () => {
     mockProjectsService.delete.mockResolvedValue(undefined);
     await controller.delete('p1');
     expect(mockProjectsService.delete).toHaveBeenCalledWith('p1');
+  });
+
+  it('regenerateApiKeyAdmin delegates to service', async () => {
+    mockProjectsService.regenerateApiKeyAdmin.mockResolvedValue({ projectId: 'p1', apiKey: 'new-key' });
+    const result = await controller.regenerateApiKeyAdmin('p1');
+    expect(mockProjectsService.regenerateApiKeyAdmin).toHaveBeenCalledWith('p1');
+    expect(result).toMatchObject({ projectId: 'p1' });
+  });
+
+  it('regenerateApiKeyAdmin propagates NotFoundException', async () => {
+    mockProjectsService.regenerateApiKeyAdmin.mockRejectedValue(new NotFoundException());
+    await expect(controller.regenerateApiKeyAdmin('bad')).rejects.toThrow(NotFoundException);
+  });
+
+  it('updateRedirectUri delegates to service', async () => {
+    mockProjectsService.updateRedirectUri.mockResolvedValue({ projectId: 'p1', redirectUri: 'https://x.com/cb' });
+    const result = await controller.updateRedirectUri('p1', { redirectUri: 'https://x.com/cb' });
+    expect(mockProjectsService.updateRedirectUri).toHaveBeenCalledWith('p1', { redirectUri: 'https://x.com/cb' });
+    expect(result).toMatchObject({ projectId: 'p1' });
+  });
+
+  it('updateRedirectUri propagates NotFoundException', async () => {
+    mockProjectsService.updateRedirectUri.mockRejectedValue(new NotFoundException());
+    await expect(controller.updateRedirectUri('bad', { redirectUri: 'https://x.com/cb' })).rejects.toThrow(NotFoundException);
   });
 });

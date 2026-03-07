@@ -1,12 +1,12 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { ProjectRepository } from '../../projects/project.repository';
+import { ProjectsRepository } from '../../projects/projects.repository';
 
 /**
  * Validate an API key and return the associated project.
  * Throws UnauthorizedException if the key is invalid.
  */
 export async function validateApiKeyAndGetProject(
-  projectRepository: ProjectRepository,
+  projectRepository: ProjectsRepository,
   apiKey: string,
 ) {
   const project = await projectRepository.findByApiKey(apiKey);

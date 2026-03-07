@@ -11,9 +11,13 @@ import {
 import {
   ApiTags,
   ApiBearerAuth,
+  ApiBadRequestResponse,
+  ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
-  ApiResponse,
+  ApiNotFoundResponse,
   ApiParam,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
@@ -44,21 +48,11 @@ export class AdminMembersController {
     description:
       'Returns a full cross-server view for a single member: every managed server they belong to, their roles, join date, and whether they qualify as a "club member".',
   })
-  @ApiParam({
-    name: 'discordId',
-    description: 'Discord user ID (snowflake)',
-    example: '876543210987654321',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Member cross-server view returned successfully',
-    type: MemberCrossServerViewDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
-  @ApiResponse({ status: 404, description: 'Member not found' })
+  @ApiParam({ name: 'discordId', description: 'Discord user ID (snowflake)', example: '876543210987654321' })
+  @ApiOkResponse({ description: 'Member cross-server view retrieved successfully.', type: MemberCrossServerViewDto })
+  @ApiNotFoundResponse({ description: 'Member not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getMemberServers(
     @Param('discordId') discordId: string,
   ): Promise<MemberCrossServerViewDto> {
@@ -77,16 +71,10 @@ export class AdminMembersController {
     description:
       'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Paginated cross-server member list',
-    type: PaginatedCrossServerListDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
+  @ApiOkResponse({ description: 'Paginated cross-server member list retrieved.', type: PaginatedCrossServerListDto })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getCrossServerList(
     @Query() query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
@@ -105,11 +93,9 @@ export class AdminMembersController {
     description:
       'Exports the cross-server member report as a downloadable CSV or JSON file.',
   })
-  @ApiResponse({ status: 200, description: 'File download (CSV or JSON)' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
+  @ApiOkResponse({ description: 'File download (CSV or JSON).' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async exportMembers(
     @Query() query: ExportQueryDto,
     @Res() res: Response,

@@ -90,6 +90,8 @@ export class ServersController {
   @ApiBody({ type: DisableServerDto })
   @ApiOkResponse({ description: 'Server disabled successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   disable(@Param('serverId') serverId: string, @Body() dto: DisableServerDto) {
     return this.serversService.disableServer(serverId, dto);
   }
@@ -99,6 +101,8 @@ export class ServersController {
   @ApiParam({ name: 'serverId', description: 'Server (guild) ID' })
   @ApiOkResponse({ description: 'Server enabled successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   enable(@Param('serverId') serverId: string) {
     return this.serversService.enableServer(serverId);
   }

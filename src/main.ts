@@ -59,10 +59,12 @@ async function bootstrap() {
     .setDescription('Minecraft Club Discord Integration API Documentation')
     .setVersion('1.0')
     .addTag('Authentication', 'OAuth 2.0 authentication endpoints')
-    .addTag('Members', 'Member management endpoints')
-    .addTag('Servers', 'Server management endpoints')
-    .addTag('Projects', 'Project management endpoints')
-    .addTag('Permissions', 'Permission management endpoints')
+    .addTag('Members', 'Member queries — requires project API key')
+    .addTag('Permissions', 'Permission checks and inheritance rules')
+    .addTag('Servers', 'Server management — requires System Admin')
+    .addTag('Admin Projects', 'Project management — requires System Admin')
+    .addTag('Admin Members', 'Admin member management — requires System Admin')
+    .addTag('Admin Sync', 'Sync management — requires System Admin')
     .addBearerAuth(
       {
         type: 'http',

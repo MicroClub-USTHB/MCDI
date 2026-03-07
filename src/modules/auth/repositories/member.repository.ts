@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, or, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
@@ -176,6 +176,25 @@ export class MemberRepository {
       .returning();
 
     return members[0] || null;
+  }
+
+  /** Get a member's role IDs and names in a specific server */
+  async getMemberRolesInServer(memberId: string, serverId: string) {
+    return this.db
+      .select({
+        roleId: schema.serverMemberRoles.roleId,
+        roleName: schema.roles.name,
+        roleColor: schema.roles.color,
+        rolePosition: schema.roles.position,
+      })
+      .from(schema.serverMemberRoles)
+      .innerJoin(schema.roles, eq(schema.serverMemberRoles.roleId, schema.roles.id))
+      .where(
+        and(
+          eq(schema.serverMemberRoles.memberId, memberId),
+          eq(schema.roles.serverId, serverId),
+        ),
+      );
   }
 
   /**

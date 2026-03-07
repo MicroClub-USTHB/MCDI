@@ -9,9 +9,10 @@ import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repo
 import { SystemAdminGuard } from './guards/system-admin.guard';
 import { DiscordModule } from '../discord/discord.module';
 import { ProjectsModule } from '../projects/projects.module';
+import { ServersModule } from '../servers/servers.module';
 
 @Module({
-  imports: [DiscordModule, ProjectsModule],
+  imports: [DiscordModule, ProjectsModule, ServersModule],
   controllers: [AuthController],
   providers: [
     AuthService,

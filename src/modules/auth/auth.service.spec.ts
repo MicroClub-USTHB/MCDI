@@ -8,13 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
-import { ProjectRepository } from '../projects/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { ProjectsAccessRepository } from '../projects/projects-access.repository';
+import { ServersRepository } from '../servers/servers.repository';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -29,23 +28,20 @@ const mockSessionRepo = {
 const mockMemberRepo = {
   upsert: jest.fn(),
   syncMemberServerData: jest.fn(),
-};
-
-const mockProjectRepo = {
-  findByApiKey: jest.fn(),
-  findMainServer: jest.fn(),
-  findServerByName: jest.fn(),
   getMemberRolesInServer: jest.fn(),
 };
 
-const mockProjectsAccessRepo = {
-  hasServerAccess: jest.fn(),
+const mockServersRepo = {
+  findMain: jest.fn(),
+  findByName: jest.fn(),
 };
 
 const mockProjectsRepo = {
+  findByApiKey: jest.fn(),
   isRedirectUriAllowed: jest.fn(),
   findAllowedRoleIds: jest.fn(),
   findOne: jest.fn(),
+  hasServerAccess: jest.fn(),
 };
 
 const mockOAuthStateRepo = {
@@ -107,12 +103,11 @@ describe('AuthService', () => {
         AuthService,
         { provide: SessionRepository, useValue: mockSessionRepo },
         { provide: MemberRepository, useValue: mockMemberRepo },
-        { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
         { provide: LoginTokenRepository, useValue: mockLoginTokenRepo },
         { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthStateRepo },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
-        { provide: ProjectsAccessRepository, useValue: mockProjectsAccessRepo },
+        { provide: ServersRepository, useValue: mockServersRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
       ],
@@ -128,14 +123,14 @@ describe('AuthService', () => {
 
   describe('validateLoginRequest', () => {
     it('throws UnauthorizedException when API key is not found', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(null);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
       await expect(service.validateLoginRequest('bad-key')).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
     it('throws BadRequestException for external project without serverId or serverName', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(
+      mockProjectsRepo.findByApiKey.mockResolvedValue(
         fakeProject({ isInternal: false }),
       );
       await expect(
@@ -144,20 +139,20 @@ describe('AuthService', () => {
     });
 
     it('throws BadRequestException when main server is not configured for internal project', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(
+      mockProjectsRepo.findByApiKey.mockResolvedValue(
         fakeProject({ isInternal: true }),
       );
-      mockProjectRepo.findMainServer.mockResolvedValue(null);
+      mockServersRepo.findMain.mockResolvedValue(null);
       await expect(
         service.validateLoginRequest('pk_good.secret'),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('throws ForbiddenException when project has no access to the server', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(
+      mockProjectsRepo.findByApiKey.mockResolvedValue(
         fakeProject({ isInternal: false }),
       );
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(false);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(false);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest(
@@ -171,8 +166,8 @@ describe('AuthService', () => {
 
     it('returns project info and resolved serverId on success', async () => {
       const project = fakeProject({ isInternal: false });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
@@ -239,7 +234,7 @@ describe('AuthService', () => {
         serverId: 'guild-1',
         member: { id: 'u1', username: 'alice' },
       });
-      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([
+      mockMemberRepo.getMemberRolesInServer.mockResolvedValue([
         { name: 'Member' },
       ]);
 
@@ -254,11 +249,11 @@ describe('AuthService', () => {
   describe('validateLoginRequest (additional branches)', () => {
     it('resolves serverId by serverName when serverId is omitted', async () => {
       const project = fakeProject({ isInternal: false });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.findServerByName.mockResolvedValue({
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockServersRepo.findByName.mockResolvedValue({
         id: 'guild-by-name',
       });
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
@@ -272,8 +267,8 @@ describe('AuthService', () => {
 
     it('throws BadRequestException when server is not found by name', async () => {
       const project = fakeProject({ isInternal: false });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.findServerByName.mockResolvedValue(null);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockServersRepo.findByName.mockResolvedValue(null);
 
       await expect(
         service.validateLoginRequest(
@@ -287,8 +282,8 @@ describe('AuthService', () => {
 
     it('handles internal project using main server id', async () => {
       const project = fakeProject({ isInternal: true });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.findMainServer.mockResolvedValue({ id: 'main-guild' });
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockServersRepo.findMain.mockResolvedValue({ id: 'main-guild' });
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
@@ -302,8 +297,8 @@ describe('AuthService', () => {
 
     it('throws BadRequestException when project has no redirect URI configured', async () => {
       const project = fakeProject({ isInternal: false, redirectUri: null });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest('pk_good.secret', 'guild-1'),
       ).rejects.toThrow(BadRequestException);
@@ -311,8 +306,8 @@ describe('AuthService', () => {
 
     it('throws ForbiddenException when redirect URI is not on the allowlist', async () => {
       const project = fakeProject({ isInternal: false });
-      mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
 
       await expect(
@@ -483,7 +478,7 @@ describe('AuthService', () => {
       mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
       mockSessionRepo.create.mockResolvedValue(undefined);
-      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([
+      mockMemberRepo.getMemberRolesInServer.mockResolvedValue([
         { name: 'Member' },
       ]);
 
@@ -523,7 +518,7 @@ describe('AuthService', () => {
 
       const result = await service.validateSession('valid-token');
       expect(result.roles).toEqual([]);
-      expect(mockProjectRepo.getMemberRolesInServer).not.toHaveBeenCalled();
+      expect(mockMemberRepo.getMemberRolesInServer).not.toHaveBeenCalled();
     });
   });
 
@@ -571,12 +566,12 @@ describe('AuthService', () => {
 
   describe('createLoginSession', () => {
     it('validates API key, creates token, and returns loginUrl', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(null);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
       // Use full project flow mocking via validateLoginRequest path
       const proj = fakeProject();
       // Mock the project lookup that validateApiKeyAndGetProject does
-      mockProjectRepo.findByApiKey.mockResolvedValue(proj);
-      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(proj);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockLoginTokenRepo.create.mockResolvedValue({ token: 'abc123' });
 
@@ -598,7 +593,7 @@ describe('AuthService', () => {
     });
 
     it('throws when API key is invalid', async () => {
-      mockProjectRepo.findByApiKey.mockResolvedValue(null);
+      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
 
       await expect(
         service.createLoginSession('bad.key', 'srv-1', undefined, 'http://localhost/callback'),

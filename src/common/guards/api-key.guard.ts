@@ -13,9 +13,9 @@ import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
-import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
+import { ProjectsService } from '../../modules/projects/projects.service';
 import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
-import type { ProjectServerOperation } from '../../modules/projects/projects-access.types';
+import type { ProjectServerOperation } from '../../modules/projects/projects.repository';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
 import { validateScope } from '../utils/scope.util';
@@ -32,7 +32,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
-    private readonly projectsAccessService: ProjectsAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -93,7 +93,7 @@ export class ApiKeyGuard implements CanActivate {
         [context.getHandler(), context.getClass()],
       ) ?? 'READ';
 
-    await this.projectsAccessService.assertProjectAccessOperation(
+    await this.projectsService.assertProjectAccessOperation(
       project.id,
       serverId,
       requiredOperation,

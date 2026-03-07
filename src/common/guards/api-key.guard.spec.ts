@@ -8,7 +8,7 @@ import { Test } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { ApiKeyGuard } from './api-key.guard';
 import { DRIZZLE } from '../../database/database.module';
-import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
+import { ProjectsService } from '../../modules/projects/projects.service';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ describe('ApiKeyGuard', () => {
   let guard: ApiKeyGuard;
   let mockDb: any;
   let mockReflector: jest.Mocked<Reflector>;
-  let mockAccessService: jest.Mocked<ProjectsAccessService>;
+  let mockAccessService: jest.Mocked<ProjectsService>;
 
   const setupGuard = async (projectRows: any[]) => {
     // DB returns: [projects query, update set chain, scopes query, servers query]
@@ -79,7 +79,7 @@ describe('ApiKeyGuard', () => {
         ApiKeyGuard,
         { provide: DRIZZLE, useValue: mockDb },
         { provide: Reflector, useValue: mockReflector },
-        { provide: ProjectsAccessService, useValue: mockAccessService },
+        { provide: ProjectsService, useValue: mockAccessService },
       ],
     }).compile();
 
@@ -149,7 +149,7 @@ describe('ApiKeyGuard', () => {
         ApiKeyGuard,
         { provide: DRIZZLE, useValue: db },
         { provide: Reflector, useValue: reflector },
-        { provide: ProjectsAccessService, useValue: accessSvc },
+        { provide: ProjectsService, useValue: accessSvc },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);
@@ -197,7 +197,7 @@ describe('ApiKeyGuard', () => {
         ApiKeyGuard,
         { provide: DRIZZLE, useValue: mockDb },
         { provide: Reflector, useValue: mockReflector },
-        { provide: ProjectsAccessService, useValue: mockAccessService },
+        { provide: ProjectsService, useValue: mockAccessService },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);
@@ -245,7 +245,7 @@ describe('ApiKeyGuard', () => {
         ApiKeyGuard,
         { provide: DRIZZLE, useValue: db },
         { provide: Reflector, useValue: reflector },
-        { provide: ProjectsAccessService, useValue: accessSvc },
+        { provide: ProjectsService, useValue: accessSvc },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);

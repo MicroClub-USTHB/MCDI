@@ -8,21 +8,44 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
+  Put,
+  Query,
+  Req,
   UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
-  ApiResponse,
   ApiParam,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
+import { SetProjectServerAccessDto } from './dto/set-project-server-access.dto';
+
+type RequestWithUser = Request & {
+  user?: {
+    id?: string;
+    email?: string;
+    username?: string;
+  };
+};
 
 @ApiTags('Admin Projects')
 @ApiBearerAuth('session-token')
@@ -30,16 +53,26 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 @UseGuards(SystemAdminGuard)
 @UsePipes(new ValidationPipe({ whitelist: true }))
 export class ProjectsController {
+  private static readonly DEFAULT_AUDIT_LIMIT = 100;
+
   constructor(private readonly projectsService: ProjectsService) {}
+
+  private resolveActor(req: RequestWithUser): string {
+    return (
+      req.user?.id ??
+      req.user?.email ??
+      req.user?.username ??
+      (process.env.NODE_ENV === 'development' ? 'dev-admin' : 'unknown-admin')
+    );
+  }
 
   @Post()
   @ApiOperation({
     summary: 'Create a project',
-    description:
-      'Registers a new project and returns its API key. The full key is returned ONCE and never stored — save it immediately.',
+    description: 'Registers a new project and returns its API key. The full key is returned once and never stored — save it immediately.',
   })
-  @ApiResponse({
-    status: 201,
+  @ApiBody({ type: CreateProjectDto })
+  @ApiCreatedResponse({
     description: 'Project created. API key returned once.',
     schema: {
       example: {
@@ -56,20 +89,18 @@ export class ProjectsController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBadRequestResponse({ description: 'Validation error.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   create(@Body() dto: CreateProjectDto) {
     return this.projectsService.create(dto);
   }
 
   @Get()
-  @ApiOperation({
-    summary: 'List all projects',
-    description:
-      'Returns all registered projects. API key hash is never exposed.',
-  })
-  @ApiResponse({ status: 200, description: 'List of projects returned' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiOperation({ summary: 'List all projects' })
+  @ApiOkResponse({ description: 'Projects retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   findAll() {
     return this.projectsService.findAll();
   }
@@ -77,23 +108,22 @@ export class ProjectsController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a project by ID' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 200, description: 'Project returned' })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiOkResponse({ description: 'Project retrieved successfully.' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   findOne(@Param('id') id: string) {
     return this.projectsService.findOne(id);
   }
 
   @Patch(':id')
-  @ApiOperation({
-    summary: 'Update a project',
-    description:
-      'Updates name, description, or scopes. Cannot update the API key via this endpoint.',
-  })
+  @ApiOperation({ summary: 'Update a project' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 200, description: 'Project updated' })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiBody({ type: UpdateProjectDto })
+  @ApiOkResponse({ description: 'Project updated successfully.' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
     return this.projectsService.update(id, dto);
   }
@@ -102,61 +132,199 @@ export class ProjectsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Regenerate API key',
-    description:
-      'Generates a new API key for the project. The old key is immediately invalid. New key is returned once — save it.',
+    description: 'Generates a new API key. The old key is immediately invalid. New key is returned once — save it.',
   })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({
-    status: 200,
+  @ApiOkResponse({
     description: 'New API key generated. Old key is now invalid.',
     schema: { example: { apiKey: 'mcdi_pk_live_xy98zw76.64hexsecret...' } },
   })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   regenerateKey(@Param('id') id: string) {
     return this.projectsService.regenerateKey(id);
   }
 
   @Delete(':id/key')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Revoke API key',
-    description:
-      'Disables the project API key. The key stops working immediately. Project data is preserved.',
-  })
+  @ApiOperation({ summary: 'Revoke API key' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 204, description: 'API key revoked' })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiNoContentResponse({ description: 'API key revoked.' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   revokeKey(@Param('id') id: string) {
     return this.projectsService.revokeKey(id);
   }
 
   @Post(':id/restore-key')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Restore a revoked API key',
-    description: 'Re-enables a previously revoked project key.',
-  })
+  @ApiOperation({ summary: 'Restore a revoked API key' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 204, description: 'API key restored' })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiNoContentResponse({ description: 'API key restored.' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   restoreKey(@Param('id') id: string) {
     return this.projectsService.restoreKey(id);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Delete a project',
-    description: 'Permanently deletes the project and all its scopes.',
-  })
+  @ApiOperation({ summary: 'Delete a project' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
-  @ApiResponse({ status: 204, description: 'Project deleted' })
-  @ApiResponse({ status: 404, description: 'Project not found' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiNoContentResponse({ description: 'Project deleted.' })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   delete(@Param('id') id: string) {
     return this.projectsService.delete(id);
+  }
+
+  // ── Admin-only operations ────────────────────────────────────────────
+
+  @Post(':id/regenerate-api-key')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Regenerate project API key (admin)',
+    description: 'Generates a new API key. The old key is immediately invalidated. Returns full key metadata.',
+  })
+  @ApiParam({ name: 'id', description: 'Project UUID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiOkResponse({
+    description: 'API key regenerated successfully.',
+    schema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+        apiKey: { type: 'string', example: 'mcdi_pk_live_xy98zw76.64hexsecret...' },
+        apiKeyPrefix: { type: 'string', example: 'mcdi_pk_live_xy98zw76' },
+        apiKeyCreatedAt: { type: 'string', format: 'date-time' },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  regenerateApiKeyAdmin(@Param('id') id: string) {
+    return this.projectsService.regenerateApiKeyAdmin(id);
+  }
+
+  @Patch(':id/redirect-uri')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update allowed redirect URI(s)',
+    description:
+      'Sets the redirect URI(s) allowed for this project. ' +
+      'Accepts a single URI or a comma-separated list. ' +
+      'The value passed to POST /auth/login-session must exactly match one of these.',
+  })
+  @ApiParam({ name: 'id', description: 'Project UUID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiBody({ type: UpdateRedirectUriDto })
+  @ApiOkResponse({
+    description: 'Redirect URI updated.',
+    schema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+        redirectUri: { type: 'string', example: 'https://events.microclub.net/auth/callback' },
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Project not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  updateRedirectUri(@Param('id') id: string, @Body() dto: UpdateRedirectUriDto) {
+    return this.projectsService.updateRedirectUri(id, dto);
+  }
+
+  // ─── Project-Server Access ─────────────────────────────────────────
+
+  @Put(':projectId/servers/:serverId')
+  @ApiOperation({ summary: 'Grant or update project access to a server' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiBody({ type: SetProjectServerAccessDto })
+  @ApiOkResponse({ description: 'Access mapping upserted.' })
+  @ApiNotFoundResponse({ description: 'Project or server not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  setProjectServerAccess(
+    @Param('projectId') projectId: string,
+    @Param('serverId') serverId: string,
+    @Body() dto: SetProjectServerAccessDto,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.projectsService.grantAccess({
+      projectId,
+      serverId,
+      operations: dto.operations,
+      changedBy: this.resolveActor(req),
+    });
+  }
+
+  @Delete(':projectId/servers/:serverId')
+  @ApiOperation({ summary: 'Revoke project access to a server' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiOkResponse({ description: 'Access mapping revoked.' })
+  @ApiNotFoundResponse({ description: 'Access mapping not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  revokeProjectServerAccess(
+    @Param('projectId') projectId: string,
+    @Param('serverId') serverId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.projectsService.revokeAccess({
+      projectId,
+      serverId,
+      changedBy: this.resolveActor(req),
+    });
+  }
+
+  @Get(':projectId/servers')
+  @ApiOperation({ summary: 'List servers accessible by a project' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID' })
+  @ApiOkResponse({ description: 'Server mappings retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  listServersByProject(@Param('projectId') projectId: string) {
+    return this.projectsService.listServersByProject(projectId);
+  }
+
+  @Get('servers/:serverId/projects')
+  @ApiOperation({ summary: 'List projects that can access a server' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiOkResponse({ description: 'Project mappings retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  listProjectsByServer(@Param('serverId') serverId: string) {
+    return this.projectsService.listProjectsByServer(serverId);
+  }
+
+  @Get('access/matrix')
+  @ApiOperation({ summary: 'List full project-server access matrix' })
+  @ApiOkResponse({ description: 'Access matrix retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  listAccessMatrix() {
+    return this.projectsService.listAccessMatrix();
+  }
+
+  @Get('access/audit')
+  @ApiOperation({ summary: 'List access change audit logs' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Max entries to return (1–500, default 100)', example: 100 })
+  @ApiOkResponse({ description: 'Audit logs retrieved successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  listAccessAudit(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    const safeLimit = Math.min(
+      Math.max(limit ?? ProjectsController.DEFAULT_AUDIT_LIMIT, 1),
+      500,
+    );
+    return this.projectsService.listAudit(safeLimit);
   }
 }
