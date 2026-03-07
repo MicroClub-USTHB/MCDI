@@ -61,7 +61,6 @@ describe('OauthStateRepository', () => {
         projectId: 'proj-1',
         serverId: 'srv-1',
         redirectUri: 'https://app.example.com/cb',
-        apiKey: 'pfx.secret',
         expiresAt: state.expiresAt,
       });
       expect(result).toEqual(state);

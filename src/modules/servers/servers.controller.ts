@@ -15,6 +15,7 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { ServersService } from './servers.service';
 import { CreateServerDto } from './dto/create-server.dto';
@@ -25,6 +26,7 @@ import { ApiNotFoundResponse } from '@nestjs/swagger';
 import { DisableServerDto } from './dto/disable-server.dto';
 
 @ApiTags('Servers')
+@ApiBearerAuth('session-token')
 @UseGuards(SystemAdminGuard)
 @Controller('servers')
 export class ServersController {

@@ -1,9 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { ProjectRepository } from './project.repository';
-import { DRIZZLE } from '../../../database/database.module';
-import * as apiKeyUtil from '../../../common/utils/api-key.util';
+import { DRIZZLE } from '../../database/database.module';
+import * as apiKeyUtil from '../../common/utils/api-key.util';
 
-jest.mock('../../../common/utils/api-key.util');
+jest.mock('../../common/utils/api-key.util');
 const mockVerifyApiKey = apiKeyUtil.verifyApiKey as jest.MockedFunction<
   typeof apiKeyUtil.verifyApiKey
 >;
@@ -62,7 +62,7 @@ const fakeProject = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-describe('ProjectRepository (auth)', () => {
+describe('ProjectRepository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -178,6 +178,4 @@ describe('ProjectRepository (auth)', () => {
       expect(await repo.findServerByName('Ghost')).toBeNull();
     });
   });
-
 });
-

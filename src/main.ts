@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -28,6 +29,8 @@ async function bootstrap() {
       corsOrigins.split(',').forEach((o) => allowedOrigins.push(o.trim()));
     }
   }
+
+  app.use(cookieParser());
 
   app.enableCors({
     origin: nodeEnv === 'development' ? true : allowedOrigins,
@@ -66,10 +69,19 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'Token',
         name: 'Authorization',
-        description: 'Enter your session token',
+        description: 'Enter your session token (from admin login or POST /auth/validate)',
         in: 'header',
       },
       'session-token',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'X-API-Key',
+        description: 'Project API key (prefix.secret format)',
+      },
+      'api-key',
     )
     .build();
 

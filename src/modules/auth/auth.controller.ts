@@ -3,9 +3,12 @@ import {
   Get,
   Render,
   Query,
+  Param,
   Post,
   Body,
   Res,
+  Req,
+  Headers,
   HttpCode,
   HttpStatus,
   UsePipes,
@@ -16,6 +19,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiQuery,
+  ApiParam,
   ApiBody,
   ApiProduces,
   ApiExcludeEndpoint,
@@ -29,6 +33,8 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   ErrorResponseDto,
+  CreateLoginSessionDto,
+  LoginSessionResponseDto,
   AdminPasswordLoginDto,
   AdminLoginResponseDto,
 } from './dto';
@@ -38,148 +44,155 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // ─── Step 1 — Login page
-  // Platform redirects user here with: /api/auth/login?api_key=xxx&server_id=yyy&redirect_uri=zzz
-  // MCDI validates the API key and renders the login page or an error page.
+  // ─── Step 0 — Create login session (server-to-server)
+  // Platform calls this with API key in header to get a short-lived login URL.
+  // The user's browser never sees the API key.
 
-  @Get('login')
+  @Post('login-session')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Create a login session (server-to-server)',
+    description:
+      'Platforms call this endpoint server-to-server with their API key in the X-API-Key header. ' +
+      'Returns a short-lived login URL that the platform redirects the user to. ' +
+      'This keeps the API key out of browser URLs, logs, and history.',
+  })
+  @ApiBody({ type: CreateLoginSessionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Login URL created',
+    type: LoginSessionResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid API key',
+    type: ErrorResponseDto,
+  })
+  async createLoginSession(
+    @Headers('x-api-key') apiKey: string,
+    @Body() dto: CreateLoginSessionDto,
+  ) {
+    if (!apiKey) {
+      return {
+        error: 'missing_api_key',
+        errorDescription: 'X-API-Key header is required',
+      };
+    }
+
+    return this.authService.createLoginSession(
+      apiKey,
+      dto.serverId,
+      dto.serverName,
+      dto.redirectUri,
+    );
+  }
+
+  // ─── Step 1 — Login page (token-based)
+  // Platform redirects user here with: /api/auth/login/<token>
+  // MCDI looks up the login token which already contains the validated project context.
+
+  @Get('login/:token')
   @Render('login')
   @ApiOperation({
-    summary: 'Render login page',
+    summary: 'Render login page (token-based)',
     description:
-      'The platform redirects the user here with an API key and optional server ID. ' +
-      'MCDI validates the API key against the projects table, resolves the target server ' +
-      'and roles, then renders the login page with a "Login with Discord" button. ' +
-      'If the API key is invalid, an error page is shown instead.',
+      'The platform redirects the user here using the loginUrl returned by POST /auth/login-session. ' +
+      'MCDI looks up the short-lived token to recover the project context, sets an httpOnly session ' +
+      'cookie so the token never reappears in a URL, then renders the login page.',
   })
-  @ApiQuery({
-    name: 'api_key',
+  @ApiParam({
+    name: 'token',
     required: true,
-    description: 'Platform API key',
-    example: 'mcdi-internal-events-2024',
-  })
-  @ApiQuery({
-    name: 'server_id',
-    required: false,
-    description: 'Discord server ID (for external platforms)',
-    example: '942073196237642827',
-  })
-  @ApiQuery({
-    name: 'server_name',
-    required: false,
-    description:
-      'Discord server name (alternative to server_id for external platforms)',
-    example: 'Main Server',
-  })
-  @ApiQuery({
-    name: 'redirect_uri',
-    required: false,
-    description:
-      'Override callback URI for the platform (defaults to project config)',
+    description: 'Short-lived login token from POST /auth/login-session',
   })
   @ApiProduces('text/html')
   @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
   async login(
-    @Query('api_key') apiKey: string,
-    @Query('server_id') serverId: string,
-    @Query('server_name') serverName: string,
-    @Query('redirect_uri') redirectUri: string,
+    @Param('token') token: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    // If no API key, show error
-    if (!apiKey) {
-      return {
-        error: 'missing_api_key',
-        errorDescription: 'No API key provided',
-      };
+    if (!token) {
+      return { error: 'missing_token', errorDescription: 'No login token provided' };
     }
 
     try {
-      // Validate API key and resolve project context
-      const context = await this.authService.validateLoginRequest(
-        apiKey,
-        serverId,
-        serverName,
-        redirectUri,
-      );
+      const loginToken = await this.authService.resolveLoginToken(token);
 
-      // Pass validated context to the view so the Discord button works
+      if (!loginToken) {
+        return {
+          error: 'invalid_token',
+          errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+        };
+      }
+
+      // Store the login token in an httpOnly cookie (5-min TTL matches the token)
+      // so it never needs to appear in a URL again.
+      (res as any).cookie('mcdi_login_ctx', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 5 * 60 * 1000,
+      });
+
       return {
-        apiKey,
-        projectName: context.project.name,
-        serverId: context.serverId,
-        redirectUri: context.redirectUri,
+        projectName: loginToken.projectName,
+        serverId: loginToken.serverId,
+        redirectUri: loginToken.redirectUri,
       };
     } catch (err) {
-      // Invalid API key or bad config → show error on the page
       return {
         error: 'invalid_request',
-        errorDescription:
-          (err as Error).message || 'Invalid API key or configuration',
+        errorDescription: (err as Error).message || 'Something went wrong',
       };
     }
   }
 
   // ─── Step 2 — Start Discord OAuth
-  // User clicks "Login with Discord" → this endpoint builds the Discord URL and redirects.
+  // User clicks "Login with Discord" → this endpoint looks up the login token and redirects.
 
   @Get('discord')
   @ApiOperation({
     summary: 'Redirect to Discord OAuth',
     description:
       'Called when user clicks "Login with Discord" on the MCDI login page. ' +
-      'Builds the Discord OAuth URL with project context encoded in state and redirects the user.',
-  })
-  @ApiQuery({
-    name: 'api_key',
-    required: true,
-    description: 'Platform API key',
-    example: 'mcdi-internal-events-2024',
-  })
-  @ApiQuery({
-    name: 'server_id',
-    required: false,
-    description: 'Discord server ID',
-    example: '942073196237642827',
-  })
-  @ApiQuery({
-    name: 'server_name',
-    required: false,
-    description: 'Discord server name',
-    example: 'Main Server',
-  })
-  @ApiQuery({
-    name: 'redirect_uri',
-    required: true,
-    description: 'Platform callback URI',
-    example: 'http://localhost:4000/auth/callback',
+      'Reads the login context from the httpOnly `mcdi_login_ctx` cookie set during the ' +
+      'login page render — no token ever appears in the URL.',
   })
   @ApiResponse({
     status: 302,
     description: 'Redirects to Discord OAuth authorization page',
   })
   async startDiscordAuth(
-    @Query('api_key') apiKey: string,
-    @Query('server_id') serverId: string,
-    @Query('server_name') serverName: string,
-    @Query('redirect_uri') redirectUri: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
-    // Validate again (in case someone hits this directly)
-    const context = await this.authService.validateLoginRequest(
-      apiKey,
-      serverId,
-      serverName,
-      redirectUri,
-    );
+    const loginTokenValue: string | undefined = req.cookies?.mcdi_login_ctx;
+
+    if (!loginTokenValue) {
+      return (res as any).render('login', {
+        error: 'missing_context',
+        errorDescription: 'Login session not found. Please use the login link provided by the platform.',
+      });
+    }
+
+    const tokenData = await this.authService.resolveLoginToken(loginTokenValue);
+
+    if (!tokenData) {
+      return (res as any).render('login', {
+        error: 'invalid_token',
+        errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+      });
+    }
+
+    // Clear the cookie — it is single-use from this point forward
+    (res as any).clearCookie('mcdi_login_ctx');
 
     const result = await this.authService.buildDiscordLoginUrl(
-      context.project.id,
-      apiKey,
-      context.serverId,
-      context.redirectUri,
+      tokenData.projectId,
+      tokenData.serverId,
+      tokenData.redirectUri,
     );
 
-    return res.redirect(result.url);
+    return (res as any).redirect(result.url);
   }
 
   // ─── Step 3 — Discord callback ───────────────────────────
@@ -208,6 +221,9 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const result = await this.authService.handleDiscordCallback(code, state);
+    if ('html' in result) {
+      return res.type('html').send(result.html);
+    }
     return res.redirect(result.url);
   }
 

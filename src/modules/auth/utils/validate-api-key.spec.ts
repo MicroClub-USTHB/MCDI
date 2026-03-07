@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { validateApiKeyAndGetProject } from './validate-api-key';
-import { ProjectRepository } from '../repositories/project.repository';
+import { ProjectRepository } from '../../projects/project.repository';
 
 function makeRepo(project: unknown = null): jest.Mocked<Pick<ProjectRepository, 'findByApiKey'>> {
   return { findByApiKey: jest.fn().mockResolvedValue(project) };
