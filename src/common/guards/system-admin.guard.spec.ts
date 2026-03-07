@@ -22,17 +22,19 @@ describe('SystemAdminGuard', () => {
   let guard: SystemAdminGuard;
   // We set up a DB that drives multiple sequential select().from().where().limit() calls
   // 1st call  → sessions table (validateSession)
-  // 2nd call  → servers table  (find main server)
-  // 3rd call  → server_members table
-  // 4th call  → server_member_roles + roles join (get role names)
+  // 2nd call  → members table  (isSystemAdmin fast-path)
+  // 3rd call  → servers table  (find main server)
+  // 4th call  → server_members table
+  // 5th call  → server_member_roles + roles join (get role names)
 
   const buildMockDb = (
     sessionRows: any[],
+    isAdminRows: any[],
     serverRows: any[],
     memberRows: any[],
     roleRows: any[],
   ) => {
-    const allResults = [sessionRows, serverRows, memberRows, roleRows];
+    const allResults = [sessionRows, isAdminRows, serverRows, memberRows, roleRows];
     let callIdx = 0;
     const nextResult = () => allResults[callIdx++] ?? [];
 
@@ -74,6 +76,7 @@ describe('SystemAdminGuard', () => {
       [],
       [],
       [],
+      [],
     );
     guard = await buildGuard(db);
     await expect(
@@ -83,7 +86,7 @@ describe('SystemAdminGuard', () => {
 
   it('throws UnauthorizedException when session is expired', async () => {
     const past = new Date(Date.now() - 10_000);
-    const db = buildMockDb([{ memberId: 'u1', expiresAt: past }], [], [], []);
+    const db = buildMockDb([{ memberId: 'u1', expiresAt: past }], [], [], [], []);
     guard = await buildGuard(db);
     await expect(
       guard.canActivate(makeContext('Bearer expired-token')),
@@ -94,6 +97,7 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
+      [{ isSystemAdmin: false }], // not a system admin
       [], // no main server
       [],
       [],
@@ -108,6 +112,7 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
+      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [], // member not in server
       [],
@@ -122,6 +127,7 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
+      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Member' }],
@@ -136,6 +142,7 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
+      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Executive' }],
@@ -149,6 +156,7 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
+      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Lead' }],

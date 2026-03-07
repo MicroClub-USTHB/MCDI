@@ -10,6 +10,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { ProjectsAccessRepository } from '../projects/projects-access.repository';
 
@@ -51,12 +52,20 @@ const mockOAuthStateRepo = {
   deleteExpired: jest.fn(),
 };
 
+const mockAdminOAuthStateRepo = {
+  create: jest.fn(),
+  findValidState: jest.fn(),
+  markAsUsed: jest.fn(),
+  deleteExpired: jest.fn(),
+};
+
 const mockConfig = {
   get: jest.fn((key: string) => {
     const map: Record<string, string> = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
+      'discord.adminRedirectUri': 'http://localhost/auth/admin/discord/callback',
       'app.baseUrl': 'http://localhost',
     };
     return map[key];
@@ -85,6 +94,7 @@ describe('AuthService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
+        { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthStateRepo },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ProjectsAccessRepository, useValue: mockProjectsAccessRepo },
         { provide: ConfigService, useValue: mockConfig },
@@ -515,14 +525,16 @@ describe('AuthService', () => {
   // ── cleanupExpired ───────────────────────────────────────────────────────
 
   describe('cleanupExpired', () => {
-    it('calls deleteExpired on both session and oauth state repos', async () => {
+    it('calls deleteExpired on session, oauth state, and admin oauth state repos', async () => {
       mockSessionRepo.deleteExpired.mockResolvedValue(undefined);
       mockOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
+      mockAdminOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
 
       const result = await service.cleanupExpired();
       expect(result).toEqual({ success: true });
       expect(mockSessionRepo.deleteExpired).toHaveBeenCalled();
       expect(mockOAuthStateRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
     });
   });
 });
