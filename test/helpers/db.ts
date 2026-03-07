@@ -76,8 +76,8 @@ export interface AdminContext {
 export async function seedAdminContext(db: TestDb): Promise<AdminContext> {
   const serverId = '900000000000000001';
   const memberId = '800000000000000001';
-  const roleId   = '700000000000000001';
-  const token    = randomBytes(32).toString('hex');
+  const roleId = '700000000000000001';
+  const token = randomBytes(32).toString('hex');
 
   // 1. Main server
   await db.insert(schema.servers).values({
@@ -159,12 +159,12 @@ export async function seedTestProject(
     redirectUri: string | null;
   }> = {},
 ): Promise<ProjectFixture> {
-  const id        = crypto.randomUUID();
-  const prefixId  = randomBytes(4).toString('hex');
-  const secret    = randomBytes(16).toString('hex');
-  const prefix    = `mcdi_pk_test_${prefixId}`;
-  const hash      = createHash('sha256').update(secret).digest('hex');
-  const apiKey    = `${prefix}.${secret}`;
+  const id = crypto.randomUUID();
+  const prefixId = randomBytes(4).toString('hex');
+  const secret = randomBytes(16).toString('hex');
+  const prefix = `mcdi_pk_test_${prefixId}`;
+  const hash = createHash('sha256').update(secret).digest('hex');
+  const apiKey = `${prefix}.${secret}`;
 
   await db.insert(schema.projects).values({
     id,

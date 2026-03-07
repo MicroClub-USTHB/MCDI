@@ -17,6 +17,7 @@ import {
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
 import { servers } from '../src/database/entities';
+import { eq } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -57,6 +58,41 @@ describeIf('/api/servers (e2e)', () => {
       .get('/api/servers')
       .set('Authorization', 'Bearer not-a-real-token')
       .expect(401);
+  });
+
+  // ─── Server active guard behavior ─────────────────────────────
+
+  describe('active/inactive server behavior on member routes', () => {
+    it('returns 401 for active server when API key is missing', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/servers/${adminCtx.serverId}/members`)
+        .expect(401);
+    });
+
+    it('returns 403 for disabled server before API key checks', async () => {
+      await db
+        .update(servers)
+        .set({ isActive: false })
+        .where(eq(servers.id, adminCtx.serverId));
+
+      await request(app.getHttpServer())
+        .get(`/api/servers/${adminCtx.serverId}/members`)
+        .expect(403);
+    });
+  });
+
+  describe('admin server-management bypass', () => {
+    it('still allows /api/servers for admins even if the main server is disabled', async () => {
+      await db
+        .update(servers)
+        .set({ isActive: false })
+        .where(eq(servers.id, adminCtx.serverId));
+
+      await request(app.getHttpServer())
+        .get('/api/servers')
+        .set('Authorization', auth())
+        .expect(200);
+    });
   });
 
   // ─── POST /api/servers ────────────────────────────────────────
@@ -146,16 +182,14 @@ describeIf('/api/servers (e2e)', () => {
   describe('PATCH /api/servers/:serverId/disable', () => {
     it('disables an active server', async () => {
       // Use a non-main server so the guard still works
-      await db
-        .insert(servers)
-        .values({
-          id: '222222222222222222',
-          name: 'Secondary Server',
-          type: 'other',
-          isMain: false,
-          isActive: true,
-          syncedAt: new Date(),
-        });
+      await db.insert(servers).values({
+        id: '222222222222222222',
+        name: 'Secondary Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
 
       const res = await request(app.getHttpServer())
         .patch('/api/servers/222222222222222222/disable')

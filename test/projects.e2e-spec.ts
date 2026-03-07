@@ -118,7 +118,10 @@ describeIf('/api/admin/projects (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
 
-      expect(res.body).toMatchObject({ id: projectId, name: 'Get By ID Project' });
+      expect(res.body).toMatchObject({
+        id: projectId,
+        name: 'Get By ID Project',
+      });
     });
 
     it('returns 404 for unknown project ID', async () => {
@@ -180,6 +183,42 @@ describeIf('/api/admin/projects (e2e)', () => {
       });
       // New key should differ from original
       expect(res.body.apiKey).not.toBe(oldKey);
+    });
+  });
+
+  // ─── DELETE /api/admin/projects/:id/key + restore ─────────────
+
+  describe('project key lifecycle', () => {
+    it('revokes and restores a project key', async () => {
+      const create = await request(app.getHttpServer())
+        .post(BASE)
+        .set('Authorization', auth())
+        .send({ name: 'Lifecycle Project' })
+        .expect(201);
+
+      const projectId = create.body.project.id;
+
+      await request(app.getHttpServer())
+        .delete(`${BASE}/${projectId}/key`)
+        .set('Authorization', auth())
+        .expect(204);
+
+      const revoked = await request(app.getHttpServer())
+        .get(`${BASE}/${projectId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(revoked.body.isActive).toBe(false);
+
+      await request(app.getHttpServer())
+        .post(`${BASE}/${projectId}/restore-key`)
+        .set('Authorization', auth())
+        .expect(204);
+
+      const restored = await request(app.getHttpServer())
+        .get(`${BASE}/${projectId}`)
+        .set('Authorization', auth())
+        .expect(200);
+      expect(restored.body.isActive).toBe(true);
     });
   });
 
