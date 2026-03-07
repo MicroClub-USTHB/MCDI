@@ -3,8 +3,12 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { SyncService } from './sync.service';
 import { SyncRepository } from './sync.repository';
 import { DiscordService } from '../discord/discord.service';
-import { MemberRepository } from '../members/member.repository';
 import { ServersRepository } from '../servers/servers.repository';
+import { MemberSyncService } from './services/member-sync.service';
+import { RoleSyncService } from './services/role-sync.service';
+import { ServerSyncService } from './services/server-sync.service';
+import { SyncLogService } from './services/sync-log.service';
+import { SyncTarget } from './dto/trigger-sync.dto';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -12,35 +16,47 @@ const mockSyncRepo = {
   createLog: jest.fn(),
   updateLog: jest.fn(),
   getInProgressLog: jest.fn(),
-  getLatestLog: jest.fn(),
-  getLogs: jest.fn(),
-  countLogs: jest.fn(),
-  createChangeDetail: jest.fn(),
-  createChangeDetails: jest.fn(),
-  getChangeDetails: jest.fn(),
-  countChangeDetails: jest.fn(),
 };
 
 const mockDiscord = {
   getGuildById: jest.fn(),
 };
 
-const mockMemberRepo = {
-  upsertMember: jest.fn(),
-  upsertServerMembership: jest.fn(),
-  replaceMemberRoles: jest.fn(),
-  markInactiveForServer: jest.fn(),
-  deleteMemberRolesByRoleId: jest.fn(),
-};
-
 const mockServersRepo = {
   findById: jest.fn(),
   findAllActive: jest.fn(),
-  upsertRole: jest.fn(),
-  syncRolePermissions: jest.fn(),
-  deleteRole: jest.fn(),
-  updateById: jest.fn(),
-  upsertServer: jest.fn(),
+};
+
+const mockMemberSyncService = {
+  processMember: jest.fn(),
+  syncAllMembers: jest.fn(),
+  handleMemberAdd: jest.fn(),
+  handleMemberRemove: jest.fn(),
+  handleMemberUpdate: jest.fn(),
+  handleUserUpdate: jest.fn(),
+};
+
+const mockRoleSyncService = {
+  syncAllRoles: jest.fn(),
+  handleRoleCreate: jest.fn(),
+  handleRoleUpdate: jest.fn(),
+  handleRoleDelete: jest.fn(),
+};
+
+const mockServerSyncService = {
+  syncServerInfo: jest.fn(),
+  prepareGuildCreate: jest.fn(),
+  handleGuildDelete: jest.fn(),
+  handleGuildUpdate: jest.fn(),
+};
+
+const mockSyncLogService = {
+  flushChangeBuffer: jest.fn(),
+  recordEventChange: jest.fn(),
+  getSyncStatus: jest.fn(),
+  getAllServersSyncStatus: jest.fn(),
+  getSyncLogs: jest.fn(),
+  getSyncChangeDetails: jest.fn(),
 };
 
 // ── Suite ─────────────────────────────────────────────────────────────────
@@ -54,8 +70,11 @@ describe('SyncService', () => {
         SyncService,
         { provide: SyncRepository, useValue: mockSyncRepo },
         { provide: DiscordService, useValue: mockDiscord },
-        { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: ServersRepository, useValue: mockServersRepo },
+        { provide: MemberSyncService, useValue: mockMemberSyncService },
+        { provide: RoleSyncService, useValue: mockRoleSyncService },
+        { provide: ServerSyncService, useValue: mockServerSyncService },
+        { provide: SyncLogService, useValue: mockSyncLogService },
       ],
     }).compile();
     service = module.get(SyncService);
@@ -75,10 +94,7 @@ describe('SyncService', () => {
 
     it('throws ConflictException when a sync is already in progress', async () => {
       mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
-      mockSyncRepo.getInProgressLog.mockResolvedValue({
-        id: 5,
-        status: 'in_progress',
-      });
+      mockSyncRepo.getInProgressLog.mockResolvedValue({ id: 5, status: 'in_progress' });
       await expect(service.triggerFullSync('guild-1')).rejects.toThrow(
         ConflictException,
       );
@@ -88,7 +104,7 @@ describe('SyncService', () => {
       mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
       mockSyncRepo.getInProgressLog.mockResolvedValue(null);
       mockSyncRepo.createLog.mockResolvedValue({ id: 42 });
-      // runFullSync runs in background — mock discord so it exits cleanly
+      // runFullSync runs in background — mock discord to exit cleanly
       mockDiscord.getGuildById.mockResolvedValue(null);
       mockSyncRepo.updateLog.mockResolvedValue({});
 
@@ -103,111 +119,120 @@ describe('SyncService', () => {
     });
   });
 
+  // ── triggerMultipleSyncs ──────────────────────────────────────────────
+
+  describe('triggerMultipleSyncs', () => {
+    it('returns results for each server, collecting errors gracefully', async () => {
+      mockServersRepo.findById
+        .mockResolvedValueOnce({ id: 's1' })
+        .mockResolvedValueOnce(null);
+      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.createLog.mockResolvedValue({ id: 10 });
+      mockDiscord.getGuildById.mockResolvedValue(null);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      const result = await service.triggerMultipleSyncs(['s1', 's2'], SyncTarget.ALL);
+      expect(result.results).toHaveLength(2);
+      expect(result.results[0].syncId).toBe(10);
+      expect(result.results[1].error).toBeDefined();
+    });
+
+    it('syncs all active servers when no ids are provided', async () => {
+      mockServersRepo.findAllActive.mockResolvedValue([{ id: 'srv-1' }]);
+      mockServersRepo.findById.mockResolvedValue({ id: 'srv-1' });
+      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.createLog.mockResolvedValue({ id: 7 });
+      mockDiscord.getGuildById.mockResolvedValue(null);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      const result = await service.triggerMultipleSyncs([]);
+      expect(result.results).toHaveLength(1);
+      expect(result.results[0].syncId).toBe(7);
+    });
+  });
+
   // ── getSyncStatus ─────────────────────────────────────────────────────
 
   describe('getSyncStatus', () => {
-    it('returns null when no sync log exists for the server', async () => {
-      mockSyncRepo.getLatestLog.mockResolvedValue(null);
+    it('delegates to SyncLogService.getSyncStatus', async () => {
+      mockSyncLogService.getSyncStatus.mockResolvedValue(null);
       const result = await service.getSyncStatus('guild-1');
       expect(result).toBeNull();
+      expect(mockSyncLogService.getSyncStatus).toHaveBeenCalledWith('guild-1');
     });
 
-    it('returns mapped SyncStatusDto when a log exists', async () => {
-      const now = new Date();
-      mockSyncRepo.getLatestLog.mockResolvedValue({
-        serverId: 'guild-1',
-        status: 'success',
-        membersSynced: 100,
-        rolesSynced: 20,
-        message: null,
-        startedAt: now,
-        finishedAt: now,
-      });
+    it('returns the dto provided by SyncLogService', async () => {
+      const dto = { serverId: 'guild-1', status: 'success', membersSynced: 100, rolesSynced: 5 };
+      mockSyncLogService.getSyncStatus.mockResolvedValue(dto);
       const result = await service.getSyncStatus('guild-1');
-      expect(result!.serverId).toBe('guild-1');
-      expect(result!.status).toBe('success');
-      expect(result!.membersSynced).toBe(100);
+      expect(result).toBe(dto);
     });
   });
 
   // ── getSyncChangeDetails ──────────────────────────────────────────────
 
   describe('getSyncChangeDetails', () => {
-    it('returns mapped change details with pagination metadata', async () => {
-      const now = new Date();
-      mockSyncRepo.getChangeDetails.mockResolvedValue([
-        {
-          id: 1,
-          syncLogId: 1,
-          serverId: 'g1',
-          entityType: 'member',
-          entityId: 'u1',
-          action: 'added',
-          description: 'joined',
-          details: null,
-          createdAt: now,
-        },
-      ]);
-      mockSyncRepo.countChangeDetails.mockResolvedValue(1);
-
+    it('delegates to SyncLogService.getSyncChangeDetails', async () => {
+      const dto = { total: 1, limit: 100, offset: 0, changes: [] };
+      mockSyncLogService.getSyncChangeDetails.mockResolvedValue(dto);
       const result = await service.getSyncChangeDetails(1, 100, 0);
-      expect(result.total).toBe(1);
-      expect(result.changes[0].action).toBe('added');
-      expect(result.changes[0].createdAt).toBe(now.toISOString());
+      expect(result).toBe(dto);
+      expect(mockSyncLogService.getSyncChangeDetails).toHaveBeenCalledWith(1, 100, 0);
     });
   });
 
   // ── handleMemberAdd ───────────────────────────────────────────────────
 
   describe('handleMemberAdd', () => {
-    it('records an event change detail after processing the member', async () => {
-      const guildMember: any = {
-        id: 'user-1',
-        guild: { id: 'guild-1' },
-        user: {
-          id: 'user-1',
-          username: 'alice',
-          globalName: null,
-          avatarURL: () => null,
-        },
-        nickname: null,
-        joinedAt: new Date(),
-        roles: { cache: { keys: () => [], size: 0 } },
-      };
-
-      mockMemberRepo.upsertMember.mockResolvedValue(undefined);
-      mockMemberRepo.upsertServerMembership.mockResolvedValue(undefined);
-      mockMemberRepo.replaceMemberRoles.mockResolvedValue(undefined);
-      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
-      mockSyncRepo.createLog.mockResolvedValue({ id: 99 });
-      mockSyncRepo.updateLog.mockResolvedValue({});
-      mockSyncRepo.createChangeDetail.mockResolvedValue({});
-
-      await expect(service.handleMemberAdd(guildMember)).resolves.not.toThrow();
+    it('delegates to MemberSyncService.handleMemberAdd', async () => {
+      const guildMember: any = { id: 'user-1', guild: { id: 'guild-1' } };
+      mockMemberSyncService.handleMemberAdd.mockResolvedValue(undefined);
+      await service.handleMemberAdd(guildMember);
+      expect(mockMemberSyncService.handleMemberAdd).toHaveBeenCalledWith(guildMember);
     });
   });
 
   // ── handleRoleDelete ──────────────────────────────────────────────────
 
   describe('handleRoleDelete', () => {
-    it('deletes member role assignments and the role itself', async () => {
-      const role: any = {
-        id: 'role-1',
-        name: 'Test Role',
-        guild: { id: 'guild-1' },
-      };
-      mockMemberRepo.deleteMemberRolesByRoleId.mockResolvedValue(undefined);
-      mockServersRepo.deleteRole.mockResolvedValue(undefined);
-      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
-      mockSyncRepo.createLog.mockResolvedValue({ id: 99 });
-      mockSyncRepo.updateLog.mockResolvedValue({});
-      mockSyncRepo.createChangeDetail.mockResolvedValue({});
-
+    it('delegates to RoleSyncService.handleRoleDelete', async () => {
+      const role: any = { id: 'role-1', guild: { id: 'guild-1' } };
+      mockRoleSyncService.handleRoleDelete.mockResolvedValue(undefined);
       await service.handleRoleDelete(role);
-      expect(mockMemberRepo.deleteMemberRolesByRoleId).toHaveBeenCalledWith(
-        'role-1',
-      );
-      expect(mockServersRepo.deleteRole).toHaveBeenCalledWith('role-1');
+      expect(mockRoleSyncService.handleRoleDelete).toHaveBeenCalledWith(role);
+    });
+  });
+
+  // ── handleGuildCreate ─────────────────────────────────────────────────
+
+  describe('handleGuildCreate', () => {
+    it('starts a full sync when prepareGuildCreate returns shouldSync=true', async () => {
+      const guild: any = { id: 'guild-1', name: 'Test' };
+      mockServerSyncService.prepareGuildCreate.mockResolvedValue({ shouldSync: true, logId: 55 });
+      mockDiscord.getGuildById.mockResolvedValue(null);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      await service.handleGuildCreate(guild);
+      expect(mockServerSyncService.prepareGuildCreate).toHaveBeenCalledWith(guild);
+    });
+
+    it('does not start a sync when prepareGuildCreate returns shouldSync=false', async () => {
+      const guild: any = { id: 'guild-1', name: 'Test' };
+      mockServerSyncService.prepareGuildCreate.mockResolvedValue({ shouldSync: false, logId: undefined });
+
+      await service.handleGuildCreate(guild);
+      expect(mockDiscord.getGuildById).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── handleGuildDelete ─────────────────────────────────────────────────
+
+  describe('handleGuildDelete', () => {
+    it('delegates to ServerSyncService.handleGuildDelete', async () => {
+      const guild: any = { id: 'guild-1' };
+      mockServerSyncService.handleGuildDelete.mockResolvedValue(undefined);
+      await service.handleGuildDelete(guild);
+      expect(mockServerSyncService.handleGuildDelete).toHaveBeenCalledWith(guild);
     });
   });
 });
