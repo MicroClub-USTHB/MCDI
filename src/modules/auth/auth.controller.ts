@@ -8,6 +8,8 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,6 +29,8 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   ErrorResponseDto,
+  AdminPasswordLoginDto,
+  AdminLoginResponseDto,
 } from './dto';
 
 @ApiTags('Authentication')
@@ -269,6 +273,81 @@ export class AuthController {
   })
   async logoutAll(@Body() dto: LogoutAllDto) {
     return this.authService.logoutAll(dto.memberId);
+  }
+
+  // ─── System Admin Login ─────────────────────────────────────
+
+  @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @ApiOperation({
+    summary: 'System admin login (username + password)',
+    description:
+      'Authenticates a system admin using their Discord username and a pre-set password. ' +
+      'The member must exist, have `isSystemAdmin = true`, and have a password configured. ' +
+      'Returns a 24-hour Bearer token.',
+  })
+  @ApiBody({ type: AdminPasswordLoginDto })
+  @ApiResponse({ status: 200, description: 'Login successful', type: AdminLoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Not a system admin' })
+  async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
+    return this.authService.adminPasswordLogin(dto.username, dto.password);
+  }
+
+  // ─── System Admin Discord OAuth2 Login ─────────────────────────
+
+  @Get('admin/discord')
+  @ApiOperation({
+    summary: 'Initiate system admin Discord OAuth2 login',
+    description:
+      'Returns a Discord authorization URL. ' +
+      'The admin opens the URL, authenticates with Discord, ' +
+      'and is redirected to the admin callback endpoint.',
+  })
+  @ApiResponse({ status: 200, description: 'Discord authorization URL', schema: { example: { url: 'https://discord.com/api/oauth2/authorize?...' } } })
+  async adminDiscordLogin() {
+    return this.authService.buildAdminDiscordLoginUrl();
+  }
+
+  @Get('admin/discord/callback')
+  @ApiExcludeEndpoint()
+  async adminDiscordCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const result = await this.authService.handleAdminDiscordCallback(
+      code,
+      state,
+    );
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Login — MCDI</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 2rem; max-width: 600px; width: 90%; }
+    h1 { color: #58a6ff; font-size: 1.2rem; margin-top: 0; }
+    .token { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 0.75rem; word-break: break-all; font-size: 0.85rem; color: #7ee787; }
+    p { color: #8b949e; font-size: 0.9rem; }
+    .expires { color: #8b949e; font-size: 0.8rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>System Admin Login Successful</h1>
+    <p>Welcome, <strong>${result.member.displayName || result.member.username}</strong>. Copy the token below and use it as a Bearer token.</p>
+    <div class="token">${result.token}</div>
+    <p class="expires">Expires: ${result.expiresAt.toISOString()}</p>
+  </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
   }
 
   // ─── Maintenance ─────────────────────────────────────────

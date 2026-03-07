@@ -5,6 +5,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { SystemAdminGuard } from './guards/system-admin.guard';
 import { ProjectsModule } from '../projects/projects.module';
 
@@ -17,6 +18,7 @@ import { ProjectsModule } from '../projects/projects.module';
     MemberRepository,
     ProjectRepository,
     OAuthStateRepository,
+    AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
   exports: [
@@ -25,6 +27,7 @@ import { ProjectsModule } from '../projects/projects.module';
     MemberRepository,
     ProjectRepository,
     OAuthStateRepository,
+    AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
 })

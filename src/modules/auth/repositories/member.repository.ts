@@ -60,6 +60,13 @@ export class MemberRepository {
     return members[0] || null;
   }
 
+  async setPasswordHash(memberId: string, passwordHash: string) {
+    await this.db
+      .update(schema.members)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(schema.members.id, memberId));
+  }
+
   async findClubMembers(limit: number = 100, offset: number = 0) {
     return this.db
       .select()
