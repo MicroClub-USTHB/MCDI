@@ -120,7 +120,7 @@ export class AuthController {
 
       // Store the login token in an httpOnly cookie (5-min TTL matches the token)
       // so it never needs to appear in a URL again.
-      (res as any).cookie('mcdi_login_ctx', token, {
+      res.cookie('mcdi_login_ctx', token, {
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 5 * 60 * 1000,
@@ -161,7 +161,7 @@ export class AuthController {
     const loginTokenValue: string | undefined = req.cookies?.mcdi_login_ctx;
 
     if (!loginTokenValue) {
-      return (res as any).render('login', {
+      return res.render('login', {
         error: 'missing_context',
         errorDescription: 'Login session not found. Please use the login link provided by the platform.',
       });
@@ -170,14 +170,14 @@ export class AuthController {
     const tokenData = await this.authService.resolveLoginToken(loginTokenValue);
 
     if (!tokenData) {
-      return (res as any).render('login', {
+      return res.render('login', {
         error: 'invalid_token',
         errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
       });
     }
 
     // Clear the cookie — it is single-use from this point forward
-    (res as any).clearCookie('mcdi_login_ctx');
+    res.clearCookie('mcdi_login_ctx');
 
     const result = await this.authService.buildDiscordLoginUrl(
       tokenData.projectId,
@@ -185,7 +185,7 @@ export class AuthController {
       tokenData.redirectUri,
     );
 
-    return (res as any).redirect(result.url);
+    return res.redirect(result.url);
   }
 
   // ─── Step 3 — Discord callback ───────────────────────────
