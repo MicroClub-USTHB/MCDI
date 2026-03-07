@@ -16,6 +16,6 @@ import { ProjectsAccessService } from './projects-access.service';
     ProjectsAccessRepository,
     ProjectsAccessService,
   ],
-  exports: [ProjectsAccessService],
+  exports: [ProjectsService, ProjectsRepository, ProjectsAccessRepository, ProjectsAccessService],
 })
 export class ProjectsModule {}

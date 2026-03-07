@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -225,5 +225,69 @@ export class ProjectsRepository {
       updatedAt: project.updatedAt,
       scopes,
     };
+  }
+
+  // ─────────────────────── Auth-support queries ──────────────────────────
+
+  /** Validate redirect URI against the project's allowed URI list */
+  async isRedirectUriAllowed(
+    projectId: string,
+    redirectUri: string,
+  ): Promise<boolean> {
+    const rows = await this.db
+      .select({ redirectUri: schema.projects.redirectUri })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, projectId))
+      .limit(1);
+
+    if (!rows[0]?.redirectUri) return false;
+
+    // Support comma-separated list of allowed URIs
+    const allowedUris = rows[0].redirectUri.split(',').map((u) => u.trim());
+    return allowedUris.includes(redirectUri);
+  }
+
+  /** Get the role IDs that are allowed to access a project */
+  async findAllowedRoleIds(projectId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ roleId: schema.projectRoles.roleId })
+      .from(schema.projectRoles)
+      .where(eq(schema.projectRoles.projectId, projectId));
+
+    return rows.map((r) => r.roleId);
+  }
+
+  /** Get the allowed roles with full role details */
+  async findAllowedRoles(projectId: string) {
+    return this.db
+      .select({
+        roleId: schema.projectRoles.roleId,
+        roleName: schema.roles.name,
+        roleColor: schema.roles.color,
+        rolePosition: schema.roles.position,
+      })
+      .from(schema.projectRoles)
+      .innerJoin(schema.roles, eq(schema.projectRoles.roleId, schema.roles.id))
+      .where(eq(schema.projectRoles.projectId, projectId));
+  }
+
+  /** Regenerate a project's API key, returning the updated project or null */
+  async regenerateApiKey(
+    projectId: string,
+    newHash: string,
+    newPrefix: string,
+  ) {
+    const rows = await this.db
+      .update(schema.projects)
+      .set({
+        apiKeyHash: newHash,
+        apiKeyPrefix: newPrefix,
+        apiKeyCreatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.projects.id, projectId))
+      .returning();
+
+    return rows[0] || null;
   }
 }

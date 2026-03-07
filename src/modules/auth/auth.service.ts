@@ -10,6 +10,8 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { ProjectsAccessRepository } from '../projects/projects-access.repository';
 import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
@@ -29,6 +31,8 @@ export class AuthService {
     private readonly memberRepository: MemberRepository,
     private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly projectsAccessRepository: ProjectsAccessRepository,
     private readonly configService: ConfigService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
@@ -94,7 +98,7 @@ export class AuthService {
       }
 
       // Verify project has access to this server
-      const hasAccess = await this.projectRepository.hasServerAccess(
+      const hasAccess = await this.projectsAccessRepository.hasServerAccess(
         project.id,
         targetServerId,
       );
@@ -114,7 +118,7 @@ export class AuthService {
     }
 
     // Validate redirect URI against allowlist
-    const isAllowed = await this.projectRepository.isRedirectUriAllowed(
+    const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
       project.id,
       finalRedirectUri,
     );
@@ -317,7 +321,7 @@ export class AuthService {
         );
       }
     }
-    await this.projectRepository.syncMemberServerData(
+    await this.memberRepository.syncMemberServerData(
       member.id,
       serverId,
       discordRolesForSync,
@@ -325,7 +329,7 @@ export class AuthService {
 
     // 6. Check role-based access
     const allowedRoleIds =
-      await this.projectRepository.findAllowedRoleIds(projectId);
+      await this.projectsRepository.findAllowedRoleIds(projectId);
 
     if (allowedRoleIds.length > 0) {
       const hasRole = userDiscordRoleIds.some((r) =>
