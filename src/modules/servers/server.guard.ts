@@ -22,9 +22,7 @@ export class ServerActiveGuard implements CanActivate {
       body?: Record<string, string>;
       headers: Record<string, string>;
     }>();
-    // this allows admin server-management endpoints to bypass active check
-    const url = req.originalUrl ?? '';
-    if (/\/servers(?:\/|$)/.test(url)) {
+    if (this.isServerManagementRoute(req.originalUrl)) {
       return true;
     }
 
@@ -47,5 +45,12 @@ export class ServerActiveGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  private isServerManagementRoute(originalUrl: string | undefined): boolean {
+    const urlPath = (originalUrl ?? '').split('?')[0];
+    return /^\/(?:api\/)?servers(?:\/[^/]+(?:\/(?:disable|enable))?)?\/?$/.test(
+      urlPath,
+    );
   }
 }

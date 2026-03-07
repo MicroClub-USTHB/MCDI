@@ -298,6 +298,94 @@ describe('SyncListener', () => {
     });
   });
 
+  describe('error context logging', () => {
+    it('logs event-specific handler context for each gateway event failure', async () => {
+      const { listener, mockClient, mockSyncService } = await buildModule();
+      const loggerErrorSpy = jest.spyOn((listener as any).logger, 'error');
+      listener.onModuleInit();
+
+      const eventCases: Array<{
+        event: string;
+        method: keyof ReturnType<typeof buildMockSyncService>;
+        args: unknown[];
+        expectedSnippet: string;
+      }> = [
+        {
+          event: 'guildMemberAdd',
+          method: 'handleMemberAdd',
+          args: [{ id: 'm1' }],
+          expectedSnippet: 'guildMemberAdd handler',
+        },
+        {
+          event: 'guildMemberRemove',
+          method: 'handleMemberRemove',
+          args: [{ id: 'm1' }],
+          expectedSnippet: 'guildMemberRemove handler',
+        },
+        {
+          event: 'guildMemberUpdate',
+          method: 'handleMemberUpdate',
+          args: [{ id: 'm1' }, { id: 'm1' }],
+          expectedSnippet: 'guildMemberUpdate handler',
+        },
+        {
+          event: 'userUpdate',
+          method: 'handleUserUpdate',
+          args: [{ id: 'u1' }, { id: 'u1' }],
+          expectedSnippet: 'userUpdate handler',
+        },
+        {
+          event: 'roleCreate',
+          method: 'handleRoleCreate',
+          args: [{ id: 'r1' }],
+          expectedSnippet: 'roleCreate handler',
+        },
+        {
+          event: 'roleUpdate',
+          method: 'handleRoleUpdate',
+          args: [{ id: 'r1' }, { id: 'r1' }],
+          expectedSnippet: 'roleUpdate handler',
+        },
+        {
+          event: 'roleDelete',
+          method: 'handleRoleDelete',
+          args: [{ id: 'r1' }],
+          expectedSnippet: 'roleDelete handler',
+        },
+        {
+          event: 'guildCreate',
+          method: 'handleGuildCreate',
+          args: [{ id: 'g1' }],
+          expectedSnippet: 'guildCreate handler',
+        },
+        {
+          event: 'guildUpdate',
+          method: 'handleGuildUpdate',
+          args: [{ id: 'g1' }, { id: 'g1' }],
+          expectedSnippet: 'guildUpdate handler',
+        },
+        {
+          event: 'guildDelete',
+          method: 'handleGuildDelete',
+          args: [{ id: 'g1' }],
+          expectedSnippet: 'guildDelete handler',
+        },
+      ];
+
+      for (const eventCase of eventCases) {
+        mockSyncService[eventCase.method].mockRejectedValueOnce(
+          new Error('boom'),
+        );
+        const handler = findHandler(mockClient, eventCase.event);
+        await expect(handler(...eventCase.args)).resolves.toBeUndefined();
+        expect(loggerErrorSpy).toHaveBeenLastCalledWith(
+          expect.stringContaining(eventCase.expectedSnippet),
+          expect.any(String),
+        );
+      }
+    });
+  });
+
   // ─── Error-path coverage for remaining handlers ──────────────────────────
 
   function findHandler(

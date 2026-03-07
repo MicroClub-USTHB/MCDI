@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DRIZZLE } from '../../database/database.module';
@@ -29,6 +30,8 @@ interface RequestWithProject extends Request {
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
+  private readonly logger = new Logger(ApiKeyGuard.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
@@ -50,10 +53,19 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
-    void this.db
-      .update(schema.projects)
-      .set({ apiKeyLastUsedAt: new Date() })
-      .where(eq(schema.projects.id, project.id));
+    void (async () => {
+      try {
+        await this.db
+          .update(schema.projects)
+          .set({ apiKeyLastUsedAt: new Date() })
+          .where(eq(schema.projects.id, project.id));
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Failed to update apiKeyLastUsedAt for project ${project.id}: ${reason}`,
+        );
+      }
+    })();
 
     // Check required scope if set on the route via @RequireScope()
     const requiredScope = this.reflector.get<string>(
@@ -104,9 +116,7 @@ export class ApiKeyGuard implements CanActivate {
     return true;
   }
 
-  private async validateApiKey(
-    apiKey: string,
-  ): Promise<ProjectRow | null> {
+  private async validateApiKey(apiKey: string): Promise<ProjectRow | null> {
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 
@@ -136,7 +146,19 @@ export class ApiKeyGuard implements CanActivate {
   }
 
   private extractServerId(request: RequestWithProject): string | null {
-    const serverId = request.params['serverId'] ?? request.query['serverId'];
-    return typeof serverId === 'string' ? serverId : null;
+    const candidates = [
+      request.params['serverId'],
+      request.query['serverId'],
+      (request.body as Record<string, unknown> | undefined)?.['serverId'],
+      request.headers['x-server-id'],
+    ];
+
+    for (const value of candidates) {
+      if (typeof value === 'string') {
+        return value;
+      }
+    }
+
+    return null;
   }
 }

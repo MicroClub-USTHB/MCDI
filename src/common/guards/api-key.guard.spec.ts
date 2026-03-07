@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { ApiKeyGuard } from './api-key.guard';
 import { DRIZZLE } from '../../database/database.module';
 import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
+import * as scopeUtil from '../utils/scope.util';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -257,5 +258,174 @@ describe('ApiKeyGuard', () => {
     await expect(guard.canActivate(makeContext(req))).rejects.toThrow(
       ForbiddenException,
     );
+  });
+
+  it('does not block request when last-used timestamp update fails', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    const db = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest
+        .fn()
+        .mockResolvedValueOnce([project])
+        .mockResolvedValueOnce([{ id: '123456789012345678', isActive: true }]),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    // Fail only the fire-and-forget update path.
+    db.where
+      .mockReturnValueOnce(db) // projects lookup
+      .mockRejectedValueOnce(new Error('write failed')) // update where
+      .mockReturnValueOnce(db); // servers lookup
+
+    const reflector: any = {
+      get: jest.fn().mockReturnValue(null),
+      getAllAndOverride: jest.fn().mockReturnValue('READ'),
+    };
+    const accessSvc: any = {
+      assertProjectAccessOperation: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: db },
+        { provide: Reflector, useValue: reflector },
+        { provide: ProjectsAccessService, useValue: accessSvc },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    const req = makeRequest({
+      headers: { authorization: `Bearer ${fullKey}` },
+      params: { serverId: '123456789012345678' },
+    });
+
+    await expect(guard.canActivate(makeContext(req))).resolves.toBe(true);
+    expect(accessSvc.assertProjectAccessOperation).toHaveBeenCalled();
+  });
+
+  it('prefers params.serverId over query/body/header server id values', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    const db = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest
+        .fn()
+        .mockResolvedValueOnce([project])
+        .mockResolvedValueOnce([{ id: '123456789012345678', isActive: true }]),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    const reflector: any = {
+      get: jest.fn().mockReturnValue(null),
+      getAllAndOverride: jest.fn().mockReturnValue('READ'),
+    };
+    const accessSvc: any = {
+      assertProjectAccessOperation: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: db },
+        { provide: Reflector, useValue: reflector },
+        { provide: ProjectsAccessService, useValue: accessSvc },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    await guard.canActivate(
+      makeContext(
+        makeRequest({
+          headers: {
+            authorization: `Bearer ${fullKey}`,
+            'x-server-id': '123456789012345679',
+          },
+          params: { serverId: '123456789012345678' },
+          query: { serverId: '123456789012345677' } as any,
+          body: { serverId: '123456789012345676' },
+        }),
+      ),
+    );
+
+    expect(accessSvc.assertProjectAccessOperation).toHaveBeenCalledWith(
+      'project-1',
+      '123456789012345678',
+      'READ',
+    );
+  });
+
+  it('checks scope before server access checks', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    const db = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockResolvedValue([project]),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    const reflector: any = {
+      get: jest.fn().mockReturnValue('read_members'),
+      getAllAndOverride: jest.fn().mockReturnValue('READ'),
+    };
+    const accessSvc: any = {
+      assertProjectAccessOperation: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const validateScopeSpy = jest
+      .spyOn(scopeUtil, 'validateScope')
+      .mockRejectedValue(new ForbiddenException('missing scope'));
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: db },
+        { provide: Reflector, useValue: reflector },
+        { provide: ProjectsAccessService, useValue: accessSvc },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    const req = makeRequest({
+      headers: { authorization: `Bearer ${fullKey}` },
+      params: { serverId: '123456789012345678' },
+    });
+
+    await expect(guard.canActivate(makeContext(req))).rejects.toThrow(
+      ForbiddenException,
+    );
+    expect(validateScopeSpy).toHaveBeenCalledWith(
+      expect.any(Object),
+      'project-1',
+      'read_members',
+    );
+    expect(accessSvc.assertProjectAccessOperation).not.toHaveBeenCalled();
+
+    validateScopeSpy.mockRestore();
   });
 });

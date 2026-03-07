@@ -54,12 +54,24 @@ describe('ServerActiveGuard', () => {
       expect(db.select).not.toHaveBeenCalled();
     });
 
-    it('returns true for /servers/{id} URLs', async () => {
+    it('returns true for /servers/{id}/enable URLs', async () => {
       const db = buildDb([]);
       const guard = await buildGuard(db);
-      const ctx = buildContext({ url: '/api/servers/srv-1/roles' });
+      const ctx = buildContext({ url: '/api/servers/srv-1/enable' });
       expect(await guard.canActivate(ctx)).toBe(true);
       expect(db.select).not.toHaveBeenCalled();
+    });
+
+    it('does not bypass non-management routes such as /servers/{id}/members', async () => {
+      const db = buildDb([{ isActive: false }]);
+      const guard = await buildGuard(db);
+      const ctx = buildContext({
+        url: '/api/servers/srv-1/members',
+        params: { serverId: 'srv-1' },
+      });
+
+      await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+      expect(db.select).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -113,6 +125,21 @@ describe('ServerActiveGuard', () => {
         query: { serverId: 'srv-1' },
       });
       expect(await guard.canActivate(ctx)).toBe(true);
+    });
+
+    it('prefers params.serverId over query/body/header when multiple are present', async () => {
+      const db = buildDb([{ isActive: true }]);
+      const guard = await buildGuard(db);
+      const ctx = buildContext({
+        url: '/api/some-route',
+        params: { serverId: 'srv-param' },
+        query: { serverId: 'srv-query' },
+        body: { serverId: 'srv-body' },
+        headers: { 'x-server-id': 'srv-header' },
+      });
+
+      expect(await guard.canActivate(ctx)).toBe(true);
+      expect(db.select).toHaveBeenCalledTimes(1);
     });
   });
 

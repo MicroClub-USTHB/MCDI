@@ -5,6 +5,7 @@ import { SyncRepository } from './sync.repository';
 import { DiscordService } from '../discord/discord.service';
 import { MemberRepository } from '../members/member.repository';
 import { ServersRepository } from '../servers/servers.repository';
+import { SyncTarget } from './dto/trigger-sync.dto';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,25 @@ describe('SyncService', () => {
         'manual',
         'in_progress',
         expect.any(Date),
+      );
+    });
+
+    it('updates sync log as failed when guild is not found in background sync', async () => {
+      mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
+      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.createLog.mockResolvedValue({ id: 77 });
+      mockDiscord.getGuildById.mockResolvedValue(null);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      await service.triggerFullSync('guild-1');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockSyncRepo.updateLog).toHaveBeenCalledWith(
+        77,
+        expect.objectContaining({
+          status: 'failed',
+          message: 'Guild not found or bot not in server',
+        }),
       );
     });
   });
@@ -208,6 +228,159 @@ describe('SyncService', () => {
         'role-1',
       );
       expect(mockServersRepo.deleteRole).toHaveBeenCalledWith('role-1');
+    });
+  });
+
+  describe('runFullSync internals', () => {
+    it('marks sync as failed when role upsert retries are exhausted', async () => {
+      jest.useFakeTimers();
+      mockDiscord.getGuildById.mockResolvedValue({
+        id: 'guild-1',
+        name: 'Guild',
+        iconURL: () => null,
+        roles: {
+          fetch: jest.fn().mockResolvedValue(
+            new Map([
+              [
+                'role-1',
+                {
+                  id: 'role-1',
+                  name: 'Role',
+                  color: 0,
+                  hoist: false,
+                  position: 1,
+                  managed: false,
+                  mentionable: false,
+                  permissions: { bitfield: BigInt(0) },
+                },
+              ],
+            ]),
+          ),
+        },
+        members: {
+          fetch: jest.fn().mockResolvedValue({ size: 0, last: () => null }),
+        },
+      } as any);
+      mockServersRepo.updateById.mockResolvedValue({});
+      mockServersRepo.upsertRole.mockRejectedValue(new Error('db down'));
+      mockSyncRepo.updateLog.mockResolvedValue({});
+      mockSyncRepo.createChangeDetails.mockResolvedValue(undefined);
+
+      const promise = (service as any).runFullSync(
+        'guild-1',
+        20,
+        SyncTarget.ALL,
+      );
+      await jest.advanceTimersByTimeAsync(4000);
+      await promise;
+
+      expect(mockServersRepo.upsertRole).toHaveBeenCalledTimes(3);
+      expect(mockSyncRepo.updateLog).toHaveBeenCalledWith(
+        20,
+        expect.objectContaining({
+          status: 'failed',
+          message: 'db down',
+        }),
+      );
+      jest.useRealTimers();
+    });
+
+    it('handles multi-page member fetch using the after cursor', async () => {
+      const emptyRoleCache = new Map<string, { id: string }>();
+      const firstPageMember = {
+        id: 'member-1',
+        user: { username: 'alice' },
+        roles: { cache: emptyRoleCache },
+      };
+      const secondPageMember = {
+        id: 'member-2',
+        user: { username: 'bob' },
+        roles: { cache: emptyRoleCache },
+      };
+
+      const firstPage = {
+        size: 1000,
+        last: () => ({ id: 'member-1' }),
+        [Symbol.iterator]: function* () {
+          yield ['member-1', firstPageMember];
+        },
+      };
+      const secondPage = {
+        size: 1,
+        last: () => ({ id: 'member-2' }),
+        [Symbol.iterator]: function* () {
+          yield ['member-2', secondPageMember];
+        },
+      };
+
+      const membersFetch = jest
+        .fn()
+        .mockResolvedValueOnce(firstPage as any)
+        .mockResolvedValueOnce(secondPage as any);
+      mockDiscord.getGuildById.mockResolvedValue({
+        id: 'guild-1',
+        name: 'Guild',
+        iconURL: () => null,
+        roles: {
+          fetch: jest.fn().mockResolvedValue(new Map()),
+        },
+        members: { fetch: membersFetch },
+      } as any);
+      mockServersRepo.updateById.mockResolvedValue({});
+      mockMemberRepo.markInactiveForServer.mockResolvedValue(0);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+      mockSyncRepo.createChangeDetails.mockResolvedValue(undefined);
+
+      const processSpy = jest
+        .spyOn(service, 'processMember')
+        .mockResolvedValue(undefined);
+
+      await (service as any).runFullSync('guild-1', 21, SyncTarget.MEMBERS);
+
+      expect(membersFetch).toHaveBeenNthCalledWith(1, { limit: 1000 });
+      expect(membersFetch).toHaveBeenNthCalledWith(2, {
+        limit: 1000,
+        after: 'member-1',
+      });
+      expect(processSpy).toHaveBeenCalledTimes(2);
+      expect(mockSyncRepo.updateLog).toHaveBeenCalledWith(
+        21,
+        expect.objectContaining({
+          status: 'success',
+          membersSynced: 2,
+        }),
+      );
+    });
+  });
+
+  describe('handleRoleCreate retries', () => {
+    it('retries syncRolePermissions and succeeds on a subsequent attempt', async () => {
+      jest.useFakeTimers();
+      const role: any = {
+        id: 'role-1',
+        name: 'Lead',
+        color: 0,
+        hoist: false,
+        position: 1,
+        managed: false,
+        mentionable: false,
+        permissions: { bitfield: BigInt(8) },
+        guild: { id: 'guild-1' },
+      };
+      mockServersRepo.upsertRole.mockResolvedValue(undefined);
+      mockServersRepo.syncRolePermissions
+        .mockRejectedValueOnce(new Error('transient'))
+        .mockResolvedValue(undefined);
+      mockSyncRepo.createLog.mockResolvedValue({ id: 88 });
+      mockSyncRepo.updateLog.mockResolvedValue({});
+      mockSyncRepo.createChangeDetail.mockResolvedValue({});
+
+      const promise = service.handleRoleCreate(role);
+      await jest.advanceTimersByTimeAsync(1000);
+      await promise;
+
+      expect(mockServersRepo.syncRolePermissions).toHaveBeenCalledTimes(2);
+      jest.useRealTimers();
     });
   });
 });
