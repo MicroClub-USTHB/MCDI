@@ -8,7 +8,7 @@ import { ProjectsAccessRepository } from './projects-access.repository';
 import { ProjectsAccessService } from './projects-access.service';
 import { ProjectAdminController } from './project-admin.controller';
 import { ProjectAdminService } from './project-admin.service';
-import { ProjectRepository } from '../auth/repositories/project.repository';
+import { ProjectRepository } from './project.repository';
 
 @Module({
   imports: [DatabaseModule],
@@ -21,6 +21,6 @@ import { ProjectRepository } from '../auth/repositories/project.repository';
     ProjectAdminService,
     ProjectRepository,
   ],
-  exports: [ProjectsService, ProjectsRepository, ProjectsAccessRepository, ProjectsAccessService],
+  exports: [ProjectsService, ProjectsRepository, ProjectsAccessRepository, ProjectsAccessService, ProjectRepository],
 })
 export class ProjectsModule {}

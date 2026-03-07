@@ -3,7 +3,6 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
-import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
@@ -18,7 +17,6 @@ import { ProjectsModule } from '../projects/projects.module';
     AuthService,
     SessionRepository,
     MemberRepository,
-    ProjectRepository,
     OAuthStateRepository,
     LoginTokenRepository,
     AdminOAuthStateRepository,
@@ -28,7 +26,6 @@ import { ProjectsModule } from '../projects/projects.module';
     AuthService,
     SessionRepository,
     MemberRepository,
-    ProjectRepository,
     OAuthStateRepository,
     LoginTokenRepository,
     AdminOAuthStateRepository,

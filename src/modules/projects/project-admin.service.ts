@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ProjectRepository } from '../auth/repositories/project.repository';
+import { ProjectRepository } from './project.repository';
 import { generateApiKey } from '../../common/utils/api-key.util';
 import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 

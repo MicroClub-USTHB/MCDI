@@ -1,9 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { DRIZZLE } from '../../../database/database.module';
-import * as schema from '../../../database/entities';
-import { verifyApiKey } from '../../../common/utils/api-key.util';
+import { DRIZZLE } from '../../database/database.module';
+import * as schema from '../../database/entities';
+import { verifyApiKey } from '../../common/utils/api-key.util';
 
 @Injectable()
 export class ProjectRepository {
@@ -33,32 +33,6 @@ export class ProjectRepository {
     if (!project || !project.apiKeyHash) return null;
 
     return verifyApiKey(secret, project.apiKeyHash) ? project : null;
-  }
-
-  /** Get the role IDs that are allowed to access a project */
-  async findAllowedRoleIds(projectId: string): Promise<string[]> {
-    const rows = await this.db
-      .select({ roleId: schema.projectRoles.roleId })
-      .from(schema.projectRoles)
-      .where(eq(schema.projectRoles.projectId, projectId));
-
-    return rows.map((r) => r.roleId);
-  }
-
-  /** Get the allowed roles with full role details */
-  async findAllowedRoles(projectId: string) {
-    const rows = await this.db
-      .select({
-        roleId: schema.projectRoles.roleId,
-        roleName: schema.roles.name,
-        roleColor: schema.roles.color,
-        rolePosition: schema.roles.position,
-      })
-      .from(schema.projectRoles)
-      .innerJoin(schema.roles, eq(schema.projectRoles.roleId, schema.roles.id))
-      .where(eq(schema.projectRoles.projectId, projectId));
-
-    return rows;
   }
 
   /** Get the main Discord server (isMain = true) */
@@ -237,11 +211,8 @@ export class ProjectRepository {
       .onConflictDoNothing();
   }
 
-  /** Update the allowed redirect URI(s) for a project (comma-separated for multiple) */
-  async updateRedirectUri(
-    projectId: string,
-    redirectUri: string,
-  ) {
+  /** Update redirect URI for a project */
+  async updateRedirectUri(projectId: string, redirectUri: string) {
     const projects = await this.db
       .update(schema.projects)
       .set({ redirectUri, updatedAt: new Date() })

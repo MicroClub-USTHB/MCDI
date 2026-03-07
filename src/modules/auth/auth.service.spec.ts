@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
-import { ProjectRepository } from './repositories/project.repository';
+import { ProjectRepository } from '../projects/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
@@ -575,8 +575,8 @@ describe('AuthService', () => {
       const proj = fakeProject();
       // Mock the project lookup that validateApiKeyAndGetProject does
       mockProjectRepo.findByApiKey.mockResolvedValue(proj);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockLoginTokenRepo.create.mockResolvedValue({ token: 'abc123' });
 
       const result = await service.createLoginSession(
@@ -629,5 +629,4 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
   });
-});
 });

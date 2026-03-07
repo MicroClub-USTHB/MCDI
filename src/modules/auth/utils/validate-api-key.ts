@@ -1,5 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { ProjectRepository } from '../repositories/project.repository';
+import { ProjectRepository } from '../../projects/project.repository';
 
 /**
  * Validate an API key and return the associated project.

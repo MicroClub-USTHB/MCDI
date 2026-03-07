@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectAdminService } from './project-admin.service';
-import { ProjectRepository } from '../auth/repositories/project.repository';
+import { ProjectRepository } from './project.repository';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
