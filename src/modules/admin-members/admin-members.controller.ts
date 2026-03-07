@@ -48,8 +48,15 @@ export class AdminMembersController {
     description:
       'Returns a full cross-server view for a single member: every managed server they belong to, their roles, join date, and whether they qualify as a "club member".',
   })
-  @ApiParam({ name: 'discordId', description: 'Discord user ID (snowflake)', example: '876543210987654321' })
-  @ApiOkResponse({ description: 'Member cross-server view retrieved successfully.', type: MemberCrossServerViewDto })
+  @ApiParam({
+    name: 'discordId',
+    description: 'Discord user ID (snowflake)',
+    example: '876543210987654321',
+  })
+  @ApiOkResponse({
+    description: 'Member cross-server view retrieved successfully.',
+    type: MemberCrossServerViewDto,
+  })
   @ApiNotFoundResponse({ description: 'Member not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
@@ -71,7 +78,10 @@ export class AdminMembersController {
     description:
       'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server.',
   })
-  @ApiOkResponse({ description: 'Paginated cross-server member list retrieved.', type: PaginatedCrossServerListDto })
+  @ApiOkResponse({
+    description: 'Paginated cross-server member list retrieved.',
+    type: PaginatedCrossServerListDto,
+  })
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })

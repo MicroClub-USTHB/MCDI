@@ -16,7 +16,7 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
-import { sessions, loginTokens } from '../src/database/entities';
+import { sessions } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 

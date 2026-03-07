@@ -60,7 +60,10 @@ describe('RoleSyncService', () => {
       expect(mockServersRepo.upsertRole).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'role-1', name: 'Moderator' }),
       );
-      expect(mockServersRepo.syncRolePermissions).toHaveBeenCalledWith('role-1', BigInt(0));
+      expect(mockServersRepo.syncRolePermissions).toHaveBeenCalledWith(
+        'role-1',
+        BigInt(0),
+      );
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',
         'role',
@@ -99,7 +102,9 @@ describe('RoleSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleRoleDelete(makeRole());
-      expect(mockMemberRepo.deleteMemberRolesByRoleId).toHaveBeenCalledWith('role-1');
+      expect(mockMemberRepo.deleteMemberRolesByRoleId).toHaveBeenCalledWith(
+        'role-1',
+      );
       expect(mockServersRepo.deleteRole).toHaveBeenCalledWith('role-1');
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',
@@ -118,7 +123,9 @@ describe('RoleSyncService', () => {
       const role = makeRole();
       const guild: any = {
         id: 'guild-1',
-        roles: { fetch: jest.fn().mockResolvedValue(new Map([['role-1', role]])) },
+        roles: {
+          fetch: jest.fn().mockResolvedValue(new Map([['role-1', role]])),
+        },
       };
       mockServersRepo.upsertRole.mockResolvedValue(undefined);
       mockServersRepo.syncRolePermissions.mockResolvedValue(undefined);

@@ -27,7 +27,11 @@ describe('buildErrorRedirect', () => {
   });
 
   it('sets the error_description query parameter', () => {
-    const result = buildErrorRedirect(BASE_URI, 'access_denied', 'User denied access');
+    const result = buildErrorRedirect(
+      BASE_URI,
+      'access_denied',
+      'User denied access',
+    );
     const params = new URL(result.url).searchParams;
     expect(params.get('error_description')).toBe('User denied access');
   });
@@ -41,7 +45,11 @@ describe('buildErrorRedirect', () => {
 
   it('preserves existing query parameters on the base URI', () => {
     const uriWithParams = 'https://platform.example.com/callback?session=abc';
-    const result = buildErrorRedirect(uriWithParams, 'invalid_request', 'Bad key');
+    const result = buildErrorRedirect(
+      uriWithParams,
+      'invalid_request',
+      'Bad key',
+    );
     const params = new URL(result.url).searchParams;
     expect(params.get('session')).toBe('abc');
     expect(params.get('error')).toBe('invalid_request');
@@ -49,7 +57,12 @@ describe('buildErrorRedirect', () => {
   });
 
   it('handles different error codes', () => {
-    const codes = ['access_denied', 'invalid_request', 'server_error', 'unauthorized_client'];
+    const codes = [
+      'access_denied',
+      'invalid_request',
+      'server_error',
+      'unauthorized_client',
+    ];
     for (const code of codes) {
       const result = buildErrorRedirect(BASE_URI, code, 'desc');
       expect(new URL(result.url).searchParams.get('error')).toBe(code);

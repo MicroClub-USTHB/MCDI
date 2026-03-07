@@ -213,7 +213,10 @@ describe('ProjectsService', () => {
       mockRepo.findOne.mockResolvedValue(updated);
       mockRepo.replaceScopes.mockResolvedValue(undefined);
 
-      await service.update('proj-1', { name: 'Renamed', scopes: ['read_members' as any] });
+      await service.update('proj-1', {
+        name: 'Renamed',
+        scopes: ['read_members' as any],
+      });
 
       expect(mockRepo.replaceScopes).toHaveBeenCalledWith('proj-1', [
         'read_members',
@@ -241,7 +244,9 @@ describe('ProjectsService', () => {
 
     it('throws NotFoundException when project does not exist', async () => {
       mockRepo.regenerateApiKey.mockResolvedValue(null);
-      await expect(service.regenerateApiKeyAdmin('missing')).rejects.toThrow(NotFoundException);
+      await expect(service.regenerateApiKeyAdmin('missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -249,11 +254,19 @@ describe('ProjectsService', () => {
 
   describe('updateRedirectUri', () => {
     it('returns projectId and redirectUri on success', async () => {
-      const project = { ...fakeProject(), redirectUri: 'https://example.com/cb' };
+      const project = {
+        ...fakeProject(),
+        redirectUri: 'https://example.com/cb',
+      };
       mockRepo.updateRedirectUri.mockResolvedValue(project);
 
-      const result = await service.updateRedirectUri('proj-1', { redirectUri: 'https://example.com/cb' });
-      expect(result).toEqual({ projectId: 'proj-1', redirectUri: 'https://example.com/cb' });
+      const result = await service.updateRedirectUri('proj-1', {
+        redirectUri: 'https://example.com/cb',
+      });
+      expect(result).toEqual({
+        projectId: 'proj-1',
+        redirectUri: 'https://example.com/cb',
+      });
     });
 
     it('throws NotFoundException when project does not exist', async () => {

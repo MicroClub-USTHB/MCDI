@@ -42,7 +42,13 @@ describe('ServerSyncService', () => {
     it('updates server metadata and pushes a change entry', async () => {
       mockServersRepo.updateById.mockResolvedValue(undefined);
       const buffer: any[] = [];
-      await service.syncServerInfo('guild-1', makeGuild(), new Date(), 1, buffer);
+      await service.syncServerInfo(
+        'guild-1',
+        makeGuild(),
+        new Date(),
+        1,
+        buffer,
+      );
 
       expect(mockServersRepo.updateById).toHaveBeenCalledWith(
         'guild-1',
@@ -70,7 +76,10 @@ describe('ServerSyncService', () => {
 
     it('returns shouldSync=false when a sync is already in progress', async () => {
       mockServersRepo.upsertServer.mockResolvedValue(undefined);
-      mockSyncRepo.getInProgressLog.mockResolvedValue({ id: 10, status: 'in_progress' });
+      mockSyncRepo.getInProgressLog.mockResolvedValue({
+        id: 10,
+        status: 'in_progress',
+      });
 
       const result = await service.prepareGuildCreate(makeGuild());
       expect(result).toEqual({ shouldSync: false });

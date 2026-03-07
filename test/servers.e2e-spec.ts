@@ -146,16 +146,14 @@ describeIf('/api/servers (e2e)', () => {
   describe('PATCH /api/servers/:serverId/disable', () => {
     it('disables an active server', async () => {
       // Use a non-main server so the guard still works
-      await db
-        .insert(servers)
-        .values({
-          id: '222222222222222222',
-          name: 'Secondary Server',
-          type: 'other',
-          isMain: false,
-          isActive: true,
-          syncedAt: new Date(),
-        });
+      await db.insert(servers).values({
+        id: '222222222222222222',
+        name: 'Secondary Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
 
       const res = await request(app.getHttpServer())
         .patch('/api/servers/222222222222222222/disable')

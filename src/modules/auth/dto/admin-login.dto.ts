@@ -2,7 +2,10 @@ import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminPasswordLoginDto {
-  @ApiProperty({ description: 'Discord username of the system admin', example: 'johndoe' })
+  @ApiProperty({
+    description: 'Discord username of the system admin',
+    example: 'johndoe',
+  })
   @IsString()
   @IsNotEmpty()
   username: string;
@@ -15,7 +18,9 @@ export class AdminPasswordLoginDto {
 }
 
 export class AdminLoginResponseDto {
-  @ApiProperty({ description: 'Bearer token to include in Authorization header' })
+  @ApiProperty({
+    description: 'Bearer token to include in Authorization header',
+  })
   token: string;
 
   @ApiProperty({ description: 'Token expiry timestamp (24 h from now)' })

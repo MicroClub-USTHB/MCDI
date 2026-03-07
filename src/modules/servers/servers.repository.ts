@@ -21,13 +21,21 @@ export class ServersRepository {
 
   /** Get the main Discord server (isMain = true) */
   async findMain() {
-    const rows = await this.db.select().from(servers).where(eq(servers.isMain, true)).limit(1);
+    const rows = await this.db
+      .select()
+      .from(servers)
+      .where(eq(servers.isMain, true))
+      .limit(1);
     return rows[0] || null;
   }
 
   /** Find a server by its name */
   async findByName(name: string) {
-    const rows = await this.db.select().from(servers).where(eq(servers.name, name)).limit(1);
+    const rows = await this.db
+      .select()
+      .from(servers)
+      .where(eq(servers.name, name))
+      .limit(1);
     return rows[0] || null;
   }
 

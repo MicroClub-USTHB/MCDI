@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
@@ -30,7 +31,13 @@ describe('ProjectsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectsController],
-      providers: [{ provide: ProjectsService, useValue: mockProjectsService }],
+      providers: [
+        { provide: ProjectsService, useValue: mockProjectsService },
+        {
+          provide: ConfigService,
+          useValue: { get: jest.fn().mockReturnValue('development') },
+        },
+      ],
     })
       .overrideGuard(SystemAdminGuard)
       .useValue({ canActivate: () => true })
@@ -101,26 +108,46 @@ describe('ProjectsController', () => {
   });
 
   it('regenerateApiKeyAdmin delegates to service', async () => {
-    mockProjectsService.regenerateApiKeyAdmin.mockResolvedValue({ projectId: 'p1', apiKey: 'new-key' });
+    mockProjectsService.regenerateApiKeyAdmin.mockResolvedValue({
+      projectId: 'p1',
+      apiKey: 'new-key',
+    });
     const result = await controller.regenerateApiKeyAdmin('p1');
-    expect(mockProjectsService.regenerateApiKeyAdmin).toHaveBeenCalledWith('p1');
+    expect(mockProjectsService.regenerateApiKeyAdmin).toHaveBeenCalledWith(
+      'p1',
+    );
     expect(result).toMatchObject({ projectId: 'p1' });
   });
 
   it('regenerateApiKeyAdmin propagates NotFoundException', async () => {
-    mockProjectsService.regenerateApiKeyAdmin.mockRejectedValue(new NotFoundException());
-    await expect(controller.regenerateApiKeyAdmin('bad')).rejects.toThrow(NotFoundException);
+    mockProjectsService.regenerateApiKeyAdmin.mockRejectedValue(
+      new NotFoundException(),
+    );
+    await expect(controller.regenerateApiKeyAdmin('bad')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('updateRedirectUri delegates to service', async () => {
-    mockProjectsService.updateRedirectUri.mockResolvedValue({ projectId: 'p1', redirectUri: 'https://x.com/cb' });
-    const result = await controller.updateRedirectUri('p1', { redirectUri: 'https://x.com/cb' });
-    expect(mockProjectsService.updateRedirectUri).toHaveBeenCalledWith('p1', { redirectUri: 'https://x.com/cb' });
+    mockProjectsService.updateRedirectUri.mockResolvedValue({
+      projectId: 'p1',
+      redirectUri: 'https://x.com/cb',
+    });
+    const result = await controller.updateRedirectUri('p1', {
+      redirectUri: 'https://x.com/cb',
+    });
+    expect(mockProjectsService.updateRedirectUri).toHaveBeenCalledWith('p1', {
+      redirectUri: 'https://x.com/cb',
+    });
     expect(result).toMatchObject({ projectId: 'p1' });
   });
 
   it('updateRedirectUri propagates NotFoundException', async () => {
-    mockProjectsService.updateRedirectUri.mockRejectedValue(new NotFoundException());
-    await expect(controller.updateRedirectUri('bad', { redirectUri: 'https://x.com/cb' })).rejects.toThrow(NotFoundException);
+    mockProjectsService.updateRedirectUri.mockRejectedValue(
+      new NotFoundException(),
+    );
+    await expect(
+      controller.updateRedirectUri('bad', { redirectUri: 'https://x.com/cb' }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

@@ -65,5 +65,7 @@ export async function adminSeeder(db: NodePgDatabase<typeof schema>) {
     console.log('  ✓ Existing password preserved.');
   }
 
-  console.log('  ✓ System admin seeded (id: 1128450529710854185, username: ben_abdou5094).');
+  console.log(
+    '  ✓ System admin seeded (id: 1128450529710854185, username: ben_abdou5094).',
+  );
 }

@@ -24,7 +24,7 @@ async function bootstrap() {
 
   if (nodeEnv !== 'development') {
     // In production, load explicit allowed origins from env
-    const corsOrigins = process.env.CORS_ORIGINS;
+    const corsOrigins = configService.get<string>('app.corsOrigins');
     if (corsOrigins) {
       corsOrigins.split(',').forEach((o) => allowedOrigins.push(o.trim()));
     }
@@ -49,8 +49,8 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix(apiPrefix);
-  app.useStaticAssets(join(__dirname, '..', 'public'));
-  app.setBaseViewsDir(join(__dirname, '..', 'views'));
+  app.useStaticAssets(join(__dirname, 'public'));
+  app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
 
   // Swagger Configuration
@@ -71,7 +71,8 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'Token',
         name: 'Authorization',
-        description: 'Enter your session token (from admin login or POST /auth/validate)',
+        description:
+          'Enter your session token (from admin login or POST /auth/validate)',
         in: 'header',
       },
       'session-token',

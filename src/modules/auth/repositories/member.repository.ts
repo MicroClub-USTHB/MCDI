@@ -188,7 +188,10 @@ export class MemberRepository {
         rolePosition: schema.roles.position,
       })
       .from(schema.serverMemberRoles)
-      .innerJoin(schema.roles, eq(schema.serverMemberRoles.roleId, schema.roles.id))
+      .innerJoin(
+        schema.roles,
+        eq(schema.serverMemberRoles.roleId, schema.roles.id),
+      )
       .where(
         and(
           eq(schema.serverMemberRoles.memberId, memberId),

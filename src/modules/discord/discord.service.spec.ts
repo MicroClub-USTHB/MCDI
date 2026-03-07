@@ -445,15 +445,20 @@ describe('DiscordService', () => {
 
   describe('exchangeOAuthCode', () => {
     const mockFetch = jest.fn();
-    beforeEach(() => { global.fetch = mockFetch; });
+    beforeEach(() => {
+      global.fetch = mockFetch;
+    });
     afterEach(() => jest.clearAllMocks());
 
     it('returns access token on successful exchange', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ access_token: 'tok-abc' }),
+        json: () => Promise.resolve({ access_token: 'tok-abc' }),
       });
-      const result = await service.exchangeOAuthCode('code-123', 'http://localhost/cb');
+      const result = await service.exchangeOAuthCode(
+        'code-123',
+        'http://localhost/cb',
+      );
       expect(result).toBe('tok-abc');
       expect(mockFetch).toHaveBeenCalledWith(
         'https://discord.com/api/oauth2/token',
@@ -463,7 +468,9 @@ describe('DiscordService', () => {
 
     it('returns null when Discord responds with an error', async () => {
       mockFetch.mockResolvedValue({ ok: false });
-      expect(await service.exchangeOAuthCode('bad-code', 'http://localhost/cb')).toBeNull();
+      expect(
+        await service.exchangeOAuthCode('bad-code', 'http://localhost/cb'),
+      ).toBeNull();
     });
   });
 
@@ -471,19 +478,23 @@ describe('DiscordService', () => {
 
   describe('fetchOAuthProfile', () => {
     const mockFetch = jest.fn();
-    beforeEach(() => { global.fetch = mockFetch; });
+    beforeEach(() => {
+      global.fetch = mockFetch;
+    });
     afterEach(() => jest.clearAllMocks());
 
     it('returns the user profile on success', async () => {
       const profile = { id: 'u-1', username: 'alice', global_name: 'Alice' };
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => profile,
+        json: () => Promise.resolve(profile),
       });
       expect(await service.fetchOAuthProfile('bearer-tok')).toEqual(profile);
       expect(mockFetch).toHaveBeenCalledWith(
         'https://discord.com/api/users/@me',
-        expect.objectContaining({ headers: { Authorization: 'Bearer bearer-tok' } }),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer bearer-tok' },
+        }),
       );
     });
 
@@ -497,17 +508,23 @@ describe('DiscordService', () => {
 
   describe('fetchOAuthGuildMember', () => {
     const mockFetch = jest.fn();
-    beforeEach(() => { global.fetch = mockFetch; });
+    beforeEach(() => {
+      global.fetch = mockFetch;
+    });
     afterEach(() => jest.clearAllMocks());
 
     it('returns ok=true and roleIds when member is in the guild', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({ roles: ['role-1', 'role-2'] }),
+        json: () => Promise.resolve({ roles: ['role-1', 'role-2'] }),
       });
       const result = await service.fetchOAuthGuildMember('g-1', 'tok');
-      expect(result).toEqual({ ok: true, status: 200, roleIds: ['role-1', 'role-2'] });
+      expect(result).toEqual({
+        ok: true,
+        status: 200,
+        roleIds: ['role-1', 'role-2'],
+      });
     });
 
     it('returns ok=false with status 404 when user is not in the guild', async () => {
@@ -526,7 +543,7 @@ describe('DiscordService', () => {
       mockFetch.mockResolvedValue({
         ok: true,
         status: 200,
-        json: async () => ({}),
+        json: () => Promise.resolve({}),
       });
       const result = await service.fetchOAuthGuildMember('g-1', 'tok');
       expect(result.roleIds).toEqual([]);
@@ -537,7 +554,9 @@ describe('DiscordService', () => {
 
   describe('fetchGuildRolesForMember', () => {
     const mockFetch = jest.fn();
-    beforeEach(() => { global.fetch = mockFetch; });
+    beforeEach(() => {
+      global.fetch = mockFetch;
+    });
     afterEach(() => jest.clearAllMocks());
 
     it('returns empty array immediately when memberRoleIds is empty', async () => {
@@ -554,16 +573,21 @@ describe('DiscordService', () => {
       ];
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => allRoles,
+        json: () => Promise.resolve(allRoles),
       });
-      const result = await service.fetchGuildRolesForMember('g-1', ['r-1', 'r-3']);
+      const result = await service.fetchGuildRolesForMember('g-1', [
+        'r-1',
+        'r-3',
+      ]);
       expect(result).toEqual([
         { id: 'r-1', name: 'Lead', color: 0, position: 3 },
         { id: 'r-3', name: 'Admin', color: 0, position: 5 },
       ]);
       expect(mockFetch).toHaveBeenCalledWith(
         'https://discord.com/api/guilds/g-1/roles',
-        expect.objectContaining({ headers: { Authorization: 'Bot test-bot-token' } }),
+        expect.objectContaining({
+          headers: { Authorization: 'Bot test-bot-token' },
+        }),
       );
     });
 

@@ -49,10 +49,10 @@ describe('AuthController', () => {
       mockAuthService.createLoginSession.mockResolvedValue({
         loginUrl: '/api/auth/login/abc123',
       });
-      const result = await controller.createLoginSession(
-        'pk_1234.secret',
-        { serverId: 's1', redirectUri: 'http://localhost/callback' },
-      );
+      const result = await controller.createLoginSession('pk_1234.secret', {
+        serverId: 's1',
+        redirectUri: 'http://localhost/callback',
+      });
       expect(result).toMatchObject({ loginUrl: '/api/auth/login/abc123' });
       expect(mockAuthService.createLoginSession).toHaveBeenCalledWith(
         'pk_1234.secret',
@@ -96,7 +96,9 @@ describe('AuthController', () => {
     });
 
     it('returns error when service throws', async () => {
-      mockAuthService.resolveLoginToken.mockRejectedValue(new Error('DB error'));
+      mockAuthService.resolveLoginToken.mockRejectedValue(
+        new Error('DB error'),
+      );
       const res = mockRes();
       const result = await controller.login('bad-token', res as any);
       expect(result).toMatchObject({ error: 'invalid_request' });
@@ -128,9 +130,12 @@ describe('AuthController', () => {
       const req = { cookies: {} };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
-      expect(res.render).toHaveBeenCalledWith('login', expect.objectContaining({
-        error: 'missing_context',
-      }));
+      expect(res.render).toHaveBeenCalledWith(
+        'login',
+        expect.objectContaining({
+          error: 'missing_context',
+        }),
+      );
       expect(res.redirect).not.toHaveBeenCalled();
     });
 
@@ -139,9 +144,12 @@ describe('AuthController', () => {
       const req = { cookies: { mcdi_login_ctx: 'bad-token' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
-      expect(res.render).toHaveBeenCalledWith('login', expect.objectContaining({
-        error: 'invalid_token',
-      }));
+      expect(res.render).toHaveBeenCalledWith(
+        'login',
+        expect.objectContaining({
+          error: 'invalid_token',
+        }),
+      );
       expect(res.redirect).not.toHaveBeenCalled();
     });
 
@@ -171,10 +179,16 @@ describe('AuthController', () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
       html: '<html><form method="POST"></form></html>',
     });
-    const res = { type: jest.fn().mockReturnThis(), send: jest.fn(), redirect: jest.fn() };
+    const res = {
+      type: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      redirect: jest.fn(),
+    };
     await controller.discordCallback('code123', 'state456', res as any);
     expect(res.type).toHaveBeenCalledWith('html');
-    expect(res.send).toHaveBeenCalledWith('<html><form method="POST"></form></html>');
+    expect(res.send).toHaveBeenCalledWith(
+      '<html><form method="POST"></form></html>',
+    );
     expect(res.redirect).not.toHaveBeenCalled();
   });
 
@@ -182,7 +196,11 @@ describe('AuthController', () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
       url: 'http://localhost/callback?error=invalid_state',
     });
-    const res = { type: jest.fn().mockReturnThis(), send: jest.fn(), redirect: jest.fn() };
+    const res = {
+      type: jest.fn().mockReturnThis(),
+      send: jest.fn(),
+      redirect: jest.fn(),
+    };
     await controller.discordCallback('code123', 'bad-state', res as any);
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost/callback?error=invalid_state',

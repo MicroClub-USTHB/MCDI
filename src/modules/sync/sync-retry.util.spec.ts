@@ -25,13 +25,17 @@ describe('withRetry', () => {
 
   it('throws the last error after all retries are exhausted', async () => {
     const op = jest.fn().mockRejectedValue(new Error('persistent'));
-    await expect(withRetry(op, 'test', noopLogger, 3, 0)).rejects.toThrow('persistent');
+    await expect(withRetry(op, 'test', noopLogger, 3, 0)).rejects.toThrow(
+      'persistent',
+    );
     expect(op).toHaveBeenCalledTimes(3);
     expect(noopLogger.warn).toHaveBeenCalledTimes(3);
   });
 
   it('wraps non-Error rejections in an Error', async () => {
     const op = jest.fn().mockRejectedValue('string error');
-    await expect(withRetry(op, 'test', noopLogger, 1, 0)).rejects.toBeInstanceOf(Error);
+    await expect(
+      withRetry(op, 'test', noopLogger, 1, 0),
+    ).rejects.toBeInstanceOf(Error);
   });
 });

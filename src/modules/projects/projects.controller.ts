@@ -32,6 +32,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -55,21 +56,27 @@ type RequestWithUser = Request & {
 export class ProjectsController {
   private static readonly DEFAULT_AUDIT_LIMIT = 100;
 
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   private resolveActor(req: RequestWithUser): string {
     return (
       req.user?.id ??
       req.user?.email ??
       req.user?.username ??
-      (process.env.NODE_ENV === 'development' ? 'dev-admin' : 'unknown-admin')
+      (this.configService.get<string>('app.nodeEnv') === 'development'
+        ? 'dev-admin'
+        : 'unknown-admin')
     );
   }
 
   @Post()
   @ApiOperation({
     summary: 'Create a project',
-    description: 'Registers a new project and returns its API key. The full key is returned once and never stored — save it immediately.',
+    description:
+      'Registers a new project and returns its API key. The full key is returned once and never stored — save it immediately.',
   })
   @ApiBody({ type: CreateProjectDto })
   @ApiCreatedResponse({
@@ -132,7 +139,8 @@ export class ProjectsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Regenerate API key',
-    description: 'Generates a new API key. The old key is immediately invalid. New key is returned once — save it.',
+    description:
+      'Generates a new API key. The old key is immediately invalid. New key is returned once — save it.',
   })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiOkResponse({
@@ -188,16 +196,27 @@ export class ProjectsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Regenerate project API key (admin)',
-    description: 'Generates a new API key. The old key is immediately invalidated. Returns full key metadata.',
+    description:
+      'Generates a new API key. The old key is immediately invalidated. Returns full key metadata.',
   })
-  @ApiParam({ name: 'id', description: 'Project UUID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiParam({
+    name: 'id',
+    description: 'Project UUID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   @ApiOkResponse({
     description: 'API key regenerated successfully.',
     schema: {
       type: 'object',
       properties: {
-        projectId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-        apiKey: { type: 'string', example: 'mcdi_pk_live_xy98zw76.64hexsecret...' },
+        projectId: {
+          type: 'string',
+          example: '123e4567-e89b-12d3-a456-426614174000',
+        },
+        apiKey: {
+          type: 'string',
+          example: 'mcdi_pk_live_xy98zw76.64hexsecret...',
+        },
         apiKeyPrefix: { type: 'string', example: 'mcdi_pk_live_xy98zw76' },
         apiKeyCreatedAt: { type: 'string', format: 'date-time' },
       },
@@ -219,22 +238,35 @@ export class ProjectsController {
       'Accepts a single URI or a comma-separated list. ' +
       'The value passed to POST /auth/login-session must exactly match one of these.',
   })
-  @ApiParam({ name: 'id', description: 'Project UUID', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiParam({
+    name: 'id',
+    description: 'Project UUID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   @ApiBody({ type: UpdateRedirectUriDto })
   @ApiOkResponse({
     description: 'Redirect URI updated.',
     schema: {
       type: 'object',
       properties: {
-        projectId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
-        redirectUri: { type: 'string', example: 'https://events.microclub.net/auth/callback' },
+        projectId: {
+          type: 'string',
+          example: '123e4567-e89b-12d3-a456-426614174000',
+        },
+        redirectUri: {
+          type: 'string',
+          example: 'https://events.microclub.net/auth/callback',
+        },
       },
     },
   })
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  updateRedirectUri(@Param('id') id: string, @Body() dto: UpdateRedirectUriDto) {
+  updateRedirectUri(
+    @Param('id') id: string,
+    @Body() dto: UpdateRedirectUriDto,
+  ) {
     return this.projectsService.updateRedirectUri(id, dto);
   }
 
@@ -243,7 +275,11 @@ export class ProjectsController {
   @Put(':projectId/servers/:serverId')
   @ApiOperation({ summary: 'Grant or update project access to a server' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
   @ApiBody({ type: SetProjectServerAccessDto })
   @ApiOkResponse({ description: 'Access mapping upserted.' })
   @ApiNotFoundResponse({ description: 'Project or server not found.' })
@@ -266,7 +302,11 @@ export class ProjectsController {
   @Delete(':projectId/servers/:serverId')
   @ApiOperation({ summary: 'Revoke project access to a server' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
   @ApiOkResponse({ description: 'Access mapping revoked.' })
   @ApiNotFoundResponse({ description: 'Access mapping not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
@@ -295,7 +335,11 @@ export class ProjectsController {
 
   @Get('servers/:serverId/projects')
   @ApiOperation({ summary: 'List projects that can access a server' })
-  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
   @ApiOkResponse({ description: 'Project mappings retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
@@ -314,7 +358,12 @@ export class ProjectsController {
 
   @Get('access/audit')
   @ApiOperation({ summary: 'List access change audit logs' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Max entries to return (1–500, default 100)', example: 100 })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Max entries to return (1–500, default 100)',
+    example: 100,
+  })
   @ApiOkResponse({ description: 'Audit logs retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })

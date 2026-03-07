@@ -26,7 +26,7 @@ import {
   ApiProduces,
   ApiExcludeEndpoint,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   ValidateSessionDto,
@@ -59,7 +59,10 @@ export class AuthController {
       'This keeps the API key out of browser URLs, logs, and history.',
   })
   @ApiBody({ type: CreateLoginSessionDto })
-  @ApiOkResponse({ description: 'Login URL created.', type: LoginSessionResponseDto })
+  @ApiOkResponse({
+    description: 'Login URL created.',
+    type: LoginSessionResponseDto,
+  })
   @ApiUnauthorizedResponse({ description: 'Invalid API key.' })
   async createLoginSession(
     @Headers('x-api-key') apiKey: string,
@@ -105,7 +108,10 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     if (!token) {
-      return { error: 'missing_token', errorDescription: 'No login token provided' };
+      return {
+        error: 'missing_token',
+        errorDescription: 'No login token provided',
+      };
     }
 
     try {
@@ -114,7 +120,8 @@ export class AuthController {
       if (!loginToken) {
         return {
           error: 'invalid_token',
-          errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+          errorDescription:
+            'Login link has expired or is invalid. Please request a new one from the platform.',
         };
       }
 
@@ -154,16 +161,16 @@ export class AuthController {
     status: 302,
     description: 'Redirects to Discord OAuth authorization page',
   })
-  async startDiscordAuth(
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
-    const loginTokenValue: string | undefined = req.cookies?.mcdi_login_ctx;
+  async startDiscordAuth(@Req() req: Request, @Res() res: Response) {
+    const loginTokenValue: string | undefined = (
+      req.cookies as Record<string, string>
+    )?.mcdi_login_ctx;
 
     if (!loginTokenValue) {
       return res.render('login', {
         error: 'missing_context',
-        errorDescription: 'Login session not found. Please use the login link provided by the platform.',
+        errorDescription:
+          'Login session not found. Please use the login link provided by the platform.',
       });
     }
 
@@ -172,7 +179,8 @@ export class AuthController {
     if (!tokenData) {
       return res.render('login', {
         error: 'invalid_token',
-        errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+        errorDescription:
+          'Login link has expired or is invalid. Please request a new one from the platform.',
       });
     }
 
@@ -233,7 +241,10 @@ export class AuthController {
       'so they always reflect the latest state.',
   })
   @ApiBody({ type: ValidateSessionDto })
-  @ApiOkResponse({ description: 'Session valid — member + roles.', type: ValidateSessionResponseDto })
+  @ApiOkResponse({
+    description: 'Session valid — member + roles.',
+    type: ValidateSessionResponseDto,
+  })
   @ApiUnauthorizedResponse({ description: 'Invalid or expired session token.' })
   async validateSession(@Body() dto: ValidateSessionDto) {
     return this.authService.validateSession(dto.token);
@@ -249,7 +260,10 @@ export class AuthController {
       'External platforms call this when their user logs out to invalidate the MCDI session token.',
   })
   @ApiBody({ type: LogoutDto })
-  @ApiOkResponse({ description: 'Logout successful.', type: SuccessResponseDto })
+  @ApiOkResponse({
+    description: 'Logout successful.',
+    type: SuccessResponseDto,
+  })
   async logout(@Body() dto: LogoutDto) {
     return this.authService.logout(dto.token);
   }
@@ -263,7 +277,10 @@ export class AuthController {
       'Typically called by MCDI admin operations.',
   })
   @ApiBody({ type: LogoutAllDto })
-  @ApiOkResponse({ description: 'All sessions invalidated.', type: SuccessResponseDto })
+  @ApiOkResponse({
+    description: 'All sessions invalidated.',
+    type: SuccessResponseDto,
+  })
   async logoutAll(@Body() dto: LogoutAllDto) {
     return this.authService.logoutAll(dto.memberId);
   }
@@ -281,7 +298,10 @@ export class AuthController {
       'Returns a 24-hour Bearer token.',
   })
   @ApiBody({ type: AdminPasswordLoginDto })
-  @ApiOkResponse({ description: 'Login successful.', type: AdminLoginResponseDto })
+  @ApiOkResponse({
+    description: 'Login successful.',
+    type: AdminLoginResponseDto,
+  })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
   @ApiForbiddenResponse({ description: 'Not a system admin.' })
   async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
@@ -298,7 +318,12 @@ export class AuthController {
       'The admin opens the URL, authenticates with Discord, ' +
       'and is redirected to the admin callback endpoint.',
   })
-  @ApiOkResponse({ description: 'Discord authorization URL.', schema: { example: { url: 'https://discord.com/api/oauth2/authorize?...' } } })
+  @ApiOkResponse({
+    description: 'Discord authorization URL.',
+    schema: {
+      example: { url: 'https://discord.com/api/oauth2/authorize?...' },
+    },
+  })
   async adminDiscordLogin() {
     return this.authService.buildAdminDiscordLoginUrl();
   }
@@ -352,7 +377,10 @@ export class AuthController {
     description:
       'Removes expired sessions. Should be called by a scheduled job.',
   })
-  @ApiOkResponse({ description: 'Cleanup completed.', type: SuccessResponseDto })
+  @ApiOkResponse({
+    description: 'Cleanup completed.',
+    type: SuccessResponseDto,
+  })
   async cleanupExpired() {
     return this.authService.cleanupExpired();
   }

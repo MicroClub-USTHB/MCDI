@@ -1,9 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsBoolean,
-  IsOptional,
-  ValidateNested,
-} from 'class-validator';
+import { IsBoolean, IsOptional, ValidateNested } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AccessOperationsDto {

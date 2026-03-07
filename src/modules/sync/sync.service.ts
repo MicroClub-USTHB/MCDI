@@ -43,10 +43,17 @@ export class SyncService {
 
     const inProgress = await this.syncRepository.getInProgressLog(serverId);
     if (inProgress) {
-      throw new ConflictException('A sync is already in progress for this server');
+      throw new ConflictException(
+        'A sync is already in progress for this server',
+      );
     }
 
-    const log = await this.syncRepository.createLog(serverId, 'manual', 'in_progress', new Date());
+    const log = await this.syncRepository.createLog(
+      serverId,
+      'manual',
+      'in_progress',
+      new Date(),
+    );
     this.runFullSync(serverId, log.id, target).catch((err: unknown) => {
       this.logger.error(
         `Background sync failed for server ${serverId}`,
@@ -59,7 +66,9 @@ export class SyncService {
   async triggerMultipleSyncs(
     serverIds: string[],
     target: SyncTarget = SyncTarget.ALL,
-  ): Promise<{ results: { serverId: string; syncId?: number; error?: string }[] }> {
+  ): Promise<{
+    results: { serverId: string; syncId?: number; error?: string }[];
+  }> {
     let targetsToSync = serverIds;
     if (!targetsToSync || targetsToSync.length === 0) {
       const activeServers = await this.serversRepository.findAllActive();
@@ -74,7 +83,10 @@ export class SyncService {
         const result = await this.triggerFullSync(id, target);
         results.push({ serverId: id, syncId: result.syncId });
       } catch (err: unknown) {
-        results.push({ serverId: id, error: err instanceof Error ? err.message : String(err) });
+        results.push({
+          serverId: id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     return { results };
@@ -102,15 +114,30 @@ export class SyncService {
     let deactivatedCount = 0;
 
     try {
-      await this.serverSyncService.syncServerInfo(serverId, guild, syncStart, syncId, changeBuffer);
+      await this.serverSyncService.syncServerInfo(
+        serverId,
+        guild,
+        syncStart,
+        syncId,
+        changeBuffer,
+      );
 
       if (target === SyncTarget.ALL || target === SyncTarget.ROLES) {
-        const r = await this.roleSyncService.syncAllRoles(guild, syncId, changeBuffer);
+        const r = await this.roleSyncService.syncAllRoles(
+          guild,
+          syncId,
+          changeBuffer,
+        );
         rolesSynced += r.rolesSynced;
       }
 
       if (target === SyncTarget.ALL || target === SyncTarget.MEMBERS) {
-        const m = await this.memberSyncService.syncAllMembers(guild, syncId, syncStart, changeBuffer);
+        const m = await this.memberSyncService.syncAllMembers(
+          guild,
+          syncId,
+          syncStart,
+          changeBuffer,
+        );
         membersSynced += m.membersSynced;
         rolesSynced += m.rolesSynced;
         deactivatedCount = m.deactivatedCount;
@@ -129,7 +156,9 @@ export class SyncService {
         `Full sync failed for server ${serverId}`,
         error instanceof Error ? error.stack : String(error),
       );
-      await this.syncLogService.flushChangeBuffer(changeBuffer).catch(() => { /* best-effort */ });
+      await this.syncLogService.flushChangeBuffer(changeBuffer).catch(() => {
+        /* best-effort */
+      });
       await this.syncRepository.updateLog(syncId, {
         status: 'failed',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -149,15 +178,26 @@ export class SyncService {
       try {
         const guild = await this.discordService.getGuildById(server.id);
         if (!guild) {
-          this.logger.warn(`Bot not in server ${server.id} (${server.name}) — skipping boot sync`);
+          this.logger.warn(
+            `Bot not in server ${server.id} (${server.name}) — skipping boot sync`,
+          );
           continue;
         }
-        const inProgress = await this.syncRepository.getInProgressLog(server.id);
+        const inProgress = await this.syncRepository.getInProgressLog(
+          server.id,
+        );
         if (inProgress) {
-          this.logger.log(`Skipping boot sync for ${server.id} — sync already in progress`);
+          this.logger.log(
+            `Skipping boot sync for ${server.id} — sync already in progress`,
+          );
           continue;
         }
-        const log = await this.syncRepository.createLog(server.id, 'full', 'in_progress', new Date());
+        const log = await this.syncRepository.createLog(
+          server.id,
+          'full',
+          'in_progress',
+          new Date(),
+        );
         this.runFullSync(server.id, log.id).catch((err: unknown) => {
           this.logger.error(
             `Boot sync failed for server ${server.id}`,
@@ -175,7 +215,11 @@ export class SyncService {
 
   // ── Delegate: Member events ──────────────────────────────────────────
 
-  async processMember(guild: Guild, guildMember: GuildMember, syncTime: Date): Promise<void> {
+  async processMember(
+    guild: Guild,
+    guildMember: GuildMember,
+    syncTime: Date,
+  ): Promise<void> {
     return this.memberSyncService.processMember(guild, guildMember, syncTime);
   }
 
@@ -187,7 +231,10 @@ export class SyncService {
     return this.memberSyncService.handleMemberRemove(guildMember);
   }
 
-  async handleMemberUpdate(oldMember: GuildMember, newMember: GuildMember): Promise<void> {
+  async handleMemberUpdate(
+    oldMember: GuildMember,
+    newMember: GuildMember,
+  ): Promise<void> {
     return this.memberSyncService.handleMemberUpdate(oldMember, newMember);
   }
 
@@ -212,7 +259,8 @@ export class SyncService {
   // ── Delegate: Guild events ────────────────────────────────────────────
 
   async handleGuildCreate(guild: Guild): Promise<void> {
-    const { shouldSync, logId } = await this.serverSyncService.prepareGuildCreate(guild);
+    const { shouldSync, logId } =
+      await this.serverSyncService.prepareGuildCreate(guild);
     if (shouldSync && logId !== undefined) {
       this.runFullSync(guild.id, logId).catch((err: unknown) => {
         this.logger.error(

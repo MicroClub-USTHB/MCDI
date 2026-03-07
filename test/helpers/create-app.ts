@@ -28,8 +28,8 @@ export async function createTestApp(): Promise<INestApplication> {
   app.setGlobalPrefix('api');
 
   // EJS view engine (needed for auth/login render tests)
-  app.useStaticAssets(join(__dirname, '..', '..', 'public'));
-  app.setBaseViewsDir(join(__dirname, '..', '..', 'views'));
+  app.useStaticAssets(join(__dirname, '..', '..', 'src', 'public'));
+  app.setBaseViewsDir(join(__dirname, '..', '..', 'src', 'views'));
   app.setViewEngine('ejs');
 
   await app.init();

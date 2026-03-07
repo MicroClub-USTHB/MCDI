@@ -116,7 +116,7 @@ export function mockDiscordGuildRoles(
 export function enableNock(): void {
   nock.disableNetConnect();
   // Allow supertest connections to localhost
-  nock.enableNetConnect('127.0.0.1');
+  nock.enableNetConnect(/(127\.0\.0\.1|localhost|gateway\.discord\.gg)/);
 }
 
 /** Restores nock state. Call in afterAll. */

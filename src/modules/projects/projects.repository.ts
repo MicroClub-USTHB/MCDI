@@ -314,7 +314,12 @@ export class ProjectsRepository {
     const results = await this.db
       .select()
       .from(schema.projects)
-      .where(and(eq(schema.projects.apiKeyPrefix, prefix), eq(schema.projects.isActive, true)))
+      .where(
+        and(
+          eq(schema.projects.apiKeyPrefix, prefix),
+          eq(schema.projects.isActive, true),
+        ),
+      )
       .limit(1);
 
     const project = results[0] || null;

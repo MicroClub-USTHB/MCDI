@@ -11,7 +11,10 @@ import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
-import { DiscordService, DiscordOAuthProfile } from '../discord/discord.service';
+import {
+  DiscordService,
+  DiscordOAuthProfile,
+} from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { ServersRepository } from '../servers/servers.repository';
 import { randomBytes } from 'crypto';
@@ -43,7 +46,9 @@ export class AuthService {
     private readonly discordService: DiscordService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
-    this.discordClientSecret = this.configService.get<string>('discord.clientSecret')!;
+    this.discordClientSecret = this.configService.get<string>(
+      'discord.clientSecret',
+    )!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
     )!;
@@ -89,8 +94,7 @@ export class AuthService {
     } else {
       // External platforms: resolve serverId from serverName if provided
       if (!serverId && serverName) {
-        const server =
-          await this.serversRepository.findByName(serverName);
+        const server = await this.serversRepository.findByName(serverName);
         if (!server) {
           throw new BadRequestException(
             `Server with name "${serverName}" not found`,
@@ -192,7 +196,10 @@ export class AuthService {
       return null;
     }
     const project = await this.projectsRepository.findOne(loginToken.projectId);
-    return { ...loginToken, projectName: project?.name ?? loginToken.projectId };
+    return {
+      ...loginToken,
+      projectName: project?.name ?? loginToken.projectId,
+    };
   }
 
   // ─── Step 2 — Build Discord OAuth URL ────────────────────
@@ -252,11 +259,17 @@ export class AuthService {
     if (!stateResult.ok) return stateResult.redirect;
     const { projectId, serverId, redirectUri } = stateResult.data;
 
-    const tokenResult = await this.exchangeCodeForToken(discordCode, redirectUri);
+    const tokenResult = await this.exchangeCodeForToken(
+      discordCode,
+      redirectUri,
+    );
     if (!tokenResult.ok) return tokenResult.redirect;
     const accessToken = tokenResult.data;
 
-    const profileResult = await this.resolveDiscordProfile(accessToken, redirectUri);
+    const profileResult = await this.resolveDiscordProfile(
+      accessToken,
+      redirectUri,
+    );
     if (!profileResult.ok) return profileResult.redirect;
     const profile = profileResult.data;
 
@@ -285,24 +298,32 @@ export class AuthService {
       serverId,
     );
 
-    return buildSuccessPost(redirectUri, token, expiresAt, {
-      id: member.id,
-      username: member.username,
-      globalName: member.globalName,
-      displayName: member.displayName,
-      avatar: member.avatar,
-      email: member.email,
-    }, roles);
+    return buildSuccessPost(
+      redirectUri,
+      token,
+      expiresAt,
+      {
+        id: member.id,
+        username: member.username,
+        globalName: member.globalName,
+        displayName: member.displayName,
+        avatar: member.avatar,
+        email: member.email,
+      },
+      roles,
+    );
   }
 
   // ─── Step 1 — Validate & consume state token ─────────────
 
   private async validateAndConsumeState(stateToken: string) {
-    const stateData = await this.oauthStateRepository.findValidState(stateToken);
+    const stateData =
+      await this.oauthStateRepository.findValidState(stateToken);
 
     if (!stateData) {
       // Generic error to prevent state enumeration attacks
-      const fallbackUri = this.configService.get<string>('app.baseUrl') + '/error';
+      const fallbackUri =
+        this.configService.get<string>('app.baseUrl') + '/error';
       return {
         ok: false as const,
         redirect: buildErrorRedirect(
@@ -343,7 +364,10 @@ export class AuthService {
 
   // ─── Step 3 — Fetch Discord profile ──────────────────────
 
-  private async resolveDiscordProfile(accessToken: string, redirectUri: string) {
+  private async resolveDiscordProfile(
+    accessToken: string,
+    redirectUri: string,
+  ) {
     const profile = await this.discordService.fetchOAuthProfile(accessToken);
 
     if (!profile) {
@@ -402,10 +426,11 @@ export class AuthService {
       };
     }
 
-    const discordRolesForSync = await this.discordService.fetchGuildRolesForMember(
-      serverId,
-      guildMember.roleIds,
-    );
+    const discordRolesForSync =
+      await this.discordService.fetchGuildRolesForMember(
+        serverId,
+        guildMember.roleIds,
+      );
 
     await this.memberRepository.syncMemberServerData(
       memberId,
@@ -423,10 +448,13 @@ export class AuthService {
     userDiscordRoleIds: string[],
     redirectUri: string,
   ) {
-    const allowedRoleIds = await this.projectsRepository.findAllowedRoleIds(projectId);
+    const allowedRoleIds =
+      await this.projectsRepository.findAllowedRoleIds(projectId);
 
     if (allowedRoleIds.length > 0) {
-      const hasRole = userDiscordRoleIds.some((r) => allowedRoleIds.includes(r));
+      const hasRole = userDiscordRoleIds.some((r) =>
+        allowedRoleIds.includes(r),
+      );
       if (!hasRole) {
         return {
           ok: false as const,
@@ -453,9 +481,18 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    await this.sessionRepository.create({ memberId, projectId, serverId, token, expiresAt });
+    await this.sessionRepository.create({
+      memberId,
+      projectId,
+      serverId,
+      token,
+      expiresAt,
+    });
 
-    const roles = await this.memberRepository.getMemberRolesInServer(memberId, serverId);
+    const roles = await this.memberRepository.getMemberRolesInServer(
+      memberId,
+      serverId,
+    );
 
     return { token, expiresAt, roles };
   }
@@ -531,7 +568,10 @@ export class AuthService {
 
     if (!member || !member.passwordHash) {
       // Constant-time guard: run a dummy compare to prevent timing attacks
-      await compare(password, '$2b$10$invalidhashpaddingtostoptiming000000000000000000000000000');
+      await compare(
+        password,
+        '$2b$10$invalidhashpaddingtostoptiming000000000000000000000000000',
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -541,14 +581,20 @@ export class AuthService {
     }
 
     if (!member.isSystemAdmin) {
-      throw new ForbiddenException('Member does not have system admin privileges');
+      throw new ForbiddenException(
+        'Member does not have system admin privileges',
+      );
     }
 
     const token = randomBytes(48).toString('hex');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 1);
 
-    await this.sessionRepository.create({ memberId: member.id, token, expiresAt });
+    await this.sessionRepository.create({
+      memberId: member.id,
+      token,
+      expiresAt,
+    });
 
     return {
       token,

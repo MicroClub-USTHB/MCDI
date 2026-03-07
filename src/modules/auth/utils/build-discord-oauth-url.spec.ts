@@ -56,7 +56,8 @@ describe('buildDiscordOAuthUrl', () => {
   });
 
   it('URL-encodes the redirect_uri correctly', () => {
-    const complexUri = 'https://platform.example.com/auth/callback?foo=bar&baz=qux';
+    const complexUri =
+      'https://platform.example.com/auth/callback?foo=bar&baz=qux';
     const url = buildDiscordOAuthUrl(CLIENT_ID, complexUri, STATE);
     expect(parse(url).params.redirect_uri).toBe(complexUri);
   });

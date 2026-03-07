@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ProjectServerOperations } from '../../database/entities/project-server.entity';
 import { generateApiKey } from '../../common/utils/api-key.util';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -93,8 +97,13 @@ export class ProjectsService {
    */
   async regenerateApiKeyAdmin(id: string) {
     const { fullKey, prefix, hash } = generateApiKey();
-    const project = await this.projectsRepository.regenerateApiKey(id, hash, prefix);
-    if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
+    const project = await this.projectsRepository.regenerateApiKey(
+      id,
+      hash,
+      prefix,
+    );
+    if (!project)
+      throw new NotFoundException(`Project with ID ${id} not found`);
     return {
       projectId: project.id,
       apiKey: fullKey,
@@ -107,8 +116,12 @@ export class ProjectsService {
    * Update the allowed redirect URI(s) for a project (admin).
    */
   async updateRedirectUri(id: string, dto: UpdateRedirectUriDto) {
-    const project = await this.projectsRepository.updateRedirectUri(id, dto.redirectUri);
-    if (!project) throw new NotFoundException(`Project with ID ${id} not found`);
+    const project = await this.projectsRepository.updateRedirectUri(
+      id,
+      dto.redirectUri,
+    );
+    if (!project)
+      throw new NotFoundException(`Project with ID ${id} not found`);
     return { projectId: project.id, redirectUri: project.redirectUri };
   }
 
@@ -134,10 +147,14 @@ export class ProjectsService {
     operations?: Partial<ProjectServerOperations>;
     changedBy: string;
   }) {
-    const project = await this.projectsRepository.findProjectById(params.projectId);
+    const project = await this.projectsRepository.findProjectById(
+      params.projectId,
+    );
     if (!project) throw new NotFoundException('Project not found');
 
-    const server = await this.projectsRepository.findServerById(params.serverId);
+    const server = await this.projectsRepository.findServerById(
+      params.serverId,
+    );
     if (!server) throw new NotFoundException('Server not found');
 
     const before = await this.projectsRepository.findAccessMapping(
@@ -207,7 +224,11 @@ export class ProjectsService {
     serverId: string,
     operation: ProjectServerOperation,
   ): Promise<boolean> {
-    return this.projectsRepository.isOperationAllowed(projectId, serverId, operation);
+    return this.projectsRepository.isOperationAllowed(
+      projectId,
+      serverId,
+      operation,
+    );
   }
 
   async assertProjectAccessOperation(

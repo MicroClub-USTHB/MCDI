@@ -104,9 +104,7 @@ export class ApiKeyGuard implements CanActivate {
     return true;
   }
 
-  private async validateApiKey(
-    apiKey: string,
-  ): Promise<ProjectRow | null> {
+  private async validateApiKey(apiKey: string): Promise<ProjectRow | null> {
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 

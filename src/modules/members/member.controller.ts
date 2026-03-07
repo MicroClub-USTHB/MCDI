@@ -72,7 +72,9 @@ export class MemberController {
   @ApiOkResponse({ description: 'Member found.', type: MemberResponseDto })
   @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
-  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
+  @ApiForbiddenResponse({
+    description: 'Project does not have access to this server.',
+  })
   @ApiNotFoundResponse({ description: 'Member not found in this server.' })
   async getMember(
     @Param('serverId') serverId: string,
@@ -118,7 +120,9 @@ export class MemberController {
   })
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
-  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
+  @ApiForbiddenResponse({
+    description: 'Project does not have access to this server.',
+  })
   async searchMembers(
     @Param('serverId') serverId: string,
     @Query() queryDto: GetMembersQueryDto,
@@ -166,7 +170,9 @@ export class MemberController {
   })
   @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
-  @ApiForbiddenResponse({ description: 'Project does not have access to this server.' })
+  @ApiForbiddenResponse({
+    description: 'Project does not have access to this server.',
+  })
   async getMemberPermissions(
     @Param('serverId') serverId: string,
     @Param('discordId') discordId: string,

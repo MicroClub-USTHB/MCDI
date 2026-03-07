@@ -125,7 +125,15 @@ describe('SyncLogService', () => {
         { id: 'g2' },
       ]);
       mockSyncRepo.getLatestLog
-        .mockResolvedValueOnce({ serverId: 'g1', status: 'success', membersSynced: 10, rolesSynced: 2, message: null, startedAt: now, finishedAt: now })
+        .mockResolvedValueOnce({
+          serverId: 'g1',
+          status: 'success',
+          membersSynced: 10,
+          rolesSynced: 2,
+          message: null,
+          startedAt: now,
+          finishedAt: now,
+        })
         .mockResolvedValueOnce(null);
 
       const result = await service.getAllServersSyncStatus();
@@ -143,7 +151,13 @@ describe('SyncLogService', () => {
       mockSyncRepo.updateLog.mockResolvedValue({});
       mockSyncRepo.createChangeDetail.mockResolvedValue({});
 
-      await service.recordEventChange('g1', 'member', 'u1', 'added', 'Member joined');
+      await service.recordEventChange(
+        'g1',
+        'member',
+        'u1',
+        'added',
+        'Member joined',
+      );
       expect(mockSyncRepo.createLog).toHaveBeenCalledWith(
         'g1',
         'incremental',

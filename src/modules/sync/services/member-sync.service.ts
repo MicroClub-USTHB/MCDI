@@ -75,7 +75,11 @@ export class MemberSyncService {
     syncId: number,
     syncStart: Date,
     changeBuffer: SyncChangeEntry[],
-  ): Promise<{ membersSynced: number; rolesSynced: number; deactivatedCount: number }> {
+  ): Promise<{
+    membersSynced: number;
+    rolesSynced: number;
+    deactivatedCount: number;
+  }> {
     let membersSynced = 0;
     let rolesSynced = 0;
     let lastId: string | undefined;
@@ -243,9 +247,13 @@ export class MemberSyncService {
 
     const changes: string[] = [];
     if (oldMember.user.username !== newMember.user.username)
-      changes.push(`username: ${oldMember.user.username} → ${newMember.user.username}`);
+      changes.push(
+        `username: ${oldMember.user.username} → ${newMember.user.username}`,
+      );
     if (oldMember.nickname !== newMember.nickname)
-      changes.push(`nickname: ${oldMember.nickname ?? '(none)'} → ${newMember.nickname ?? '(none)'}`);
+      changes.push(
+        `nickname: ${oldMember.nickname ?? '(none)'} → ${newMember.nickname ?? '(none)'}`,
+      );
     if (rolesChanged) changes.push('roles changed');
 
     await this.syncLogService.recordEventChange(

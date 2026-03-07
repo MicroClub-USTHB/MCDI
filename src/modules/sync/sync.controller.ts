@@ -44,7 +44,8 @@ export class SyncController {
   @Post('full')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
-    summary: 'Trigger a manual sync for a server (supports ALL, MEMBERS, ROLES)',
+    summary:
+      'Trigger a manual sync for a server (supports ALL, MEMBERS, ROLES)',
   })
   @ApiAcceptedResponse({
     description: 'Sync started.',
@@ -65,8 +66,16 @@ export class SyncController {
 
   @Get('status')
   @ApiOperation({ summary: 'Get the latest sync status for a specific server' })
-  @ApiQuery({ name: 'serverId', required: true, type: String, example: '123456789012345678' })
-  @ApiOkResponse({ description: 'Sync status retrieved successfully.', type: SyncStatusDto })
+  @ApiQuery({
+    name: 'serverId',
+    required: true,
+    type: String,
+    example: '123456789012345678',
+  })
+  @ApiOkResponse({
+    description: 'Sync status retrieved successfully.',
+    type: SyncStatusDto,
+  })
   @ApiNotFoundResponse({ description: 'No sync logs found for this server.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
@@ -83,9 +92,13 @@ export class SyncController {
   @Get('status/all')
   @ApiOperation({
     summary: 'Get latest sync status for all active servers',
-    description: 'Returns the most recent sync result for every active server managed by MCDI.',
+    description:
+      'Returns the most recent sync result for every active server managed by MCDI.',
   })
-  @ApiOkResponse({ description: 'All server sync statuses retrieved.', type: [SyncStatusDto] })
+  @ApiOkResponse({
+    description: 'All server sync statuses retrieved.',
+    type: [SyncStatusDto],
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getAllServersSyncStatus(): Promise<SyncStatusDto[]> {
@@ -97,12 +110,21 @@ export class SyncController {
   @Get('logs')
   @ApiOperation({
     summary: 'Get paginated sync logs for a server',
-    description: 'Returns a paginated list of all sync operations run against a specific server.',
+    description:
+      'Returns a paginated list of all sync operations run against a specific server.',
   })
-  @ApiQuery({ name: 'serverId', required: true, type: String, example: '123456789012345678' })
+  @ApiQuery({
+    name: 'serverId',
+    required: true,
+    type: String,
+    example: '123456789012345678',
+  })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
-  @ApiOkResponse({ description: 'Sync logs retrieved successfully.', type: SyncLogsResponseDto })
+  @ApiOkResponse({
+    description: 'Sync logs retrieved successfully.',
+    type: SyncLogsResponseDto,
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getSyncLogs(
@@ -127,7 +149,10 @@ export class SyncController {
   @ApiParam({ name: 'syncLogId', type: Number, example: 42 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 100 })
   @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
-  @ApiOkResponse({ description: 'Sync change details retrieved successfully.', type: SyncChangeDetailsResponseDto })
+  @ApiOkResponse({
+    description: 'Sync change details retrieved successfully.',
+    type: SyncChangeDetailsResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Sync log not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })

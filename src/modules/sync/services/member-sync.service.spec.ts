@@ -27,7 +27,14 @@ const makeGuildMember = (overrides: Partial<any> = {}): any => ({
   },
   nickname: null,
   joinedAt: new Date(),
-  roles: { cache: { keys: () => ['role-1'], size: 1, every: () => true, has: () => true } },
+  roles: {
+    cache: {
+      keys: () => ['role-1'],
+      size: 1,
+      every: () => true,
+      has: () => true,
+    },
+  },
   ...overrides,
 });
 
@@ -174,7 +181,11 @@ describe('MemberSyncService', () => {
         members: {
           fetch: jest
             .fn()
-            .mockResolvedValueOnce({ size: 1, [Symbol.iterator]: () => [[member.id, member]][Symbol.iterator](), last: () => member })
+            .mockResolvedValueOnce({
+              size: 1,
+              [Symbol.iterator]: () => [[member.id, member]][Symbol.iterator](),
+              last: () => member,
+            })
             .mockResolvedValueOnce({ size: 0 }),
         },
       };

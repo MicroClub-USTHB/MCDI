@@ -76,7 +76,8 @@ const mockConfig = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
-      'discord.adminRedirectUri': 'http://localhost/auth/admin/discord/callback',
+      'discord.adminRedirectUri':
+        'http://localhost/auth/admin/discord/callback',
       'app.baseUrl': 'http://localhost',
     };
     return map[key];
@@ -105,7 +106,10 @@ describe('AuthService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
         { provide: LoginTokenRepository, useValue: mockLoginTokenRepo },
-        { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthStateRepo },
+        {
+          provide: AdminOAuthStateRepository,
+          useValue: mockAdminOAuthStateRepo,
+        },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ServersRepository, useValue: mockServersRepo },
         { provide: ConfigService, useValue: mockConfig },
@@ -596,7 +600,12 @@ describe('AuthService', () => {
       mockProjectsRepo.findByApiKey.mockResolvedValue(null);
 
       await expect(
-        service.createLoginSession('bad.key', 'srv-1', undefined, 'http://localhost/callback'),
+        service.createLoginSession(
+          'bad.key',
+          'srv-1',
+          undefined,
+          'http://localhost/callback',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -613,7 +622,10 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 300000),
       };
       mockLoginTokenRepo.findValid.mockResolvedValue(tokenData);
-      mockProjectsRepo.findOne.mockResolvedValue({ id: 'p1', name: 'My Project' });
+      mockProjectsRepo.findOne.mockResolvedValue({
+        id: 'p1',
+        name: 'My Project',
+      });
 
       const result = await service.resolveLoginToken('abc');
       expect(result).toEqual({ ...tokenData, projectName: 'My Project' });

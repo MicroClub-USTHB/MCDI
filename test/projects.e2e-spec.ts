@@ -118,7 +118,10 @@ describeIf('/api/admin/projects (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
 
-      expect(res.body).toMatchObject({ id: projectId, name: 'Get By ID Project' });
+      expect(res.body).toMatchObject({
+        id: projectId,
+        name: 'Get By ID Project',
+      });
     });
 
     it('returns 404 for unknown project ID', async () => {
@@ -197,7 +200,7 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .delete(`${BASE}/${projectId}`)
         .set('Authorization', auth())
-        .expect(200);
+        .expect(204);
 
       await request(app.getHttpServer())
         .get(`${BASE}/${projectId}`)

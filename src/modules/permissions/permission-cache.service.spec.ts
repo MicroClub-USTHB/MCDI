@@ -1,9 +1,16 @@
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { PermissionCacheService } from './permission-cache.service';
 
 async function buildService() {
   const mod = await Test.createTestingModule({
-    providers: [PermissionCacheService],
+    providers: [
+      PermissionCacheService,
+      {
+        provide: ConfigService,
+        useValue: { get: jest.fn().mockReturnValue(5 * 60 * 1000) },
+      },
+    ],
   }).compile();
   return mod.get(PermissionCacheService);
 }

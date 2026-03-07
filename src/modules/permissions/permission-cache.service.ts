@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 /** Cached resolved permission set for a (memberId, serverId) pair */
 interface CacheEntry {
@@ -27,9 +28,13 @@ interface CacheEntry {
 export class PermissionCacheService {
   private readonly logger = new Logger(PermissionCacheService.name);
   private readonly store = new Map<string, CacheEntry>();
-  // Default TTL: 5 minutes
-  private readonly ttlMs =
-    Number(process.env.PERMISSION_CACHE_TTL_MS) || 5 * 60 * 1000;
+  private readonly ttlMs: number;
+
+  constructor(private readonly configService: ConfigService) {
+    this.ttlMs =
+      this.configService.get<number>('app.permissionCacheTtlMs') ||
+      5 * 60 * 1000;
+  }
 
   private key(memberId: string, serverId: string): string {
     return `${memberId}:${serverId}`;

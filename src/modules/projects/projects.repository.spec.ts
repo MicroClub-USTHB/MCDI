@@ -276,7 +276,11 @@ describe('ProjectsRepository', () => {
       const updated = fakeProjectRow({ apiKeyPrefix: 'new-pfx' });
       const db = buildDb([updated]);
       const repo = await buildRepo(db);
-      const result = await repo.regenerateApiKey('proj-1', 'new-hash', 'new-pfx');
+      const result = await repo.regenerateApiKey(
+        'proj-1',
+        'new-hash',
+        'new-pfx',
+      );
       expect(result).toMatchObject({ apiKeyPrefix: 'new-pfx' });
     });
 
@@ -302,7 +306,9 @@ describe('ProjectsRepository', () => {
     it('returns project row when found', async () => {
       const db = buildDb([{ id: 'proj-1', name: 'Test' }]);
       const repo = await buildRepo(db);
-      expect(await repo.findProjectById('proj-1')).toMatchObject({ id: 'proj-1' });
+      expect(await repo.findProjectById('proj-1')).toMatchObject({
+        id: 'proj-1',
+      });
     });
 
     it('returns null when not found', async () => {
@@ -363,7 +369,9 @@ describe('ProjectsRepository', () => {
       const mapping = fakeMapping();
       const db = buildDb([mapping]);
       const repo = await buildRepo(db);
-      expect(await repo.revokeAccessMapping('proj-1', 'srv-1')).toEqual(mapping);
+      expect(await repo.revokeAccessMapping('proj-1', 'srv-1')).toEqual(
+        mapping,
+      );
     });
 
     it('returns null when no row was deleted', async () => {
@@ -475,7 +483,12 @@ describe('ProjectsRepository', () => {
   describe('listAudit', () => {
     it('returns audit entries up to limit', async () => {
       const rows = [
-        { id: 'audit-1', projectId: 'proj-1', action: 'GRANT', changedAt: new Date() },
+        {
+          id: 'audit-1',
+          projectId: 'proj-1',
+          action: 'GRANT',
+          changedAt: new Date(),
+        },
       ];
       const db = buildDb(rows);
       const repo = await buildRepo(db);
