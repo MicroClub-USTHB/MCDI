@@ -64,7 +64,7 @@ describe('SystemAdminGuard', () => {
   }
 
   it('throws UnauthorizedException when Authorization header is missing', async () => {
-    const db = buildMockDb([], [], [], []);
+    const db = buildMockDb([], [], [], [], []);
     guard = await buildGuard(db);
     const ctx = makeContext(undefined);
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);

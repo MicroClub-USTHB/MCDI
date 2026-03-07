@@ -213,10 +213,10 @@ describe('ProjectsService', () => {
       mockRepo.findOne.mockResolvedValue(updated);
       mockRepo.replaceScopes.mockResolvedValue(undefined);
 
-      await service.update('proj-1', { name: 'Renamed', scopes: ['scope-a'] });
+      await service.update('proj-1', { name: 'Renamed', scopes: ['read_members' as any] });
 
       expect(mockRepo.replaceScopes).toHaveBeenCalledWith('proj-1', [
-        'scope-a',
+        'read_members',
       ]);
     });
   });

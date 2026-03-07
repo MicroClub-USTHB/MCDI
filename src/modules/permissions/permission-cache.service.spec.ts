@@ -43,7 +43,7 @@ describe('PermissionCacheService', () => {
       const entry = fakeEntry();
       svc.set('mem-1', 'srv-1', entry);
 
-      const result = svc.get('mem-1', 'srv-1');
+      const result = svc.get('mem-1', 'srv-1')!;
       expect(result).not.toBeNull();
       expect(result.permissions).toEqual(['READ_MEMBERS', 'WRITE_ROLES']);
       expect(result.sources.server).toEqual(['READ_MEMBERS']);
@@ -54,8 +54,8 @@ describe('PermissionCacheService', () => {
       svc.set('mem-1', 'srv-1', fakeEntry({ permissions: ['A'] }));
       svc.set('mem-2', 'srv-1', fakeEntry({ permissions: ['B'] }));
 
-      expect(svc.get('mem-1', 'srv-1').permissions).toEqual(['A']);
-      expect(svc.get('mem-2', 'srv-1').permissions).toEqual(['B']);
+      expect(svc.get('mem-1', 'srv-1')!.permissions).toEqual(['A']);
+      expect(svc.get('mem-2', 'srv-1')!.permissions).toEqual(['B']);
     });
 
     it('size() reflects number of cached entries', async () => {
