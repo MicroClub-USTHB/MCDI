@@ -43,6 +43,13 @@
       "when": 1772492482093,
       "tag": "0005_curved_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772852146603,
+      "tag": "0006_furry_union_jack",
+      "breakpoints": true
     }
   ]
 }

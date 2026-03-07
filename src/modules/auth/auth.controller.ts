@@ -8,6 +8,8 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,6 +29,8 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   ErrorResponseDto,
+  AdminLoginDto,
+  AdminLoginResponseDto,
 } from './dto';
 
 @ApiTags('Authentication')
@@ -269,6 +273,31 @@ export class AuthController {
   })
   async logoutAll(@Body() dto: LogoutAllDto) {
     return this.authService.logoutAll(dto.memberId);
+  }
+
+  // ─── System Admin Login ───────────────────────────────────
+
+  @Post('admin/login')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @ApiOperation({
+    summary: 'System admin login',
+    description:
+      'Authenticates a system admin member directly using their Discord member ID ' +
+      'and the `ADMIN_SECRET` environment variable. ' +
+      'The member must exist in the members table and have `isSystemAdmin = true`. ' +
+      'Returns a 24-hour Bearer token that grants access to all `SystemAdminGuard`-protected endpoints.',
+  })
+  @ApiBody({ type: AdminLoginDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful — Bearer token returned',
+    type: AdminLoginResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Invalid credentials or member not found' })
+  @ApiResponse({ status: 403, description: 'Member does not have system admin privileges' })
+  async adminLogin(@Body() dto: AdminLoginDto) {
+    return this.authService.adminLogin(dto.memberId);
   }
 
   // ─── Maintenance ─────────────────────────────────────────

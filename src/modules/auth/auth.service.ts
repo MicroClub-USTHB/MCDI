@@ -435,4 +435,44 @@ export class AuthService {
     ]);
     return { success: true };
   }
+
+  // ─── System Admin Login ───────────────────────────────────
+
+  /**
+   * Authenticate a system admin member directly (no Discord OAuth required).
+   *
+   * Flow:
+   *  1. Look up member by ID — must exist and have `isSystemAdmin = true`
+   *  2. Issue a 24-hour session token (no project or server context)
+   *  3. Return the token + expiry + member info
+   */
+  async adminLogin(memberId: string) {
+    const member = await this.memberRepository.findById(memberId);
+    if (!member) {
+      throw new UnauthorizedException('Member not found');
+    }
+    if (!member.isSystemAdmin) {
+      throw new ForbiddenException('Member does not have system admin privileges');
+    }
+
+    const token = randomBytes(48).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 1); // 24-hour admin session
+
+    await this.sessionRepository.create({ memberId: member.id, token, expiresAt });
+
+    return {
+      token,
+      expiresAt,
+      member: {
+        id: member.id,
+        username: member.username,
+        globalName: member.globalName,
+        displayName: member.displayName,
+        avatar: member.avatar,
+        email: member.email,
+        isSystemAdmin: member.isSystemAdmin,
+      },
+    };
+  }
 }
