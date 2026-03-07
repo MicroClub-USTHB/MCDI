@@ -10,6 +10,8 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { ProjectsAccessRepository } from '../projects/projects-access.repository';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -21,17 +23,25 @@ const mockSessionRepo = {
   deleteExpired: jest.fn(),
 };
 
-const mockMemberRepo = { upsert: jest.fn() };
+const mockMemberRepo = {
+  upsert: jest.fn(),
+  syncMemberServerData: jest.fn(),
+};
 
 const mockProjectRepo = {
   findByApiKey: jest.fn(),
   findMainServer: jest.fn(),
   findServerByName: jest.fn(),
-  hasServerAccess: jest.fn(),
-  isRedirectUriAllowed: jest.fn(),
-  syncMemberServerData: jest.fn(),
-  findAllowedRoleIds: jest.fn(),
   getMemberRolesInServer: jest.fn(),
+};
+
+const mockProjectsAccessRepo = {
+  hasServerAccess: jest.fn(),
+};
+
+const mockProjectsRepo = {
+  isRedirectUriAllowed: jest.fn(),
+  findAllowedRoleIds: jest.fn(),
 };
 
 const mockOAuthStateRepo = {
@@ -75,6 +85,8 @@ describe('AuthService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
+        { provide: ProjectsRepository, useValue: mockProjectsRepo },
+        { provide: ProjectsAccessRepository, useValue: mockProjectsAccessRepo },
         { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
@@ -116,8 +128,8 @@ describe('AuthService', () => {
       mockProjectRepo.findByApiKey.mockResolvedValue(
         fakeProject({ isInternal: false }),
       );
-      mockProjectRepo.hasServerAccess.mockResolvedValue(false);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(false);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest(
           'pk_good.secret',
@@ -131,8 +143,8 @@ describe('AuthService', () => {
     it('returns project info and resolved serverId on success', async () => {
       const project = fakeProject({ isInternal: false });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -218,8 +230,8 @@ describe('AuthService', () => {
       mockProjectRepo.findServerByName.mockResolvedValue({
         id: 'guild-by-name',
       });
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -249,7 +261,7 @@ describe('AuthService', () => {
       const project = fakeProject({ isInternal: true });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
       mockProjectRepo.findMainServer.mockResolvedValue({ id: 'main-guild' });
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -263,7 +275,7 @@ describe('AuthService', () => {
     it('throws BadRequestException when project has no redirect URI configured', async () => {
       const project = fakeProject({ isInternal: false, redirectUri: null });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest('pk_good.secret', 'guild-1'),
       ).rejects.toThrow(BadRequestException);
@@ -272,8 +284,8 @@ describe('AuthService', () => {
     it('throws ForbiddenException when redirect URI is not on the allowlist', async () => {
       const project = fakeProject({ isInternal: false });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(false);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
 
       await expect(
         service.validateLoginRequest(
@@ -401,8 +413,8 @@ describe('AuthService', () => {
         id: 'user-1',
         username: 'alice',
       });
-      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
-      mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
+      mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
 
       fetchMock
         .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' }))
@@ -433,8 +445,8 @@ describe('AuthService', () => {
         avatar: null,
         email: null,
       });
-      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
-      mockProjectRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
+      mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
       mockSessionRepo.create.mockResolvedValue(undefined);
       mockProjectRepo.getMemberRolesInServer.mockResolvedValue([
         { name: 'Member' },

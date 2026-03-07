@@ -209,4 +209,81 @@ describe('ProjectsRepository', () => {
       expect(await repo.delete('ghost')).toBe(false);
     });
   });
+
+  // ── Auth-support queries ──────────────────────────────────────────────
+
+  describe('isRedirectUriAllowed', () => {
+    it('returns true when URI is in the comma-separated list', async () => {
+      const db = buildSequentialDb([
+        [{ redirectUri: 'https://a.com/cb, https://b.com/cb' }],
+      ]);
+      const repo = await buildRepo(db);
+      expect(
+        await repo.isRedirectUriAllowed('proj-1', 'https://a.com/cb'),
+      ).toBe(true);
+    });
+
+    it('returns false when URI is not in the list', async () => {
+      const db = buildSequentialDb([[{ redirectUri: 'https://a.com/cb' }]]);
+      const repo = await buildRepo(db);
+      expect(
+        await repo.isRedirectUriAllowed('proj-1', 'https://evil.com/cb'),
+      ).toBe(false);
+    });
+
+    it('returns false when project has no redirectUri', async () => {
+      const db = buildSequentialDb([[{ redirectUri: null }]]);
+      const repo = await buildRepo(db);
+      expect(
+        await repo.isRedirectUriAllowed('proj-1', 'https://a.com/cb'),
+      ).toBe(false);
+    });
+  });
+
+  describe('findAllowedRoleIds', () => {
+    it('returns array of role IDs', async () => {
+      const db = buildDb([{ roleId: 'role-1' }, { roleId: 'role-2' }]);
+      const repo = await buildRepo(db);
+      expect(await repo.findAllowedRoleIds('proj-1')).toEqual([
+        'role-1',
+        'role-2',
+      ]);
+    });
+
+    it('returns empty array when no roles configured', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.findAllowedRoleIds('proj-1')).toEqual([]);
+    });
+  });
+
+  describe('findAllowedRoles', () => {
+    it('returns rows with role details', async () => {
+      const row = {
+        roleId: 'role-1',
+        roleName: 'Admin',
+        roleColor: 0xff0000,
+        rolePosition: 1,
+      };
+      const db = buildDb([row]);
+      const repo = await buildRepo(db);
+      expect(await repo.findAllowedRoles('proj-1')).toEqual([row]);
+    });
+  });
+
+  describe('regenerateApiKey', () => {
+    it('returns updated project', async () => {
+      const updated = fakeProjectRow({ apiKeyPrefix: 'new-pfx' });
+      const db = buildDb([updated]);
+      const repo = await buildRepo(db);
+      const result = await repo.regenerateApiKey('proj-1', 'new-hash', 'new-pfx');
+      expect(result).toMatchObject({ apiKeyPrefix: 'new-pfx' });
+    });
+
+    it('returns null when project not found', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.regenerateApiKey('ghost', 'h', 'p')).toBeNull();
+    });
+  });
 });

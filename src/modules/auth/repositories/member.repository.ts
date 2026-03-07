@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, like, or } from 'drizzle-orm';
+import { eq, like, or, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
@@ -169,5 +169,61 @@ export class MemberRepository {
       .returning();
 
     return members[0] || null;
+  }
+
+  /**
+   * Sync a member's server membership and Discord roles into the MCDI DB.
+   * Called during OAuth callback so roles are always up-to-date.
+   */
+  async syncMemberServerData(
+    memberId: string,
+    serverId: string,
+    discordRoles: {
+      id: string;
+      name: string;
+      color?: number;
+      position?: number;
+    }[],
+  ): Promise<void> {
+    // 1. Ensure server_members row exists
+    await this.db
+      .insert(schema.serverMembers)
+      .values({ memberId, serverId, joinedAt: new Date() })
+      .onConflictDoNothing();
+
+    if (discordRoles.length === 0) return;
+
+    // 2. Upsert roles into the roles table (Discord role ID is PK)
+    await this.db
+      .insert(schema.roles)
+      .values(
+        discordRoles.map((r) => ({
+          id: r.id,
+          serverId,
+          name: r.name,
+          color: r.color ?? null,
+          position: r.position ?? 0,
+        })),
+      )
+      .onConflictDoUpdate({
+        target: schema.roles.id,
+        set: {
+          name: sql`excluded.name`,
+          color: sql`excluded.color`,
+          position: sql`excluded.position`,
+          updatedAt: new Date(),
+        },
+      });
+
+    // 3. Upsert server_member_roles
+    await this.db
+      .insert(schema.serverMemberRoles)
+      .values(
+        discordRoles.map((r) => ({
+          memberId,
+          roleId: r.id,
+        })),
+      )
+      .onConflictDoNothing();
   }
 }

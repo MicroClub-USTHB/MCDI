@@ -6,8 +6,10 @@ import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { SystemAdminGuard } from './guards/system-admin.guard';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
+  imports: [ProjectsModule],
   controllers: [AuthController],
   providers: [
     AuthService,
