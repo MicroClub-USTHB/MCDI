@@ -67,7 +67,7 @@ describeIf('/api/servers (e2e)', () => {
         .post('/api/servers')
         .set('Authorization', auth())
         .send({
-          id: '111111111111111111',
+          guildId: '111111111111111111',
           name: 'New Test Server',
           type: 'other',
         })
@@ -158,7 +158,7 @@ describeIf('/api/servers (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch('/api/servers/222222222222222222/disable')
         .set('Authorization', auth())
-        .send({ reason: 'Maintenance' })
+        .send({ disabledReason: 'Maintenance' })
         .expect(200);
 
       expect(res.body).toMatchObject({ isActive: false });

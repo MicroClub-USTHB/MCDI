@@ -28,6 +28,7 @@ import {
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { AdminAuthService } from './services/admin-auth.service';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -43,7 +44,10 @@ import {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly adminAuthService: AdminAuthService,
+  ) {}
 
   // ─── Step 0 — Create login session (server-to-server)
   // Platform calls this with API key in header to get a short-lived login URL.
@@ -305,7 +309,7 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
   @ApiForbiddenResponse({ description: 'Not a system admin.' })
   async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
-    return this.authService.adminPasswordLogin(dto.username, dto.password);
+    return this.adminAuthService.adminPasswordLogin(dto.username, dto.password);
   }
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
@@ -325,7 +329,7 @@ export class AuthController {
     },
   })
   async adminDiscordLogin() {
-    return this.authService.buildAdminDiscordLoginUrl();
+    return this.adminAuthService.buildAdminDiscordLoginUrl();
   }
 
   @Get('admin/discord/callback')
@@ -335,7 +339,7 @@ export class AuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    const result = await this.authService.handleAdminDiscordCallback(
+    const result = await this.adminAuthService.handleAdminDiscordCallback(
       code,
       state,
     );

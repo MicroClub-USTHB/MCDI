@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DRIZZLE } from './../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from './../../database/entities';
-import { eq, and, like, or, sql, inArray, lt } from 'drizzle-orm';
+import { eq, and, like, or, sql, inArray, lt, exists, SQL } from 'drizzle-orm';
 import { members } from '../../database/entities/member.entity';
 import { serverMembers } from '../../database/entities/server-member.entity';
 import { serverMemberRoles } from '../../database/entities/server-member-role.entity';
@@ -114,16 +111,48 @@ export class MemberRepository {
     members: Array<{
       id: string;
       username: string;
-      globalName?: string;
-      displayName?: string;
-      avatar?: string;
+      globalName?: string | null;
+      displayName?: string | null;
+      avatar?: string | null;
       isClubMember: boolean;
-      joinedAt?: Date;
+      joinedAt?: Date | null;
     }>;
     total: number;
   }> {
+    // conditions array for dynamic filters
+    const conditions: SQL[] = [];
+
+    // search filter
+    if (query?.trim()) {
+      const searchTerm = `%${query.trim()}%`;
+      conditions.push(
+        or(
+          like(schema.members.username, searchTerm),
+          like(schema.members.globalName, searchTerm),
+          like(schema.members.displayName, searchTerm),
+        )!
+      );
+    }
+
+    // role filter
+    if (roleId) {
+      conditions.push(
+        exists(
+          this.db
+            .select({ id: sql<number>`1` })
+            .from(schema.serverMemberRoles)
+            .where(
+              and(
+                eq(schema.serverMemberRoles.roleId, roleId),
+                eq(schema.serverMemberRoles.memberId, schema.members.id),
+              ),
+            ),
+        )
+      );
+    }
+
     // base query
-    let baseQuery: any = this.db
+    let baseQuery = this.db
       .select({
         id: schema.members.id,
         username: schema.members.username,
@@ -140,34 +169,9 @@ export class MemberRepository {
           eq(schema.members.id, schema.serverMembers.memberId),
           eq(schema.serverMembers.serverId, serverId),
         ),
-      );
-
-    // search filter
-    if (query?.trim()) {
-      const searchTerm = `%${query.trim()}%`;
-      baseQuery = baseQuery.where(
-        or(
-          like(schema.members.username, searchTerm),
-          like(schema.members.globalName, searchTerm),
-          like(schema.members.displayName, searchTerm),
-        ),
-      );
-    }
-
-    // role filter
-    if (roleId) {
-      baseQuery = baseQuery
-        .innerJoin(
-          schema.serverMemberRoles,
-          eq(schema.members.id, schema.serverMemberRoles.memberId),
-        )
-        .where(
-          and(
-            eq(schema.serverMemberRoles.roleId, roleId),
-            eq(schema.serverMemberRoles.memberId, schema.members.id),
-          ),
-        );
-    }
+      )
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .$dynamic();
 
     // total count
     const countResult = await this.db

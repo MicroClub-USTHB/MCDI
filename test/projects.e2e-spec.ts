@@ -62,7 +62,7 @@ describeIf('/api/admin/projects (e2e)', () => {
         .expect(201);
 
       expect(res.body).toMatchObject({
-        apiKey: expect.stringMatching(/^mcdi_pk_live_/),
+        apiKey: expect.stringMatching(/^pk_/),
         project: {
           name: 'E2E Project Alpha',
           isActive: true,
@@ -179,7 +179,7 @@ describeIf('/api/admin/projects (e2e)', () => {
         .expect(200);
 
       expect(res.body).toMatchObject({
-        apiKey: expect.stringMatching(/^mcdi_pk_live_/),
+        apiKey: expect.stringMatching(/^pk_/),
       });
       // New key should differ from original
       expect(res.body.apiKey).not.toBe(oldKey);

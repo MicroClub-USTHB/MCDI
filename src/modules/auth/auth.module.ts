@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AdminAuthService } from './services/admin-auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
@@ -16,6 +17,7 @@ import { ServersModule } from '../servers/servers.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AdminAuthService,
     SessionRepository,
     MemberRepository,
     OAuthStateRepository,
