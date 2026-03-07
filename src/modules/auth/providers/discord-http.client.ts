@@ -108,7 +108,9 @@ export class FetchDiscordHttpClient implements DiscordHttpClient {
     return this.parseResponse<DiscordGuildRolePayload[]>(response);
   }
 
-  private async parseResponse<T>(response: Response): Promise<DiscordHttpResult<T>> {
+  private async parseResponse<T>(
+    response: Response,
+  ): Promise<DiscordHttpResult<T>> {
     const text = await response.text().catch(() => '');
     let data: T | undefined;
 

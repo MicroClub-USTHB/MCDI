@@ -10,11 +10,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import {
-  CLOCK,
-  DISCORD_HTTP_CLIENT,
-  TOKEN_GENERATOR,
-} from './providers';
+import { CLOCK, DISCORD_HTTP_CLIENT, TOKEN_GENERATOR } from './providers';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -466,7 +462,9 @@ describe('AuthService', () => {
         mockHttpResult({ roles: ['role-other'] }),
       );
       mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
-        mockHttpResult([{ id: 'role-other', name: 'Other', color: 0, position: 1 }]),
+        mockHttpResult([
+          { id: 'role-other', name: 'Other', color: 0, position: 1 },
+        ]),
       );
 
       const result = await service.handleDiscordCallback('code', 'state');
@@ -637,9 +635,9 @@ describe('AuthService', () => {
         mockHttpResult({ roles: [] }),
       );
 
-      await expect(service.handleDiscordCallback('code', 'state')).rejects.toThrow(
-        'sync failed',
-      );
+      await expect(
+        service.handleDiscordCallback('code', 'state'),
+      ).rejects.toThrow('sync failed');
     });
 
     it('creates session and returns redirect URL on success (no role restriction)', async () => {
@@ -716,7 +714,9 @@ describe('AuthService', () => {
         mockHttpResult({ roles: ['role-other', 'role-allowed'] }),
       );
       mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
-        mockHttpResult([{ id: 'role-allowed', name: 'Lead', color: 1, position: 10 }]),
+        mockHttpResult([
+          { id: 'role-allowed', name: 'Lead', color: 1, position: 10 },
+        ]),
       );
 
       const result = await service.handleDiscordCallback('code', 'state');

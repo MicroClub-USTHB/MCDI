@@ -50,6 +50,14 @@ describe('DiscordStrategy', () => {
       const strategy = await buildStrategy();
       expect(strategy).toBeDefined();
     });
+
+    it('throws when required config values are missing', async () => {
+      await expect(
+        buildStrategy({
+          DISCORD_CLIENT_SECRET: '',
+        }),
+      ).rejects.toThrow('Missing required Discord OAuth configuration');
+    });
   });
 
   describe('validate', () => {
@@ -77,11 +85,11 @@ describe('DiscordStrategy', () => {
         displayName: 'Alice',
       };
 
-      const result = await strategy.validate(
+      const result = (await strategy.validate(
         'access-token',
         'refresh-token',
         profile,
-      ) as any;
+      )) as any;
 
       expect(result).toEqual({
         discordId: 'discord-123',
@@ -116,7 +124,7 @@ describe('DiscordStrategy', () => {
         displayName: 'Bob',
       };
 
-      const result = await strategy.validate('tok', '', profile) as any;
+      const result = (await strategy.validate('tok', '', profile)) as any;
       expect(result.discordId).toBe('discord-456');
       expect(result.email).toBeUndefined();
     });

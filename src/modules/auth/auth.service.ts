@@ -236,7 +236,8 @@ export class AuthService {
     const accessToken = tokenRes.data.access_token;
 
     // 3. Fetch Discord profile
-    const profileRes = await this.discordHttpClient.fetchUserProfile(accessToken);
+    const profileRes =
+      await this.discordHttpClient.fetchUserProfile(accessToken);
 
     if (!profileRes.ok || !profileRes.data) {
       return buildErrorRedirect(

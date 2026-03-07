@@ -2,7 +2,9 @@ import { UnauthorizedException } from '@nestjs/common';
 import { validateApiKeyAndGetProject } from './validate-api-key';
 import { ProjectRepository } from '../repositories/project.repository';
 
-function makeRepo(project: unknown = null): jest.Mocked<Pick<ProjectRepository, 'findByApiKey'>> {
+function makeRepo(
+  project: unknown = null,
+): jest.Mocked<Pick<ProjectRepository, 'findByApiKey'>> {
   return { findByApiKey: jest.fn().mockResolvedValue(project) };
 }
 
@@ -36,21 +38,30 @@ describe('validateApiKeyAndGetProject', () => {
     it('throws UnauthorizedException when project is null', async () => {
       const repo = makeRepo(null);
       await expect(
-        validateApiKeyAndGetProject(repo as unknown as ProjectRepository, 'pk.bad-key'),
+        validateApiKeyAndGetProject(
+          repo as unknown as ProjectRepository,
+          'pk.bad-key',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when project is undefined', async () => {
       const repo = makeRepo(undefined);
       await expect(
-        validateApiKeyAndGetProject(repo as unknown as ProjectRepository, 'pk.bad-key'),
+        validateApiKeyAndGetProject(
+          repo as unknown as ProjectRepository,
+          'pk.bad-key',
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws with message "Invalid API key"', async () => {
       const repo = makeRepo(null);
       await expect(
-        validateApiKeyAndGetProject(repo as unknown as ProjectRepository, 'pk.bad-key'),
+        validateApiKeyAndGetProject(
+          repo as unknown as ProjectRepository,
+          'pk.bad-key',
+        ),
       ).rejects.toThrow('Invalid API key');
     });
   });

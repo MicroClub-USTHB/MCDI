@@ -7,10 +7,18 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
   constructor(private configService: ConfigService) {
+    const clientID = configService.get<string>('DISCORD_CLIENT_ID');
+    const clientSecret = configService.get<string>('DISCORD_CLIENT_SECRET');
+    const callbackURL = configService.get<string>('DISCORD_CALLBACK_URL');
+
+    if (!clientID || !clientSecret || !callbackURL) {
+      throw new Error('Missing required Discord OAuth configuration');
+    }
+
     super({
-      clientID: configService.get<string>('DISCORD_CLIENT_ID')!,
-      clientSecret: configService.get<string>('DISCORD_CLIENT_SECRET')!,
-      callbackURL: configService.get<string>('DISCORD_CALLBACK_URL')!,
+      clientID,
+      clientSecret,
+      callbackURL,
       scope: ['identify', 'email'],
     });
   }

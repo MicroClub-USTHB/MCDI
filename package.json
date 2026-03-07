@@ -95,11 +95,6 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
     },
-    "globals": {
-      "ts-jest": {
-        "isolatedModules": true
-      }
-    },
     "collectCoverageFrom": [
       "**/*.(t|j)s",
       "!**/*.spec.ts",
