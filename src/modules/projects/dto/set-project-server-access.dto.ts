@@ -2,11 +2,9 @@ import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsOptional,
-  IsString,
-  IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AccessOperationsDto {
   @ApiPropertyOptional({ default: true })
@@ -26,14 +24,6 @@ export class AccessOperationsDto {
 }
 
 export class SetProjectServerAccessDto {
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  projectId!: string;
-
-  @ApiProperty({ example: '123456789012345678' })
-  @IsString()
-  serverId!: string;
-
   @ApiPropertyOptional({ type: AccessOperationsDto })
   @IsOptional()
   @ValidateNested()

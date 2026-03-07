@@ -1,6 +1,6 @@
 {
-  "id": "309dccfd-ccfe-43f7-98ae-2c472270bc96",
-  "prevId": "0a46a310-9a16-4c00-a6a3-91aa9bab02ba",
+  "id": "cd531125-5532-465e-ac59-ccb8759b78fc",
+  "prevId": "309dccfd-ccfe-43f7-98ae-2c472270bc96",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -222,6 +222,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "joined_at": {
           "name": "joined_at",

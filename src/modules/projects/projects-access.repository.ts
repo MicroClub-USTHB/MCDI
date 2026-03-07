@@ -185,4 +185,10 @@ export class ProjectsAccessRepository {
       .orderBy(desc(projectServerAccessAudit.changedAt))
       .limit(safeLimit);
   }
+
+  /** Return true if a project has been granted access to the given server */
+  async hasServerAccess(projectId: string, serverId: string): Promise<boolean> {
+    const row = await this.findAccessMapping(projectId, serverId);
+    return row !== null;
+  }
 }

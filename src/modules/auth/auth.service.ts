@@ -11,8 +11,12 @@ import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { DiscordService, DiscordOAuthProfile } from '../discord/discord.service';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { ProjectsAccessRepository } from '../projects/projects-access.repository';
 import { randomBytes } from 'crypto';
+import { compare } from 'bcryptjs';
 import {
   buildDiscordOAuthUrl,
   buildErrorRedirect,
@@ -24,7 +28,9 @@ import {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
+  private readonly discordClientSecret: string;
   private readonly discordRedirectUri: string;
+  private readonly discordAdminRedirectUri: string;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -32,12 +38,19 @@ export class AuthService {
     private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly loginTokenRepository: LoginTokenRepository,
+    private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly projectsAccessRepository: ProjectsAccessRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
+    this.discordClientSecret = this.configService.get<string>('discord.clientSecret')!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
+    )!;
+    this.discordAdminRedirectUri = this.configService.get<string>(
+      'discord.adminRedirectUri',
     )!;
   }
 
@@ -95,7 +108,7 @@ export class AuthService {
       }
 
       // Verify project has access to this server
-      const hasAccess = await this.projectRepository.hasServerAccess(
+      const hasAccess = await this.projectsAccessRepository.hasServerAccess(
         project.id,
         targetServerId,
       );
@@ -115,7 +128,7 @@ export class AuthService {
     }
 
     // Validate redirect URI against allowlist
-    const isAllowed = await this.projectRepository.isRedirectUriAllowed(
+    const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
       project.id,
       finalRedirectUri,
     );
@@ -395,7 +408,7 @@ export class AuthService {
       guildMember.roleIds,
     );
 
-    await this.projectRepository.syncMemberServerData(
+    await this.memberRepository.syncMemberServerData(
       memberId,
       serverId,
       discordRolesForSync,
@@ -404,14 +417,14 @@ export class AuthService {
     return { ok: true as const, data: guildMember.roleIds };
   }
 
-  // ─── Step 6 — Check project role access ──────────────────
+  // ─── Step 6 — Check project role access ────────────────────
 
   private async checkProjectRoleAccess(
     projectId: string,
     userDiscordRoleIds: string[],
     redirectUri: string,
   ) {
-    const allowedRoleIds = await this.projectRepository.findAllowedRoleIds(projectId);
+    const allowedRoleIds = await this.projectsRepository.findAllowedRoleIds(projectId);
 
     if (allowedRoleIds.length > 0) {
       const hasRole = userDiscordRoleIds.some((r) => allowedRoleIds.includes(r));
@@ -498,7 +511,192 @@ export class AuthService {
       this.sessionRepository.deleteExpired(),
       this.oauthStateRepository.deleteExpired(),
       this.loginTokenRepository.deleteExpired(),
+      this.adminOAuthStateRepository.deleteExpired(),
     ]);
     return { success: true };
+  }
+
+  // ─── System Admin Password Login ───────────────────────────
+
+  /**
+   * Authenticate a system admin using username + password.
+   *
+   * Flow:
+   *  1. Look up member by username
+   *  2. Verify the bcryptjs password hash
+   *  3. Confirm `isSystemAdmin = true`
+   *  4. Issue a 24-hour session token
+   */
+  async adminPasswordLogin(username: string, password: string) {
+    const member = await this.memberRepository.findByUsername(username);
+
+    if (!member || !member.passwordHash) {
+      // Constant-time guard: run a dummy compare to prevent timing attacks
+      await compare(password, '$2b$10$invalidhashpaddingtostoptiming000000000000000000000000000');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordValid = await compare(password, member.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!member.isSystemAdmin) {
+      throw new ForbiddenException('Member does not have system admin privileges');
+    }
+
+    const token = randomBytes(48).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 1);
+
+    await this.sessionRepository.create({ memberId: member.id, token, expiresAt });
+
+    return {
+      token,
+      expiresAt,
+      member: {
+        id: member.id,
+        username: member.username,
+        globalName: member.globalName,
+        displayName: member.displayName,
+        avatar: member.avatar,
+        email: member.email,
+        isSystemAdmin: member.isSystemAdmin,
+      },
+    };
+  }
+
+  // ─── System Admin Discord OAuth2 Login ───────────────────
+
+  /**
+   * Initiate the system admin Discord OAuth2 flow.
+   *
+   * Generates a one-time state token stored in `admin_oauth_states`,
+   * then returns the Discord authorization URL.
+   */
+  async buildAdminDiscordLoginUrl() {
+    const state = randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10-minute window
+
+    await this.adminOAuthStateRepository.create({ state, expiresAt });
+
+    const url = buildDiscordOAuthUrl(
+      this.discordClientId,
+      this.discordAdminRedirectUri,
+      state,
+    );
+
+    return { url };
+  }
+
+  /**
+   * Handle the Discord callback for the system admin flow.
+   *
+   * Flow:
+   *  1. Validate & consume the admin state token
+   *  2. Exchange the Discord code for an access token (using admin redirect URI)
+   *  3. Fetch the Discord profile
+   *  4. Upsert the member record
+   *  5. Verify `isSystemAdmin = true`
+   *  6. Issue a 24-hour session token
+   *  7. Return token + member info
+   */
+  async handleAdminDiscordCallback(discordCode: string, stateToken: string) {
+    // 1. Validate state
+    const stateData =
+      await this.adminOAuthStateRepository.findValidState(stateToken);
+
+    if (!stateData) {
+      throw new UnauthorizedException(
+        'Invalid or expired authentication request',
+      );
+    }
+
+    await this.adminOAuthStateRepository.markAsUsed(stateToken);
+
+    // 2. Exchange code for access token
+    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: this.discordClientId,
+        client_secret: this.discordClientSecret,
+        grant_type: 'authorization_code',
+        code: discordCode,
+        redirect_uri: this.discordAdminRedirectUri,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text().catch(() => '');
+      this.logger.error(`Admin Discord token exchange failed: ${errBody}`);
+      throw new UnauthorizedException('Failed to authenticate with Discord');
+    }
+
+    const { access_token: accessToken } = (await tokenRes.json()) as {
+      access_token: string;
+    };
+
+    // 3. Fetch Discord profile
+    const profileRes = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!profileRes.ok) {
+      throw new UnauthorizedException('Failed to fetch Discord profile');
+    }
+
+    const profile = (await profileRes.json()) as {
+      id: string;
+      username: string;
+      global_name?: string | null;
+      display_name?: string | null;
+      avatar?: string | null;
+      email?: string | null;
+    };
+
+    // 4. Upsert member
+    const member = await this.memberRepository.upsert({
+      id: profile.id,
+      username: profile.username,
+      globalName: profile.global_name || undefined,
+      displayName: profile.display_name || profile.global_name || undefined,
+      avatar: profile.avatar || undefined,
+      email: profile.email || undefined,
+      syncedAt: new Date(),
+    });
+
+    // 5. Check isSystemAdmin
+    if (!member.isSystemAdmin) {
+      throw new ForbiddenException(
+        'Member does not have system admin privileges',
+      );
+    }
+
+    // 6. Issue 24-hour session
+    const token = randomBytes(48).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 1);
+
+    await this.sessionRepository.create({
+      memberId: member.id,
+      token,
+      expiresAt,
+    });
+
+    return {
+      token,
+      expiresAt,
+      member: {
+        id: member.id,
+        username: member.username,
+        globalName: member.globalName,
+        displayName: member.displayName,
+        avatar: member.avatar,
+        email: member.email,
+        isSystemAdmin: member.isSystemAdmin,
+      },
+    };
   }
 }

@@ -6,11 +6,13 @@ import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { SystemAdminGuard } from './guards/system-admin.guard';
 import { DiscordModule } from '../discord/discord.module';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
-  imports: [DiscordModule],
+  imports: [DiscordModule, ProjectsModule],
   controllers: [AuthController],
   providers: [
     AuthService,
@@ -19,6 +21,7 @@ import { DiscordModule } from '../discord/discord.module';
     ProjectRepository,
     OAuthStateRepository,
     LoginTokenRepository,
+    AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
   exports: [
@@ -28,6 +31,7 @@ import { DiscordModule } from '../discord/discord.module';
     ProjectRepository,
     OAuthStateRepository,
     LoginTokenRepository,
+    AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
 })

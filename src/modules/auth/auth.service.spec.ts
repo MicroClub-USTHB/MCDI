@@ -11,7 +11,10 @@ import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { DiscordService } from '../discord/discord.service';
+import { ProjectsRepository } from '../projects/projects.repository';
+import { ProjectsAccessRepository } from '../projects/projects-access.repository';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -23,17 +26,25 @@ const mockSessionRepo = {
   deleteExpired: jest.fn(),
 };
 
-const mockMemberRepo = { upsert: jest.fn() };
+const mockMemberRepo = {
+  upsert: jest.fn(),
+  syncMemberServerData: jest.fn(),
+};
 
 const mockProjectRepo = {
   findByApiKey: jest.fn(),
   findMainServer: jest.fn(),
   findServerByName: jest.fn(),
-  hasServerAccess: jest.fn(),
-  isRedirectUriAllowed: jest.fn(),
-  syncMemberServerData: jest.fn(),
-  findAllowedRoleIds: jest.fn(),
   getMemberRolesInServer: jest.fn(),
+};
+
+const mockProjectsAccessRepo = {
+  hasServerAccess: jest.fn(),
+};
+
+const mockProjectsRepo = {
+  isRedirectUriAllowed: jest.fn(),
+  findAllowedRoleIds: jest.fn(),
 };
 
 const mockOAuthStateRepo = {
@@ -49,19 +60,26 @@ const mockLoginTokenRepo = {
   deleteExpired: jest.fn(),
 };
 
+const mockAdminOAuthStateRepo = {
+  create: jest.fn(),
+  findValidState: jest.fn(),
+  markAsUsed: jest.fn(),
+  deleteExpired: jest.fn(),
+};
+
 const mockDiscordService = {
   exchangeOAuthCode: jest.fn(),
   fetchOAuthProfile: jest.fn(),
   fetchOAuthGuildMember: jest.fn(),
   fetchGuildRolesForMember: jest.fn(),
 };
-
 const mockConfig = {
   get: jest.fn((key: string) => {
     const map: Record<string, string> = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
+      'discord.adminRedirectUri': 'http://localhost/auth/admin/discord/callback',
       'app.baseUrl': 'http://localhost',
     };
     return map[key];
@@ -91,6 +109,9 @@ describe('AuthService', () => {
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
         { provide: LoginTokenRepository, useValue: mockLoginTokenRepo },
+        { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthStateRepo },
+        { provide: ProjectsRepository, useValue: mockProjectsRepo },
+        { provide: ProjectsAccessRepository, useValue: mockProjectsAccessRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
       ],
@@ -135,8 +156,8 @@ describe('AuthService', () => {
       mockProjectRepo.findByApiKey.mockResolvedValue(
         fakeProject({ isInternal: false }),
       );
-      mockProjectRepo.hasServerAccess.mockResolvedValue(false);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(false);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest(
           'pk_good.secret',
@@ -150,8 +171,8 @@ describe('AuthService', () => {
     it('returns project info and resolved serverId on success', async () => {
       const project = fakeProject({ isInternal: false });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -236,8 +257,8 @@ describe('AuthService', () => {
       mockProjectRepo.findServerByName.mockResolvedValue({
         id: 'guild-by-name',
       });
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -267,7 +288,7 @@ describe('AuthService', () => {
       const project = fakeProject({ isInternal: true });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
       mockProjectRepo.findMainServer.mockResolvedValue({ id: 'main-guild' });
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
 
       const result = await service.validateLoginRequest(
         'pk_good.secret',
@@ -281,7 +302,7 @@ describe('AuthService', () => {
     it('throws BadRequestException when project has no redirect URI configured', async () => {
       const project = fakeProject({ isInternal: false, redirectUri: null });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
       await expect(
         service.validateLoginRequest('pk_good.secret', 'guild-1'),
       ).rejects.toThrow(BadRequestException);
@@ -290,8 +311,8 @@ describe('AuthService', () => {
     it('throws ForbiddenException when redirect URI is not on the allowlist', async () => {
       const project = fakeProject({ isInternal: false });
       mockProjectRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(false);
+      mockProjectsAccessRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
 
       await expect(
         service.validateLoginRequest(
@@ -420,8 +441,8 @@ describe('AuthService', () => {
         id: 'user-1',
         username: 'alice',
       });
-      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
-      mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
+      mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
 
       mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
       mockDiscordService.fetchOAuthProfile.mockResolvedValue({
@@ -458,8 +479,8 @@ describe('AuthService', () => {
         avatar: null,
         email: null,
       });
-      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
-      mockProjectRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
+      mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
       mockSessionRepo.create.mockResolvedValue(undefined);
       mockProjectRepo.getMemberRolesInServer.mockResolvedValue([
         { name: 'Member' },
@@ -530,16 +551,18 @@ describe('AuthService', () => {
   // ── cleanupExpired ───────────────────────────────────────────────────────
 
   describe('cleanupExpired', () => {
-    it('calls deleteExpired on session, oauth state, and login token repos', async () => {
+    it('calls deleteExpired on session, oauth state, login token, and admin oauth state repos', async () => {
       mockSessionRepo.deleteExpired.mockResolvedValue(undefined);
       mockOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
       mockLoginTokenRepo.deleteExpired.mockResolvedValue(undefined);
+      mockAdminOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
 
       const result = await service.cleanupExpired();
       expect(result).toEqual({ success: true });
       expect(mockSessionRepo.deleteExpired).toHaveBeenCalled();
       expect(mockOAuthStateRepo.deleteExpired).toHaveBeenCalled();
       expect(mockLoginTokenRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
     });
   });
 
@@ -606,4 +629,5 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
   });
+});
 });

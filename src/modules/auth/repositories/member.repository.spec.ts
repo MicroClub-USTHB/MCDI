@@ -244,4 +244,24 @@ describe('MemberRepository (auth)', () => {
       expect(result).toMatchObject({ id: 'mem-1' });
     });
   });
+
+  describe('syncMemberServerData', () => {
+    it('inserts server member row and role data without error', async () => {
+      const db = buildSequentialDb([[], [], []]);
+      const repo = await buildRepo(db);
+      await expect(
+        repo.syncMemberServerData('mem-1', 'srv-1', [
+          { id: 'role-1', name: 'Mod', color: 0, position: 1 },
+        ]),
+      ).resolves.toBeUndefined();
+      expect(db.insert).toHaveBeenCalledTimes(3);
+    });
+
+    it('skips role inserts when discordRoles is empty', async () => {
+      const db = buildSequentialDb([[]]);
+      const repo = await buildRepo(db);
+      await repo.syncMemberServerData('mem-1', 'srv-1', []);
+      expect(db.insert).toHaveBeenCalledTimes(1);
+    });
+  });
 });

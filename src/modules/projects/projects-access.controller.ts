@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiForbiddenResponse,
   ApiOkResponse,
@@ -33,9 +34,10 @@ type RequestWithUser = Request & {
   };
 };
 
-@ApiTags('Project Access')
+@ApiTags('Admin Projects')
+@ApiBearerAuth()
 @UseGuards(SystemAdminGuard)
-@Controller('projects/access')
+@Controller('admin/projects')
 export class ProjectsAccessController {
   private static readonly DEFAULT_AUDIT_LIMIT = 100;
 
@@ -50,19 +52,25 @@ export class ProjectsAccessController {
     );
   }
 
-  @Put()
+  // ─── Server Access Mapping ─────────────────────────────────────────
+
+  @Put(':projectId/servers/:serverId')
   @ApiOperation({ summary: 'Grant or update project access to a server' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID', format: 'uuid' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
   @ApiBody({ type: SetProjectServerAccessDto })
   @ApiOkResponse({ description: 'Access mapping upserted.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   setProjectServerAccess(
+    @Param('projectId') projectId: string,
+    @Param('serverId') serverId: string,
     @Body() dto: SetProjectServerAccessDto,
     @Req() req: RequestWithUser,
   ) {
     return this.accessService.grantAccess({
-      projectId: dto.projectId,
-      serverId: dto.serverId,
+      projectId,
+      serverId,
       operations: dto.operations,
       changedBy: this.resolveActor(req),
     });
@@ -70,8 +78,8 @@ export class ProjectsAccessController {
 
   @Delete(':projectId/servers/:serverId')
   @ApiOperation({ summary: 'Revoke project access to a server' })
-  @ApiParam({ name: 'projectId', format: 'uuid' })
-  @ApiParam({ name: 'serverId', example: '123456789012345678' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID', format: 'uuid' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
   @ApiOkResponse({ description: 'Access mapping revoked.' })
   revokeProjectServerAccess(
     @Param('projectId') projectId: string,
@@ -85,16 +93,9 @@ export class ProjectsAccessController {
     });
   }
 
-  @Get('matrix')
-  @ApiOperation({ summary: 'List full project-server access matrix' })
-  @ApiOkResponse({ description: 'Access matrix returned.' })
-  listAccessMatrix() {
-    return this.accessService.listAccessMatrix();
-  }
-
-  @Get('projects/:projectId/servers')
+  @Get(':projectId/servers')
   @ApiOperation({ summary: 'List servers accessible by a project' })
-  @ApiParam({ name: 'projectId', format: 'uuid' })
+  @ApiParam({ name: 'projectId', description: 'Project UUID', format: 'uuid' })
   @ApiOkResponse({ description: 'Project server mappings returned.' })
   listServersByProject(@Param('projectId') projectId: string) {
     return this.accessService.listServersByProject(projectId);
@@ -102,13 +103,22 @@ export class ProjectsAccessController {
 
   @Get('servers/:serverId/projects')
   @ApiOperation({ summary: 'List projects that can access a server' })
-  @ApiParam({ name: 'serverId', example: '123456789012345678' })
+  @ApiParam({ name: 'serverId', description: 'Discord server ID', example: '123456789012345678' })
   @ApiOkResponse({ description: 'Server project mappings returned.' })
   listProjectsByServer(@Param('serverId') serverId: string) {
     return this.accessService.listProjectsByServer(serverId);
   }
 
-  @Get('audit')
+  // ─── Access Overview ───────────────────────────────────────────────
+
+  @Get('access/matrix')
+  @ApiOperation({ summary: 'List full project-server access matrix' })
+  @ApiOkResponse({ description: 'Access matrix returned.' })
+  listAccessMatrix() {
+    return this.accessService.listAccessMatrix();
+  }
+
+  @Get('access/audit')
   @ApiOperation({ summary: 'List access change audit logs' })
   @ApiQuery({ name: 'limit', required: false, example: 100 })
   @ApiOkResponse({ description: 'Audit logs returned.' })

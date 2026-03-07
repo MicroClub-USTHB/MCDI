@@ -1,5 +1,5 @@
 {
-  "id": "6c474b4c-5f7e-4359-bfa8-ac858f171acb",
+  "id": "0a46a310-9a16-4c00-a6a3-91aa9bab02ba",
   "prevId": "b53d23bc-8666-4324-bd38-27e5d500fc27",
   "version": "7",
   "dialect": "postgresql",
@@ -162,6 +162,13 @@
           "notNull": true,
           "default": false
         },
+        "is_system_admin": {
+          "name": "is_system_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "joined_at": {
           "name": "joined_at",
           "type": "timestamp",
@@ -295,6 +302,12 @@
         "redirect_uri": {
           "name": "redirect_uri",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "api_key": {
+          "name": "api_key",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },

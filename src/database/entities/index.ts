@@ -25,6 +25,7 @@ export * from './role-inheritance-rule-target.entity';
 export * from './project-server-access-audit.entity';
 export * from './sync-change-detail.entity';
 export * from './login-token.entity';
+export * from './admin-oauth-state.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');

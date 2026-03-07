@@ -288,4 +288,18 @@ describe('ProjectsAccessRepository', () => {
       expect(await repo.listAudit(10)).toEqual(rows);
     });
   });
+
+  describe('hasServerAccess', () => {
+    it('returns true when access mapping exists', async () => {
+      const db = buildDb([fakeMapping()]);
+      const repo = await buildRepo(db);
+      expect(await repo.hasServerAccess('proj-1', 'srv-1')).toBe(true);
+    });
+
+    it('returns false when no mapping found', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.hasServerAccess('proj-1', 'srv-x')).toBe(false);
+    });
+  });
 });

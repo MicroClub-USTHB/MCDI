@@ -1,7 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ProjectAdminController } from './project-admin.controller';
-import { ProjectAdminService } from './project-admin.service';
-import { AuthModule } from '../auth/auth.module';
 import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
 import { ProjectsRepository } from './projects.repository';
@@ -9,21 +6,21 @@ import { DatabaseModule } from '@/database/database.module';
 import { ProjectsAccessController } from './projects-access.controller';
 import { ProjectsAccessRepository } from './projects-access.repository';
 import { ProjectsAccessService } from './projects-access.service';
+import { ProjectAdminController } from './project-admin.controller';
+import { ProjectAdminService } from './project-admin.service';
+import { ProjectRepository } from '../auth/repositories/project.repository';
 
 @Module({
-  imports: [AuthModule, DatabaseModule],
-  controllers: [
-    ProjectAdminController,
-    ProjectsController,
-    ProjectsAccessController,
-  ],
+  imports: [DatabaseModule],
+  controllers: [ProjectsController, ProjectsAccessController, ProjectAdminController],
   providers: [
-    ProjectAdminService,
     ProjectsService,
     ProjectsRepository,
     ProjectsAccessRepository,
     ProjectsAccessService,
+    ProjectAdminService,
+    ProjectRepository,
   ],
-  exports: [ProjectsAccessService],
+  exports: [ProjectsService, ProjectsRepository, ProjectsAccessRepository, ProjectsAccessService],
 })
 export class ProjectsModule {}
