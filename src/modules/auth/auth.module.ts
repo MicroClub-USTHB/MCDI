@@ -23,14 +23,6 @@ import { ServersModule } from '../servers/servers.module';
     AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
-  exports: [
-    AuthService,
-    SessionRepository,
-    MemberRepository,
-    OAuthStateRepository,
-    LoginTokenRepository,
-    AdminOAuthStateRepository,
-    SystemAdminGuard,
-  ],
+  exports: [AuthService],
 })
 export class AuthModule {}

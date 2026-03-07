@@ -38,27 +38,14 @@ export class PermissionCacheService {
   get(
     memberId: string,
     serverId: string,
-  ): CacheEntry['permissions'] extends string[]
-    ? {
-        permissions: string[];
-        sources: {
-          global: string[];
-          server: string[];
-          hierarchy: string[];
-          inherited: string[];
-        };
-      }
-    : null {
+  ): { permissions: string[]; sources: CacheEntry['sources'] } | null {
     const entry = this.store.get(this.key(memberId, serverId));
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    if (!entry) return null as any;
+    if (!entry) return null;
     if (Date.now() > entry.expiresAt) {
       this.store.delete(this.key(memberId, serverId));
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return null as any;
+      return null;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return { permissions: entry.permissions, sources: entry.sources } as any;
+    return { permissions: entry.permissions, sources: entry.sources };
   }
 
   set(
