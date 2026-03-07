@@ -10,6 +10,11 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import {
+  CLOCK,
+  DISCORD_HTTP_CLIENT,
+  TOKEN_GENERATOR,
+} from './providers';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -47,10 +52,27 @@ const mockConfig = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
+      'discord.token': 'bot-token',
       'app.baseUrl': 'http://localhost',
     };
     return map[key];
   }),
+};
+
+const mockDiscordHttpClient = {
+  exchangeCodeForToken: jest.fn(),
+  fetchUserProfile: jest.fn(),
+  fetchGuildMember: jest.fn(),
+  fetchGuildRoles: jest.fn(),
+};
+
+const fixedNow = new Date('2026-03-06T12:00:00.000Z');
+const mockClock = {
+  now: jest.fn(() => new Date(fixedNow)),
+};
+
+const mockTokenGenerator = {
+  randomHex: jest.fn((bytes: number) => `token-${bytes}`),
 };
 
 const fakeProject = (overrides = {}) => ({
@@ -76,6 +98,9 @@ describe('AuthService', () => {
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
         { provide: ConfigService, useValue: mockConfig },
+        { provide: DISCORD_HTTP_CLIENT, useValue: mockDiscordHttpClient },
+        { provide: CLOCK, useValue: mockClock },
+        { provide: TOKEN_GENERATOR, useValue: mockTokenGenerator },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -160,7 +185,11 @@ describe('AuthService', () => {
 
       expect(result.url).toContain('discord.com');
       expect(mockOAuthStateRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ projectId: 'proj-1', serverId: 'guild-1' }),
+        expect.objectContaining({
+          state: 'token-32',
+          projectId: 'proj-1',
+          serverId: 'guild-1',
+        }),
       );
     });
   });
@@ -289,23 +318,13 @@ describe('AuthService', () => {
   // ── handleDiscordCallback ───────────────────────────────────────────────
 
   describe('handleDiscordCallback', () => {
-    let fetchMock: jest.SpyInstance;
-
-    beforeEach(() => {
-      fetchMock = jest.spyOn(global as any, 'fetch');
-    });
-
-    afterEach(() => {
-      fetchMock.mockRestore();
-    });
-
-    function mockFetchResponse(data: unknown, ok = true, status = 200) {
-      return Promise.resolve({
+    function mockHttpResult<T>(data: T, ok = true, status = 200, text = '') {
+      return {
         ok,
         status,
-        json: () => Promise.resolve(data),
-        text: () => Promise.resolve(String(data)),
-      });
+        data,
+        text,
+      };
     }
 
     it('returns error redirect when state token is invalid/expired', async () => {
@@ -329,8 +348,8 @@ describe('AuthService', () => {
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
 
-      fetchMock.mockResolvedValueOnce(
-        mockFetchResponse({ error: 'invalid_code' }, false, 400),
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ error: 'invalid_code' }, false, 400),
       );
 
       const result = await service.handleDiscordCallback(
@@ -351,9 +370,12 @@ describe('AuthService', () => {
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' })) // token exchange OK
-        .mockResolvedValueOnce(mockFetchResponse({}, false, 401)); // profile fetch fails
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({}, false, 401),
+      );
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
@@ -374,19 +396,50 @@ describe('AuthService', () => {
         username: 'alice',
       });
 
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' })) // token exchange
-        .mockResolvedValueOnce(
-          mockFetchResponse({ id: 'user-1', username: 'alice' }),
-        ) // profile
-        .mockResolvedValueOnce(
-          mockFetchResponse({ message: '404: Not Found' }, false, 404),
-        ); // guild member
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice' }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ message: '404: Not Found' }, false, 404, 'not found'),
+      );
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('not_in_server'),
       });
+    });
+
+    it('returns detailed not_in_server message when guild member endpoint returns 403', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice' }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ message: 'forbidden' }, false, 403, 'forbidden'),
+      );
+
+      const result = await service.handleDiscordCallback('code', 'state');
+
+      expect(result).toMatchObject({
+        url: expect.stringContaining('not_in_server'),
+      });
+      expect(result.url).toContain('Missing+guild+access');
     });
 
     it('returns error redirect when user lacks required roles', async () => {
@@ -403,18 +456,190 @@ describe('AuthService', () => {
       });
       mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
-
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' }))
-        .mockResolvedValueOnce(
-          mockFetchResponse({ id: 'user-1', username: 'alice', email: null }),
-        )
-        .mockResolvedValueOnce(mockFetchResponse({ roles: ['role-other'] })); // guild member — no matching role
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice', email: null }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: ['role-other'] }),
+      );
+      mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
+        mockHttpResult([{ id: 'role-other', name: 'Other', color: 0, position: 1 }]),
+      );
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('insufficient_roles'),
       });
+    });
+
+    it('syncs only member roles that exist in guild role list', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        globalName: null,
+        displayName: null,
+        avatar: null,
+        email: null,
+      });
+      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectRepo.findAllowedRoleIds.mockResolvedValue([]);
+      mockSessionRepo.create.mockResolvedValue(undefined);
+      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([]);
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({
+          id: 'user-1',
+          username: 'alice',
+          global_name: null,
+          display_name: null,
+          avatar: null,
+          email: null,
+        }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: ['role-kept', 'role-unknown'] }),
+      );
+      mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
+        mockHttpResult([
+          { id: 'role-kept', name: 'Member', color: 0, position: 1 },
+          { id: 'role-other', name: 'Other', color: 2, position: 5 },
+        ]),
+      );
+
+      await service.handleDiscordCallback('code', 'state');
+
+      expect(mockProjectRepo.syncMemberServerData).toHaveBeenCalledWith(
+        'user-1',
+        'guild-1',
+        [{ id: 'role-kept', name: 'Member', color: 0, position: 1 }],
+      );
+    });
+
+    it('continues role check when guild roles fetch fails', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        globalName: null,
+        displayName: null,
+        avatar: null,
+        email: null,
+      });
+      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice', email: null }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: ['role-required'] }),
+      );
+      mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
+        mockHttpResult({}, false, 500, 'server error'),
+      );
+      mockSessionRepo.create.mockResolvedValue(undefined);
+      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([]);
+
+      const result = await service.handleDiscordCallback('code', 'state');
+
+      expect(result).toMatchObject({ url: expect.stringContaining('token=') });
+      expect(mockProjectRepo.syncMemberServerData).toHaveBeenCalledWith(
+        'user-1',
+        'guild-1',
+        [],
+      );
+    });
+
+    it('treats malformed guild roles payload as empty role sync set', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        globalName: null,
+        displayName: null,
+        avatar: null,
+        email: null,
+      });
+      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectRepo.findAllowedRoleIds.mockResolvedValue([]);
+      mockSessionRepo.create.mockResolvedValue(undefined);
+      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([]);
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice', email: null }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: ['role-required'] }),
+      );
+      mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
+        mockHttpResult({ roles: 'invalid-shape' } as any),
+      );
+
+      await service.handleDiscordCallback('code', 'state');
+
+      expect(mockProjectRepo.syncMemberServerData).toHaveBeenCalledWith(
+        'user-1',
+        'guild-1',
+        [],
+      );
+    });
+
+    it('bubbles syncMemberServerData failures as callback errors', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      mockProjectRepo.syncMemberServerData.mockRejectedValue(
+        new Error('sync failed'),
+      );
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice' }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: [] }),
+      );
+
+      await expect(service.handleDiscordCallback('code', 'state')).rejects.toThrow(
+        'sync failed',
+      );
     });
 
     it('creates session and returns redirect URL on success (no role restriction)', async () => {
@@ -439,24 +664,64 @@ describe('AuthService', () => {
       mockProjectRepo.getMemberRolesInServer.mockResolvedValue([
         { name: 'Member' },
       ]);
-
-      fetchMock
-        .mockResolvedValueOnce(mockFetchResponse({ access_token: 'acc-tok' }))
-        .mockResolvedValueOnce(
-          mockFetchResponse({
-            id: 'user-1',
-            username: 'alice',
-            global_name: null,
-            display_name: null,
-            avatar: null,
-            email: null,
-          }),
-        )
-        .mockResolvedValueOnce(mockFetchResponse({ roles: [] })); // guild member
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({
+          id: 'user-1',
+          username: 'alice',
+          global_name: null,
+          display_name: null,
+          avatar: null,
+          email: null,
+        }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: [] }),
+      );
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({ url: expect.stringContaining('token=') });
       expect(mockSessionRepo.create).toHaveBeenCalled();
+    });
+
+    it('supports mixed roles and grants access when one required role is present', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+      };
+      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
+      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+        globalName: null,
+        displayName: null,
+        avatar: null,
+        email: null,
+      });
+      mockProjectRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectRepo.findAllowedRoleIds.mockResolvedValue(['role-allowed']);
+      mockSessionRepo.create.mockResolvedValue(undefined);
+      mockProjectRepo.getMemberRolesInServer.mockResolvedValue([]);
+      mockDiscordHttpClient.exchangeCodeForToken.mockResolvedValue(
+        mockHttpResult({ access_token: 'acc-tok' }),
+      );
+      mockDiscordHttpClient.fetchUserProfile.mockResolvedValue(
+        mockHttpResult({ id: 'user-1', username: 'alice' }),
+      );
+      mockDiscordHttpClient.fetchGuildMember.mockResolvedValue(
+        mockHttpResult({ roles: ['role-other', 'role-allowed'] }),
+      );
+      mockDiscordHttpClient.fetchGuildRoles.mockResolvedValue(
+        mockHttpResult([{ id: 'role-allowed', name: 'Lead', color: 1, position: 10 }]),
+      );
+
+      const result = await service.handleDiscordCallback('code', 'state');
+
+      expect(result.url).toContain('token=');
     });
   });
 

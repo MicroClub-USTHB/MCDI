@@ -4,18 +4,26 @@ import {
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
   buildErrorRedirect,
   validateApiKeyAndGetProject,
 } from './utils';
+import {
+  Clock,
+  CLOCK,
+  DiscordHttpClient,
+  DISCORD_HTTP_CLIENT,
+  TOKEN_GENERATOR,
+  TokenGenerator,
+} from './providers';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +38,10 @@ export class AuthService {
     private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly configService: ConfigService,
+    @Inject(DISCORD_HTTP_CLIENT)
+    private readonly discordHttpClient: DiscordHttpClient,
+    @Inject(CLOCK) private readonly clock: Clock,
+    @Inject(TOKEN_GENERATOR) private readonly tokenGenerator: TokenGenerator,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordClientSecret = this.configService.get<string>(
@@ -143,10 +155,10 @@ export class AuthService {
     redirectUri: string,
   ) {
     // Generate secure random state token
-    const state = randomBytes(32).toString('hex');
+    const state = this.tokenGenerator.randomHex(32);
 
     // Store state in database with 10-minute expiration
-    const expiresAt = new Date();
+    const expiresAt = new Date(this.clock.now());
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
     await this.oauthStateRepository.create({
@@ -206,19 +218,14 @@ export class AuthService {
     const { projectId, serverId, redirectUri } = stateData;
 
     // 2. Exchange Discord code for tokens
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: this.discordClientId,
-        client_secret: this.discordClientSecret,
-        grant_type: 'authorization_code',
-        code: discordCode,
-        redirect_uri: this.discordRedirectUri,
-      }),
+    const tokenRes = await this.discordHttpClient.exchangeCodeForToken({
+      clientId: this.discordClientId,
+      clientSecret: this.discordClientSecret,
+      code: discordCode,
+      redirectUri: this.discordRedirectUri,
     });
 
-    if (!tokenRes.ok) {
+    if (!tokenRes.ok || !tokenRes.data?.access_token) {
       return buildErrorRedirect(
         redirectUri,
         'discord_error',
@@ -226,16 +233,12 @@ export class AuthService {
       );
     }
 
-    const { access_token: accessToken } = (await tokenRes.json()) as {
-      access_token: string;
-    };
+    const accessToken = tokenRes.data.access_token;
 
     // 3. Fetch Discord profile
-    const profileRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    const profileRes = await this.discordHttpClient.fetchUserProfile(accessToken);
 
-    if (!profileRes.ok) {
+    if (!profileRes.ok || !profileRes.data) {
       return buildErrorRedirect(
         redirectUri,
         'profile_error',
@@ -243,14 +246,7 @@ export class AuthService {
       );
     }
 
-    const profile = (await profileRes.json()) as {
-      id: string;
-      username: string;
-      global_name?: string | null;
-      display_name?: string | null;
-      avatar?: string | null;
-      email?: string | null;
-    };
+    const profile = profileRes.data;
 
     // 4. Upsert member
     const member = await this.memberRepository.upsert({
@@ -260,20 +256,19 @@ export class AuthService {
       displayName: profile.display_name || profile.global_name || undefined,
       avatar: profile.avatar || undefined,
       email: profile.email || undefined,
-      syncedAt: new Date(),
+      syncedAt: this.clock.now(),
     });
 
     // 5. Verify server membership via Discord API
-    const guildMemberRes = await fetch(
-      `https://discord.com/api/users/@me/guilds/${serverId}/member`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+    const guildMemberRes = await this.discordHttpClient.fetchGuildMember(
+      serverId,
+      accessToken,
     );
 
     if (!guildMemberRes.ok) {
-      const errBody = await guildMemberRes.text().catch(() => '');
       this.logger.error(
         `Guild member check failed for user=${profile.id} server=${serverId} ` +
-          `status=${guildMemberRes.status} body=${errBody}`,
+          `status=${guildMemberRes.status} body=${guildMemberRes.text ?? ''}`,
       );
       // status 404 → user not in server; 403 → missing scope or bot not in guild
       const reason =
@@ -283,10 +278,10 @@ export class AuthService {
       return buildErrorRedirect(redirectUri, 'not_in_server', reason);
     }
 
-    const guildMemberData = (await guildMemberRes.json()) as {
-      roles?: string[];
-    };
-    const userDiscordRoleIds: string[] = guildMemberData.roles ?? [];
+    const guildMemberData = guildMemberRes.data;
+    const userDiscordRoleIds: string[] = Array.isArray(guildMemberData?.roles)
+      ? guildMemberData.roles
+      : [];
 
     // 5b. Fetch full role objects from Discord to get name/color/position,
     //     then sync the member's server membership + roles into MCDI DB.
@@ -297,21 +292,12 @@ export class AuthService {
       position?: number;
     }[] = [];
     if (userDiscordRoleIds.length > 0) {
-      const guildRolesRes = await fetch(
-        `https://discord.com/api/guilds/${serverId}/roles`,
-        {
-          headers: {
-            Authorization: `Bot ${this.configService.get<string>('discord.token')}`,
-          },
-        },
+      const guildRolesRes = await this.discordHttpClient.fetchGuildRoles(
+        serverId,
+        this.configService.get<string>('discord.token') ?? '',
       );
-      if (guildRolesRes.ok) {
-        const allGuildRoles = (await guildRolesRes.json()) as {
-          id: string;
-          name: string;
-          color: number;
-          position: number;
-        }[];
+      if (guildRolesRes.ok && Array.isArray(guildRolesRes.data)) {
+        const allGuildRoles = guildRolesRes.data;
         discordRolesForSync = allGuildRoles.filter((r) =>
           userDiscordRoleIds.includes(r.id),
         );
@@ -341,8 +327,8 @@ export class AuthService {
     }
 
     // 7. Create session token (30 days)
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
+    const token = this.tokenGenerator.randomHex(48);
+    const expiresAt = new Date(this.clock.now());
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     await this.sessionRepository.create({
