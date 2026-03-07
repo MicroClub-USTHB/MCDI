@@ -3,9 +3,12 @@ import {
   Get,
   Render,
   Query,
+  Param,
   Post,
   Body,
   Res,
+  Req,
+  Headers,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -14,6 +17,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiQuery,
+  ApiParam,
   ApiBody,
   ApiProduces,
   ApiExcludeEndpoint,
@@ -27,6 +31,8 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   ErrorResponseDto,
+  CreateLoginSessionDto,
+  LoginSessionResponseDto,
 } from './dto';
 
 @ApiTags('Authentication')
@@ -34,144 +40,140 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // ─── Step 1 — Login page
-  // Platform redirects user here with: /api/auth/login?api_key=xxx&server_id=yyy&redirect_uri=zzz
-  // MCDI validates the API key and renders the login page or an error page.
+  // ─── Step 0 — Create login session (server-to-server)
+  // Platform calls this with API key in header to get a short-lived login URL.
+  // The user's browser never sees the API key.
 
-  @Get('login')
-  @Render('login')
+  @Post('login-session')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Render login page',
+    summary: 'Create a login session (server-to-server)',
     description:
-      'The platform redirects the user here with an API key and optional server ID. ' +
-      'MCDI validates the API key against the projects table, resolves the target server ' +
-      'and roles, then renders the login page with a "Login with Discord" button. ' +
-      'If the API key is invalid, an error page is shown instead.',
+      'Platforms call this endpoint server-to-server with their API key in the X-API-Key header. ' +
+      'Returns a short-lived login URL that the platform redirects the user to. ' +
+      'This keeps the API key out of browser URLs, logs, and history.',
   })
-  @ApiQuery({
-    name: 'api_key',
-    required: true,
-    description: 'Platform API key',
-    example: 'mcdi-internal-events-2024',
+  @ApiBody({ type: CreateLoginSessionDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Login URL created',
+    type: LoginSessionResponseDto,
   })
-  @ApiQuery({
-    name: 'server_id',
-    required: false,
-    description: 'Discord server ID (for external platforms)',
-    example: '942073196237642827',
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid API key',
+    type: ErrorResponseDto,
   })
-  @ApiQuery({
-    name: 'server_name',
-    required: false,
-    description:
-      'Discord server name (alternative to server_id for external platforms)',
-    example: 'Main Server',
-  })
-  @ApiQuery({
-    name: 'redirect_uri',
-    required: false,
-    description:
-      'Override callback URI for the platform (defaults to project config)',
-  })
-  @ApiProduces('text/html')
-  @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
-  async login(
-    @Query('api_key') apiKey: string,
-    @Query('server_id') serverId: string,
-    @Query('server_name') serverName: string,
-    @Query('redirect_uri') redirectUri: string,
+  async createLoginSession(
+    @Headers('x-api-key') apiKey: string,
+    @Body() dto: CreateLoginSessionDto,
   ) {
-    // If no API key, show error
     if (!apiKey) {
       return {
         error: 'missing_api_key',
-        errorDescription: 'No API key provided',
+        errorDescription: 'X-API-Key header is required',
+      };
+    }
+
+    return this.authService.createLoginSession(
+      apiKey,
+      dto.serverId,
+      dto.serverName,
+      dto.redirectUri,
+    );
+  }
+
+  // ─── Step 1 — Login page (token-based)
+  // Platform redirects user here with: /api/auth/login/<token>
+  // MCDI looks up the login token which already contains the validated project context.
+
+  @Get('login/:token')
+  @Render('login')
+  @ApiOperation({
+    summary: 'Render login page (token-based)',
+    description:
+      'The platform redirects the user here using the loginUrl returned by POST /auth/login-session. ' +
+      'MCDI looks up the short-lived token to recover the project context and renders the login page. ' +
+      'No API key appears in the URL.',
+  })
+  @ApiParam({
+    name: 'token',
+    required: true,
+    description: 'Short-lived login token from POST /auth/login-session',
+  })
+  @ApiProduces('text/html')
+  @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
+  async login(@Param('token') token: string) {
+    if (!token) {
+      return {
+        error: 'missing_token',
+        errorDescription: 'No login token provided',
       };
     }
 
     try {
-      // Validate API key and resolve project context
-      const context = await this.authService.validateLoginRequest(
-        apiKey,
-        serverId,
-        serverName,
-        redirectUri,
-      );
+      const loginToken = await this.authService.resolveLoginToken(token);
+
+      if (!loginToken) {
+        return {
+          error: 'invalid_token',
+          errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+        };
+      }
 
       // Pass validated context to the view so the Discord button works
       return {
-        apiKey,
-        projectName: context.project.name,
-        serverId: context.serverId,
-        redirectUri: context.redirectUri,
+        loginToken: token,
+        projectName: loginToken.projectId, // Will be enriched if needed
+        serverId: loginToken.serverId,
+        redirectUri: loginToken.redirectUri,
       };
     } catch (err) {
-      // Invalid API key or bad config → show error on the page
       return {
         error: 'invalid_request',
         errorDescription:
-          (err as Error).message || 'Invalid API key or configuration',
+          (err as Error).message || 'Something went wrong',
       };
     }
   }
 
   // ─── Step 2 — Start Discord OAuth
-  // User clicks "Login with Discord" → this endpoint builds the Discord URL and redirects.
+  // User clicks "Login with Discord" → this endpoint looks up the login token and redirects.
 
   @Get('discord')
   @ApiOperation({
     summary: 'Redirect to Discord OAuth',
     description:
       'Called when user clicks "Login with Discord" on the MCDI login page. ' +
-      'Builds the Discord OAuth URL with project context encoded in state and redirects the user.',
+      'Uses the login_token to recover project context, builds the Discord OAuth URL, and redirects.',
   })
   @ApiQuery({
-    name: 'api_key',
+    name: 'login_token',
     required: true,
-    description: 'Platform API key',
-    example: 'mcdi-internal-events-2024',
-  })
-  @ApiQuery({
-    name: 'server_id',
-    required: false,
-    description: 'Discord server ID',
-    example: '942073196237642827',
-  })
-  @ApiQuery({
-    name: 'server_name',
-    required: false,
-    description: 'Discord server name',
-    example: 'Main Server',
-  })
-  @ApiQuery({
-    name: 'redirect_uri',
-    required: true,
-    description: 'Platform callback URI',
-    example: 'http://localhost:4000/auth/callback',
+    description: 'Short-lived login token',
   })
   @ApiResponse({
     status: 302,
     description: 'Redirects to Discord OAuth authorization page',
   })
   async startDiscordAuth(
-    @Query('api_key') apiKey: string,
-    @Query('server_id') serverId: string,
-    @Query('server_name') serverName: string,
-    @Query('redirect_uri') redirectUri: string,
+    @Query('login_token') loginToken: string,
     @Res() res: Response,
   ) {
-    // Validate again (in case someone hits this directly)
-    const context = await this.authService.validateLoginRequest(
-      apiKey,
-      serverId,
-      serverName,
-      redirectUri,
-    );
+    const tokenData = await this.authService.resolveLoginToken(loginToken);
+
+    if (!tokenData) {
+      // Render an error page instead of crashing
+      return res.render('login', {
+        error: 'invalid_token',
+        errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
+      });
+    }
 
     const result = await this.authService.buildDiscordLoginUrl(
-      context.project.id,
-      context.serverId,
-      context.redirectUri,
+      tokenData.projectId,
+      tokenData.serverId,
+      tokenData.redirectUri,
     );
 
     return res.redirect(result.url);
@@ -203,6 +205,9 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const result = await this.authService.handleDiscordCallback(code, state);
+    if ('html' in result) {
+      return res.type('html').send(result.html);
+    }
     return res.redirect(result.url);
   }
 

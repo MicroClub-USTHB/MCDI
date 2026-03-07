@@ -4,7 +4,10 @@ import { ProjectAdminController } from './project-admin.controller';
 import { ProjectAdminService } from './project-admin.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
-const mockProjectAdminService = { regenerateApiKey: jest.fn() };
+const mockProjectAdminService = {
+  regenerateApiKey: jest.fn(),
+  updateRedirectUri: jest.fn(),
+};
 
 describe('ProjectAdminController', () => {
   let controller: ProjectAdminController;
@@ -41,5 +44,29 @@ describe('ProjectAdminController', () => {
     await expect(controller.regenerateApiKey('bad-id')).rejects.toThrow(
       NotFoundException,
     );
+  });
+
+  it('updateRedirectUri delegates to service', async () => {
+    mockProjectAdminService.updateRedirectUri.mockResolvedValue({
+      projectId: 'p1',
+      redirectUri: 'https://events.microclub.net/auth/callback',
+    });
+    const result = await controller.updateRedirectUri('p1', {
+      redirectUri: 'https://events.microclub.net/auth/callback',
+    });
+    expect(mockProjectAdminService.updateRedirectUri).toHaveBeenCalledWith(
+      'p1',
+      { redirectUri: 'https://events.microclub.net/auth/callback' },
+    );
+    expect(result).toMatchObject({ projectId: 'p1' });
+  });
+
+  it('updateRedirectUri propagates NotFoundException', async () => {
+    mockProjectAdminService.updateRedirectUri.mockRejectedValue(
+      new NotFoundException(),
+    );
+    await expect(
+      controller.updateRedirectUri('bad-id', { redirectUri: 'https://x.com/cb' }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

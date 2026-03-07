@@ -237,6 +237,20 @@ export class ProjectRepository {
       .onConflictDoNothing();
   }
 
+  /** Update the allowed redirect URI(s) for a project (comma-separated for multiple) */
+  async updateRedirectUri(
+    projectId: string,
+    redirectUri: string,
+  ) {
+    const projects = await this.db
+      .update(schema.projects)
+      .set({ redirectUri, updatedAt: new Date() })
+      .where(eq(schema.projects.id, projectId))
+      .returning();
+
+    return projects[0] || null;
+  }
+
   /** Regenerate API key for a project */
   async regenerateApiKey(
     projectId: string,

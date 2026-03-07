@@ -1,7 +1,9 @@
 import {
   Controller,
   Post,
+  Patch,
   Param,
+  Body,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -12,9 +14,11 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ProjectAdminService } from './project-admin.service';
+import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 
 @ApiTags('Admin Projects')
 @ApiBearerAuth()
@@ -58,5 +62,39 @@ export class ProjectAdminController {
   @ApiResponse({ status: 404, description: 'Project not found' })
   async regenerateApiKey(@Param('id') projectId: string) {
     return this.projectAdminService.regenerateApiKey(projectId);
+  }
+
+  @Patch(':id/redirect-uri')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update allowed redirect URI(s)',
+    description:
+      'Sets the redirect URI(s) allowed for this project. ' +
+      'Accepts a single URI or a comma-separated list for multiple allowed URIs. ' +
+      'The value you pass in POST /auth/login-session must exactly match one of these.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Project ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiBody({ type: UpdateRedirectUriDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Redirect URI updated',
+    schema: {
+      type: 'object',
+      properties: {
+        projectId: { type: 'string' },
+        redirectUri: { type: 'string', example: 'https://events.microclub.net/auth/callback' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  async updateRedirectUri(
+    @Param('id') projectId: string,
+    @Body() dto: UpdateRedirectUriDto,
+  ) {
+    return this.projectAdminService.updateRedirectUri(projectId, dto);
   }
 }

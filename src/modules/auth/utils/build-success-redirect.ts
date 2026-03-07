@@ -9,24 +9,61 @@ interface MemberPayload {
 
 type RolePayload = Record<string, unknown>;
 
+/** Escape a string for safe use in an HTML attribute value. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /**
- * Step 9 — Build the final redirect URL sent back to the platform after a
- * successful Discord OAuth login.
+ * Build an auto-submitting HTML form (POST binding) that delivers the session
+ * token and member payload to the platform's redirect URI via HTTP POST body.
  *
- * Encodes the session token, expiry, member profile, and roles as query
- * parameters on the platform's redirect URI.
+ * This keeps the token out of URLs, browser history, server logs, and
+ * referrer headers — the same pattern used by SAML SSO.
  */
-export function buildSuccessRedirect(
+export function buildSuccessPost(
   redirectUri: string,
   token: string,
   expiresAt: Date,
   member: MemberPayload,
   roles: RolePayload[],
-): { url: string } {
-  const url = new URL(redirectUri);
-  url.searchParams.set('token', token);
-  url.searchParams.set('expires_at', expiresAt.toISOString());
-  url.searchParams.set('member', JSON.stringify(member));
-  url.searchParams.set('roles', JSON.stringify(roles));
-  return { url: url.toString() };
+): { html: string } {
+  const fields: Record<string, string> = {
+    token,
+    expires_at: expiresAt.toISOString(),
+    member: JSON.stringify(member),
+    roles: JSON.stringify(roles),
+  };
+
+  const inputs = Object.entries(fields)
+    .map(
+      ([name, value]) =>
+        `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`,
+    )
+    .join('\n    ');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Completing login...</title>
+</head>
+<body>
+  <form id="cb" method="POST" action="${escapeHtml(redirectUri)}">
+    ${inputs}
+  </form>
+  <script>document.getElementById('cb').submit();</script>
+  <noscript>
+    <p>JavaScript is required to complete login.
+      <button type="submit" form="cb">Continue</button>
+    </p>
+  </noscript>
+</body>
+</html>`;
+
+  return { html };
 }

@@ -28,22 +28,22 @@
                         <h2>Authentication Failed</h2>
                         <p><%= typeof errorDescription !== 'undefined' && errorDescription ? errorDescription : 'Something went wrong. Please try again.' %></p>
                     </div>
-                <% } else if (typeof apiKey !== 'undefined' && apiKey) { %>
+                <% } else if (typeof loginToken !== 'undefined' && loginToken) { %>
                     <div class="login-actions">
                         <% if (typeof projectName !== 'undefined' && projectName) { %>
                             <p>Log in to <strong><%= projectName %></strong></p>
                         <% } else { %>
                             <p>Please log in to continue</p>
                         <% } %>
-                        <a href="/api/auth/discord?api_key=<%= encodeURIComponent(apiKey) %>&server_id=<%= encodeURIComponent(serverId || '') %>&redirect_uri=<%= encodeURIComponent(redirectUri || '') %>" class="btn-discord">
+                        <a href="/api/auth/discord?login_token=<%= encodeURIComponent(loginToken) %>" class="btn-discord">
                             <i class="fa-brands fa-discord"></i> Login with Discord
                         </a>
                     </div>
                 <% } else { %>
                     <div class="status-message error">
                         <i class="fa-solid fa-circle-exclamation"></i>
-                        <h2>Missing API Key</h2>
-                        <p>This page must be accessed from a registered platform.</p>
+                        <h2>Invalid Login Link</h2>
+                        <p>This page must be accessed via a valid login link from a registered platform.</p>
                     </div>
                 <% } %>
             </div>

@@ -10,6 +10,7 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { LoginTokenRepository } from './repositories/login-token.repository';
 import { DiscordService } from '../discord/discord.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
@@ -39,6 +40,12 @@ const mockOAuthStateRepo = {
   create: jest.fn(),
   findValidState: jest.fn(),
   markAsUsed: jest.fn(),
+  deleteExpired: jest.fn(),
+};
+
+const mockLoginTokenRepo = {
+  create: jest.fn(),
+  findValid: jest.fn(),
   deleteExpired: jest.fn(),
 };
 
@@ -83,6 +90,7 @@ describe('AuthService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: ProjectRepository, useValue: mockProjectRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
+        { provide: LoginTokenRepository, useValue: mockLoginTokenRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
       ],
@@ -474,7 +482,7 @@ describe('AuthService', () => {
       mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
       const result = await service.handleDiscordCallback('code', 'state');
-      expect(result).toMatchObject({ url: expect.stringContaining('token=') });
+      expect(result).toMatchObject({ html: expect.stringContaining('token') });
       expect(mockSessionRepo.create).toHaveBeenCalled();
     });
   });
@@ -522,14 +530,80 @@ describe('AuthService', () => {
   // ── cleanupExpired ───────────────────────────────────────────────────────
 
   describe('cleanupExpired', () => {
-    it('calls deleteExpired on both session and oauth state repos', async () => {
+    it('calls deleteExpired on session, oauth state, and login token repos', async () => {
       mockSessionRepo.deleteExpired.mockResolvedValue(undefined);
       mockOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
+      mockLoginTokenRepo.deleteExpired.mockResolvedValue(undefined);
 
       const result = await service.cleanupExpired();
       expect(result).toEqual({ success: true });
       expect(mockSessionRepo.deleteExpired).toHaveBeenCalled();
       expect(mockOAuthStateRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockLoginTokenRepo.deleteExpired).toHaveBeenCalled();
+    });
+  });
+
+  // ── createLoginSession ──────────────────────────────────────────────────
+
+  describe('createLoginSession', () => {
+    it('validates API key, creates token, and returns loginUrl', async () => {
+      mockProjectRepo.findByApiKey.mockResolvedValue(null);
+      // Use full project flow mocking via validateLoginRequest path
+      const proj = fakeProject();
+      // Mock the project lookup that validateApiKeyAndGetProject does
+      mockProjectRepo.findByApiKey.mockResolvedValue(proj);
+      mockProjectRepo.hasServerAccess.mockResolvedValue(true);
+      mockProjectRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockLoginTokenRepo.create.mockResolvedValue({ token: 'abc123' });
+
+      const result = await service.createLoginSession(
+        'pk_1234.secrethex',
+        'srv-1',
+        undefined,
+        'http://localhost/callback',
+      );
+
+      expect(result.loginUrl).toContain('/api/auth/login/');
+      expect(mockLoginTokenRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'proj-1',
+          serverId: 'srv-1',
+          redirectUri: 'http://localhost/callback',
+        }),
+      );
+    });
+
+    it('throws when API key is invalid', async () => {
+      mockProjectRepo.findByApiKey.mockResolvedValue(null);
+
+      await expect(
+        service.createLoginSession('bad.key', 'srv-1', undefined, 'http://localhost/callback'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  // ── resolveLoginToken ───────────────────────────────────────────────────
+
+  describe('resolveLoginToken', () => {
+    it('returns token data when valid', async () => {
+      const tokenData = {
+        token: 'abc',
+        projectId: 'p1',
+        serverId: 's1',
+        redirectUri: 'http://localhost/callback',
+        expiresAt: new Date(Date.now() + 300000),
+      };
+      mockLoginTokenRepo.findValid.mockResolvedValue(tokenData);
+
+      const result = await service.resolveLoginToken('abc');
+      expect(result).toEqual(tokenData);
+    });
+
+    it('returns null when token is expired or not found', async () => {
+      mockLoginTokenRepo.findValid.mockResolvedValue(null);
+
+      const result = await service.resolveLoginToken('expired-token');
+      expect(result).toBeNull();
     });
   });
 });

@@ -16,7 +16,7 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
-import { sessions } from '../src/database/entities';
+import { sessions, loginTokens } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -43,41 +43,67 @@ describeIf('/api/auth (e2e)', () => {
     await clearAllTables(db);
   });
 
-  // ─── GET /api/auth/login ──────────────────────────────────────
+  // ─── POST /api/auth/login-session ──────────────────────────────
 
-  describe('GET /api/auth/login', () => {
-    it('renders error page when api_key is missing', async () => {
+  describe('POST /api/auth/login-session', () => {
+    it('returns loginUrl when API key is valid', async () => {
+      const { serverId } = await seedAdminContext(db);
+      const { apiKey } = await seedTestProject(db, serverId, {
+        name: 'E2E Login Session',
+      });
+
       const res = await request(app.getHttpServer())
-        .get('/api/auth/login')
+        .post('/api/auth/login-session')
+        .set('X-API-Key', apiKey)
+        .send({ serverId, redirectUri: 'http://localhost:4000/callback' })
         .expect(200);
 
-      // EJS renders HTML — the error key should appear in the response body
-      expect(res.text).toMatch(/missing_api_key|No API key provided/i);
+      expect(res.body.loginUrl).toMatch(/\/api\/auth\/login\/.+/);
     });
 
-    it('renders error page when api_key is invalid', async () => {
+    it('returns error when X-API-Key header is missing', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/auth/login?api_key=invalid-key-xyz')
+        .post('/api/auth/login-session')
+        .send({ redirectUri: 'http://localhost:4000/callback' })
         .expect(200);
 
-      // Invalid key still returns 200 (rendered page), but with error content
-      expect(res.text).toMatch(/invalid|error/i);
+      expect(res.body).toMatchObject({ error: 'missing_api_key' });
+    });
+  });
+
+  // ─── GET /api/auth/login/:token ──────────────────────────────
+
+  describe('GET /api/auth/login/:token', () => {
+    it('renders error page when token is invalid', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/login/nonexistent-token-abc')
+        .expect(200);
+
+      expect(res.text).toMatch(/invalid_token|expired|invalid/i);
     });
 
-    it('renders login page with valid api_key and matching project server', async () => {
+    it('renders login page with valid login token', async () => {
       const { serverId } = await seedAdminContext(db);
       const { apiKey } = await seedTestProject(db, serverId, {
         name: 'E2E Test Project',
       });
 
-      const res = await request(app.getHttpServer())
-        .get(
-          `/api/auth/login?api_key=${encodeURIComponent(apiKey)}&server_id=${serverId}&redirect_uri=http://localhost:4000/callback`,
-        )
+      // First create a login session
+      const sessionRes = await request(app.getHttpServer())
+        .post('/api/auth/login-session')
+        .set('X-API-Key', apiKey)
+        .send({ serverId, redirectUri: 'http://localhost:4000/callback' })
         .expect(200);
 
-      // The login page should include the project name or a Discord login prompt
-      expect(res.text).toMatch(/E2E Test Project|discord/i);
+      // Extract token from loginUrl
+      const token = sessionRes.body.loginUrl.split('/api/auth/login/')[1];
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/auth/login/${token}`)
+        .expect(200);
+
+      // The login page should include a Discord login prompt
+      expect(res.text).toMatch(/discord/i);
     });
   });
 

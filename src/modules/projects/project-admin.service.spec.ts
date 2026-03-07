@@ -7,6 +7,7 @@ import { ProjectRepository } from '../auth/repositories/project.repository';
 
 const mockProjectRepo = {
   regenerateApiKey: jest.fn(),
+  updateRedirectUri: jest.fn(),
 };
 
 // ── Suite ──────────────────────────────────────────────────────────────────
@@ -54,6 +55,35 @@ describe('ProjectAdminService', () => {
         'proj-1',
         expect.stringMatching(/^[0-9a-f]{64}$/), // hash
         expect.stringMatching(/^pk_/), // prefix
+      );
+    });
+  });
+
+  // ── updateRedirectUri ───────────────────────────────────────────────────
+
+  describe('updateRedirectUri', () => {
+    it('throws NotFoundException when project is not found', async () => {
+      mockProjectRepo.updateRedirectUri.mockResolvedValue(null);
+      await expect(
+        service.updateRedirectUri('missing-id', { redirectUri: 'https://x.com/cb' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns updated projectId and redirectUri on success', async () => {
+      mockProjectRepo.updateRedirectUri.mockResolvedValue({
+        id: 'proj-1',
+        redirectUri: 'https://events.microclub.net/auth/callback',
+      });
+      const result = await service.updateRedirectUri('proj-1', {
+        redirectUri: 'https://events.microclub.net/auth/callback',
+      });
+      expect(result).toEqual({
+        projectId: 'proj-1',
+        redirectUri: 'https://events.microclub.net/auth/callback',
+      });
+      expect(mockProjectRepo.updateRedirectUri).toHaveBeenCalledWith(
+        'proj-1',
+        'https://events.microclub.net/auth/callback',
       );
     });
   });

@@ -10,12 +10,13 @@ import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { ProjectRepository } from './repositories/project.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { LoginTokenRepository } from './repositories/login-token.repository';
 import { DiscordService, DiscordOAuthProfile } from '../discord/discord.service';
 import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
   buildErrorRedirect,
-  buildSuccessRedirect,
+  buildSuccessPost,
   validateApiKeyAndGetProject,
 } from './utils';
 
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly memberRepository: MemberRepository,
     private readonly projectRepository: ProjectRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
+    private readonly loginTokenRepository: LoginTokenRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
   ) {
@@ -128,6 +130,59 @@ export class AuthService {
     };
   }
 
+  // ─── Login session (secure two-step flow) ────────────────
+
+  /**
+   * Create a short-lived login token that encodes the project context.
+   * The platform calls this server-to-server with the API key in a header,
+   * then redirects the user's browser to the returned loginUrl.
+   * This keeps the API key out of URLs entirely.
+   */
+  async createLoginSession(
+    apiKey: string,
+    serverId?: string,
+    serverName?: string,
+    redirectUri?: string,
+  ) {
+    // Reuse existing validation logic
+    const context = await this.validateLoginRequest(
+      apiKey,
+      serverId,
+      serverName,
+      redirectUri,
+    );
+
+    // Generate a short-lived token (5 minutes)
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+
+    await this.loginTokenRepository.create({
+      token,
+      projectId: context.project.id,
+      serverId: context.serverId,
+      redirectUri: context.redirectUri,
+      expiresAt,
+    });
+
+    const baseUrl = this.configService.get<string>('app.baseUrl') || '';
+    return {
+      loginUrl: `${baseUrl}/api/auth/login/${token}`,
+    };
+  }
+
+  /**
+   * Resolve a login token to its stored project context.
+   * Used by GET /auth/login/:token to render the login page.
+   */
+  async resolveLoginToken(token: string) {
+    const loginToken = await this.loginTokenRepository.findValid(token);
+    if (!loginToken) {
+      return null;
+    }
+    return loginToken;
+  }
+
   // ─── Step 2 — Build Discord OAuth URL ────────────────────
 
   /**
@@ -218,7 +273,7 @@ export class AuthService {
       serverId,
     );
 
-    return buildSuccessRedirect(redirectUri, token, expiresAt, {
+    return buildSuccessPost(redirectUri, token, expiresAt, {
       id: member.id,
       username: member.username,
       globalName: member.globalName,
@@ -442,6 +497,7 @@ export class AuthService {
     await Promise.all([
       this.sessionRepository.deleteExpired(),
       this.oauthStateRepository.deleteExpired(),
+      this.loginTokenRepository.deleteExpired(),
     ]);
     return { success: true };
   }
