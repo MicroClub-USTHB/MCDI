@@ -35,7 +35,7 @@ type RequestWithUser = Request & {
 };
 
 @ApiTags('Admin Projects')
-@ApiBearerAuth()
+@ApiBearerAuth('session-token')
 @UseGuards(SystemAdminGuard)
 @Controller('admin/projects')
 export class ProjectsAccessController {

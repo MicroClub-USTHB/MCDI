@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiSecurity,
   getSchemaPath,
   ApiExtraModels,
 } from '@nestjs/swagger';
@@ -37,7 +37,7 @@ interface PaginationMeta {
 }
 
 @ApiTags('members')
-@ApiBearerAuth('api-key')
+@ApiSecurity('api-key')
 @ApiExtraModels(MemberSearchResponseDto)
 @RequireProjectOperation('READ')
 @Controller('servers/:serverId/members')

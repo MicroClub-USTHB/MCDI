@@ -25,7 +25,7 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
 @ApiTags('Admin Projects')
-@ApiBearerAuth()
+@ApiBearerAuth('session-token')
 @Controller('admin/projects')
 @UseGuards(SystemAdminGuard)
 @UsePipes(new ValidationPipe({ whitelist: true }))

@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBody,
+  ApiBearerAuth,
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiSecurity,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -27,6 +29,7 @@ export class PermissionsController {
 
   @Post('check')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check a single permission for a user in a server context',
   })
@@ -39,6 +42,7 @@ export class PermissionsController {
 
   @Post('check-batch')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check multiple permissions (ALL must match, or ANY must match)',
   })
@@ -63,6 +67,7 @@ export class PermissionsController {
 
   @Get(':serverId/:discordId')
   @UseGuards(ApiKeyGuard)
+  @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get the full resolved permission set for a user in a server',
   })
@@ -81,6 +86,7 @@ export class PermissionsController {
 
   @Post('inheritance-rules')
   @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
   @ApiOperation({ summary: 'Create or update an inheritance rule' })
   @ApiBody({ type: UpsertInheritanceRuleDto })
   @ApiOkResponse({ description: 'Inheritance rule upsert result returned.' })
@@ -92,6 +98,7 @@ export class PermissionsController {
 
   @Get('inheritance-rules')
   @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
   @ApiOperation({ summary: 'List inheritance rules' })
   @ApiOkResponse({ description: 'Inheritance rules list returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })

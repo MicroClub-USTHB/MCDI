@@ -45,6 +45,7 @@ const mockProjectsAccessRepo = {
 const mockProjectsRepo = {
   isRedirectUriAllowed: jest.fn(),
   findAllowedRoleIds: jest.fn(),
+  findOne: jest.fn(),
 };
 
 const mockOAuthStateRepo = {
@@ -617,9 +618,10 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 300000),
       };
       mockLoginTokenRepo.findValid.mockResolvedValue(tokenData);
+      mockProjectsRepo.findOne.mockResolvedValue({ id: 'p1', name: 'My Project' });
 
       const result = await service.resolveLoginToken('abc');
-      expect(result).toEqual(tokenData);
+      expect(result).toEqual({ ...tokenData, projectName: 'My Project' });
     });
 
     it('returns null when token is expired or not found', async () => {

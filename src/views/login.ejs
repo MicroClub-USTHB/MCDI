@@ -28,14 +28,14 @@
                         <h2>Authentication Failed</h2>
                         <p><%= typeof errorDescription !== 'undefined' && errorDescription ? errorDescription : 'Something went wrong. Please try again.' %></p>
                     </div>
-                <% } else if (typeof loginToken !== 'undefined' && loginToken) { %>
+                <% } else if (typeof serverId !== 'undefined' && serverId) { %>
                     <div class="login-actions">
                         <% if (typeof projectName !== 'undefined' && projectName) { %>
                             <p>Log in to <strong><%= projectName %></strong></p>
                         <% } else { %>
                             <p>Please log in to continue</p>
                         <% } %>
-                        <a href="/api/auth/discord?login_token=<%= encodeURIComponent(loginToken) %>" class="btn-discord">
+                        <a href="/api/auth/discord" class="btn-discord">
                             <i class="fa-brands fa-discord"></i> Login with Discord
                         </a>
                     </div>

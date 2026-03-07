@@ -28,7 +28,7 @@ import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 @ApiTags('Admin Sync')
-@ApiBearerAuth()
+@ApiBearerAuth('session-token')
 @UseGuards(SystemAdminGuard)
 @Controller('admin/sync')
 export class SyncController {

@@ -21,7 +21,7 @@ import { ProjectAdminService } from './project-admin.service';
 import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 
 @ApiTags('Admin Projects')
-@ApiBearerAuth()
+@ApiBearerAuth('session-token')
 @Controller('admin/projects')
 @UseGuards(SystemAdminGuard)
 export class ProjectAdminController {

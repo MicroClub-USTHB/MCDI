@@ -14,7 +14,12 @@ const mockAuthService = {
   resolveLoginToken: jest.fn(),
 };
 
-const mockRes = () => ({ redirect: jest.fn() });
+const mockRes = () => ({
+  redirect: jest.fn(),
+  cookie: jest.fn(),
+  clearCookie: jest.fn(),
+  render: jest.fn(),
+});
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -62,34 +67,38 @@ describe('AuthController', () => {
 
   describe('login', () => {
     it('returns error context when token is missing', async () => {
-      const result = await controller.login(undefined as any);
+      const res = mockRes();
+      const result = await controller.login(undefined as any, res as any);
       expect(result).toMatchObject({ error: 'missing_token' });
     });
 
-    it('returns project context on valid login token', async () => {
+    it('returns project context and sets cookie on valid login token', async () => {
       mockAuthService.resolveLoginToken.mockResolvedValue({
         projectId: 'p1',
         serverId: 's1',
         redirectUri: 'http://localhost/callback',
       });
-      const result = await controller.login('valid-token');
-      expect(result).toMatchObject({
-        loginToken: 'valid-token',
-        serverId: 's1',
-      });
+      const res = mockRes();
+      const result = await controller.login('valid-token', res as any);
+      expect(result).toMatchObject({ serverId: 's1' });
+      expect(res.cookie).toHaveBeenCalledWith(
+        'mcdi_login_ctx',
+        'valid-token',
+        expect.objectContaining({ httpOnly: true }),
+      );
     });
 
     it('returns error when token is expired', async () => {
       mockAuthService.resolveLoginToken.mockResolvedValue(null);
-      const result = await controller.login('expired-token');
+      const res = mockRes();
+      const result = await controller.login('expired-token', res as any);
       expect(result).toMatchObject({ error: 'invalid_token' });
     });
 
     it('returns error when service throws', async () => {
-      mockAuthService.resolveLoginToken.mockRejectedValue(
-        new Error('DB error'),
-      );
-      const result = await controller.login('bad-token');
+      mockAuthService.resolveLoginToken.mockRejectedValue(new Error('DB error'));
+      const res = mockRes();
+      const result = await controller.login('bad-token', res as any);
       expect(result).toMatchObject({ error: 'invalid_request' });
     });
   });
@@ -97,7 +106,7 @@ describe('AuthController', () => {
   // ── startDiscordAuth ─────────────────────────────────────────────────
 
   describe('startDiscordAuth', () => {
-    it('redirects to Discord OAuth URL with valid login token', async () => {
+    it('redirects to Discord OAuth URL with valid login token from cookie', async () => {
       mockAuthService.resolveLoginToken.mockResolvedValue({
         projectId: 'p1',
         serverId: 's1',
@@ -106,17 +115,30 @@ describe('AuthController', () => {
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
         url: 'https://discord.com/oauth2/authorize?...',
       });
+      const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
       const res = mockRes();
-      await controller.startDiscordAuth('valid-token', res as any);
+      await controller.startDiscordAuth(req as any, res as any);
       expect(res.redirect).toHaveBeenCalledWith(
         'https://discord.com/oauth2/authorize?...',
       );
+      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_login_ctx');
+    });
+
+    it('renders error page when cookie is missing', async () => {
+      const req = { cookies: {} };
+      const res = mockRes();
+      await controller.startDiscordAuth(req as any, res as any);
+      expect(res.render).toHaveBeenCalledWith('login', expect.objectContaining({
+        error: 'missing_context',
+      }));
+      expect(res.redirect).not.toHaveBeenCalled();
     });
 
     it('renders error page when login token is invalid', async () => {
       mockAuthService.resolveLoginToken.mockResolvedValue(null);
-      const res = { ...mockRes(), render: jest.fn() };
-      await controller.startDiscordAuth('bad-token', res as any);
+      const req = { cookies: { mcdi_login_ctx: 'bad-token' } };
+      const res = mockRes();
+      await controller.startDiscordAuth(req as any, res as any);
       expect(res.render).toHaveBeenCalledWith('login', expect.objectContaining({
         error: 'invalid_token',
       }));
@@ -132,8 +154,9 @@ describe('AuthController', () => {
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
         url: 'https://discord.com/oauth2/authorize?state=xyz',
       });
+      const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
       const res = mockRes();
-      await controller.startDiscordAuth('valid-token', res as any);
+      await controller.startDiscordAuth(req as any, res as any);
       expect(mockAuthService.buildDiscordLoginUrl).toHaveBeenCalledWith(
         'proj-42',
         'srv-99',

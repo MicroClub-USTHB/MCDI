@@ -193,7 +193,8 @@ export class AuthService {
     if (!loginToken) {
       return null;
     }
-    return loginToken;
+    const project = await this.projectsRepository.findOne(loginToken.projectId);
+    return { ...loginToken, projectName: project?.name ?? loginToken.projectId };
   }
 
   // ─── Step 2 — Build Discord OAuth URL ────────────────────

@@ -26,7 +26,7 @@ import {
 } from './dto';
 
 @ApiTags('Admin Members')
-@ApiBearerAuth()
+@ApiBearerAuth('session-token')
 @Controller('admin/members')
 @UseGuards(SystemAdminGuard)
 export class AdminMembersController {

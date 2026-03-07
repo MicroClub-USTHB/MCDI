@@ -97,8 +97,8 @@ export class AuthController {
     summary: 'Render login page (token-based)',
     description:
       'The platform redirects the user here using the loginUrl returned by POST /auth/login-session. ' +
-      'MCDI looks up the short-lived token to recover the project context and renders the login page. ' +
-      'No API key appears in the URL.',
+      'MCDI looks up the short-lived token to recover the project context, sets an httpOnly session ' +
+      'cookie so the token never reappears in a URL, then renders the login page.',
   })
   @ApiParam({
     name: 'token',
@@ -107,12 +107,12 @@ export class AuthController {
   })
   @ApiProduces('text/html')
   @ApiResponse({ status: 200, description: 'Login page rendered (HTML)' })
-  async login(@Param('token') token: string) {
+  async login(
+    @Param('token') token: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     if (!token) {
-      return {
-        error: 'missing_token',
-        errorDescription: 'No login token provided',
-      };
+      return { error: 'missing_token', errorDescription: 'No login token provided' };
     }
 
     try {
@@ -125,18 +125,23 @@ export class AuthController {
         };
       }
 
-      // Pass validated context to the view so the Discord button works
+      // Store the login token in an httpOnly cookie (5-min TTL matches the token)
+      // so it never needs to appear in a URL again.
+      (res as any).cookie('mcdi_login_ctx', token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 5 * 60 * 1000,
+      });
+
       return {
-        loginToken: token,
-        projectName: loginToken.projectId, // Will be enriched if needed
+        projectName: loginToken.projectName,
         serverId: loginToken.serverId,
         redirectUri: loginToken.redirectUri,
       };
     } catch (err) {
       return {
         error: 'invalid_request',
-        errorDescription:
-          (err as Error).message || 'Something went wrong',
+        errorDescription: (err as Error).message || 'Something went wrong',
       };
     }
   }
@@ -149,30 +154,37 @@ export class AuthController {
     summary: 'Redirect to Discord OAuth',
     description:
       'Called when user clicks "Login with Discord" on the MCDI login page. ' +
-      'Uses the login_token to recover project context, builds the Discord OAuth URL, and redirects.',
-  })
-  @ApiQuery({
-    name: 'login_token',
-    required: true,
-    description: 'Short-lived login token',
+      'Reads the login context from the httpOnly `mcdi_login_ctx` cookie set during the ' +
+      'login page render — no token ever appears in the URL.',
   })
   @ApiResponse({
     status: 302,
     description: 'Redirects to Discord OAuth authorization page',
   })
   async startDiscordAuth(
-    @Query('login_token') loginToken: string,
+    @Req() req: any,
     @Res() res: Response,
   ) {
-    const tokenData = await this.authService.resolveLoginToken(loginToken);
+    const loginTokenValue: string | undefined = req.cookies?.mcdi_login_ctx;
+
+    if (!loginTokenValue) {
+      return (res as any).render('login', {
+        error: 'missing_context',
+        errorDescription: 'Login session not found. Please use the login link provided by the platform.',
+      });
+    }
+
+    const tokenData = await this.authService.resolveLoginToken(loginTokenValue);
 
     if (!tokenData) {
-      // Render an error page instead of crashing
-      return res.render('login', {
+      return (res as any).render('login', {
         error: 'invalid_token',
         errorDescription: 'Login link has expired or is invalid. Please request a new one from the platform.',
       });
     }
+
+    // Clear the cookie — it is single-use from this point forward
+    (res as any).clearCookie('mcdi_login_ctx');
 
     const result = await this.authService.buildDiscordLoginUrl(
       tokenData.projectId,
@@ -180,7 +192,7 @@ export class AuthController {
       tokenData.redirectUri,
     );
 
-    return res.redirect(result.url);
+    return (res as any).redirect(result.url);
   }
 
   // ─── Step 3 — Discord callback ───────────────────────────
