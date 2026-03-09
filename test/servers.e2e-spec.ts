@@ -203,7 +203,7 @@ describeIf('/api/servers (e2e)', () => {
       await request(app.getHttpServer())
         .delete('/api/servers/444444444444444444')
         .set('Authorization', auth())
-        .expect(200);
+        .expect(204);
 
       // Verify it's gone
       await request(app.getHttpServer())
