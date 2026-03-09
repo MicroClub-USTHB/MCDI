@@ -112,6 +112,15 @@ describe('SyncRepository', () => {
       const result = await repo.updateLog(999, { status: 'failed' });
       expect(result).toBeNull();
     });
+
+    it('uses provided finishedAt when given', async () => {
+      const finishedAt = new Date();
+      const updated = fakeLog({ status: 'success', finishedAt });
+      const db = buildDb([updated]);
+      const repo = await buildRepo(db);
+      const result = await repo.updateLog(1, { status: 'success', finishedAt });
+      expect(result).toEqual(updated);
+    });
   });
 
   // ── getInProgressLog ─────────────────────────────────────────────────────
@@ -129,6 +138,25 @@ describe('SyncRepository', () => {
       const db = buildDb([]);
       const repo = await buildRepo(db);
       const result = await repo.getInProgressLog('guild-1');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── getLatestLog ──────────────────────────────────────────────────────────
+
+  describe('getLatestLog', () => {
+    it('returns the latest log when found', async () => {
+      const log = fakeLog({ status: 'success' });
+      const db = buildDb([log]);
+      const repo = await buildRepo(db);
+      const result = await repo.getLatestLog('guild-1');
+      expect(result).toEqual(log);
+    });
+
+    it('returns null when no log exists', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getLatestLog('guild-1');
       expect(result).toBeNull();
     });
   });

@@ -110,6 +110,36 @@ const fakeServer = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('ServersRepository', () => {
+  describe('findMain', () => {
+    it('returns the main server when found', async () => {
+      const server = fakeServer();
+      const db = buildDb([server]);
+      const repo = await buildRepo(db);
+      expect(await repo.findMain()).toEqual(server);
+    });
+
+    it('returns null when no main server exists', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.findMain()).toBeNull();
+    });
+  });
+
+  describe('findByName', () => {
+    it('returns the server when found', async () => {
+      const server = fakeServer({ name: 'Test Guild' });
+      const db = buildDb([server]);
+      const repo = await buildRepo(db);
+      expect(await repo.findByName('Test Guild')).toEqual(server);
+    });
+
+    it('returns null when not found', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.findByName('Unknown')).toBeNull();
+    });
+  });
+
   describe('clearMainServer', () => {
     it('calls update without returning a value', async () => {
       const db = buildDb([]);
