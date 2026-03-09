@@ -29,19 +29,13 @@ import {
   PaginatedCrossServerListDto,
 } from './dto';
 
-@ApiTags('Admin Members')
+@ApiTags('Members')
 @ApiBearerAuth('session-token')
 @Controller('admin/members')
 @UseGuards(SystemAdminGuard)
 export class AdminMembersController {
   constructor(private readonly adminMembersService: AdminMembersService) {}
 
-  /**
-   * GET /admin/members/:discordId/servers
-   *
-   * Per-member cross-server detail: every managed server they belong to,
-   * roles, join date, and club-member classification.
-   */
   @Get(':discordId/servers')
   @ApiOperation({
     summary: 'Get member cross-server view',
@@ -66,11 +60,6 @@ export class AdminMembersController {
     return this.adminMembersService.getMemberCrossServerView(discordId);
   }
 
-  /**
-   * GET /admin/members/cross-server?filter=club|all&page=1&limit=20&search=
-   *
-   * Paginated cross-server list for admin dashboard.
-   */
   @Get('cross-server')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
@@ -91,11 +80,6 @@ export class AdminMembersController {
     return this.adminMembersService.getCrossServerList(query);
   }
 
-  /**
-   * GET /admin/members/export?filter=club|all&format=csv|json
-   *
-   * Exports the cross-server member report as CSV or JSON.
-   */
   @Get('export')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({

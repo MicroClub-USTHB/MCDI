@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBody,
   ApiBearerAuth,
@@ -28,10 +28,14 @@ export class PermissionsController {
   // ─── Permission Checking API (project-scoped) ──────────────────────
 
   @Post('check')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
-    summary: 'Check a single permission for a user in a server context',
+    summary: 'Check a single permission',
+    description:
+      'Resolves whether a Discord member holds a specific permission in a given server. ' +
+      'Permissions are derived from their roles and any configured inheritance rules.',
   })
   @ApiBody({ type: CheckPermissionDto })
   @ApiOkResponse({ description: 'Permission check result returned.' })
@@ -41,10 +45,14 @@ export class PermissionsController {
   }
 
   @Post('check-batch')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
-    summary: 'Check multiple permissions (ALL must match, or ANY must match)',
+    summary: 'Check multiple permissions (batch)',
+    description:
+      'Checks a list of permissions for a member in one call. ' +
+      'Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches.',
   })
   @ApiBody({ type: CheckPermissionsBatchDto })
   @ApiOkResponse({ description: 'Batch permission check result returned.' })
@@ -69,10 +77,14 @@ export class PermissionsController {
   @UseGuards(ApiKeyGuard)
   @ApiSecurity('api-key')
   @ApiOperation({
-    summary: 'Get the full resolved permission set for a user in a server',
+    summary: 'Get full resolved permissions for a member',
+    description:
+      'Returns every effective permission the member holds in the server, ' +
+      'including permissions inherited via role hierarchy rules. ' +
+      'Requires the `check_permissions` scope for this server.',
   })
-  @ApiParam({ name: 'serverId', description: 'Server (guild) ID' })
-  @ApiParam({ name: 'discordId', description: 'Discord member ID' })
+  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({ name: 'discordId', description: 'Discord user snowflake ID', example: '876543210987654321' })
   @ApiOkResponse({ description: 'Full permission set returned.' })
   @ApiUnauthorizedResponse({ description: 'Valid API key required.' })
   getMemberPermissions(
@@ -85,9 +97,15 @@ export class PermissionsController {
   // ─── Admin-only endpoints ──────────────────────────────────────────
 
   @Post('inheritance-rules')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(SystemAdminGuard)
   @ApiBearerAuth('session-token')
-  @ApiOperation({ summary: 'Create or update an inheritance rule' })
+  @ApiOperation({
+    summary: 'Create or update an inheritance rule',
+    description:
+      'Upserts a permission inheritance rule that causes members holding a source role to ' +
+      'also receive all permissions of a target role, optionally scoped to a specific server.',
+  })
   @ApiBody({ type: UpsertInheritanceRuleDto })
   @ApiOkResponse({ description: 'Inheritance rule upsert result returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
@@ -99,7 +117,10 @@ export class PermissionsController {
   @Get('inheritance-rules')
   @UseGuards(SystemAdminGuard)
   @ApiBearerAuth('session-token')
-  @ApiOperation({ summary: 'List inheritance rules' })
+  @ApiOperation({
+    summary: 'List inheritance rules',
+    description: 'Returns all configured role inheritance rules.',
+  })
   @ApiOkResponse({ description: 'Inheritance rules list returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })

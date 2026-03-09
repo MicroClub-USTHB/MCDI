@@ -35,7 +35,7 @@ async function bootstrap() {
   app.enableCors({
     origin: nodeEnv === 'development' ? true : allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-API-Key'],
     credentials: true,
   });
 
@@ -56,15 +56,19 @@ async function bootstrap() {
   // Swagger Configuration
   const config = new DocumentBuilder()
     .setTitle('MCDI API')
-    .setDescription('Minecraft Club Discord Integration API Documentation')
+    .setDescription(
+      'MicroClub Discord Identity API.\n\n' +
+      '**MC Project endpoints** authenticate with `X-API-Key` header.\n\n' +
+      '**Admin endpoints** authenticate with `Authorization: Bearer <token>`.\n\n' +
+      'Scopes and operations are granted per project–server pair by a system administrator.',
+    )
     .setVersion('1.0')
-    .addTag('Authentication', 'OAuth 2.0 authentication endpoints')
-    .addTag('Members', 'Member queries — requires project API key')
-    .addTag('Permissions', 'Permission checks and inheritance rules')
-    .addTag('Servers', 'Server management — requires System Admin')
-    .addTag('Admin Projects', 'Project management — requires System Admin')
-    .addTag('Admin Members', 'Admin member management — requires System Admin')
-    .addTag('Admin Sync', 'Sync management — requires System Admin')
+    .addTag('Authentication', 'Discord OAuth login flow and session management')
+    .addTag('Members', 'Member lookups and cross-server views')
+    .addTag('Permissions', 'Permission checking and inheritance rule management')
+    .addTag('Projects', 'MC Project registration and server access grants — system admin only')
+    .addTag('Servers', 'Discord server registration and lifecycle management — system admin only')
+    .addTag('Sync', 'Manual sync triggering and sync log inspection — system admin only')
     .addBearerAuth(
       {
         type: 'http',

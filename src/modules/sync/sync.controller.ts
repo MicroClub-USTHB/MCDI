@@ -14,6 +14,7 @@ import {
 import {
   ApiAcceptedResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -32,7 +33,7 @@ import { SyncLogsResponseDto } from './dto/sync-log.dto';
 import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
-@ApiTags('Admin Sync')
+@ApiTags('Sync')
 @ApiBearerAuth('session-token')
 @UseGuards(SystemAdminGuard)
 @Controller('admin/sync')
@@ -44,9 +45,13 @@ export class SyncController {
   @Post('full')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
-    summary:
-      'Trigger a manual sync for a server (supports ALL, MEMBERS, ROLES)',
+    summary: 'Trigger a full sync',
+    description:
+      'Starts a manual sync for one or more servers. ' +
+      'Use `target` to limit the sync to MEMBERS, ROLES, or ALL (default). ' +
+      'Omit `serverIds` to sync all active servers.',
   })
+  @ApiBody({ type: TriggerSyncDto })
   @ApiAcceptedResponse({
     description: 'Sync started.',
     schema: { example: { syncId: 42 } },

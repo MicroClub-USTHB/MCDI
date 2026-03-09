@@ -48,7 +48,7 @@ type RequestWithUser = Request & {
   };
 };
 
-@ApiTags('Admin Projects')
+@ApiTags('Projects')
 @ApiBearerAuth('session-token')
 @Controller('admin/projects')
 @UseGuards(SystemAdminGuard)
