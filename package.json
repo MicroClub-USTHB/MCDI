@@ -20,12 +20,21 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
+    "db:studio": "drizzle-kit studio --host 0.0.0.0",
     "db:seed": "tsx src/database/seed.ts",
     "db:clear": "tsx src/database/clear.ts",
     "test:ci": "jest --json --outputFile=test-results.json --coverage --coverageReporters=json-summary",
     "lint:report": "eslint \"src/**/*.ts\" --format json --output-file=eslint-results.json || true",
-    "issues:report": "tsx scripts/generate-issues.ts"
+    "issues:report": "tsx scripts/generate-issues.ts",
+    "docker:up": "docker-compose up -d",
+    "docker:up:build": "docker-compose up --build -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f api",
+    "docker:restart": "docker-compose restart api",
+    "docker:db:push": "docker-compose exec api npm run db:push",
+    "docker:db:seed": "docker-compose exec api npm run db:seed",
+    "docker:db:studio": "docker exec mcdi-api-1 sh -c \"pkill -f drizzle-kit 2>/dev/null; sleep 1; nohup npx drizzle-kit studio --host 0.0.0.0 > /tmp/drizzle-studio.log 2>&1 &\" && echo 'Drizzle Studio starting at https://local.drizzle.studio (check logs: npm run docker:db:studio:logs)'",
+    "docker:db:studio:logs": "docker exec mcdi-api-1 tail -f /tmp/drizzle-studio.log"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

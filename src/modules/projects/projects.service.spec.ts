@@ -10,7 +10,6 @@ const mockRepo = {
   findAll: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
-  replaceScopes: jest.fn(),
   updateKey: jest.fn(),
   setActive: jest.fn(),
   delete: jest.fn(),
@@ -19,11 +18,13 @@ const mockRepo = {
   // access methods
   findProjectById: jest.fn(),
   findServerById: jest.fn(),
+  findMainServers: jest.fn(),
   findAccessMapping: jest.fn(),
   upsertAccessMapping: jest.fn(),
   revokeAccessMapping: jest.fn(),
   insertAuditEntry: jest.fn(),
   isOperationAllowed: jest.fn(),
+  isScopeAllowed: jest.fn(),
   listServersByProject: jest.fn(),
   listProjectsByServer: jest.fn(),
   listAccessMatrix: jest.fn(),
@@ -36,9 +37,10 @@ const fakeProject = (overrides = {}) => ({
   description: 'desc',
   apiKeyPrefix: 'pk_aabbccdd',
   apiKeyHash: 'somehash',
+  apiKeyCreatedAt: new Date(),
+  apiKeyLastUsedAt: null,
   isActive: true,
   isInternal: false,
-  scopes: [],
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,
@@ -67,11 +69,11 @@ describe('ProjectsService', () => {
     it('returns a full API key (prefix.secret) and the project row', async () => {
       const project = fakeProject();
       mockRepo.create.mockResolvedValue(project);
+      mockRepo.findMainServers.mockResolvedValue([]);
 
       const result = await service.create({
         name: 'Test',
         description: 'desc',
-        scopes: [],
       });
 
       expect(result.project).toEqual(project);
@@ -82,8 +84,9 @@ describe('ProjectsService', () => {
     it('stores the hash, not the plaintext secret', async () => {
       const project = fakeProject();
       mockRepo.create.mockResolvedValue(project);
+      mockRepo.findMainServers.mockResolvedValue([]);
 
-      await service.create({ name: 'P', description: '', scopes: [] });
+      await service.create({ name: 'P', description: '' });
 
       const arg = mockRepo.create.mock.calls[0][0];
       expect(arg).toHaveProperty('apiKeyHash');
@@ -109,26 +112,28 @@ describe('ProjectsService', () => {
     });
   });
 
-  // ── regenerateKey ─────────────────────────────────────────────────────
+  // ── getApiKeyInfo ─────────────────────────────────────────────────────
 
-  describe('regenerateKey', () => {
-    it('returns a new full key and updates only prefix+hash', async () => {
-      mockRepo.findOne.mockResolvedValue(fakeProject());
-      mockRepo.updateKey.mockResolvedValue(undefined);
+  describe('getApiKeyInfo', () => {
+    it('returns API key metadata for an existing project', async () => {
+      const project = fakeProject();
+      mockRepo.findOne.mockResolvedValue(project);
 
-      const result = await service.regenerateKey('proj-1');
+      const result = await service.getApiKeyInfo('proj-1');
 
-      expect(result.apiKey).toMatch(/^pk_[0-9a-f]{8}\.[0-9a-f]{64}$/);
-      expect(mockRepo.updateKey).toHaveBeenCalledWith(
-        'proj-1',
-        expect.stringMatching(/^[0-9a-f]{64}$/), // hash
-        expect.stringMatching(/^pk_/), // prefix
-      );
+      expect(result).toEqual({
+        projectId: project.id,
+        projectName: project.name,
+        apiKeyPrefix: project.apiKeyPrefix,
+        apiKeyCreatedAt: project.apiKeyCreatedAt,
+        apiKeyLastUsedAt: project.apiKeyLastUsedAt,
+        isActive: project.isActive,
+      });
     });
 
     it('throws NotFoundException when project does not exist', async () => {
       mockRepo.findOne.mockResolvedValue(null);
-      await expect(service.regenerateKey('missing')).rejects.toThrow(
+      await expect(service.getApiKeyInfo('missing')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -196,7 +201,7 @@ describe('ProjectsService', () => {
       );
     });
 
-    it('updates name/description without touching scopes when dto.scopes is undefined', async () => {
+    it('updates name/description', async () => {
       const updated = fakeProject();
       mockRepo.update.mockResolvedValue(updated);
       mockRepo.findOne.mockResolvedValue(updated);
@@ -204,23 +209,6 @@ describe('ProjectsService', () => {
       const result = await service.update('proj-1', { name: 'Renamed' });
 
       expect(result).toEqual(updated);
-      expect(mockRepo.replaceScopes).not.toHaveBeenCalled();
-    });
-
-    it('replaces scopes when dto.scopes is provided', async () => {
-      const updated = fakeProject();
-      mockRepo.update.mockResolvedValue(updated);
-      mockRepo.findOne.mockResolvedValue(updated);
-      mockRepo.replaceScopes.mockResolvedValue(undefined);
-
-      await service.update('proj-1', {
-        name: 'Renamed',
-        scopes: ['read_members' as any],
-      });
-
-      expect(mockRepo.replaceScopes).toHaveBeenCalledWith('proj-1', [
-        'read_members',
-      ]);
     });
   });
 

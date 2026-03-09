@@ -90,7 +90,6 @@ export class ProjectsController {
           description: 'Main website',
           apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
           isActive: true,
-          scopes: ['read_members'],
           createdAt: '2026-02-20T00:00:00.000Z',
         },
       },
@@ -135,23 +134,32 @@ export class ProjectsController {
     return this.projectsService.update(id, dto);
   }
 
-  @Post(':id/regenerate-key')
-  @HttpCode(HttpStatus.OK)
+  @Get(':id/api-key')
   @ApiOperation({
-    summary: 'Regenerate API key',
+    summary: 'Reveal project API key info',
     description:
-      'Generates a new API key. The old key is immediately invalid. New key is returned once — save it.',
+      'Returns the API key prefix and metadata. The full secret cannot be recovered — ' +
+      'use POST :id/regenerate-api-key to generate a new one.',
   })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiOkResponse({
-    description: 'New API key generated. Old key is now invalid.',
-    schema: { example: { apiKey: 'mcdi_pk_live_xy98zw76.64hexsecret...' } },
+    description: 'API key info retrieved.',
+    schema: {
+      example: {
+        projectId: 'uuid',
+        projectName: 'MicroClub Website',
+        apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+        apiKeyCreatedAt: '2026-02-20T00:00:00.000Z',
+        apiKeyLastUsedAt: '2026-03-01T12:00:00.000Z',
+        isActive: true,
+      },
+    },
   })
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  regenerateKey(@Param('id') id: string) {
-    return this.projectsService.regenerateKey(id);
+  getApiKeyInfo(@Param('id') id: string) {
+    return this.projectsService.getApiKeyInfo(id);
   }
 
   @Delete(':id/key')
@@ -273,7 +281,13 @@ export class ProjectsController {
   // ─── Project-Server Access ─────────────────────────────────────────
 
   @Put(':projectId/servers/:serverId')
-  @ApiOperation({ summary: 'Grant or update project access to a server' })
+  @ApiOperation({
+    summary: 'Grant or update project access to a server',
+    description:
+      'Creates or updates the access mapping between a project and a server. ' +
+      'You can set both the allowed operations and the scopes per server. ' +
+      'If scopes are omitted, existing scopes are preserved (or all scopes are granted for new mappings).',
+  })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({
     name: 'serverId',
@@ -281,7 +295,23 @@ export class ProjectsController {
     example: '123456789012345678',
   })
   @ApiBody({ type: SetProjectServerAccessDto })
-  @ApiOkResponse({ description: 'Access mapping upserted.' })
+  @ApiOkResponse({
+    description: 'Access mapping upserted.',
+    schema: {
+      example: {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        serverId: '123456789012345678',
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members', 'check_permissions'],
+        createdAt: '2026-02-20T00:00:00.000Z',
+        updatedAt: '2026-03-09T12:00:00.000Z',
+      },
+    },
+  })
   @ApiNotFoundResponse({ description: 'Project or server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
@@ -295,6 +325,7 @@ export class ProjectsController {
       projectId,
       serverId,
       operations: dto.operations,
+      scopes: dto.scopes,
       changedBy: this.resolveActor(req),
     });
   }
@@ -326,7 +357,25 @@ export class ProjectsController {
   @Get(':projectId/servers')
   @ApiOperation({ summary: 'List servers accessible by a project' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
-  @ApiOkResponse({ description: 'Server mappings retrieved successfully.' })
+  @ApiOkResponse({
+    description: 'Server mappings retrieved successfully.',
+    schema: {
+      example: [
+        {
+          projectId: '123e4567-e89b-12d3-a456-426614174000',
+          serverId: '123456789012345678',
+          serverName: 'MicroClub Main',
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+          scopes: ['read_members', 'check_permissions'],
+          updatedAt: '2026-03-09T12:00:00.000Z',
+        },
+      ],
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   listServersByProject(@Param('projectId') projectId: string) {
@@ -348,8 +397,31 @@ export class ProjectsController {
   }
 
   @Get('access/matrix')
-  @ApiOperation({ summary: 'List full project-server access matrix' })
-  @ApiOkResponse({ description: 'Access matrix retrieved successfully.' })
+  @ApiOperation({
+    summary: 'List full project-server access matrix',
+    description:
+      'Returns every project-server mapping including operations and per-server scopes.',
+  })
+  @ApiOkResponse({
+    description: 'Access matrix retrieved successfully.',
+    schema: {
+      example: [
+        {
+          projectId: '123e4567-e89b-12d3-a456-426614174000',
+          projectName: 'MicroClub Website',
+          serverId: '123456789012345678',
+          serverName: 'MicroClub Main',
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+          scopes: ['read_members', 'check_permissions'],
+          updatedAt: '2026-03-09T12:00:00.000Z',
+        },
+      ],
+    },
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   listAccessMatrix() {

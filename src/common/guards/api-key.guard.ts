@@ -55,17 +55,25 @@ export class ApiKeyGuard implements CanActivate {
       .set({ apiKeyLastUsedAt: new Date() })
       .where(eq(schema.projects.id, project.id));
 
-    // Check required scope if set on the route via @RequireScope()
+    // Check required scope — needs serverId since scopes are per project-server
     const requiredScope = this.reflector.get<string>(
       SCOPE_KEY,
       context.getHandler(),
     );
-    if (requiredScope) {
-      await validateScope(this.db, project.id, requiredScope);
-    }
 
     // Checking if project has access to the requested server
     const serverId = this.extractServerId(request);
+
+    // If a scope is required, a serverId must be present (scopes are per-server)
+    if (requiredScope) {
+      if (!serverId) {
+        throw new BadRequestException(
+          'Server ID is required when scope validation is needed',
+        );
+      }
+      await validateScope(this.db, project.id, serverId, requiredScope);
+    }
+
     if (!serverId) {
       request.project = project;
       return true;

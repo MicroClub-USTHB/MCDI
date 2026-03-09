@@ -22,6 +22,7 @@ function buildDb(finalValue: unknown = []) {
       'groupBy',
       'as',
       'execute',
+      '$dynamic',
     ];
     methods.forEach((m) => {
       chain[m] = jest.fn().mockReturnValue(chain);
@@ -97,6 +98,7 @@ function buildSequentialDb(results: unknown[]) {
       'groupBy',
       'as',
       'execute',
+      '$dynamic',
     ];
     methods.forEach((m) => {
       chain[m] = jest.fn().mockReturnValue(chain);

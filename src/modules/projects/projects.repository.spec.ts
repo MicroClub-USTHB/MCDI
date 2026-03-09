@@ -67,25 +67,7 @@ const fakeProjectRow = (overrides: Record<string, unknown> = {}) => ({
 
 describe('ProjectsRepository', () => {
   describe('create', () => {
-    it('inserts project and scopes, returns ProjectRow', async () => {
-      const row = fakeProjectRow();
-      // 1st call: insert project (returning [row])
-      // 2nd call: insert scopes (returning [] — but values() is awaited via chain.then → [])
-      const db = buildSequentialDb([[row], []]);
-      const repo = await buildRepo(db);
-      const result = await repo.create({
-        name: 'Test Project',
-        apiKeyHash: 'h',
-        apiKeyPrefix: 'pfx',
-        scopes: ['read:members'],
-      });
-      expect(result).toMatchObject({
-        name: 'Test Project',
-        scopes: ['read:members'],
-      });
-    });
-
-    it('works when no scopes provided', async () => {
+    it('inserts project and returns ProjectRow', async () => {
       const row = fakeProjectRow();
       const db = buildSequentialDb([[row]]);
       const repo = await buildRepo(db);
@@ -93,23 +75,20 @@ describe('ProjectsRepository', () => {
         name: 'Test Project',
         apiKeyHash: 'h',
         apiKeyPrefix: 'pfx',
-        scopes: [],
       });
-      expect(result).toMatchObject({ scopes: [] });
-      expect(db.insert).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({
+        name: 'Test Project',
+      });
     });
   });
 
   describe('findAll', () => {
-    it('returns projects with merged scopes', async () => {
+    it('returns all projects', async () => {
       const projectRows = [fakeProjectRow()];
-      const scopeRows = [{ projectId: 'proj-1', scope: 'read:members' }];
-      // select projects → projectRows; select scopes (getScopeMap) → scopeRows
-      const db = buildSequentialDb([projectRows, scopeRows]);
+      const db = buildSequentialDb([projectRows]);
       const repo = await buildRepo(db);
       const results = await repo.findAll();
       expect(results).toHaveLength(1);
-      expect(results[0].scopes).toContain('read:members');
     });
 
     it('returns empty list when no projects', async () => {
@@ -121,14 +100,12 @@ describe('ProjectsRepository', () => {
   });
 
   describe('findOne', () => {
-    it('returns project with scopes when found', async () => {
+    it('returns project when found', async () => {
       const row = fakeProjectRow();
-      const scopes = [{ scope: 'read:members' }];
-      const db = buildSequentialDb([[row], scopes]);
+      const db = buildSequentialDb([[row]]);
       const repo = await buildRepo(db);
       const result = await repo.findOne('proj-1');
       expect(result).not.toBeNull();
-      expect(result!.scopes).toContain('read:members');
     });
 
     it('returns null when not found', async () => {
@@ -139,10 +116,9 @@ describe('ProjectsRepository', () => {
   });
 
   describe('update', () => {
-    it('returns updated project with scopes', async () => {
+    it('returns updated project', async () => {
       const updated = fakeProjectRow({ name: 'Renamed' });
-      const scopes = [{ scope: 'write:members' }];
-      const db = buildSequentialDb([[updated], scopes]);
+      const db = buildSequentialDb([[updated]]);
       const repo = await buildRepo(db);
       const result = await repo.update('proj-1', { name: 'Renamed' });
       expect(result).not.toBeNull();
@@ -153,26 +129,6 @@ describe('ProjectsRepository', () => {
       const db = buildSequentialDb([[]]);
       const repo = await buildRepo(db);
       expect(await repo.update('ghost', { name: 'x' })).toBeNull();
-    });
-  });
-
-  describe('replaceScopes', () => {
-    it('deletes existing scopes and inserts new ones', async () => {
-      const db = buildSequentialDb([[], []]);
-      const repo = await buildRepo(db);
-      await expect(
-        repo.replaceScopes('proj-1', ['read:members']),
-      ).resolves.toBeUndefined();
-      expect(db.delete).toHaveBeenCalledTimes(1);
-      expect(db.insert).toHaveBeenCalledTimes(1);
-    });
-
-    it('only deletes when scopes array is empty', async () => {
-      const db = buildSequentialDb([[]]);
-      const repo = await buildRepo(db);
-      await repo.replaceScopes('proj-1', []);
-      expect(db.delete).toHaveBeenCalledTimes(1);
-      expect(db.insert).not.toHaveBeenCalled();
     });
   });
 

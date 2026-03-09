@@ -46,7 +46,6 @@ export interface ProjectRow {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
-  scopes: string[];
 }
 
 export interface CreateProjectData {
@@ -54,7 +53,6 @@ export interface CreateProjectData {
   description?: string;
   apiKeyHash: string;
   apiKeyPrefix: string;
-  scopes: string[];
 }
 
 export interface UpdateProjectData {
@@ -81,16 +79,7 @@ export class ProjectsRepository {
       })
       .returning();
 
-    if (data.scopes.length > 0) {
-      await this.db.insert(schema.projectScopes).values(
-        data.scopes.map((scope) => ({
-          projectId: project.id,
-          scope,
-        })),
-      );
-    }
-
-    return this.toProjectRow(project, data.scopes);
+    return this.toProjectRow(project);
   }
 
   async findAll(): Promise<ProjectRow[]> {
@@ -108,12 +97,7 @@ export class ProjectsRepository {
       })
       .from(schema.projects);
 
-    const scopeMap = await this.getScopeMap(projects.map((p) => p.id));
-
-    return projects.map((p) => ({
-      ...p,
-      scopes: scopeMap[p.id] ?? [],
-    }));
+    return projects.map((p) => ({ ...p }));
   }
 
   async findOne(id: string): Promise<ProjectRow | null> {
@@ -135,8 +119,7 @@ export class ProjectsRepository {
 
     if (!project) return null;
 
-    const scopes = await this.getScopesForProject(id);
-    return { ...project, scopes };
+    return { ...project };
   }
 
   async update(
@@ -161,20 +144,7 @@ export class ProjectsRepository {
 
     if (!project) return null;
 
-    const scopes = await this.getScopesForProject(id);
-    return { ...project, scopes };
-  }
-
-  async replaceScopes(projectId: string, scopes: string[]): Promise<void> {
-    await this.db
-      .delete(schema.projectScopes)
-      .where(eq(schema.projectScopes.projectId, projectId));
-
-    if (scopes.length > 0) {
-      await this.db
-        .insert(schema.projectScopes)
-        .values(scopes.map((scope) => ({ projectId, scope })));
-    }
+    return { ...project };
   }
 
   async updateKey(
@@ -213,37 +183,8 @@ export class ProjectsRepository {
 
   // ─────────────────────────────── Helpers ──────────────────────────────
 
-  private async getScopesForProject(projectId: string): Promise<string[]> {
-    const rows = await this.db
-      .select({ scope: schema.projectScopes.scope })
-      .from(schema.projectScopes)
-      .where(eq(schema.projectScopes.projectId, projectId));
-
-    return rows.map((r) => r.scope);
-  }
-
-  private async getScopeMap(
-    projectIds: string[],
-  ): Promise<Record<string, string[]>> {
-    if (projectIds.length === 0) return {};
-
-    const rows = await this.db
-      .select({
-        projectId: schema.projectScopes.projectId,
-        scope: schema.projectScopes.scope,
-      })
-      .from(schema.projectScopes);
-
-    return rows.reduce<Record<string, string[]>>((acc, row) => {
-      if (!acc[row.projectId]) acc[row.projectId] = [];
-      acc[row.projectId].push(row.scope);
-      return acc;
-    }, {});
-  }
-
   private toProjectRow(
     project: typeof schema.projects.$inferSelect,
-    scopes: string[],
   ): ProjectRow {
     return {
       id: project.id,
@@ -255,7 +196,6 @@ export class ProjectsRepository {
       isActive: project.isActive,
       createdAt: project.createdAt,
       updatedAt: project.updatedAt,
-      scopes,
     };
   }
 
@@ -383,6 +323,18 @@ export class ProjectsRepository {
     return row ?? null;
   }
 
+  async findMainServers() {
+    return this.db
+      .select({ id: servers.id, name: servers.name })
+      .from(servers)
+      .where(
+        and(
+          eq(servers.isMain, true),
+          eq(servers.isActive, true),
+        ),
+      );
+  }
+
   async findAccessMapping(projectId: string, serverId: string) {
     const [row] = await this.db
       .select()
@@ -403,6 +355,7 @@ export class ProjectsRepository {
     serverId: string,
     operations: ProjectServerOperations,
     now: Date,
+    scopes: string[] = [],
   ) {
     const [row] = await this.db
       .insert(projectServers)
@@ -410,6 +363,7 @@ export class ProjectsRepository {
         projectId,
         serverId,
         operations,
+        scopes,
         createdAt: now,
         updatedAt: now,
       })
@@ -417,6 +371,7 @@ export class ProjectsRepository {
         target: [projectServers.projectId, projectServers.serverId],
         set: {
           operations,
+          scopes,
           updatedAt: now,
         },
       })
@@ -478,6 +433,7 @@ export class ProjectsRepository {
         serverId: servers.id,
         serverName: servers.name,
         operations: projectServers.operations,
+        scopes: projectServers.scopes,
         updatedAt: projectServers.updatedAt,
       })
       .from(projectServers)
@@ -493,6 +449,7 @@ export class ProjectsRepository {
         projectId: projects.id,
         projectName: projects.name,
         operations: projectServers.operations,
+        scopes: projectServers.scopes,
         updatedAt: projectServers.updatedAt,
       })
       .from(projectServers)
@@ -509,6 +466,7 @@ export class ProjectsRepository {
         serverId: servers.id,
         serverName: servers.name,
         operations: projectServers.operations,
+        scopes: projectServers.scopes,
         updatedAt: projectServers.updatedAt,
       })
       .from(projectServers)
@@ -530,5 +488,16 @@ export class ProjectsRepository {
   async hasServerAccess(projectId: string, serverId: string): Promise<boolean> {
     const row = await this.findAccessMapping(projectId, serverId);
     return row !== null;
+  }
+
+  /** Check whether a project-server mapping includes a specific scope */
+  async isScopeAllowed(
+    projectId: string,
+    serverId: string,
+    scope: string,
+  ): Promise<boolean> {
+    const access = await this.findAccessMapping(projectId, serverId);
+    if (!access) return false;
+    return Array.isArray(access.scopes) && access.scopes.includes(scope);
   }
 }

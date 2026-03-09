@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import type { ProjectServerOperations } from '../../database/entities/project-server.entity';
 import { generateApiKey } from '../../common/utils/api-key.util';
-import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectDto, ProjectScope } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 import {
@@ -33,8 +33,39 @@ export class ProjectsService {
       description: dto.description,
       apiKeyHash: hash,
       apiKeyPrefix: prefix,
-      scopes: dto.scopes ?? [],
     });
+
+    // Determine scopes: use provided or default to all available scopes
+    const scopes = dto.scopes ?? Object.values(ProjectScope);
+
+    // Grant server access: use provided serverIds, or default to all main servers
+    let serverIds = dto.serverIds ?? [];
+    if (serverIds.length === 0) {
+      const mainServers = await this.projectsRepository.findMainServers();
+      serverIds = mainServers.map((s) => s.id);
+    }
+
+    const now = new Date();
+    for (const serverId of serverIds) {
+      const server = await this.projectsRepository.findServerById(serverId);
+      if (!server) continue; // skip invalid server IDs silently
+      await this.projectsRepository.upsertAccessMapping(
+        project.id,
+        serverId,
+        DEFAULT_PROJECT_SERVER_OPERATIONS,
+        now,
+        scopes,
+      );
+      await this.projectsRepository.insertAuditEntry({
+        projectId: project.id,
+        serverId,
+        action: 'GRANT',
+        operationsBefore: null,
+        operationsAfter: DEFAULT_PROJECT_SERVER_OPERATIONS,
+        changedBy: 'system:project-creation',
+        changedAt: now,
+      });
+    }
 
     return { apiKey: fullKey, project };
   }
@@ -49,6 +80,18 @@ export class ProjectsService {
     return project;
   }
 
+  async getApiKeyInfo(id: string) {
+    const project = await this.findOne(id);
+    return {
+      projectId: project.id,
+      projectName: project.name,
+      apiKeyPrefix: project.apiKeyPrefix,
+      apiKeyCreatedAt: project.apiKeyCreatedAt,
+      apiKeyLastUsedAt: project.apiKeyLastUsedAt,
+      isActive: project.isActive,
+    };
+  }
+
   async update(id: string, dto: UpdateProjectDto): Promise<ProjectRow> {
     // Update name/description if provided
     const project = await this.projectsRepository.update(id, {
@@ -57,22 +100,7 @@ export class ProjectsService {
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
 
-    // Replace scopes if provided in the DTO
-    if (dto.scopes !== undefined) {
-      await this.projectsRepository.replaceScopes(id, dto.scopes);
-    }
-
     return this.findOne(id);
-  }
-
-  async regenerateKey(id: string): Promise<{ apiKey: string }> {
-    await this.findOne(id); // throws 404 if not found
-
-    const { fullKey, prefix, hash } = generateApiKey();
-    await this.projectsRepository.updateKey(id, hash, prefix);
-
-    // Old key is immediately invalid — new prefix+hash stored
-    return { apiKey: fullKey };
   }
 
   async revokeKey(id: string): Promise<void> {
@@ -145,6 +173,7 @@ export class ProjectsService {
     projectId: string;
     serverId: string;
     operations?: Partial<ProjectServerOperations>;
+    scopes?: string[];
     changedBy: string;
   }) {
     const project = await this.projectsRepository.findProjectById(
@@ -164,11 +193,18 @@ export class ProjectsService {
     const now = new Date();
     const normalizedOps = this.normalizeOperations(params.operations);
 
+    // If scopes are provided, use them; otherwise keep existing or default to all
+    const scopes =
+      params.scopes ??
+      (before?.scopes as string[] | undefined) ??
+      Object.values(ProjectScope);
+
     const saved = await this.projectsRepository.upsertAccessMapping(
       params.projectId,
       params.serverId,
       normalizedOps,
       now,
+      scopes,
     );
 
     await this.projectsRepository.insertAuditEntry({

@@ -10,7 +10,7 @@ const mockProjectsService = {
   findAll: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
-  regenerateKey: jest.fn(),
+  getApiKeyInfo: jest.fn(),
   revokeKey: jest.fn(),
   restoreKey: jest.fn(),
   delete: jest.fn(),
@@ -83,10 +83,16 @@ describe('ProjectsController', () => {
     });
   });
 
-  it('regenerateKey delegates to service', async () => {
-    mockProjectsService.regenerateKey.mockResolvedValue({ apiKey: 'new-key' });
-    await controller.regenerateKey('p1');
-    expect(mockProjectsService.regenerateKey).toHaveBeenCalledWith('p1');
+  it('getApiKeyInfo delegates to service', async () => {
+    mockProjectsService.getApiKeyInfo.mockResolvedValue({
+      projectId: 'p1',
+      projectName: 'Test',
+      apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+      isActive: true,
+    });
+    const result = await controller.getApiKeyInfo('p1');
+    expect(mockProjectsService.getApiKeyInfo).toHaveBeenCalledWith('p1');
+    expect(result).toMatchObject({ projectId: 'p1' });
   });
 
   it('revokeKey delegates to service', async () => {

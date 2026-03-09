@@ -57,7 +57,8 @@ export class MemberController {
   @ApiOperation({
     summary: 'Get a single member by Discord ID',
     description:
-      'Returns detailed profile of a member including all roles in the specified server',
+      'Returns detailed profile of a member including all roles in the specified server. ' +
+      'Requires the `read_members` scope granted for this specific server.',
   })
   @ApiParam({
     name: 'serverId',
@@ -73,7 +74,8 @@ export class MemberController {
   @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
   @ApiForbiddenResponse({
-    description: 'Project does not have access to this server.',
+    description:
+      'Project does not have access to this server, or missing `read_members` scope for this server.',
   })
   @ApiNotFoundResponse({ description: 'Member not found in this server.' })
   async getMember(
@@ -88,7 +90,9 @@ export class MemberController {
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Search members',
-    description: 'Search members by name, filter by role, with pagination.',
+    description:
+      'Search members by name, filter by role, with pagination. ' +
+      'Requires the `read_members` scope granted for this specific server.',
   })
   @ApiParam({
     name: 'serverId',
@@ -121,7 +125,8 @@ export class MemberController {
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
   @ApiForbiddenResponse({
-    description: 'Project does not have access to this server.',
+    description:
+      'Project does not have access to this server, or missing `read_members` scope for this server.',
   })
   async searchMembers(
     @Param('serverId') serverId: string,
@@ -134,6 +139,8 @@ export class MemberController {
   @RequireScope('read_members')
   @ApiOperation({
     summary: 'Get all effective permissions of a member in a server',
+    description:
+      'Requires the `read_members` scope granted for this specific server.',
   })
   @ApiParam({
     name: 'serverId',

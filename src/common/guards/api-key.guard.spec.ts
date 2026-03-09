@@ -49,7 +49,7 @@ describe('ApiKeyGuard', () => {
   let mockAccessService: jest.Mocked<ProjectsService>;
 
   const setupGuard = async (projectRows: any[]) => {
-    // DB returns: [projects query, update set chain, scopes query, servers query]
+    // DB returns: [projects query, update set chain, servers query]
     let dbSelectCallIdx = 0;
     const selectResults = [projectRows];
     mockDb = {

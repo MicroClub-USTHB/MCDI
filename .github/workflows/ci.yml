@@ -1,0 +1,133 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main 
+      - dev  
+
+  pull_request:
+    branches:
+      - dev     
+      - main    
+
+
+env:
+  NODE_VERSION: '20'
+  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/mcdi-api
+
+jobs:
+
+ 
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run unit tests with coverage
+        run: npm run test:ci
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7   # Auto-delete after 7 days to save storage
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    services:
+      postgres:
+        image: postgres:16-alpine
+
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: mcdi_test
+
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Push database schema
+        run: npm run db:push
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
+          MC_GUILD_ID: ${{ secrets.MC_GUILD_ID }}
+          APP_PORT: 3000
+          PORT: 3000
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: [lint-and-test, e2e-tests]
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract Docker metadata
+        id: meta    # "id" lets other steps reference this step's outputs
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          dockerfile: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max

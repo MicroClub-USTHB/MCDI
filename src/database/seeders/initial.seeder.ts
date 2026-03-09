@@ -3,7 +3,6 @@ import * as schema from '../entities';
 import { createMemberFactory } from '../factories/member.factory';
 import { createServerFactory } from '../factories/server.factory';
 import { createProjectFactory } from '../factories/project.factory';
-import { createAllScopesFactory } from '../factories/project-scope.factory';
 import { createRoleFactory } from '../factories/role.factory';
 import { createProjectRoleFactory } from '../factories/project-role.factory';
 import { createSessionFactory } from '../factories/session.factory';
@@ -535,6 +534,8 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .returning();
 
   console.log('Linking projects to server...');
+  const allScopes = ['read_members', 'check_permissions'];
+
   const projectServersData: {
     projectId: string;
     serverId: string;
@@ -543,6 +544,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       SEND_MESSAGES: boolean;
       MANAGE_WEBHOOKS: boolean;
     };
+    scopes: string[];
   }[] = [];
 
   if (insertedInternalProject) {
@@ -550,6 +552,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       projectId: insertedInternalProject.id,
       serverId: serverId,
       operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: true },
+      scopes: allScopes,
     });
   }
 
@@ -558,6 +561,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       projectId: insertedExternalProject.id,
       serverId: serverId,
       operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false },
+      scopes: allScopes,
     });
   }
 
@@ -566,6 +570,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       projectId: insertedPublicProject.id,
       serverId: serverId,
       operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: false },
+      scopes: allScopes,
     });
   }
 
@@ -574,6 +579,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       projectId: insertedTestProject.id,
       serverId: serverId,
       operations: { READ: true, SEND_MESSAGES: true, MANAGE_WEBHOOKS: false },
+      scopes: allScopes,
     });
   }
 
@@ -602,22 +608,6 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     );
   }
 
-  // Seed scopes for all inserted projects
-  const allInsertedProjects = [
-    insertedInternalProject,
-    insertedExternalProject,
-    insertedPublicProject,
-    insertedTestProject,
-  ].filter(Boolean);
-  for (const proj of allInsertedProjects) {
-    if (proj) {
-      const scopesData = createAllScopesFactory(proj.id);
-      await db
-        .insert(schema.projectScopes)
-        .values(scopesData)
-        .onConflictDoNothing();
-    }
-  }
 
   console.log('Initial seeding completed!');
   console.log('\n=== TEST DATA SUMMARY ===');
