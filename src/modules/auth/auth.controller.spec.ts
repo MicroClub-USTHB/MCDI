@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AdminAuthService } from './services/admin-auth.service';
 
 const mockAuthService = {
   validateLoginRequest: jest.fn(),
@@ -12,6 +13,12 @@ const mockAuthService = {
   cleanupExpired: jest.fn(),
   createLoginSession: jest.fn(),
   resolveLoginToken: jest.fn(),
+};
+
+const mockAdminAuthService = {
+  adminPasswordLogin: jest.fn(),
+  buildAdminDiscordLoginUrl: jest.fn(),
+  handleAdminDiscordCallback: jest.fn(),
 };
 
 const mockRes = () => ({
@@ -27,7 +34,10 @@ describe('AuthController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: mockAuthService }],
+      providers: [
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: AdminAuthService, useValue: mockAdminAuthService },
+      ],
     }).compile();
     controller = module.get(AuthController);
   });
