@@ -174,7 +174,7 @@ describeIf('/api/admin/projects (e2e)', () => {
       const oldKey: string = create.body.apiKey;
 
       const res = await request(app.getHttpServer())
-        .post(`${BASE}/${projectId}/regenerate-key`)
+        .post(`${BASE}/${projectId}/regenerate-api-key`)
         .set('Authorization', auth())
         .expect(200);
 

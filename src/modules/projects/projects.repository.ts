@@ -173,6 +173,14 @@ export class ProjectsRepository {
   // ─────────────────────────────── Delete ───────────────────────────────
 
   async delete(id: string): Promise<boolean> {
+    // Clear dependent rows first to avoid FK violations
+    await this.db
+      .delete(projectServerAccessAudit)
+      .where(eq(projectServerAccessAudit.projectId, id));
+    await this.db
+      .delete(projectServers)
+      .where(eq(projectServers.projectId, id));
+
     const result = await this.db
       .delete(schema.projects)
       .where(eq(schema.projects.id, id))

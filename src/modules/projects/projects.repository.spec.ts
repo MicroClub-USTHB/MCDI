@@ -154,13 +154,14 @@ describe('ProjectsRepository', () => {
 
   describe('delete', () => {
     it('returns true when row is deleted', async () => {
-      const db = buildDb([{ id: 'proj-1' }]);
+      // delete() now issues 3 deletes: audit rows, project_servers, then the project itself
+      const db = buildSequentialDb([[], [], [{ id: 'proj-1' }]]);
       const repo = await buildRepo(db);
       expect(await repo.delete('proj-1')).toBe(true);
     });
 
     it('returns false when project not found', async () => {
-      const db = buildDb([]);
+      const db = buildSequentialDb([[], [], []]);
       const repo = await buildRepo(db);
       expect(await repo.delete('ghost')).toBe(false);
     });
