@@ -443,6 +443,13 @@ describeIf('/api/admin/projects (e2e)', () => {
 
       const projectId = create.body.project.id;
 
+      // Project creation auto-grants access to main servers; revoke it first
+      await request(app.getHttpServer())
+        .delete(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      // Now no mapping exists — should be 404
       await request(app.getHttpServer())
         .delete(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())

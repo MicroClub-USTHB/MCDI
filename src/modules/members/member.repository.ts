@@ -154,7 +154,7 @@ export class MemberRepository {
     // base query
     let baseQuery = this.db
       .select({
-        id: schema.members.id,
+        discordId: schema.members.id,
         username: schema.members.username,
         globalName: schema.members.globalName,
         displayName: schema.members.displayName,
