@@ -148,6 +148,7 @@ export interface ProjectFixture {
  * Inserts a test project and returns a usable plaintext API key.
  *
  * The auth service compares `SHA-256(secret)` against `apiKeyHash` in the DB.
+ * Pass `scopes` to grant per-server scopes in the project_servers row.
  */
 export async function seedTestProject(
   db: TestDb,
@@ -157,6 +158,8 @@ export async function seedTestProject(
     isInternal: boolean;
     isActive: boolean;
     redirectUri: string | null;
+    /** Scopes granted for this project on the given server. */
+    scopes: string[];
   }> = {},
 ): Promise<ProjectFixture> {
   const id = crypto.randomUUID();
@@ -181,11 +184,70 @@ export async function seedTestProject(
     isActive: overrides.isActive ?? true,
   });
 
-  // Link the project to the given server
+  // Link the project to the given server with optional scopes
   await db.insert(schema.projectServers).values({
     projectId: id,
     serverId,
+    scopes: overrides.scopes ?? [],
   });
 
   return { id, apiKey, prefix, hash };
+}
+
+export interface MemberFixture {
+  id: string;
+  roleId: string;
+}
+
+/**
+ * Seeds a member with a role inside a server and returns their IDs.
+ * Useful for members / permissions e2e tests.
+ */
+export async function seedMemberWithRole(
+  db: TestDb,
+  serverId: string,
+  overrides: Partial<{
+    memberId: string;
+    username: string;
+    isClubMember: boolean;
+  }> = {},
+): Promise<MemberFixture> {
+  // Generate unique 18-digit numeric IDs (Discord-like snowflakes)
+  const ts = Date.now();
+  const rand1 = randomBytes(2).readUInt16BE(0); // 0–65535
+  const rand2 = randomBytes(2).readUInt16BE(0) + 1; // ensure different from rand1
+  const memberId = overrides.memberId ?? `${ts}${String(rand1).padStart(5, '0')}`.slice(0, 18);
+  const roleId = `${ts}${String(rand2).padStart(5, '0')}`.slice(0, 18);
+
+  await db.insert(schema.members).values({
+    id: memberId,
+    username: overrides.username ?? `member_${memberId}`,
+    globalName: null,
+    displayName: null,
+    avatar: null,
+    isClubMember: overrides.isClubMember ?? true,
+    joinedAt: new Date(),
+    syncedAt: new Date(),
+  });
+
+  await db.insert(schema.serverMembers).values({
+    serverId,
+    memberId,
+    joinedAt: new Date(),
+  });
+
+  await db.insert(schema.roles).values({
+    id: roleId,
+    serverId,
+    name: `TestRole_${roleId}`,
+    color: 0xaaaaaa,
+    hoist: false,
+    position: 1,
+    managed: false,
+    mentionable: false,
+  });
+
+  await db.insert(schema.serverMemberRoles).values({ memberId, roleId });
+
+  return { id: memberId, roleId };
 }

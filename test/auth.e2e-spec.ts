@@ -16,7 +16,9 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
-import { sessions } from '../src/database/entities';
+import { members, sessions } from '../src/database/entities';
+import { hash } from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -235,6 +237,136 @@ describeIf('/api/auth (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ success: true });
+    });
+  });
+
+  // ─── POST /api/auth/admin/login ───────────────────────────────
+
+  describe('POST /api/auth/admin/login', () => {
+    const TEST_PASSWORD = 'admin-test-password-1234';
+    let adminMemberId: string;
+
+    beforeEach(async () => {
+      // Seed a member with isSystemAdmin=true and a hashed password
+      adminMemberId = '800000000000000099';
+      const passwordHash = await hash(TEST_PASSWORD, 10);
+
+      await db.insert(members).values({
+        id: adminMemberId,
+        username: 'sysadmin_e2e',
+        globalName: 'E2E System Admin',
+        displayName: 'E2E System Admin',
+        avatar: null,
+        isClubMember: false,
+        isSystemAdmin: true,
+        passwordHash,
+        joinedAt: new Date(),
+        syncedAt: new Date(),
+      });
+    });
+
+    it('returns a Bearer token for valid credentials', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_e2e', password: TEST_PASSWORD })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        token: expect.any(String),
+        expiresAt: expect.any(String),
+        member: {
+          id: adminMemberId,
+          username: 'sysadmin_e2e',
+        },
+      });
+    });
+
+    it('returns 401 for a wrong password', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_e2e', password: 'wrong-password' })
+        .expect(401);
+    });
+
+    it('returns 401 for an unknown username', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'ghost_user_xyz', password: TEST_PASSWORD })
+        .expect(401);
+    });
+
+    it('returns 403 when member exists but is not a system admin', async () => {
+      const passwordHash = await hash(TEST_PASSWORD, 10);
+
+      await db.insert(members).values({
+        id: '800000000000000088',
+        username: 'non_admin_user',
+        globalName: null,
+        displayName: null,
+        avatar: null,
+        isClubMember: true,
+        isSystemAdmin: false,
+        passwordHash,
+        joinedAt: new Date(),
+        syncedAt: new Date(),
+      });
+
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'non_admin_user', password: TEST_PASSWORD })
+        .expect(403);
+    });
+
+    it('returns 400 when required fields are missing', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_e2e' })
+        .expect(400);
+    });
+
+    it('the returned token is valid for SystemAdminGuard-protected routes', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_e2e', password: TEST_PASSWORD })
+        .expect(200);
+
+      const token = loginRes.body.token as string;
+
+      // Use the token to access a protected admin route
+      await request(app.getHttpServer())
+        .get('/api/servers')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+    });
+
+    it('token expires — expired token must be rejected', async () => {
+      // Manually insert an already-expired system-admin session
+      const expiredToken = 'expired-admin-token-e2e';
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId: adminMemberId,
+        token: expiredToken,
+        expiresAt: new Date(Date.now() - 60_000),
+      });
+
+      await request(app.getHttpServer())
+        .get('/api/servers')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
+    });
+  });
+
+  // ─── GET /api/auth/admin/discord ─────────────────────────────
+
+  describe('GET /api/auth/admin/discord', () => {
+    it('returns a Discord authorization URL', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/admin/discord')
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        url: expect.stringContaining('discord.com'),
+      });
     });
   });
 });

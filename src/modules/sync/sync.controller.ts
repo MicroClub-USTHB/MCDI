@@ -10,6 +10,7 @@ import {
   NotFoundException,
   Param,
   ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
@@ -163,13 +164,9 @@ export class SyncController {
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getSyncChangeDetails(
     @Param('syncLogId', ParseIntPipe) syncLogId: number,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
   ): Promise<SyncChangeDetailsResponseDto> {
-    return this.syncService.getSyncChangeDetails(
-      syncLogId,
-      limit ? Number(limit) : undefined,
-      offset ? Number(offset) : undefined,
-    );
+    return this.syncService.getSyncChangeDetails(syncLogId, limit, offset);
   }
 }

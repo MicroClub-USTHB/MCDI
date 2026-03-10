@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DRIZZLE } from '../../database/database.module';
@@ -29,6 +30,8 @@ interface RequestWithProject extends Request {
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
+  private readonly logger = new Logger(ApiKeyGuard.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
@@ -50,10 +53,16 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
-    void this.db
-      .update(schema.projects)
-      .set({ apiKeyLastUsedAt: new Date() })
-      .where(eq(schema.projects.id, project.id));
+    Promise.resolve(
+      this.db
+        .update(schema.projects)
+        .set({ apiKeyLastUsedAt: new Date() })
+        .where(eq(schema.projects.id, project.id)),
+    ).catch((err: unknown) => {
+      this.logger.warn(
+        `Failed to update apiKeyLastUsedAt for project ${project.id}: ${String(err)}`,
+      );
+    });
 
     // Check required scope — needs serverId since scopes are per project-server
     const requiredScope = this.reflector.get<string>(
