@@ -147,10 +147,8 @@ describeIf('/api/admin/sync (e2e)', () => {
   // ─── GET /api/admin/sync/status ───────────────────────────────
 
   describe('GET /api/admin/sync/status', () => {
-    let syncLogId: number;
-
     beforeEach(async () => {
-      const [log] = await db
+      await db
         .insert(serverSyncLogs)
         .values({
           serverId: adminCtx.serverId,
@@ -161,9 +159,7 @@ describeIf('/api/admin/sync (e2e)', () => {
           message: 'Completed successfully',
           startedAt: new Date(Date.now() - 5000),
           finishedAt: new Date(),
-        })
-        .returning({ id: serverSyncLogs.id });
-      syncLogId = log.id;
+        });
     });
 
     it('returns 401 without auth', async () => {

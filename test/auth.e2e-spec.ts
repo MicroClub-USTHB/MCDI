@@ -18,7 +18,6 @@ import {
 import { disableNock, enableNock } from './helpers/discord-mock';
 import { members, sessions } from '../src/database/entities';
 import { hash } from 'bcryptjs';
-import { eq } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 
