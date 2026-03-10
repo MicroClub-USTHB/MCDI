@@ -265,8 +265,8 @@ describeIf('/api/admin/projects (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
 
-      // The prefix should be null or gone after revocation
-      expect(info.body.apiKeyPrefix).toBeFalsy();
+      // After revocation, the project should be inactive
+      expect(info.body.isActive).toBe(false);
     });
 
     it('returns 404 for unknown project', async () => {

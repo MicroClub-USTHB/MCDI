@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { SyncLogService } from './sync-log.service';
 import { SyncRepository } from '../sync.repository';
 import { ServersRepository } from '../../servers/servers.repository';
@@ -13,6 +14,7 @@ const mockSyncRepo = {
   createChangeDetails: jest.fn(),
   getChangeDetails: jest.fn(),
   countChangeDetails: jest.fn(),
+  getLogById: jest.fn(),
 };
 
 const mockServersRepo = {
@@ -93,6 +95,7 @@ describe('SyncLogService', () => {
   describe('getSyncChangeDetails', () => {
     it('returns mapped change details with pagination metadata', async () => {
       const now = new Date();
+      mockSyncRepo.getLogById.mockResolvedValue({ id: 1 });
       mockSyncRepo.getChangeDetails.mockResolvedValue([
         {
           id: 1,
@@ -112,6 +115,14 @@ describe('SyncLogService', () => {
       expect(result.total).toBe(1);
       expect(result.changes[0].action).toBe('added');
       expect(result.changes[0].createdAt).toBe(now.toISOString());
+    });
+
+    it('throws NotFoundException when the sync log does not exist', async () => {
+      mockSyncRepo.getLogById.mockResolvedValue(null);
+
+      await expect(service.getSyncChangeDetails(99999, 100, 0)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

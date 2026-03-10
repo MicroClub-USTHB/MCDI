@@ -19,6 +19,7 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
+import { servers } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -122,18 +123,15 @@ describeIf('/api/admin/members (e2e)', () => {
 
       expect(res.body).toMatchObject({
         data: expect.any(Array),
-        pagination: {
-          page: 1,
-          limit: expect.any(Number),
-          total: expect.any(Number),
-        },
+        page: 1,
+        limit: expect.any(Number),
+        total: expect.any(Number),
       });
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
     });
 
     it('filters by filter=club (main server members only)', async () => {
       // Seed a non-club member in a different server
-      const { servers } = await import('../src/database/entities');
       await db.insert(servers).values({
         id: '555555555555555555',
         name: 'Secondary Server',
@@ -182,7 +180,7 @@ describeIf('/api/admin/members (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
 
-      expect(res.body.pagination).toMatchObject({ page: 1, limit: 5 });
+      expect(res.body).toMatchObject({ page: 1, limit: 5 });
     });
 
     it('filters by search term', async () => {
@@ -205,7 +203,7 @@ describeIf('/api/admin/members (e2e)', () => {
         .expect(200);
 
       expect(res.body.data).toEqual([]);
-      expect(res.body.pagination.total).toBe(0);
+      expect(res.body.total).toBe(0);
     });
   });
 

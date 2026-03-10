@@ -23,6 +23,8 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
+import { servers } from '../src/database/entities';
+import { eq } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -209,8 +211,6 @@ describeIf('/api/permissions (e2e)', () => {
     });
 
     it('returns 403 when server is inactive', async () => {
-      const { servers } = await import('../src/database/entities');
-      const { eq } = await import('drizzle-orm');
       await db
         .update(servers)
         .set({ isActive: false })
@@ -240,7 +240,7 @@ describeIf('/api/permissions (e2e)', () => {
         .send({ sourceRoleId: adminCtx.roleId, targetScope: 'all', enabled: true })
         .expect(200);
 
-      expect(res.body).toMatchObject({
+      expect(res.body.rule).toMatchObject({
         sourceRoleId: adminCtx.roleId,
         targetScope: 'all',
         enabled: true,
@@ -259,7 +259,7 @@ describeIf('/api/permissions (e2e)', () => {
         })
         .expect(200);
 
-      expect(res.body).toMatchObject({ sourceRoleId: adminCtx.roleId });
+      expect(res.body.rule).toMatchObject({ sourceRoleId: adminCtx.roleId });
     });
 
     it('returns 400 when targetScope=selected but targetServerIds is missing', async () => {

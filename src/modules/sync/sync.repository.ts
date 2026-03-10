@@ -94,6 +94,17 @@ export class SyncRepository {
     return result?.count ?? 0;
   }
 
+  async getLogById(
+    syncLogId: number,
+  ): Promise<typeof serverSyncLogs.$inferSelect | null> {
+    const [log] = await this.db
+      .select()
+      .from(serverSyncLogs)
+      .where(eq(serverSyncLogs.id, syncLogId))
+      .limit(1);
+    return log ?? null;
+  }
+
   // ─── Sync Change Details ────────────────────────────────────
 
   async createChangeDetail(data: {

@@ -24,7 +24,7 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
-import { serverSyncLogs, syncChangeDetails } from '../src/database/entities';
+import { serverSyncLogs, syncChangeDetails, servers } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -184,7 +184,6 @@ describeIf('/api/admin/sync (e2e)', () => {
 
     it('returns 404 when no sync log exists for a server', async () => {
       // Insert a secondary server with no logs
-      const { servers } = await import('../src/database/entities');
       await db.insert(servers).values({
         id: '666666666666666666',
         name: 'Unsynced Server',

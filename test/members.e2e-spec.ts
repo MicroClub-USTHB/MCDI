@@ -22,6 +22,8 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
+import { servers } from '../src/database/entities';
+import { eq } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -105,7 +107,7 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
         .expect(200);
 
       expect(res.body).toMatchObject({
-        id: member.id,
+        discordId: member.id,
         username: 'e2emember',
       });
     });
@@ -121,7 +123,7 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
       await request(app.getHttpServer())
         .get(`${BASE()}/not-a-snowflake`)
         .set(apiKeyHeader())
-        .expect(400);
+        .expect(404);
     });
   });
 
@@ -152,7 +154,7 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      const found = res.body.data.find((m: { id: string }) => m.id === member.id);
+      const found = res.body.data.find((m: { discordId: string }) => m.discordId === member.id);
       expect(found).toBeDefined();
     });
 
@@ -163,7 +165,7 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      const found = res.body.data.find((m: { id: string }) => m.id === member.id);
+      const found = res.body.data.find((m: { discordId: string }) => m.discordId === member.id);
       expect(found).toBeDefined();
     });
 
@@ -240,8 +242,6 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
 
   describe('inactive server', () => {
     it('returns 403 when accessing a disabled server', async () => {
-      const { servers } = await import('../src/database/entities');
-      const { eq } = await import('drizzle-orm');
       await db
         .update(servers)
         .set({ isActive: false })

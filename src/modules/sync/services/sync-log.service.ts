@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SyncRepository } from '../sync.repository';
 import { ServersRepository } from '../../servers/servers.repository';
 import { SyncChangeEntry } from '../sync-types';
@@ -139,6 +139,9 @@ export class SyncLogService {
     limit = 100,
     offset = 0,
   ): Promise<SyncChangeDetailsResponseDto> {
+    const log = await this.syncRepository.getLogById(syncLogId);
+    if (!log) throw new NotFoundException(`Sync log ${syncLogId} not found`);
+
     const [changes, total] = await Promise.all([
       this.syncRepository.getChangeDetails(syncLogId, limit, offset),
       this.syncRepository.countChangeDetails(syncLogId),
