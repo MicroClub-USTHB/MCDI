@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ilike, sql, SQL } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -40,6 +40,8 @@ export interface ProjectRow {
   id: string;
   name: string;
   description: string | null;
+  isInternal: boolean;
+  webhookUrl: string | null;
   apiKeyPrefix: string | null;
   apiKeyCreatedAt: Date;
   apiKeyLastUsedAt: Date | null;
@@ -51,13 +53,48 @@ export interface ProjectRow {
 export interface CreateProjectData {
   name: string;
   description?: string;
+  isInternal?: boolean;
+  webhookUrl?: string;
   apiKeyHash: string;
   apiKeyPrefix: string;
+  isActive?: boolean;
 }
 
 export interface UpdateProjectData {
   name?: string;
   description?: string;
+  isInternal?: boolean;
+  isActive?: boolean;
+  webhookUrl?: string;
+}
+
+export interface ListProjectsFilters {
+  isActive?: boolean;
+  isInternal?: boolean;
+  name?: string;
+}
+
+export interface ListServersByProjectFilters {
+  scope?: string;
+}
+
+export interface ListProjectsByServerFilters {
+  scope?: string;
+  isActive?: boolean;
+}
+
+export interface ListAccessMatrixFilters {
+  projectId?: string;
+  serverId?: string;
+  scope?: string;
+  projectName?: string;
+}
+
+export interface ListAuditFilters {
+  limit?: number;
+  projectId?: string;
+  serverId?: string;
+  action?: string;
 }
 
 @Injectable()
@@ -73,21 +110,37 @@ export class ProjectsRepository {
       .values({
         name: data.name,
         description: data.description,
+        isInternal: data.isInternal ?? false,
+        webhookUrl: data.webhookUrl,
         apiKeyHash: data.apiKeyHash,
         apiKeyPrefix: data.apiKeyPrefix,
-        isActive: true,
+        isActive: data.isActive ?? true,
       })
       .returning();
 
     return this.toProjectRow(project);
   }
 
-  async findAll(): Promise<ProjectRow[]> {
-    const projects = await this.db
+  async findAll(filters?: ListProjectsFilters): Promise<ProjectRow[]> {
+    const conditions: SQL[] = [];
+
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(schema.projects.isActive, filters.isActive));
+    }
+    if (filters?.isInternal !== undefined) {
+      conditions.push(eq(schema.projects.isInternal, filters.isInternal));
+    }
+    if (filters?.name) {
+      conditions.push(ilike(schema.projects.name, `%${filters.name}%`));
+    }
+
+    const query = this.db
       .select({
         id: schema.projects.id,
         name: schema.projects.name,
         description: schema.projects.description,
+        isInternal: schema.projects.isInternal,
+        webhookUrl: schema.projects.webhookUrl,
         apiKeyPrefix: schema.projects.apiKeyPrefix,
         apiKeyCreatedAt: schema.projects.apiKeyCreatedAt,
         apiKeyLastUsedAt: schema.projects.apiKeyLastUsedAt,
@@ -97,7 +150,12 @@ export class ProjectsRepository {
       })
       .from(schema.projects);
 
-    return projects.map((p) => ({ ...p }));
+    const rows =
+      conditions.length > 0
+        ? await query.where(and(...conditions))
+        : await query;
+
+    return rows.map((p) => ({ ...p }));
   }
 
   async findOne(id: string): Promise<ProjectRow | null> {
@@ -106,6 +164,8 @@ export class ProjectsRepository {
         id: schema.projects.id,
         name: schema.projects.name,
         description: schema.projects.description,
+        isInternal: schema.projects.isInternal,
+        webhookUrl: schema.projects.webhookUrl,
         apiKeyPrefix: schema.projects.apiKeyPrefix,
         apiKeyCreatedAt: schema.projects.apiKeyCreatedAt,
         apiKeyLastUsedAt: schema.projects.apiKeyLastUsedAt,
@@ -134,6 +194,8 @@ export class ProjectsRepository {
         id: schema.projects.id,
         name: schema.projects.name,
         description: schema.projects.description,
+        isInternal: schema.projects.isInternal,
+        webhookUrl: schema.projects.webhookUrl,
         apiKeyPrefix: schema.projects.apiKeyPrefix,
         apiKeyCreatedAt: schema.projects.apiKeyCreatedAt,
         apiKeyLastUsedAt: schema.projects.apiKeyLastUsedAt,
@@ -198,6 +260,8 @@ export class ProjectsRepository {
       id: project.id,
       name: project.name,
       description: project.description,
+      isInternal: project.isInternal,
+      webhookUrl: project.webhookUrl,
       apiKeyPrefix: project.apiKeyPrefix,
       apiKeyCreatedAt: project.apiKeyCreatedAt,
       apiKeyLastUsedAt: project.apiKeyLastUsedAt,
@@ -429,7 +493,18 @@ export class ProjectsRepository {
     return Boolean(operations?.[operation]);
   }
 
-  async listServersByProject(projectId: string) {
+  async listServersByProject(
+    projectId: string,
+    filters?: ListServersByProjectFilters,
+  ) {
+    const conditions: SQL[] = [eq(projectServers.projectId, projectId)];
+
+    if (filters?.scope) {
+      conditions.push(
+        sql`${projectServers.scopes} @> CAST(${JSON.stringify([filters.scope])} AS jsonb)`,
+      );
+    }
+
     return this.db
       .select({
         projectId: projectServers.projectId,
@@ -441,11 +516,25 @@ export class ProjectsRepository {
       })
       .from(projectServers)
       .innerJoin(servers, eq(servers.id, projectServers.serverId))
-      .where(eq(projectServers.projectId, projectId))
+      .where(and(...conditions))
       .orderBy(servers.name);
   }
 
-  async listProjectsByServer(serverId: string) {
+  async listProjectsByServer(
+    serverId: string,
+    filters?: ListProjectsByServerFilters,
+  ) {
+    const conditions: SQL[] = [eq(projectServers.serverId, serverId)];
+
+    if (filters?.scope) {
+      conditions.push(
+        sql`${projectServers.scopes} @> CAST(${JSON.stringify([filters.scope])} AS jsonb)`,
+      );
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(projects.isActive, filters.isActive));
+    }
+
     return this.db
       .select({
         serverId: projectServers.serverId,
@@ -457,12 +546,25 @@ export class ProjectsRepository {
       })
       .from(projectServers)
       .innerJoin(projects, eq(projects.id, projectServers.projectId))
-      .where(eq(projectServers.serverId, serverId))
+      .where(and(...conditions))
       .orderBy(projects.name);
   }
 
-  async listAccessMatrix() {
-    return this.db
+  async listAccessMatrix(filters?: ListAccessMatrixFilters) {
+    const conditions: SQL[] = [];
+
+    if (filters?.projectId) conditions.push(eq(projects.id, filters.projectId));
+    if (filters?.serverId) conditions.push(eq(servers.id, filters.serverId));
+    if (filters?.scope) {
+      conditions.push(
+        sql`${projectServers.scopes} @> CAST(${JSON.stringify([filters.scope])} AS jsonb)`,
+      );
+    }
+    if (filters?.projectName) {
+      conditions.push(ilike(projects.name, `%${filters.projectName}%`));
+    }
+
+    const query = this.db
       .select({
         projectId: projects.id,
         projectName: projects.name,
@@ -476,15 +578,38 @@ export class ProjectsRepository {
       .innerJoin(projects, eq(projects.id, projectServers.projectId))
       .innerJoin(servers, eq(servers.id, projectServers.serverId))
       .orderBy(projects.name, servers.name);
+
+    return conditions.length > 0 ? query.where(and(...conditions)) : query;
   }
 
-  async listAudit(limit = 100) {
-    const safeLimit = Math.max(limit, 1);
-    return this.db
+  async listAudit(filters: ListAuditFilters = {}) {
+    const safeLimit = Math.max(filters.limit ?? 100, 1);
+    const conditions: SQL[] = [];
+
+    if (filters.projectId) {
+      conditions.push(
+        eq(projectServerAccessAudit.projectId, filters.projectId),
+      );
+    }
+    if (filters.serverId) {
+      conditions.push(eq(projectServerAccessAudit.serverId, filters.serverId));
+    }
+    if (filters.action) {
+      conditions.push(
+        eq(
+          projectServerAccessAudit.action,
+          filters.action as 'GRANT' | 'UPDATE' | 'REVOKE',
+        ),
+      );
+    }
+
+    const query = this.db
       .select()
       .from(projectServerAccessAudit)
       .orderBy(desc(projectServerAccessAudit.changedAt))
       .limit(safeLimit);
+
+    return conditions.length > 0 ? query.where(and(...conditions)) : query;
   }
 
   /** Return true if a project has been granted access to the given server */

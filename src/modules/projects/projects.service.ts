@@ -13,6 +13,11 @@ import {
   ProjectServerOperation,
   ProjectsRepository,
   ProjectRow,
+  ListProjectsFilters,
+  ListServersByProjectFilters,
+  ListProjectsByServerFilters,
+  ListAccessMatrixFilters,
+  ListAuditFilters,
 } from './projects.repository';
 
 export interface CreateProjectResult {
@@ -31,6 +36,9 @@ export class ProjectsService {
     const project = await this.projectsRepository.create({
       name: dto.name,
       description: dto.description,
+      isInternal: dto.isInternal ?? false,
+      webhookUrl: dto.webhookUrl,
+      isActive: dto.isActive ?? true,
       apiKeyHash: hash,
       apiKeyPrefix: prefix,
     });
@@ -75,8 +83,8 @@ export class ProjectsService {
     return { apiKey: fullKey, project };
   }
 
-  async findAll(): Promise<ProjectRow[]> {
-    return this.projectsRepository.findAll();
+  async findAll(filters?: ListProjectsFilters): Promise<ProjectRow[]> {
+    return this.projectsRepository.findAll(filters);
   }
 
   async findOne(id: string): Promise<ProjectRow> {
@@ -98,14 +106,16 @@ export class ProjectsService {
   }
 
   async update(id: string, dto: UpdateProjectDto): Promise<ProjectRow> {
-    // Update name/description if provided
     const project = await this.projectsRepository.update(id, {
       name: dto.name,
       description: dto.description,
+      isInternal: dto.isInternal,
+      isActive: dto.isActive,
+      webhookUrl: dto.webhookUrl,
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
 
-    return this.findOne(id);
+    return project;
   }
 
   async revokeKey(id: string): Promise<void> {
@@ -290,20 +300,26 @@ export class ProjectsService {
     }
   }
 
-  async listServersByProject(projectId: string) {
-    return this.projectsRepository.listServersByProject(projectId);
+  async listServersByProject(
+    projectId: string,
+    filters?: ListServersByProjectFilters,
+  ) {
+    return this.projectsRepository.listServersByProject(projectId, filters);
   }
 
-  async listProjectsByServer(serverId: string) {
-    return this.projectsRepository.listProjectsByServer(serverId);
+  async listProjectsByServer(
+    serverId: string,
+    filters?: ListProjectsByServerFilters,
+  ) {
+    return this.projectsRepository.listProjectsByServer(serverId, filters);
   }
 
-  async listAccessMatrix() {
-    return this.projectsRepository.listAccessMatrix();
+  async listAccessMatrix(filters?: ListAccessMatrixFilters) {
+    return this.projectsRepository.listAccessMatrix(filters);
   }
 
-  async listAudit(limit = 100) {
-    const safeLimit = Math.min(Math.max(limit, 1), 500);
-    return this.projectsRepository.listAudit(safeLimit);
+  async listAudit(filters: ListAuditFilters = {}) {
+    const safeLimit = Math.min(Math.max(filters.limit ?? 100, 1), 500);
+    return this.projectsRepository.listAudit({ ...filters, limit: safeLimit });
   }
 }

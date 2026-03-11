@@ -449,7 +449,7 @@ describe('ProjectsRepository', () => {
       ];
       const db = buildDb(rows);
       const repo = await buildRepo(db);
-      expect(await repo.listAudit(10)).toEqual(rows);
+      expect(await repo.listAudit({ limit: 10 })).toEqual(rows);
     });
   });
 

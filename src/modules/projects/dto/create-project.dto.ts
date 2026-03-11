@@ -5,6 +5,8 @@ import {
   IsEnum,
   IsArray,
   ValidateNested,
+  IsBoolean,
+  IsUrl,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -38,10 +40,36 @@ export class CreateProjectDto {
   @MaxLength(255)
   name: string;
 
-  @ApiProperty({ example: 'Main club website', required: false })
+  @ApiPropertyOptional({ example: 'Main club website' })
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether this is an internal MicroClub platform project. ' +
+      'Internal projects use the main server automatically. Defaults to false.',
+    example: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isInternal?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether the project is active. Defaults to true.',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Optional Discord webhook URL for this project.',
+    example: 'https://discord.com/api/webhooks/000/token',
+  })
+  @IsUrl()
+  @IsOptional()
+  webhookUrl?: string;
 
   @ApiPropertyOptional({
     description:

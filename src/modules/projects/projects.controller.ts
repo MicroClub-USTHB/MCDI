@@ -8,7 +8,6 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
-  ParseIntPipe,
   Put,
   Query,
   Req,
@@ -35,10 +34,15 @@ import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ProjectsService } from './projects.service';
-import { CreateProjectDto } from './dto/create-project.dto';
+import { CreateProjectDto, ProjectScope } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 import { SetProjectServerAccessDto } from './dto/set-project-server-access.dto';
+import { ListProjectsDto } from './dto/list-projects.dto';
+import { ListProjectServersDto } from './dto/list-project-servers.dto';
+import { ListProjectsByServerDto } from './dto/list-projects-by-server.dto';
+import { ListAccessMatrixDto } from './dto/list-access-matrix.dto';
+import { AuditAction, ListAuditDto } from './dto/list-audit.dto';
 
 type RequestWithUser = Request & {
   user?: {
@@ -52,10 +56,8 @@ type RequestWithUser = Request & {
 @ApiBearerAuth('session-token')
 @Controller('admin/projects')
 @UseGuards(SystemAdminGuard)
-@UsePipes(new ValidationPipe({ whitelist: true }))
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class ProjectsController {
-  private static readonly DEFAULT_AUDIT_LIMIT = 100;
-
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly configService: ConfigService,
@@ -104,12 +106,33 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({ summary: 'List all projects' })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active/inactive status.',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'isInternal',
+    required: false,
+    type: Boolean,
+    description: 'Filter by internal/external project type.',
+    example: false,
+  })
+  @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by project name (case-insensitive partial match).',
+    example: 'MicroClub',
+  })
   @ApiOkResponse({ description: 'Projects retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid parameter.' })
-  findAll() {
-    return this.projectsService.findAll();
+  findAll(@Query() query: ListProjectsDto) {
+    return this.projectsService.findAll(query);
   }
 
   @Get(':id')
@@ -391,11 +414,20 @@ export class ProjectsController {
       ],
     },
   })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ProjectScope,
+    description: 'Filter servers by required scope.',
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
-  listServersByProject(@Param('projectId') projectId: string) {
-    return this.projectsService.listServersByProject(projectId);
+  listServersByProject(
+    @Param('projectId') projectId: string,
+    @Query() query: ListProjectServersDto,
+  ) {
+    return this.projectsService.listServersByProject(projectId, query);
   }
 
   @Get('servers/:serverId/projects')
@@ -406,11 +438,26 @@ export class ProjectsController {
     example: '123456789012345678',
   })
   @ApiOkResponse({ description: 'Project mappings retrieved successfully.' })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ProjectScope,
+    description: 'Filter projects by required scope.',
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by project active status.',
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
-  listProjectsByServer(@Param('serverId') serverId: string) {
-    return this.projectsService.listProjectsByServer(serverId);
+  listProjectsByServer(
+    @Param('serverId') serverId: string,
+    @Query() query: ListProjectsByServerDto,
+  ) {
+    return this.projectsService.listProjectsByServer(serverId, query);
   }
 
   @Get('access/matrix')
@@ -439,11 +486,35 @@ export class ProjectsController {
       ],
     },
   })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    description: 'Filter by project ID.',
+  })
+  @ApiQuery({
+    name: 'serverId',
+    required: false,
+    type: String,
+    description: 'Filter by server ID.',
+  })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ProjectScope,
+    description: 'Filter by scope.',
+  })
+  @ApiQuery({
+    name: 'projectName',
+    required: false,
+    type: String,
+    description: 'Filter by project name (partial, case-insensitive).',
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid parameter.' })
-  listAccessMatrix() {
-    return this.projectsService.listAccessMatrix();
+  listAccessMatrix(@Query() query: ListAccessMatrixDto) {
+    return this.projectsService.listAccessMatrix(query);
   }
 
   @Get('access/audit')
@@ -451,20 +522,38 @@ export class ProjectsController {
   @ApiQuery({
     name: 'limit',
     required: false,
-    description: 'Max entries to return (1–500, default 100)',
+    type: Number,
+    description: 'Max entries to return (1–500, default 100).',
     example: 100,
+  })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    type: String,
+    description: 'Filter by project ID.',
+  })
+  @ApiQuery({
+    name: 'serverId',
+    required: false,
+    type: String,
+    description: 'Filter by server ID.',
+  })
+  @ApiQuery({
+    name: 'action',
+    required: false,
+    enum: AuditAction,
+    description: 'Filter by audit action type.',
   })
   @ApiOkResponse({ description: 'Audit logs retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid limit parameter.' })
-  listAccessAudit(
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-  ) {
-    const safeLimit = Math.min(
-      Math.max(limit ?? ProjectsController.DEFAULT_AUDIT_LIMIT, 1),
-      500,
-    );
-    return this.projectsService.listAudit(safeLimit);
+  listAccessAudit(@Query() query: ListAuditDto) {
+    return this.projectsService.listAudit({
+      limit: query.limit,
+      projectId: query.projectId,
+      serverId: query.serverId,
+      action: query.action,
+    });
   }
 }

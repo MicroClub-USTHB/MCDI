@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, sql, SQL } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
   permissions,
@@ -11,6 +11,13 @@ import {
   serverSyncLogs,
   servers,
 } from '../../database/entities';
+
+export interface ListServersFilters {
+  isActive?: boolean;
+  isMain?: boolean;
+  type?: string;
+  name?: string;
+}
 
 @Injectable()
 export class ServersRepository {
@@ -59,7 +66,7 @@ export class ServersRepository {
     return row;
   }
 
-  async listServersWithLastSync() {
+  async listServersWithLastSync(filters?: ListServersFilters) {
     const lastSyncSub = this.db
       .select({
         serverId: serverSyncLogs.serverId,
@@ -69,7 +76,16 @@ export class ServersRepository {
       .groupBy(serverSyncLogs.serverId)
       .as('last_sync');
 
-    return this.db
+    const conditions: SQL[] = [];
+    if (filters?.isActive !== undefined)
+      conditions.push(eq(servers.isActive, filters.isActive));
+    if (filters?.isMain !== undefined)
+      conditions.push(eq(servers.isMain, filters.isMain));
+    if (filters?.type) conditions.push(eq(servers.type, filters.type));
+    if (filters?.name)
+      conditions.push(ilike(servers.name, `%${filters.name}%`));
+
+    const query = this.db
       .select({
         id: servers.id,
         name: servers.name,
@@ -85,6 +101,8 @@ export class ServersRepository {
       })
       .from(servers)
       .leftJoin(lastSyncSub, eq(servers.id, lastSyncSub.serverId));
+
+    return conditions.length > 0 ? query.where(and(...conditions)) : query;
   }
 
   async findById(serverId: string) {

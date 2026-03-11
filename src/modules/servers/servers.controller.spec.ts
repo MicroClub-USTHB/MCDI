@@ -41,7 +41,7 @@ describe('ServersController', () => {
 
   it('list() delegates to serversService.listServers', async () => {
     mockServersService.listServers.mockResolvedValue([]);
-    await controller.list();
+    await controller.list({} as any);
     expect(mockServersService.listServers).toHaveBeenCalled();
   });
 

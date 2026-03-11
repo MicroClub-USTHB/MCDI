@@ -8,7 +8,7 @@ import {
 import { DiscordService } from '../discord/discord.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
-import { ServersRepository } from './servers.repository';
+import { ServersRepository, ListServersFilters } from './servers.repository';
 import { DisableServerDto } from './dto/disable-server.dto';
 
 @Injectable()
@@ -62,8 +62,8 @@ export class ServersService {
     }
   }
 
-  async listServers() {
-    const rows = await this.serversRepository.listServersWithLastSync();
+  async listServers(filters?: ListServersFilters) {
+    const rows = await this.serversRepository.listServersWithLastSync(filters);
 
     const client = this.discordService.getClient();
     const clientReady = client.isReady();

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -21,6 +22,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -29,6 +31,7 @@ import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { DisableServerDto } from './dto/disable-server.dto';
+import { ListServersDto } from './dto/list-servers.dto';
 
 @ApiTags('Servers')
 @ApiBearerAuth('session-token')
@@ -60,12 +63,36 @@ export class ServersController {
     description:
       'Returns all registered servers with their current sync health data.',
   })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active/inactive status.',
+  })
+  @ApiQuery({
+    name: 'isMain',
+    required: false,
+    type: Boolean,
+    description: 'Filter by main server status.',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    type: String,
+    description: 'Filter by server type (e.g. official, partner, other).',
+  })
+  @ApiQuery({
+    name: 'name',
+    required: false,
+    type: String,
+    description: 'Filter by server name (case-insensitive partial match).',
+  })
   @ApiOkResponse({ description: 'Servers retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid parameter format.' })
-  list() {
-    return this.serversService.listServers();
+  list(@Query() query: ListServersDto) {
+    return this.serversService.listServers(query);
   }
 
   @Get(':serverId')

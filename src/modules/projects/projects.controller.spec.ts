@@ -60,7 +60,7 @@ describe('ProjectsController', () => {
 
   it('findAll returns list from service', async () => {
     mockProjectsService.findAll.mockResolvedValue([]);
-    const result = await controller.findAll();
+    const result = await controller.findAll({} as any);
     expect(Array.isArray(result)).toBe(true);
   });
 

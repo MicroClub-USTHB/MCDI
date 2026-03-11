@@ -463,7 +463,10 @@ describe('ProjectsService', () => {
 
       const result = await service.listServersByProject('proj-1');
       expect(result).toEqual([{ id: 'guild-1' }]);
-      expect(mockRepo.listServersByProject).toHaveBeenCalledWith('proj-1');
+      expect(mockRepo.listServersByProject).toHaveBeenCalledWith(
+        'proj-1',
+        undefined,
+      );
     });
   });
 
@@ -491,21 +494,21 @@ describe('ProjectsService', () => {
       mockRepo.listAudit.mockResolvedValue([]);
 
       await service.listAudit();
-      expect(mockRepo.listAudit).toHaveBeenCalledWith(100);
+      expect(mockRepo.listAudit).toHaveBeenCalledWith({ limit: 100 });
     });
 
     it('clamps limit to maximum 500', async () => {
       mockRepo.listAudit.mockResolvedValue([]);
 
-      await service.listAudit(9999);
-      expect(mockRepo.listAudit).toHaveBeenCalledWith(500);
+      await service.listAudit({ limit: 9999 });
+      expect(mockRepo.listAudit).toHaveBeenCalledWith({ limit: 500 });
     });
 
     it('clamps limit to minimum 1', async () => {
       mockRepo.listAudit.mockResolvedValue([]);
 
-      await service.listAudit(0);
-      expect(mockRepo.listAudit).toHaveBeenCalledWith(1);
+      await service.listAudit({ limit: 0 });
+      expect(mockRepo.listAudit).toHaveBeenCalledWith({ limit: 1 });
     });
   });
 });
