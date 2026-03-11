@@ -70,6 +70,51 @@ describeIf('/api/admin/projects (e2e)', () => {
       });
     });
 
+    it('creates a project with specific server accesses and returns the API key once', async () => {
+      const server1 = adminCtx.serverId;
+
+      const res = await request(app.getHttpServer())
+        .post(BASE)
+        .set('Authorization', auth())
+        .send({
+          name: 'E2E Project with Access',
+          serverAccess: [
+            {
+              serverId: server1,
+              scopes: ['read_members'],
+            },
+            {
+              serverId: '9876543210',
+              scopes: ['read_members', 'check_permissions'],
+            },
+          ],
+        })
+        .expect(201);
+
+      expect(res.body).toMatchObject({
+        apiKey: expect.stringMatching(/^pk_/),
+        project: {
+          name: 'E2E Project with Access',
+          isActive: true,
+        },
+      });
+
+      const projectId = res.body.project.id;
+
+      const accessRes = await request(app.getHttpServer())
+        .get(`${BASE}/${projectId}/servers`)
+        .set('Authorization', auth())
+        .expect(200);
+
+      // Access list should only include the server that was already in db, fake one shouldn't be added implicitly due to lookup failure but it wouldn't fail the create
+      // Let's just check if it properly saved read_members scope
+      const server1Access = accessRes.body.find(
+        (a: any) => a.serverId === server1,
+      );
+      expect(server1Access).toBeDefined();
+      expect(server1Access.scopes).toEqual(['read_members']);
+    });
+
     it('returns 400 when name is missing', async () => {
       await request(app.getHttpServer())
         .post(BASE)

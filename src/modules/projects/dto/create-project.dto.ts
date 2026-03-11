@@ -4,12 +4,32 @@ import {
   IsOptional,
   IsEnum,
   IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum ProjectScope {
   READ_MEMBERS = 'read_members',
   CHECK_PERMISSIONS = 'check_permissions',
+}
+
+export class ProjectServerAccessDto {
+  @ApiProperty({ example: '123456789012345678' })
+  @IsString()
+  serverId: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Scopes to grant for this server. If omitted, all available scopes are granted.',
+    example: ['read_members', 'check_permissions'],
+    enum: ProjectScope,
+    isArray: true,
+  })
+  @IsArray()
+  @IsEnum(ProjectScope, { each: true })
+  @IsOptional()
+  scopes?: ProjectScope[];
 }
 
 export class CreateProjectDto {
@@ -25,26 +45,12 @@ export class CreateProjectDto {
 
   @ApiPropertyOptional({
     description:
-      'Discord server IDs the project should have access to. ' +
-      'If omitted or empty, the project is automatically granted access to all servers where is_main = true.',
-    example: ['123456789012345678', '987654321098765432'],
-    type: [String],
+      'Server access configurations. If omitted, the project is automatically granted all available scopes to all servers where is_main = true.',
+    type: [ProjectServerAccessDto],
   })
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => ProjectServerAccessDto)
   @IsOptional()
-  serverIds?: string[];
-
-  @ApiPropertyOptional({
-    description:
-      'Scopes to grant for each linked server. ' +
-      'If omitted, all available scopes are granted by default.',
-    example: ['read_members', 'check_permissions'],
-    enum: ProjectScope,
-    isArray: true,
-  })
-  @IsArray()
-  @IsEnum(ProjectScope, { each: true })
-  @IsOptional()
-  scopes?: ProjectScope[];
+  serverAccess?: ProjectServerAccessDto[];
 }

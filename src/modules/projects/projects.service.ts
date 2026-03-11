@@ -35,30 +35,35 @@ export class ProjectsService {
       apiKeyPrefix: prefix,
     });
 
-    // Determine scopes: use provided or default to all available scopes
-    const scopes = dto.scopes ?? Object.values(ProjectScope);
+    let serverAccessConfig = dto.serverAccess ?? [];
 
-    // Grant server access: use provided serverIds, or default to all main servers
-    let serverIds = dto.serverIds ?? [];
-    if (serverIds.length === 0) {
+    if (serverAccessConfig.length === 0) {
       const mainServers = await this.projectsRepository.findMainServers();
-      serverIds = mainServers.map((s) => s.id);
+      serverAccessConfig = mainServers.map((s) => ({
+        serverId: s.id,
+        scopes: Object.values(ProjectScope),
+      }));
     }
 
     const now = new Date();
-    for (const serverId of serverIds) {
-      const server = await this.projectsRepository.findServerById(serverId);
+    for (const access of serverAccessConfig) {
+      const server = await this.projectsRepository.findServerById(
+        access.serverId,
+      );
       if (!server) continue; // skip invalid server IDs silently
+
+      const scopes = access.scopes ?? Object.values(ProjectScope);
+
       await this.projectsRepository.upsertAccessMapping(
         project.id,
-        serverId,
+        access.serverId,
         DEFAULT_PROJECT_SERVER_OPERATIONS,
         now,
         scopes,
       );
       await this.projectsRepository.insertAuditEntry({
         projectId: project.id,
-        serverId,
+        serverId: access.serverId,
         action: 'GRANT',
         operationsBefore: null,
         operationsAfter: DEFAULT_PROJECT_SERVER_OPERATIONS,
