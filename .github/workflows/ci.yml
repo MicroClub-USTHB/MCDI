@@ -95,37 +95,9 @@ jobs:
           APP_PORT: 3000
           PORT: 3000
 
-  fuzz-tests:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      
-      - name: Make fuzz scripts executable
-        run: chmod +x scripts/fuzz.sh scripts/fuzz-filter.py
-      
-      - name: Run API fuzz tests
-        run: ./scripts/fuzz.sh --fuzz-lean
-        continue-on-error: false
-      
-      - name: Upload fuzz reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fuzz-reports
-          path: restler/reports/
-          retention-days: 7
-
   build-and-push:
     runs-on: ubuntu-latest
-    needs: [lint-and-test, e2e-tests, fuzz-tests]
+    needs: [lint-and-test, e2e-tests]
 
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 

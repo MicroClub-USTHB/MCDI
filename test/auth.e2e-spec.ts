@@ -62,13 +62,16 @@ describeIf('/api/auth (e2e)', () => {
       expect(res.body.loginUrl).toMatch(/\/api\/auth\/login\/.+/);
     });
 
-    it('returns error when X-API-Key header is missing', async () => {
+    it('returns 401 when X-API-Key header is missing', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/auth/login-session')
         .send({ redirectUri: 'http://localhost:4000/callback' })
-        .expect(200);
+        .expect(401);
 
-      expect(res.body).toMatchObject({ error: 'missing_api_key' });
+      expect(res.body).toMatchObject({
+        statusCode: 401,
+        message: 'X-API-Key header is required',
+      });
     });
   });
 
