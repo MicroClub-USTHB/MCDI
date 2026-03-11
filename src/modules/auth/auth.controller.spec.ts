@@ -47,12 +47,13 @@ describe('AuthController', () => {
   // ── createLoginSession ────────────────────────────────────────────────
 
   describe('createLoginSession', () => {
-    it('returns error when X-API-Key header is missing', async () => {
-      const result = await controller.createLoginSession(
-        undefined as any,
-        { redirectUri: 'http://localhost/callback' } as any,
-      );
-      expect(result).toMatchObject({ error: 'missing_api_key' });
+    it('throws UnauthorizedException when X-API-Key header is missing', async () => {
+      await expect(
+        controller.createLoginSession(
+          undefined as any,
+          { redirectUri: 'http://localhost/callback' } as any,
+        ),
+      ).rejects.toThrow('X-API-Key header is required');
     });
 
     it('delegates to authService.createLoginSession', async () => {

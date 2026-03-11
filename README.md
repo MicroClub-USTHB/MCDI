@@ -186,7 +186,39 @@ npm run format
 npm run test           # unit tests
 npm run test:e2e       # e2e tests
 npm run test:cov       # test coverage
+
+# Fuzz Testing (see docs/fuzz-testing.md)
+./scripts/fuzz.sh              # quick smoke test
+./scripts/fuzz.sh --fuzz-lean  # medium depth (runs in CI)
+./scripts/fuzz.sh --fuzz       # deep fuzz test
 ```
+
+## Testing
+
+### Unit & E2E Tests
+
+Standard NestJS testing with Jest:
+
+```bash
+npm run test       # Unit tests with coverage
+npm run test:e2e   # End-to-end API tests
+```
+
+### API Fuzz Testing
+
+Automated fuzz testing with [Schemathesis](https://schemathesis.readthedocs.io/) runs in CI and can be run locally:
+
+```bash
+./scripts/fuzz.sh --fuzz-lean
+```
+
+**Features:**
+- Automatically generates test cases from OpenAPI spec
+- Finds server errors, schema violations, and security issues
+- Filters out expected Node.js transport rejections
+- Runs on every PR and blocks merges if real bugs are found
+
+📖 **See [docs/fuzz-testing.md](docs/fuzz-testing.md) for complete documentation**
 
 ## Deployment
 

@@ -10,9 +10,7 @@ const buildMockDb = (rows: unknown[]) => ({
 
 describe('validateScope', () => {
   it('resolves without throwing when the scope is present in project_servers.scopes', async () => {
-    const db = buildMockDb([
-      { scopes: ['read_members', 'check_permissions'] },
-    ]);
+    const db = buildMockDb([{ scopes: ['read_members', 'check_permissions'] }]);
     await expect(
       validateScope(db as any, 'proj-1', 'server-1', 'read_members'),
     ).resolves.toBeUndefined();

@@ -26,6 +26,7 @@ export class CreateLoginSessionDto {
   @ApiProperty({
     description: 'URI to redirect back to after successful authentication',
     example: 'https://events.microclub.net/auth/callback',
+    minLength: 1,
   })
   @IsString()
   @IsNotEmpty()

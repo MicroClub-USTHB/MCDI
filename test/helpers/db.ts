@@ -216,7 +216,8 @@ export async function seedMemberWithRole(
   const ts = Date.now();
   const rand1 = randomBytes(2).readUInt16BE(0); // 0–65535
   const rand2 = randomBytes(2).readUInt16BE(0) + 1; // ensure different from rand1
-  const memberId = overrides.memberId ?? `${ts}${String(rand1).padStart(5, '0')}`.slice(0, 18);
+  const memberId =
+    overrides.memberId ?? `${ts}${String(rand1).padStart(5, '0')}`.slice(0, 18);
   const roleId = `${ts}${String(rand2).padStart(5, '0')}`.slice(0, 18);
 
   await db.insert(schema.members).values({

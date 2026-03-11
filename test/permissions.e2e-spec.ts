@@ -72,7 +72,11 @@ describeIf('/api/permissions (e2e)', () => {
     it('returns 401 with no API key', async () => {
       await request(app.getHttpServer())
         .post('/api/permissions/check')
-        .send({ discordId: member.id, serverId: adminCtx.serverId, permission: 'READ_MEMBERS' })
+        .send({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permission: 'READ_MEMBERS',
+        })
         .expect(401);
     });
 
@@ -103,7 +107,11 @@ describeIf('/api/permissions (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/permissions/check')
         .set('X-API-Key', apiKey)
-        .send({ discordId: member.id, serverId: adminCtx.serverId, permission: '' })
+        .send({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permission: '',
+        })
         .expect(400);
 
       expect(res.body).toMatchObject({
@@ -174,7 +182,11 @@ describeIf('/api/permissions (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/permissions/check-batch')
         .set('X-API-Key', apiKey)
-        .send({ discordId: member.id, serverId: adminCtx.serverId, mode: 'ANY' })
+        .send({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          mode: 'ANY',
+        })
         .expect(400);
     });
   });
@@ -237,7 +249,11 @@ describeIf('/api/permissions (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/permissions/inheritance-rules')
         .set('Authorization', auth())
-        .send({ sourceRoleId: adminCtx.roleId, targetScope: 'all', enabled: true })
+        .send({
+          sourceRoleId: adminCtx.roleId,
+          targetScope: 'all',
+          enabled: true,
+        })
         .expect(200);
 
       expect(res.body.rule).toMatchObject({
@@ -293,7 +309,11 @@ describeIf('/api/permissions (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/permissions/inheritance-rules')
         .set('Authorization', auth())
-        .send({ sourceRoleId: adminCtx.roleId, targetScope: 'all', enabled: true });
+        .send({
+          sourceRoleId: adminCtx.roleId,
+          targetScope: 'all',
+          enabled: true,
+        });
 
       const res = await request(app.getHttpServer())
         .get('/api/permissions/inheritance-rules')

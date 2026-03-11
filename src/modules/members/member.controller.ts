@@ -100,10 +100,34 @@ export class MemberController {
     description: 'Discord server ID',
     example: '123456789012345678',
   })
-  @ApiQuery({ name: 'query', required: false, type: String, description: 'Partial match on username, global name, or display name', example: 'john' })
-  @ApiQuery({ name: 'roleId', required: false, type: String, description: 'Filter by Discord role snowflake ID', example: '123456789012345678' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (min 1)', example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (1–100)', example: 20 })
+  @ApiQuery({
+    name: 'query',
+    required: false,
+    type: String,
+    description: 'Partial match on username, global name, or display name',
+    example: 'john',
+  })
+  @ApiQuery({
+    name: 'roleId',
+    required: false,
+    type: String,
+    description: 'Filter by Discord role snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (min 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (1–100)',
+    example: 20,
+  })
   @ApiOkResponse({
     description: 'Paginated list of matching members.',
     schema: {

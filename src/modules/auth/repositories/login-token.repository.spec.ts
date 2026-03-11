@@ -62,7 +62,7 @@ describe('LoginTokenRepository', () => {
         projectId: 'proj-1',
         serverId: 'srv-1',
         redirectUri: 'https://app.example.com/cb',
-        expiresAt: token.expiresAt as Date,
+        expiresAt: token.expiresAt,
       });
       expect(result).toEqual(token);
       expect(db.insert).toHaveBeenCalledTimes(1);

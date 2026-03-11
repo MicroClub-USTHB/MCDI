@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 
 import { DiscordModule } from './modules/discord/discord.module';
@@ -13,6 +13,7 @@ import { AdminMembersModule } from './modules/admin-members/admin-members.module
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
+import { MethodNotAllowedMiddleware } from './common/middleware/method-not-allowed.middleware';
 
 @Module({
   imports: [
@@ -35,4 +36,8 @@ import { SyncModule } from './modules/sync/sync.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MethodNotAllowedMiddleware).forRoutes('*');
+  }
+}

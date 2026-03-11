@@ -109,7 +109,7 @@ export class MemberRepository {
     pagination?: DbPagination,
   ): Promise<{
     members: Array<{
-      id: string;
+      discordId: string;
       username: string;
       globalName?: string | null;
       displayName?: string | null;
@@ -130,7 +130,7 @@ export class MemberRepository {
           like(schema.members.username, searchTerm),
           like(schema.members.globalName, searchTerm),
           like(schema.members.displayName, searchTerm),
-        )!
+        )!,
       );
     }
 
@@ -147,7 +147,7 @@ export class MemberRepository {
                 eq(schema.serverMemberRoles.memberId, schema.members.id),
               ),
             ),
-        )
+        ),
       );
     }
 

@@ -335,12 +335,7 @@ export class ProjectsRepository {
     return this.db
       .select({ id: servers.id, name: servers.name })
       .from(servers)
-      .where(
-        and(
-          eq(servers.isMain, true),
-          eq(servers.isActive, true),
-        ),
-      );
+      .where(and(eq(servers.isMain, true), eq(servers.isActive, true)));
   }
 
   async findAccessMapping(projectId: string, serverId: string) {

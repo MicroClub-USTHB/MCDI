@@ -24,7 +24,11 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
-import { serverSyncLogs, syncChangeDetails, servers } from '../src/database/entities';
+import {
+  serverSyncLogs,
+  syncChangeDetails,
+  servers,
+} from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -148,18 +152,16 @@ describeIf('/api/admin/sync (e2e)', () => {
 
   describe('GET /api/admin/sync/status', () => {
     beforeEach(async () => {
-      await db
-        .insert(serverSyncLogs)
-        .values({
-          serverId: adminCtx.serverId,
-          status: 'success',
-          syncType: 'manual',
-          membersSynced: 10,
-          rolesSynced: 5,
-          message: 'Completed successfully',
-          startedAt: new Date(Date.now() - 5000),
-          finishedAt: new Date(),
-        });
+      await db.insert(serverSyncLogs).values({
+        serverId: adminCtx.serverId,
+        status: 'success',
+        syncType: 'manual',
+        membersSynced: 10,
+        rolesSynced: 5,
+        message: 'Completed successfully',
+        startedAt: new Date(Date.now() - 5000),
+        finishedAt: new Date(),
+      });
     });
 
     it('returns 401 without auth', async () => {
@@ -204,9 +206,7 @@ describeIf('/api/admin/sync (e2e)', () => {
 
   describe('GET /api/admin/sync/status/all', () => {
     it('returns 401 without auth', async () => {
-      await request(app.getHttpServer())
-        .get(`${BASE}/status/all`)
-        .expect(401);
+      await request(app.getHttpServer()).get(`${BASE}/status/all`).expect(401);
     });
 
     it('returns array of sync statuses for all active servers', async () => {

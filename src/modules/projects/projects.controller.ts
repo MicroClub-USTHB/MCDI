@@ -107,6 +107,7 @@ export class ProjectsController {
   @ApiOkResponse({ description: 'Projects retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter.' })
   findAll() {
     return this.projectsService.findAll();
   }
@@ -118,6 +119,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   findOne(@Param('id') id: string) {
     return this.projectsService.findOne(id);
   }
@@ -130,6 +132,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID or request body.' })
   update(@Param('id') id: string, @Body() dto: UpdateProjectDto) {
     return this.projectsService.update(id, dto);
   }
@@ -158,6 +161,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   getApiKeyInfo(@Param('id') id: string) {
     return this.projectsService.getApiKeyInfo(id);
   }
@@ -170,6 +174,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   revokeKey(@Param('id') id: string) {
     return this.projectsService.revokeKey(id);
   }
@@ -182,6 +187,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   restoreKey(@Param('id') id: string) {
     return this.projectsService.restoreKey(id);
   }
@@ -194,6 +200,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   delete(@Param('id') id: string) {
     return this.projectsService.delete(id);
   }
@@ -233,6 +240,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   regenerateApiKeyAdmin(@Param('id') id: string) {
     return this.projectsService.regenerateApiKeyAdmin(id);
   }
@@ -271,6 +279,7 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID or redirect URI.' })
   updateRedirectUri(
     @Param('id') id: string,
     @Body() dto: UpdateRedirectUriDto,
@@ -315,6 +324,9 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Project or server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid project or server ID format.',
+  })
   setProjectServerAccess(
     @Param('projectId') projectId: string,
     @Param('serverId') serverId: string,
@@ -342,6 +354,9 @@ export class ProjectsController {
   @ApiNotFoundResponse({ description: 'Access mapping not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid project or server ID format.',
+  })
   revokeProjectServerAccess(
     @Param('projectId') projectId: string,
     @Param('serverId') serverId: string,
@@ -378,6 +393,7 @@ export class ProjectsController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid project ID format.' })
   listServersByProject(@Param('projectId') projectId: string) {
     return this.projectsService.listServersByProject(projectId);
   }
@@ -392,6 +408,7 @@ export class ProjectsController {
   @ApiOkResponse({ description: 'Project mappings retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
   listProjectsByServer(@Param('serverId') serverId: string) {
     return this.projectsService.listProjectsByServer(serverId);
   }
@@ -424,6 +441,7 @@ export class ProjectsController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter.' })
   listAccessMatrix() {
     return this.projectsService.listAccessMatrix();
   }
@@ -439,6 +457,7 @@ export class ProjectsController {
   @ApiOkResponse({ description: 'Audit logs retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid limit parameter.' })
   listAccessAudit(
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {

@@ -52,9 +52,7 @@ describeIf('/api/admin/members (e2e)', () => {
   // ─── Authentication guard ─────────────────────────────────────
 
   it('returns 401 when no Bearer token is provided', async () => {
-    await request(app.getHttpServer())
-      .get(`${BASE}/cross-server`)
-      .expect(401);
+    await request(app.getHttpServer()).get(`${BASE}/cross-server`).expect(401);
   });
 
   it('returns 401 for an invalid Bearer token', async () => {

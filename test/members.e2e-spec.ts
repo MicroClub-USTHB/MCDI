@@ -154,7 +154,9 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      const found = res.body.data.find((m: { discordId: string }) => m.discordId === member.id);
+      const found = res.body.data.find(
+        (m: { discordId: string }) => m.discordId === member.id,
+      );
       expect(found).toBeDefined();
     });
 
@@ -165,7 +167,9 @@ describeIf('/api/servers/:serverId/members (e2e)', () => {
         .expect(200);
 
       expect(res.body.data.length).toBeGreaterThanOrEqual(1);
-      const found = res.body.data.find((m: { discordId: string }) => m.discordId === member.id);
+      const found = res.body.data.find(
+        (m: { discordId: string }) => m.discordId === member.id,
+      );
       expect(found).toBeDefined();
     });
 

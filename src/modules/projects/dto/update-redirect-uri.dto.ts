@@ -8,6 +8,7 @@ export class UpdateRedirectUriDto {
       'Use a comma-separated list to allow multiple URIs. ' +
       'The value passed in POST /auth/login-session must exactly match one of these.',
     example: 'https://events.microclub.net/auth/callback',
+    minLength: 1,
   })
   @IsString()
   @IsNotEmpty()

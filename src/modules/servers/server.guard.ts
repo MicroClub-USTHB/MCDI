@@ -37,6 +37,12 @@ export class ServerActiveGuard implements CanActivate {
 
     if (!serverId) return true;
 
+    // Skip the active-server check when there is no authentication at all.
+    // This allows route-level guards (SystemAdminGuard / ApiKeyGuard) to
+    // return 401 before we attempt a DB lookup that would return 403.
+    const hasAuth = req.headers.authorization || req.headers['x-api-key'];
+    if (!hasAuth) return true;
+
     const [row] = await this.db
       .select({ isActive: servers.isActive })
       .from(servers)

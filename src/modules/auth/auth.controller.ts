@@ -11,6 +11,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -21,6 +22,7 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
+  ApiBadRequestResponse,
   ApiParam,
   ApiBody,
   ApiProduces,
@@ -68,15 +70,14 @@ export class AuthController {
     type: LoginSessionResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid API key.' })
+  @ApiForbiddenResponse({ description: 'Server is disabled.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   async createLoginSession(
     @Headers('x-api-key') apiKey: string,
     @Body() dto: CreateLoginSessionDto,
   ) {
     if (!apiKey) {
-      return {
-        error: 'missing_api_key',
-        errorDescription: 'X-API-Key header is required',
-      };
+      throw new UnauthorizedException('X-API-Key header is required');
     }
 
     return this.authService.createLoginSession(
@@ -250,6 +251,9 @@ export class AuthController {
     type: ValidateSessionResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid or expired session token.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty token).',
+  })
   async validateSession(@Body() dto: ValidateSessionDto) {
     return this.authService.validateSession(dto.token);
   }
@@ -268,6 +272,9 @@ export class AuthController {
     description: 'Logout successful.',
     type: SuccessResponseDto,
   })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty token).',
+  })
   async logout(@Body() dto: LogoutDto) {
     return this.authService.logout(dto.token);
   }
@@ -284,6 +291,9 @@ export class AuthController {
   @ApiOkResponse({
     description: 'All sessions invalidated.',
     type: SuccessResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty memberId).',
   })
   async logoutAll(@Body() dto: LogoutAllDto) {
     return this.authService.logoutAll(dto.memberId);
@@ -308,6 +318,9 @@ export class AuthController {
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
   @ApiForbiddenResponse({ description: 'Not a system admin.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty/short fields).',
+  })
   async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
     return this.adminAuthService.adminPasswordLogin(dto.username, dto.password);
   }

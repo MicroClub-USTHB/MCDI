@@ -372,7 +372,11 @@ describeIf('/api/admin/projects (e2e)', () => {
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
         .send({
-          operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false },
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
           scopes: ['read_members', 'check_permissions'],
         })
         .expect(200);
@@ -386,9 +390,17 @@ describeIf('/api/admin/projects (e2e)', () => {
 
     it('returns 404 for unknown project', async () => {
       await request(app.getHttpServer())
-        .put(`${BASE}/00000000-0000-0000-0000-000000000000/servers/${adminCtx.serverId}`)
+        .put(
+          `${BASE}/00000000-0000-0000-0000-000000000000/servers/${adminCtx.serverId}`,
+        )
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } })
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        })
         .expect(404);
     });
 
@@ -403,7 +415,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/000000000000000000`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } })
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        })
         .expect(404);
     });
   });
@@ -423,7 +441,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } })
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        })
         .expect(200);
 
       // Then revoke
@@ -472,7 +496,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } });
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        });
 
       const res = await request(app.getHttpServer())
         .get(`${BASE}/${projectId}/servers`)
@@ -518,7 +548,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } });
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        });
 
       const res = await request(app.getHttpServer())
         .get(`${BASE}/servers/${adminCtx.serverId}/projects`)
@@ -553,7 +589,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } });
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        });
 
       const res = await request(app.getHttpServer())
         .get(`${BASE}/access/matrix`)
@@ -590,7 +632,13 @@ describeIf('/api/admin/projects (e2e)', () => {
       await request(app.getHttpServer())
         .put(`${BASE}/${projectId}/servers/${adminCtx.serverId}`)
         .set('Authorization', auth())
-        .send({ operations: { READ: true, SEND_MESSAGES: false, MANAGE_WEBHOOKS: false } });
+        .send({
+          operations: {
+            READ: true,
+            SEND_MESSAGES: false,
+            MANAGE_WEBHOOKS: false,
+          },
+        });
 
       const res = await request(app.getHttpServer())
         .get(`${BASE}/access/audit`)

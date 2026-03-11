@@ -25,7 +25,11 @@ export async function validateScope(
     )
     .limit(1);
 
-  if (!row || !Array.isArray(row.scopes) || !row.scopes.includes(requiredScope)) {
+  if (
+    !row ||
+    !Array.isArray(row.scopes) ||
+    !row.scopes.includes(requiredScope)
+  ) {
     throw new ForbiddenException(
       `Insufficient scope: '${requiredScope}' is required`,
     );

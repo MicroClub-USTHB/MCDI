@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
@@ -61,6 +62,7 @@ export class SyncController {
   @ApiConflictResponse({ description: 'Sync already in progress.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   async triggerFullSync(@Body() dto: TriggerSyncDto) {
     const serversToSync: string[] =
       dto.serverIds && dto.serverIds.length > 0 ? dto.serverIds : [];
@@ -85,6 +87,7 @@ export class SyncController {
   @ApiNotFoundResponse({ description: 'No sync logs found for this server.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid serverId format.' })
   async getSyncStatus(
     @Query('serverId') serverId: string,
   ): Promise<SyncStatusDto> {
@@ -107,6 +110,7 @@ export class SyncController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter.' })
   async getAllServersSyncStatus(): Promise<SyncStatusDto[]> {
     return this.syncService.getAllServersSyncStatus();
   }
@@ -133,6 +137,7 @@ export class SyncController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid serverId, limit, or offset.' })
   async getSyncLogs(
     @Query() query: SyncLogsQueryDto,
   ): Promise<SyncLogsResponseDto> {
@@ -162,6 +167,9 @@ export class SyncController {
   @ApiNotFoundResponse({ description: 'Sync log not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid syncLogId, limit, or offset.',
+  })
   async getSyncChangeDetails(
     @Param('syncLogId', ParseIntPipe) syncLogId: number,
     @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,

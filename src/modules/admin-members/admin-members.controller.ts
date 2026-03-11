@@ -55,6 +55,7 @@ export class AdminMembersController {
   @ApiNotFoundResponse({ description: 'Member not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
   async getMemberServers(
     @Param('discordId') discordId: string,
   ): Promise<MemberCrossServerViewDto> {
@@ -91,6 +92,7 @@ export class AdminMembersController {
   @ApiOkResponse({ description: 'File download (CSV or JSON).' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   async exportMembers(
     @Query() query: ExportQueryDto,
     @Res() res: Response,
@@ -114,5 +116,4 @@ export class AdminMembersController {
       res.json(rows);
     }
   }
-
 }

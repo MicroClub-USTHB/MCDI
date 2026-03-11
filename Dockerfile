@@ -16,6 +16,9 @@ COPY . .
 RUN npm run build
 
 
+# ── pruned: devDependencies stripped — used by the production stage only ──────
+FROM builder AS pruned
+
 RUN npm prune --production
 
 
@@ -30,11 +33,11 @@ USER node
 
 WORKDIR /usr/src/app
 
-COPY --from=builder --chown=node:node /usr/src/app/node_modules ./node_modules
+COPY --from=pruned --chown=node:node /usr/src/app/node_modules ./node_modules
 
-COPY --from=builder --chown=node:node /usr/src/app/dist ./dist
+COPY --from=pruned --chown=node:node /usr/src/app/dist ./dist
 
-COPY --from=builder --chown=node:node /usr/src/app/package.json ./
+COPY --from=pruned --chown=node:node /usr/src/app/package.json ./
 
 EXPOSE 3000
 

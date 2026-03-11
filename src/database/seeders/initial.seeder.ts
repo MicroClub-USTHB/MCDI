@@ -608,7 +608,6 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     );
   }
 
-
   console.log('Initial seeding completed!');
   console.log('\n=== TEST DATA SUMMARY ===');
   console.log(`Main Server ID: ${serverId}`);

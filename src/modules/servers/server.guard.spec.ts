@@ -80,6 +80,7 @@ describe('ServerActiveGuard', () => {
       const ctx = buildContext({
         url: '/api/projects/proj-1/check',
         params: { serverId: 'srv-1' },
+        headers: { authorization: 'Bearer token' },
       });
       expect(await guard.canActivate(ctx)).toBe(true);
       expect(db.select).toHaveBeenCalledTimes(1);
@@ -90,7 +91,7 @@ describe('ServerActiveGuard', () => {
       const guard = await buildGuard(db);
       const ctx = buildContext({
         url: '/api/permissions/check',
-        headers: { 'x-server-id': 'srv-1' },
+        headers: { 'x-server-id': 'srv-1', authorization: 'Bearer token' },
       });
       expect(await guard.canActivate(ctx)).toBe(true);
     });
@@ -101,6 +102,7 @@ describe('ServerActiveGuard', () => {
       const ctx = buildContext({
         url: '/api/permissions/check',
         body: { serverId: 'srv-1' },
+        headers: { authorization: 'Bearer token' },
       });
       expect(await guard.canActivate(ctx)).toBe(true);
     });
@@ -111,6 +113,7 @@ describe('ServerActiveGuard', () => {
       const ctx = buildContext({
         url: '/api/permissions/check',
         query: { serverId: 'srv-1' },
+        headers: { authorization: 'Bearer token' },
       });
       expect(await guard.canActivate(ctx)).toBe(true);
     });
@@ -123,6 +126,7 @@ describe('ServerActiveGuard', () => {
       const ctx = buildContext({
         url: '/api/permissions/check',
         params: { serverId: 'srv-1' },
+        headers: { authorization: 'Bearer token' },
       });
       await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
     });
@@ -133,8 +137,21 @@ describe('ServerActiveGuard', () => {
       const ctx = buildContext({
         url: '/api/permissions/check',
         params: { serverId: 'unknown' },
+        headers: { authorization: 'Bearer token' },
       });
       await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('returns true when serverId is present but no auth header (allows route guard to return 401)', async () => {
+      const db = buildDb([]);
+      const guard = await buildGuard(db);
+      const ctx = buildContext({
+        url: '/api/permissions/check',
+        params: { serverId: 'srv-1' },
+        // no auth headers
+      });
+      expect(await guard.canActivate(ctx)).toBe(true);
+      expect(db.select).not.toHaveBeenCalled();
     });
   });
 });

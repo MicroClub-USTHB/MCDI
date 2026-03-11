@@ -5,12 +5,17 @@ export class AdminPasswordLoginDto {
   @ApiProperty({
     description: 'Discord username of the system admin',
     example: 'johndoe',
+    minLength: 1,
   })
   @IsString()
   @IsNotEmpty()
   username: string;
 
-  @ApiProperty({ description: 'Admin password', example: 'supersecret' })
+  @ApiProperty({
+    description: 'Admin password',
+    example: 'supersecret',
+    minLength: 6,
+  })
   @IsString()
   @IsNotEmpty()
   @MinLength(6)

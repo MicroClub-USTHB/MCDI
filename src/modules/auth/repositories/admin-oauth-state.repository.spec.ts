@@ -35,10 +35,7 @@ function buildDb(finalValue: unknown = []) {
 
 async function buildRepo(db: any): Promise<AdminOAuthStateRepository> {
   const mod = await Test.createTestingModule({
-    providers: [
-      AdminOAuthStateRepository,
-      { provide: DRIZZLE, useValue: db },
-    ],
+    providers: [AdminOAuthStateRepository, { provide: DRIZZLE, useValue: db }],
   }).compile();
   return mod.get(AdminOAuthStateRepository);
 }
@@ -60,7 +57,7 @@ describe('AdminOAuthStateRepository', () => {
       const repo = await buildRepo(db);
       const result = await repo.create({
         state: 'admin-rand-state-123',
-        expiresAt: state.expiresAt as Date,
+        expiresAt: state.expiresAt,
       });
       expect(result).toEqual(state);
       expect(db.insert).toHaveBeenCalledTimes(1);

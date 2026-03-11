@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
@@ -48,6 +49,7 @@ export class ServersController {
   @ApiCreatedResponse({ description: 'Server registered successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   register(@Body() dto: CreateServerDto) {
     return this.serversService.registerServer(dto);
   }
@@ -55,11 +57,13 @@ export class ServersController {
   @Get()
   @ApiOperation({
     summary: 'List all servers',
-    description: 'Returns all registered servers with their current sync health data.',
+    description:
+      'Returns all registered servers with their current sync health data.',
   })
   @ApiOkResponse({ description: 'Servers retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter format.' })
   list() {
     return this.serversService.listServers();
   }
@@ -67,13 +71,19 @@ export class ServersController {
   @Get(':serverId')
   @ApiOperation({
     summary: 'Get a server by ID',
-    description: 'Returns a single server record by its Discord guild snowflake ID.',
+    description:
+      'Returns a single server record by its Discord guild snowflake ID.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
   @ApiOkResponse({ description: 'Server retrieved successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
   findOne(@Param('serverId') serverId: string) {
     return this.serversService.getServerById(serverId);
   }
@@ -83,12 +93,17 @@ export class ServersController {
     summary: 'Update server settings',
     description: 'Updates the server name or other mutable settings.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
   @ApiBody({ type: UpdateServerDto })
   @ApiOkResponse({ description: 'Server updated successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   update(@Param('serverId') serverId: string, @Body() dto: UpdateServerDto) {
     return this.serversService.updateServer(serverId, dto);
   }
@@ -99,12 +114,17 @@ export class ServersController {
     description:
       'Marks the server as inactive. Disabled servers are excluded from syncs and all API permission/member checks return 403.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
   @ApiBody({ type: DisableServerDto })
   @ApiOkResponse({ description: 'Server disabled successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
   disable(@Param('serverId') serverId: string, @Body() dto: DisableServerDto) {
     return this.serversService.disableServer(serverId, dto);
   }
@@ -114,11 +134,16 @@ export class ServersController {
     summary: 'Enable a server',
     description: 'Re-activates a previously disabled server.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
   @ApiOkResponse({ description: 'Server enabled successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
   enable(@Param('serverId') serverId: string) {
     return this.serversService.enableServer(serverId);
   }
@@ -130,13 +155,17 @@ export class ServersController {
     description:
       'Permanently removes a server and all associated data (members, roles, sync logs). This cannot be undone.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
   @ApiNoContentResponse({ description: 'Server deleted successfully.' })
   @ApiNotFoundResponse({ description: 'Server not found.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid server ID format.' })
   remove(@Param('serverId') serverId: string) {
     return this.serversService.deleteServer(serverId);
   }
 }
-

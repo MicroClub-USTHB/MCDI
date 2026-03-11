@@ -27,10 +27,7 @@ export const projectServers = pgTable(
         MANAGE_WEBHOOKS: false,
       })
       .notNull(),
-    scopes: jsonb('scopes')
-      .$type<string[]>()
-      .default([])
-      .notNull(),
+    scopes: jsonb('scopes').$type<string[]>().default([]).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

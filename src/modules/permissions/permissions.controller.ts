@@ -1,6 +1,16 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBody,
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiOkResponse,
@@ -40,6 +50,10 @@ export class PermissionsController {
   @ApiBody({ type: CheckPermissionDto })
   @ApiOkResponse({ description: 'Permission check result returned.' })
   @ApiUnauthorizedResponse({ description: 'Valid API key required.' })
+  @ApiForbiddenResponse({
+    description: 'Server is disabled or project has no access.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   checkPermission(@Body() dto: CheckPermissionDto) {
     return this.permissionsService.checkPermission(dto);
   }
@@ -57,6 +71,10 @@ export class PermissionsController {
   @ApiBody({ type: CheckPermissionsBatchDto })
   @ApiOkResponse({ description: 'Batch permission check result returned.' })
   @ApiUnauthorizedResponse({ description: 'Valid API key required.' })
+  @ApiForbiddenResponse({
+    description: 'Server is disabled or project has no access.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   async checkPermissionBatch(@Body() dto: CheckPermissionsBatchDto) {
     if (dto.mode === CheckMode.ALL) {
       return this.permissionsService.hasAllPermissions(
@@ -83,10 +101,22 @@ export class PermissionsController {
       'including permissions inherited via role hierarchy rules. ' +
       'Requires the `check_permissions` scope for this server.',
   })
-  @ApiParam({ name: 'serverId', description: 'Discord guild snowflake ID', example: '123456789012345678' })
-  @ApiParam({ name: 'discordId', description: 'Discord user snowflake ID', example: '876543210987654321' })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'discordId',
+    description: 'Discord user snowflake ID',
+    example: '876543210987654321',
+  })
   @ApiOkResponse({ description: 'Full permission set returned.' })
   @ApiUnauthorizedResponse({ description: 'Valid API key required.' })
+  @ApiForbiddenResponse({
+    description: 'Server is disabled or project has no access.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid path parameter format.' })
   getMemberPermissions(
     @Param('serverId') serverId: string,
     @Param('discordId') discordId: string,
@@ -110,6 +140,7 @@ export class PermissionsController {
   @ApiOkResponse({ description: 'Inheritance rule upsert result returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
   upsertInheritanceRule(@Body() dto: UpsertInheritanceRuleDto) {
     return this.permissionsService.upsertInheritanceRule(dto);
   }
@@ -124,6 +155,7 @@ export class PermissionsController {
   @ApiOkResponse({ description: 'Inheritance rules list returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter format.' })
   listInheritanceRules() {
     return this.permissionsService.listInheritanceRules();
   }
