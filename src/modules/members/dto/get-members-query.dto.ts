@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsInt,
+  IsBoolean,
   Min,
   Max,
   Matches,
@@ -63,6 +64,26 @@ export class GetMembersQueryDto {
   @Min(1)
   @Max(100)
   limit?: number = 20;
+
+  @ApiProperty({
+    description: 'Filter by club membership status',
+    required: false,
+    example: true,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isClubMember?: boolean;
+
+  @ApiProperty({
+    description: 'Filter by active server membership status',
+    required: false,
+    example: true,
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isActive?: boolean;
 
   getDbPagination() {
     const page = this.page || 1;

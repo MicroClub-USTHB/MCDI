@@ -128,6 +128,20 @@ export class MemberController {
     description: 'Items per page (1–100)',
     example: 20,
   })
+  @ApiQuery({
+    name: 'isClubMember',
+    required: false,
+    type: Boolean,
+    description: 'Filter by club membership status',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active server membership status',
+    example: true,
+  })
   @ApiOkResponse({
     description: 'Paginated list of matching members.',
     schema: {

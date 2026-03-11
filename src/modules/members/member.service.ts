@@ -47,7 +47,7 @@ export class MemberService {
     serverId: string,
     queryDto: GetMembersQueryDto,
   ): Promise<PaginatedResponse<MemberSearchResponseDto>> {
-    const { query, roleId } = queryDto;
+    const { query, roleId, isClubMember, isActive } = queryDto;
 
     const dbPagination = queryDto.getDbPagination();
 
@@ -56,6 +56,8 @@ export class MemberService {
       query,
       roleId,
       dbPagination,
+      isClubMember,
+      isActive,
     );
 
     const data = members.map((member) =>

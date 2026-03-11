@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql, SQL } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
   permissions,
@@ -19,6 +19,13 @@ type UpsertInheritanceRuleInput = {
   targetServerIds: string[];
   now: Date;
 };
+
+export interface ListInheritanceRulesFilters {
+  sourceRoleId?: string;
+  enabled?: boolean;
+  targetScope?: string;
+  serverId?: string;
+}
 
 @Injectable()
 export class PermissionsRepository {
@@ -328,8 +335,24 @@ export class PermissionsRepository {
     });
   }
 
-  async listInheritanceRules() {
-    const rows = await this.db
+  async listInheritanceRules(filters: ListInheritanceRulesFilters = {}) {
+    const conditions: SQL[] = [];
+
+    if (filters.sourceRoleId) {
+      conditions.push(
+        eq(roleInheritanceRules.sourceRoleId, filters.sourceRoleId),
+      );
+    }
+    if (filters.enabled !== undefined) {
+      conditions.push(eq(roleInheritanceRules.enabled, filters.enabled));
+    }
+    if (filters.targetScope) {
+      conditions.push(
+        eq(roleInheritanceRules.targetScope, filters.targetScope),
+      );
+    }
+
+    const baseQuery = this.db
       .select({
         id: roleInheritanceRules.id,
         sourceRoleId: roleInheritanceRules.sourceRoleId,
@@ -342,7 +365,12 @@ export class PermissionsRepository {
       .leftJoin(
         roleInheritanceRuleTargets,
         eq(roleInheritanceRuleTargets.ruleId, roleInheritanceRules.id),
-      );
+      )
+      .$dynamic();
+
+    const rows = await (conditions.length > 0
+      ? baseQuery.where(and(...conditions))
+      : baseQuery);
 
     const byId = new Map<
       number,
@@ -378,7 +406,15 @@ export class PermissionsRepository {
       }
     }
 
-    return Array.from(byId.values()).sort((a, b) => b.id - a.id);
+    return Array.from(byId.values())
+      .sort((a, b) => b.id - a.id)
+      .filter((rule) => {
+        if (!filters.serverId) return true;
+        return (
+          rule.targetScope === 'all' ||
+          rule.targetServerIds.includes(filters.serverId)
+        );
+      });
   }
   async listGlobalPermissionNames(memberId: string): Promise<string[]> {
     const rows = await this.db

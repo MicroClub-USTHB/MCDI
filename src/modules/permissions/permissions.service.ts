@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CheckPermissionDto } from './dto/check-permission.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
-import { PermissionsRepository } from './permissions.repository';
+import {
+  ListInheritanceRulesFilters,
+  PermissionsRepository,
+} from './permissions.repository';
 import { PermissionCacheService } from './permission-cache.service';
 
 @Injectable()
@@ -191,8 +194,8 @@ export class PermissionsService {
     return { message: 'Inheritance rule saved', rule };
   }
 
-  async listInheritanceRules() {
-    return this.permissionsRepository.listInheritanceRules();
+  async listInheritanceRules(filters?: ListInheritanceRulesFilters) {
+    return this.permissionsRepository.listInheritanceRules(filters);
   }
 
   private normalizePermissionNames(names: string[]): string[] {

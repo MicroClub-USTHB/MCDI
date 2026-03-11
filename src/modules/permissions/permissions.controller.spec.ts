@@ -106,7 +106,7 @@ describe('PermissionsController', () => {
 
   it('listInheritanceRules delegates to service', async () => {
     mockPermissionsService.listInheritanceRules.mockResolvedValue([]);
-    await controller.listInheritanceRules();
+    await controller.listInheritanceRules({} as any);
     expect(mockPermissionsService.listInheritanceRules).toHaveBeenCalled();
   });
 });

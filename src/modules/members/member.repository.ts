@@ -107,6 +107,8 @@ export class MemberRepository {
     query?: string,
     roleId?: string,
     pagination?: DbPagination,
+    isClubMember?: boolean,
+    isActive?: boolean,
   ): Promise<{
     members: Array<{
       discordId: string;
@@ -149,6 +151,16 @@ export class MemberRepository {
             ),
         ),
       );
+    }
+
+    // isClubMember filter
+    if (isClubMember !== undefined) {
+      conditions.push(eq(schema.members.isClubMember, isClubMember));
+    }
+
+    // isActive filter (on server membership)
+    if (isActive !== undefined) {
+      conditions.push(eq(schema.serverMembers.isActive, isActive));
     }
 
     // base query

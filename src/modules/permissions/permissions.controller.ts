@@ -6,7 +6,10 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -16,6 +19,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiSecurity,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -26,6 +30,7 @@ import {
   CheckMode,
 } from './dto/check-permissions-batch.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
+import { ListInheritanceRulesDto } from './dto/list-inheritance-rules.dto';
 import { PermissionsService } from './permissions.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -148,15 +153,41 @@ export class PermissionsController {
   @Get('inheritance-rules')
   @UseGuards(SystemAdminGuard)
   @ApiBearerAuth('session-token')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
     summary: 'List inheritance rules',
     description: 'Returns all configured role inheritance rules.',
+  })
+  @ApiQuery({
+    name: 'sourceRoleId',
+    required: false,
+    type: String,
+    description: 'Filter by source role ID.',
+  })
+  @ApiQuery({
+    name: 'enabled',
+    required: false,
+    type: Boolean,
+    description: 'Filter by enabled status.',
+  })
+  @ApiQuery({
+    name: 'targetScope',
+    required: false,
+    enum: ['all', 'selected'],
+    description: 'Filter by target scope type.',
+  })
+  @ApiQuery({
+    name: 'serverId',
+    required: false,
+    type: String,
+    description:
+      'Filter rules that apply to this server (scope=all always matches; scope=selected matches when this server is among targetServerIds).',
   })
   @ApiOkResponse({ description: 'Inheritance rules list returned.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid parameter format.' })
-  listInheritanceRules() {
-    return this.permissionsService.listInheritanceRules();
+  listInheritanceRules(@Query() query: ListInheritanceRulesDto) {
+    return this.permissionsService.listInheritanceRules(query);
   }
 }
