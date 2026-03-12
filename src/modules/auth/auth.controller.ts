@@ -350,11 +350,18 @@ export class AuthController {
       'Returns the profile of the authenticated system admin based on their Bearer session token. ' +
       'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
   })
-  @ApiOkResponse({ description: 'Authenticated admin profile.', type: AdminMeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing, invalid, or expired session token.' })
-  @ApiForbiddenResponse({ description: 'Valid session but the member is not a system admin.' })
+  @ApiOkResponse({
+    description: 'Authenticated admin profile.',
+    type: AdminMeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Valid session but the member is not a system admin.',
+  })
   async adminMe(@Req() req: Request) {
-    const token = extractBearerToken(req as any)!;
+    const token = extractBearerToken(req)!;
     return this.adminAuthService.getMe(token);
   }
 
@@ -378,15 +385,23 @@ export class AuthController {
     schema: { example: { message: 'Password updated successfully' } },
   })
   @ApiUnauthorizedResponse({
-    description: 'Missing/invalid session token, or `currentPassword` is incorrect.',
+    description:
+      'Missing/invalid session token, or `currentPassword` is incorrect.',
   })
-  @ApiForbiddenResponse({ description: 'Valid session but the member is not a system admin.' })
+  @ApiForbiddenResponse({
+    description: 'Valid session but the member is not a system admin.',
+  })
   @ApiBadRequestResponse({
-    description: '`currentPassword` missing when the account already has a password, or `newPassword` is too short.',
+    description:
+      '`currentPassword` missing when the account already has a password, or `newPassword` is too short.',
   })
   async adminSetPassword(@Req() req: Request, @Body() dto: SetPasswordDto) {
-    const token = extractBearerToken(req as any)!;
-    return this.adminAuthService.setPassword(token, dto.currentPassword, dto.newPassword);
+    const token = extractBearerToken(req)!;
+    return this.adminAuthService.setPassword(
+      token,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────

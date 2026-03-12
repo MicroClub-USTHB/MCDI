@@ -17,8 +17,8 @@ describe('AdminAuthService', () => {
   let sessionRepository: jest.Mocked<SessionRepository>;
   let memberRepository: jest.Mocked<MemberRepository>;
   let adminOAuthStateRepository: jest.Mocked<AdminOAuthStateRepository>;
-  let configService: jest.Mocked<ConfigService>;
-  let discordService: jest.Mocked<DiscordService>;
+  let _configService: jest.Mocked<ConfigService>;
+  let _discordService: jest.Mocked<DiscordService>;
 
   beforeEach(async () => {
     const mockSessionRepo = {
@@ -64,8 +64,8 @@ describe('AdminAuthService', () => {
     sessionRepository = module.get(SessionRepository);
     memberRepository = module.get(MemberRepository);
     adminOAuthStateRepository = module.get(AdminOAuthStateRepository);
-    configService = module.get(ConfigService);
-    discordService = module.get(DiscordService);
+    _configService = module.get(ConfigService);
+    _discordService = module.get(DiscordService);
   });
 
   describe('adminPasswordLogin', () => {
@@ -127,14 +127,22 @@ describe('AdminAuthService', () => {
     });
 
     it('throws Unauthorized if member not found', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue(null);
       await expect(service.getMe('t')).rejects.toThrow(UnauthorizedException);
     });
 
     it('returns member on success', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1', expiresAt: new Date() } as any);
-      memberRepository.findById.mockResolvedValue({ id: '1', username: 'a' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+        expiresAt: new Date(),
+      } as any);
+      memberRepository.findById.mockResolvedValue({
+        id: '1',
+        username: 'a',
+      } as any);
       const res = await service.getMe('t');
       expect(res.id).toBe('1');
     });
@@ -143,37 +151,53 @@ describe('AdminAuthService', () => {
   describe('setPassword', () => {
     it('throws Unauthorized if session invalid', async () => {
       sessionRepository.findValidByToken.mockResolvedValue(null);
-      await expect(service.setPassword('t', undefined, 'new12345')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.setPassword('t', undefined, 'new12345'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws Unauthorized if member not found', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue(null);
-      await expect(service.setPassword('t', undefined, 'new12345')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.setPassword('t', undefined, 'new12345'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws BadRequest if passwordHash exists but no currentPassword given', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue({
         id: '1',
         isSystemAdmin: true,
         passwordHash: 'hash',
       } as any);
-      await expect(service.setPassword('t', undefined, 'new')).rejects.toThrow(BadRequestException);
+      await expect(service.setPassword('t', undefined, 'new')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws Unauthorized if currentPassword does not match', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue({
         id: '1',
         isSystemAdmin: true,
         passwordHash: await hash('oldpass', 1),
       } as any);
-      await expect(service.setPassword('t', 'wrong', 'new')).rejects.toThrow(UnauthorizedException);
+      await expect(service.setPassword('t', 'wrong', 'new')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('updates password successfully if current password matches', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue({
         id: '1',
         isSystemAdmin: true,
@@ -181,11 +205,16 @@ describe('AdminAuthService', () => {
       } as any);
       const res = await service.setPassword('t', 'oldpass', 'newPass123!');
       expect(res.message).toBe('Password updated successfully');
-      expect(memberRepository.setPasswordHash).toHaveBeenCalledWith('1', expect.any(String));
+      expect(memberRepository.setPasswordHash).toHaveBeenCalledWith(
+        '1',
+        expect.any(String),
+      );
     });
 
     it('updates password successfully on first setup', async () => {
-      sessionRepository.findValidByToken.mockResolvedValue({ memberId: '1' } as any);
+      sessionRepository.findValidByToken.mockResolvedValue({
+        memberId: '1',
+      } as any);
       memberRepository.findById.mockResolvedValue({
         id: '1',
         isSystemAdmin: true,
@@ -193,16 +222,19 @@ describe('AdminAuthService', () => {
       } as any);
       const res = await service.setPassword('t', undefined, 'newPass123!');
       expect(res.message).toBe('Password updated successfully');
-      expect(memberRepository.setPasswordHash).toHaveBeenCalledWith('1', expect.any(String));
+      expect(memberRepository.setPasswordHash).toHaveBeenCalledWith(
+        '1',
+        expect.any(String),
+      );
     });
   });
 
   describe('buildAdminDiscordLoginUrl', () => {
     it('creates state and returns url', async () => {
       adminOAuthStateRepository.create.mockResolvedValue(undefined as any);
-      
+
       const res = await service.buildAdminDiscordLoginUrl();
-      
+
       expect(res.url).toContain('client-id');
       expect(res.url).toContain(encodeURIComponent('http://localhost/cb'));
       expect(adminOAuthStateRepository.create).toHaveBeenCalledWith(
@@ -227,67 +259,85 @@ describe('AdminAuthService', () => {
 
     it('throws Unauthorized if state is invalid', async () => {
       adminOAuthStateRepository.findValidState.mockResolvedValue(null);
-      await expect(service.handleAdminDiscordCallback('code', 'invalid')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'invalid'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws Unauthorized if Discord token exchange fails', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({ state: 'valid' } as any);
+      adminOAuthStateRepository.findValidState.mockResolvedValue({
+        state: 'valid',
+      } as any);
       globalFetch.mockResolvedValueOnce({
         ok: false,
-        text: async () => 'error',
+        text: () => Promise.resolve('error'),
       } as any);
 
-      await expect(service.handleAdminDiscordCallback('code', 'valid')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'valid'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws Unauthorized if Discord profile fetch fails', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({ state: 'valid' } as any);
+      adminOAuthStateRepository.findValidState.mockResolvedValue({
+        state: 'valid',
+      } as any);
       globalFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ access_token: 'acc_tok' }),
+        json: () => Promise.resolve({ access_token: 'acc_tok' }),
       } as any);
       globalFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
       } as any);
 
-      await expect(service.handleAdminDiscordCallback('code', 'valid')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'valid'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws Forbidden if member is not system admin', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({ state: 'valid' } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'acc_tok' }),
+      adminOAuthStateRepository.findValidState.mockResolvedValue({
+        state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          id: 'discord123',
-          username: 'user',
-        }),
+        json: () => Promise.resolve({ access_token: 'acc_tok' }),
+      } as any);
+      globalFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'discord123',
+            username: 'user',
+          }),
       } as any);
       memberRepository.upsert.mockResolvedValue({
         id: 'discord123',
         isSystemAdmin: false,
       } as any);
 
-      await expect(service.handleAdminDiscordCallback('code', 'valid')).rejects.toThrow(ForbiddenException);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'valid'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('returns token and member if successful', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({ state: 'valid' } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ access_token: 'acc_tok' }),
+      adminOAuthStateRepository.findValidState.mockResolvedValue({
+        state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({
-          id: 'discord123',
-          username: 'admin',
-          display_name: 'Admin User',
-        }),
+        json: () => Promise.resolve({ access_token: 'acc_tok' }),
+      } as any);
+      globalFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            id: 'discord123',
+            username: 'admin',
+            display_name: 'Admin User',
+          }),
       } as any);
       memberRepository.upsert.mockResolvedValue({
         id: 'discord123',
@@ -301,7 +351,9 @@ describe('AdminAuthService', () => {
       expect(res.token).toBeDefined();
       expect(res.member.username).toBe('admin');
       expect(res.member.displayName).toBe('Admin User');
-      expect(adminOAuthStateRepository.markAsUsed).toHaveBeenCalledWith('valid');
+      expect(adminOAuthStateRepository.markAsUsed).toHaveBeenCalledWith(
+        'valid',
+      );
       expect(sessionRepository.create).toHaveBeenCalled();
     });
   });
