@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
   validateLoginRequest: jest.fn(),
@@ -19,6 +21,8 @@ const mockAdminAuthService = {
   adminPasswordLogin: jest.fn(),
   buildAdminDiscordLoginUrl: jest.fn(),
   handleAdminDiscordCallback: jest.fn(),
+  getMe: jest.fn(),
+  setPassword: jest.fn(),
 };
 
 const mockRes = () => ({
@@ -38,7 +42,12 @@ describe('AuthController', () => {
         { provide: AuthService, useValue: mockAuthService },
         { provide: AdminAuthService, useValue: mockAdminAuthService },
       ],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SystemAdminGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = module.get(AuthController);
   });
 
@@ -249,5 +258,51 @@ describe('AuthController', () => {
     mockAuthService.cleanupExpired.mockResolvedValue({ success: true });
     const result = await controller.cleanupExpired();
     expect(result).toEqual({ success: true });
+  });
+
+  // ── adminMe ───────────────────────────────────────────────────────────
+
+  describe('adminMe', () => {
+    it('extracts token and delegates to adminAuthService.getMe', async () => {
+      const profile = { id: 'u1', username: 'admin', isSystemAdmin: true };
+      mockAdminAuthService.getMe.mockResolvedValue(profile);
+      const req = { headers: { authorization: 'Bearer test-token' } };
+      const result = await controller.adminMe(req as any);
+      expect(mockAdminAuthService.getMe).toHaveBeenCalledWith('test-token');
+      expect(result).toMatchObject({ id: 'u1', isSystemAdmin: true });
+    });
+  });
+
+  // ── adminSetPassword ──────────────────────────────────────────────────
+
+  describe('adminSetPassword', () => {
+    it('delegates with no currentPassword when setting for the first time', async () => {
+      mockAdminAuthService.setPassword.mockResolvedValue({
+        message: 'Password updated successfully',
+      });
+      const req = { headers: { authorization: 'Bearer test-token' } };
+      const dto = { newPassword: 'newSecure!1' };
+      const result = await controller.adminSetPassword(req as any, dto as any);
+      expect(mockAdminAuthService.setPassword).toHaveBeenCalledWith(
+        'test-token',
+        undefined,
+        'newSecure!1',
+      );
+      expect(result).toEqual({ message: 'Password updated successfully' });
+    });
+
+    it('delegates with currentPassword when changing existing password', async () => {
+      mockAdminAuthService.setPassword.mockResolvedValue({
+        message: 'Password updated successfully',
+      });
+      const req = { headers: { authorization: 'Bearer test-token' } };
+      const dto = { currentPassword: 'oldPass!1', newPassword: 'newSecure!1' };
+      await controller.adminSetPassword(req as any, dto as any);
+      expect(mockAdminAuthService.setPassword).toHaveBeenCalledWith(
+        'test-token',
+        'oldPass!1',
+        'newSecure!1',
+      );
+    });
   });
 });

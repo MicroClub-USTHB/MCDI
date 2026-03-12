@@ -371,4 +371,150 @@ describeIf('/api/auth (e2e)', () => {
       });
     });
   });
+
+  // ─── GET /api/auth/admin/me ───────────────────────────────────
+
+  describe('GET /api/auth/admin/me', () => {
+    const TEST_PASSWORD = 'admin-me-test-1234';
+    let adminMemberId: string;
+    let sessionToken: string;
+
+    beforeEach(async () => {
+      adminMemberId = '800000000000000088';
+      const passwordHash = await hash(TEST_PASSWORD, 10);
+
+      await db.insert(members).values({
+        id: adminMemberId,
+        username: 'sysadmin_me_e2e',
+        globalName: 'E2E Me Admin',
+        displayName: 'E2E Me Admin',
+        avatar: null,
+        isClubMember: false,
+        isSystemAdmin: true,
+        passwordHash,
+        joinedAt: new Date(),
+        syncedAt: new Date(),
+      });
+
+      // Obtain a real session token by logging in
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_me_e2e', password: TEST_PASSWORD })
+        .expect(200);
+      sessionToken = loginRes.body.token as string;
+    });
+
+    it('returns the admin profile for a valid session token', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/admin/me')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: adminMemberId,
+        username: 'sysadmin_me_e2e',
+        isSystemAdmin: true,
+      });
+    });
+
+    it('returns 401 when no token is provided', async () => {
+      await request(app.getHttpServer())
+        .get('/api/auth/admin/me')
+        .expect(401);
+    });
+
+    it('returns 401 for an expired session', async () => {
+      const expiredToken = 'expired-me-token-e2e';
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId: adminMemberId,
+        token: expiredToken,
+        expiresAt: new Date(Date.now() - 60_000),
+      });
+
+      await request(app.getHttpServer())
+        .get('/api/auth/admin/me')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(401);
+    });
+  });
+
+  // ─── POST /api/auth/admin/set-password ───────────────────────
+
+  describe('POST /api/auth/admin/set-password', () => {
+    const INITIAL_PASSWORD = 'initial-pass-1234';
+    let adminMemberId: string;
+    let sessionToken: string;
+
+    beforeEach(async () => {
+      adminMemberId = '800000000000000077';
+      const passwordHash = await hash(INITIAL_PASSWORD, 10);
+
+      await db.insert(members).values({
+        id: adminMemberId,
+        username: 'sysadmin_setpw_e2e',
+        globalName: 'E2E SetPw Admin',
+        displayName: 'E2E SetPw Admin',
+        avatar: null,
+        isClubMember: false,
+        isSystemAdmin: true,
+        passwordHash,
+        joinedAt: new Date(),
+        syncedAt: new Date(),
+      });
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_setpw_e2e', password: INITIAL_PASSWORD })
+        .expect(200);
+      sessionToken = loginRes.body.token as string;
+    });
+
+    it('changes the password when currentPassword is correct', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/admin/set-password')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ currentPassword: INITIAL_PASSWORD, newPassword: 'newSecure!99' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({ message: 'Password updated successfully' });
+
+      // Verify the new password works for login
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/login')
+        .send({ username: 'sysadmin_setpw_e2e', password: 'newSecure!99' })
+        .expect(200);
+    });
+
+    it('returns 401 when currentPassword is wrong', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/set-password')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ currentPassword: 'wrong-password', newPassword: 'newSecure!99' })
+        .expect(401);
+    });
+
+    it('returns 400 when currentPassword is missing but password already set', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/set-password')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ newPassword: 'newSecure!99' })
+        .expect(400);
+    });
+
+    it('returns 400 when newPassword is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/set-password')
+        .set('Authorization', `Bearer ${sessionToken}`)
+        .send({ currentPassword: INITIAL_PASSWORD })
+        .expect(400);
+    });
+
+    it('returns 401 when no token is provided', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/admin/set-password')
+        .send({ currentPassword: INITIAL_PASSWORD, newPassword: 'newSecure!99' })
+        .expect(401);
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -10,7 +11,7 @@ import { MemberRepository } from '../repositories/member.repository';
 import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.repository';
 import { DiscordService } from '../../discord/discord.service';
 import { randomBytes } from 'crypto';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { buildDiscordOAuthUrl } from '../utils';
 
 @Injectable()
@@ -223,4 +224,74 @@ export class AdminAuthService {
       },
     };
   }
-}
+
+  // ─── GET /auth/admin/me ───────────────────────────────────────────────
+
+  /**
+   * Return the currently authenticated system admin's profile.
+   * The token is already validated by SystemAdminGuard before reaching here.
+   */
+  async getMe(token: string) {
+    const session = await this.sessionRepository.findValidByToken(token);
+    if (!session) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    const member = await this.memberRepository.findById(session.memberId);
+    if (!member) {
+      throw new UnauthorizedException('Member not found');
+    }
+
+    return {
+      id: member.id,
+      username: member.username,
+      globalName: member.globalName,
+      displayName: member.displayName,
+      avatar: member.avatar,
+      email: member.email,
+      isSystemAdmin: member.isSystemAdmin,
+      sessionExpiresAt: session.expiresAt,
+    };
+  }
+
+  // ─── POST /auth/admin/set-password ───────────────────────────────────
+
+  /**
+   * Let a system admin set or change their own password.
+   *
+   * - If `passwordHash` is already set in DB → `currentPassword` is required and must match.
+   * - On first call (no password yet) → `currentPassword` is optional.
+   */
+  async setPassword(
+    token: string,
+    currentPassword: string | undefined,
+    newPassword: string,
+  ) {
+    const session = await this.sessionRepository.findValidByToken(token);
+    if (!session) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    const member = await this.memberRepository.findById(session.memberId);
+    if (!member) {
+      throw new UnauthorizedException('Member not found');
+    }
+
+    // Require current password only when one is already set
+    if (member.passwordHash) {
+      if (!currentPassword) {
+        throw new BadRequestException(
+          'currentPassword is required when changing an existing password',
+        );
+      }
+      const valid = await compare(currentPassword, member.passwordHash);
+      if (!valid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+    }
+
+    const newHash = await hash(newPassword, 10);
+    await this.memberRepository.setPasswordHash(session.memberId, newHash);
+
+    return { message: 'Password updated successfully' };
+  }}

@@ -1,4 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 
 import { DiscordModule } from './modules/discord/discord.module';
@@ -17,6 +18,7 @@ import { MethodNotAllowedMiddleware } from './common/middleware/method-not-allow
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
     ConfigModule,
     DatabaseModule,
     DiscordModule,

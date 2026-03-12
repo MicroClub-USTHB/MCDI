@@ -1,35 +1,39 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class AdminPasswordLoginDto {
-  @ApiProperty({
-    description: 'Discord username of the system admin',
-    example: 'johndoe',
-    minLength: 1,
+export class SetPasswordDto {
+  @ApiPropertyOptional({
+    description:
+      'Current password — required when the admin already has a password configured. ' +
+      'Omit only on first-time password setup.',
+    example: 'oldPassword123',
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  username: string;
+  currentPassword?: string;
 
   @ApiProperty({
-    description: 'Admin password (min 6 characters)',
-    example: 'supersecret',
-    minLength: 6,
+    description: 'New password. Must be at least 8 characters.',
+    example: 'newSecurePass!9',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(6)
-  password: string;
+  @MinLength(8)
+  newPassword: string;
 }
 
-export class AdminLoginMemberDto {
+export class AdminMeResponseDto {
   @ApiProperty({
     description: 'Member ID (Discord snowflake)',
     example: '123456789012345678',
   })
   id: string;
 
-  @ApiProperty({ description: 'Discord username', example: 'johndoe' })
+  @ApiProperty({
+    description: 'Discord username',
+    example: 'johndoe',
+  })
   username: string;
 
   @ApiPropertyOptional({
@@ -54,7 +58,7 @@ export class AdminLoginMemberDto {
   avatar: string | null;
 
   @ApiPropertyOptional({
-    description: 'Email address from Discord',
+    description: 'Email address from Discord (requires email OAuth scope)',
     example: 'johndoe@example.com',
     nullable: true,
   })
@@ -65,25 +69,10 @@ export class AdminLoginMemberDto {
     example: true,
   })
   isSystemAdmin: boolean;
-}
-
-export class AdminLoginResponseDto {
-  @ApiProperty({
-    description:
-      'Bearer token — include as `Authorization: Bearer <token>` on all admin endpoints',
-    example: 'a1b2c3d4e5f6...',
-  })
-  token: string;
 
   @ApiProperty({
-    description: 'ISO 8601 timestamp when the session token expires (24 h from issue)',
+    description: 'ISO 8601 timestamp when the current session expires',
     example: '2026-03-13T05:00:00.000Z',
   })
-  expiresAt: Date;
-
-  @ApiProperty({
-    description: 'Authenticated system-admin member',
-    type: () => AdminLoginMemberDto,
-  })
-  member: AdminLoginMemberDto;
+  sessionExpiresAt: Date;
 }

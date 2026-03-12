@@ -42,6 +42,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.6",
+    "@nestjs/throttler": "^6.5.0",
     "@types/cookie-parser": "^1.4.10",
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
@@ -99,7 +100,10 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", {}]
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {}
+      ]
     },
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"

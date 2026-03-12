@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
 import { AppModule } from '../../src/app.module';
 
@@ -11,7 +12,11 @@ import { AppModule } from '../../src/app.module';
 export async function createTestApp(): Promise<INestApplication> {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    // Disable rate limiting in E2E tests so tests don't trip over each other
+    .overrideGuard(ThrottlerGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
 

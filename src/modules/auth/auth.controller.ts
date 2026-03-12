@@ -12,9 +12,11 @@ import {
   HttpCode,
   HttpStatus,
   UnauthorizedException,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -23,6 +25,7 @@ import {
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiParam,
   ApiBody,
   ApiProduces,
@@ -31,6 +34,8 @@ import {
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { extractBearerToken } from '../../common/utils/auth.util';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -41,6 +46,8 @@ import {
   LoginSessionResponseDto,
   AdminPasswordLoginDto,
   AdminLoginResponseDto,
+  SetPasswordDto,
+  AdminMeResponseDto,
 } from './dto';
 
 @ApiTags('Authentication')
@@ -303,17 +310,20 @@ export class AuthController {
 
   @Post('admin/login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @UseGuards(ThrottlerGuard)
   @UsePipes(new ValidationPipe({ whitelist: true }))
   @ApiOperation({
     summary: 'System admin login (username + password)',
     description:
       'Authenticates a system admin using their Discord username and a pre-set password. ' +
       'The member must exist, have `isSystemAdmin = true`, and have a password configured. ' +
-      'Returns a 24-hour Bearer token.',
+      'Returns a 24-hour Bearer token.' +
+      '\n\n**Rate limited:** 5 attempts per 60 seconds per IP.',
   })
   @ApiBody({ type: AdminPasswordLoginDto })
   @ApiOkResponse({
-    description: 'Login successful.',
+    description: 'Login successful — returns a 24-hour Bearer session token.',
     type: AdminLoginResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
@@ -321,8 +331,62 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty/short fields).',
   })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many login attempts — retry after 60 seconds.',
+  })
   async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
     return this.adminAuthService.adminPasswordLogin(dto.username, dto.password);
+  }
+
+  // ─── System Admin — Me ────────────────────────────────────────────────
+
+  @Get('admin/me')
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Get current system admin profile',
+    description:
+      'Returns the profile of the authenticated system admin based on their Bearer session token. ' +
+      'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
+  })
+  @ApiOkResponse({ description: 'Authenticated admin profile.', type: AdminMeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing, invalid, or expired session token.' })
+  @ApiForbiddenResponse({ description: 'Valid session but the member is not a system admin.' })
+  async adminMe(@Req() req: Request) {
+    const token = extractBearerToken(req as any)!;
+    return this.adminAuthService.getMe(token);
+  }
+
+  // ─── System Admin — Set Password ─────────────────────────────────────
+
+  @Post('admin/set-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @ApiOperation({
+    summary: 'Set or change the system admin password',
+    description:
+      'Sets or updates the password for the authenticated system admin. ' +
+      'If a password is already configured, `currentPassword` must be provided and correct. ' +
+      'On first-time setup (no password yet), omit `currentPassword`.',
+  })
+  @ApiBody({ type: SetPasswordDto })
+  @ApiOkResponse({
+    description: 'Password updated successfully.',
+    schema: { example: { message: 'Password updated successfully' } },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing/invalid session token, or `currentPassword` is incorrect.',
+  })
+  @ApiForbiddenResponse({ description: 'Valid session but the member is not a system admin.' })
+  @ApiBadRequestResponse({
+    description: '`currentPassword` missing when the account already has a password, or `newPassword` is too short.',
+  })
+  async adminSetPassword(@Req() req: Request, @Body() dto: SetPasswordDto) {
+    const token = extractBearerToken(req as any)!;
+    return this.adminAuthService.setPassword(token, dto.currentPassword, dto.newPassword);
   }
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
