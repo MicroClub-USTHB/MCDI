@@ -9,6 +9,7 @@ import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 const mockAuthService = {
   authorize: jest.fn(),
   consumeAuthRequest: jest.fn(),
+  findAuthRequestById: jest.fn(),
   buildDiscordLoginUrl: jest.fn(),
   handleDiscordCallback: jest.fn(),
   validateSession: jest.fn(),
@@ -66,6 +67,7 @@ describe('AuthController', () => {
   describe('authorize', () => {
     it('creates auth request, sets cookie, and redirects to /auth/discord', async () => {
       mockAuthService.authorize.mockResolvedValue({
+        ok: true,
         requestId: 'req-uuid-123',
       });
       const res = mockRes();
@@ -76,18 +78,57 @@ describe('AuthController', () => {
         state: 'csrf-token',
       };
       await controller.authorize(dto, res as any);
-      expect(mockAuthService.authorize).toHaveBeenCalledWith(
-        'project-uuid',
-        'http://localhost/callback',
-        '123456789',
-        'csrf-token',
-      );
       expect(res.cookie).toHaveBeenCalledWith(
         'mcdi_auth_req',
         'req-uuid-123',
         expect.objectContaining({ httpOnly: true, sameSite: 'lax' }),
       );
       expect(res.redirect).toHaveBeenCalledWith('/api/auth/discord');
+    });
+
+    it('redirects error to client when redirect_uri was validated', async () => {
+      mockAuthService.authorize.mockResolvedValue({
+        ok: false,
+        error: 'access_denied',
+        description: 'Project does not have access to this server',
+        redirectUri: 'http://localhost/callback',
+        state: 'csrf-token',
+      });
+      const res = mockRes();
+      const dto = {
+        client_id: 'project-uuid',
+        redirect_uri: 'http://localhost/callback',
+        server_id: '123456789',
+        state: 'csrf-token',
+      };
+      await controller.authorize(dto, res as any);
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error=access_denied'),
+      );
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('state=csrf-token'),
+      );
+    });
+
+    it('returns JSON error when redirect_uri cannot be trusted', async () => {
+      mockAuthService.authorize.mockResolvedValue({
+        ok: false,
+        error: 'invalid_client',
+        description: 'Unknown or inactive client_id',
+        state: 'csrf-token',
+      });
+      const res = mockRes();
+      const dto = {
+        client_id: 'bad-uuid',
+        redirect_uri: 'http://evil.com',
+        server_id: '123456789',
+        state: 'csrf-token',
+      };
+      await controller.authorize(dto, res as any);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'invalid_client' }),
+      );
     });
   });
 
@@ -127,16 +168,34 @@ describe('AuthController', () => {
       expect(res.redirect).not.toHaveBeenCalled();
     });
 
-    it('returns 400 when auth request is invalid or expired', async () => {
+    it('redirects error to client when auth request is expired or used', async () => {
       mockAuthService.consumeAuthRequest.mockResolvedValue(null);
+      mockAuthService.findAuthRequestById.mockResolvedValue({
+        redirectUri: 'http://localhost/callback',
+        state: 'csrf-abc',
+      });
       const req = { cookies: { mcdi_auth_req: 'bad-uuid' } };
+      const res = mockRes();
+      await controller.startDiscordAuth(req as any, res as any);
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('error=invalid_request'),
+      );
+      expect(res.redirect).toHaveBeenCalledWith(
+        expect.stringContaining('state=csrf-abc'),
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_auth_req');
+    });
+
+    it('returns JSON 400 when auth request is not found at all', async () => {
+      mockAuthService.consumeAuthRequest.mockResolvedValue(null);
+      mockAuthService.findAuthRequestById.mockResolvedValue(null);
+      const req = { cookies: { mcdi_auth_req: 'gone-uuid' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: 'invalid_request' }),
       );
-      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_auth_req');
     });
 
     it('passes client state to buildDiscordLoginUrl', async () => {

@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  UnauthorizedException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
@@ -57,13 +51,25 @@ export class AuthService {
     redirectUri: string,
     serverId: string,
     state: string,
-  ) {
+  ): Promise<
+    | { ok: true; requestId: string }
+    | {
+        ok: false;
+        error: string;
+        description: string;
+        redirectUri?: string;
+        state: string;
+      }
+  > {
     const project = await this.projectsRepository.findOne(clientId);
-    if (!project) {
-      throw new BadRequestException('Invalid client_id');
-    }
-    if (!project.isActive) {
-      throw new ForbiddenException('Project is inactive');
+    if (!project || !project.isActive) {
+      // Can't trust redirect_uri if the project is unknown or inactive
+      return {
+        ok: false,
+        error: 'invalid_client',
+        description: 'Unknown or inactive client_id',
+        state,
+      };
     }
 
     const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
@@ -71,17 +77,28 @@ export class AuthService {
       redirectUri,
     );
     if (!isAllowed) {
-      throw new ForbiddenException('Redirect URI not allowed for this project');
+      // Can't redirect to an unvalidated URI
+      return {
+        ok: false,
+        error: 'invalid_redirect_uri',
+        description: 'Redirect URI not allowed for this project',
+        state,
+      };
     }
 
+    // redirect_uri is validated — errors from here can safely redirect back
     const hasAccess = await this.projectsRepository.hasServerAccess(
       project.id,
       serverId,
     );
     if (!hasAccess) {
-      throw new ForbiddenException(
-        'Project does not have access to this server',
-      );
+      return {
+        ok: false,
+        error: 'access_denied',
+        description: 'Project does not have access to this server',
+        redirectUri,
+        state,
+      };
     }
 
     const expiresAt = new Date();
@@ -95,7 +112,7 @@ export class AuthService {
       expiresAt,
     });
 
-    return { requestId: authRequest.requestId };
+    return { ok: true, requestId: authRequest.requestId };
   }
 
   /**
@@ -104,6 +121,14 @@ export class AuthService {
    */
   async consumeAuthRequest(requestId: string) {
     return this.authRequestRepository.consumeValid(requestId);
+  }
+
+  /**
+   * Look up any auth request by ID regardless of used/expired status.
+   * Used to recover redirect_uri and state for error redirects.
+   */
+  async findAuthRequestById(requestId: string) {
+    return this.authRequestRepository.findById(requestId);
   }
 
   // ─── Build Discord OAuth URL ──────────────────────────

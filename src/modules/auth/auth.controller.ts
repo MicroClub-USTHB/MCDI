@@ -83,15 +83,31 @@ export class AuthController {
       'Project inactive, redirect URI not allowed, or server not accessible.',
   })
   async authorize(@Query() dto: AuthorizeQueryDto, @Res() res: Response) {
-    const { requestId } = await this.authService.authorize(
+    const result = await this.authService.authorize(
       dto.client_id,
       dto.redirect_uri,
       dto.server_id,
       dto.state,
     );
 
-    // Store the request ID in an httpOnly cookie (10-min TTL matches the auth request)
-    res.cookie('mcdi_auth_req', requestId, {
+    if (!result.ok) {
+      // If redirect_uri was validated, redirect the error back to the client
+      if (result.redirectUri) {
+        const url = new URL(result.redirectUri);
+        url.searchParams.set('error', result.error);
+        url.searchParams.set('error_description', result.description);
+        url.searchParams.set('state', result.state);
+        return res.redirect(url.toString());
+      }
+      // Can't trust redirect_uri — return JSON to the browser
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: 400,
+        error: result.error,
+        message: result.description,
+      });
+    }
+
+    res.cookie('mcdi_auth_req', result.requestId, {
       httpOnly: true,
       sameSite: 'lax',
       secure: this.configService.get<string>('app.nodeEnv') === 'production',
@@ -122,6 +138,7 @@ export class AuthController {
     )?.mcdi_auth_req;
 
     if (!requestId) {
+      // No cookie — no way to know where to redirect
       return res.status(HttpStatus.BAD_REQUEST).json({
         statusCode: 400,
         error: 'missing_context',
@@ -136,6 +153,18 @@ export class AuthController {
     res.clearCookie('mcdi_auth_req');
 
     if (!authRequest) {
+      // Consume failed — look up the original request for redirect info
+      const original = await this.authService.findAuthRequestById(requestId);
+      if (original) {
+        const url = new URL(original.redirectUri);
+        url.searchParams.set('error', 'invalid_request');
+        url.searchParams.set(
+          'error_description',
+          'Authorization request has expired or was already used',
+        );
+        url.searchParams.set('state', original.state);
+        return res.redirect(url.toString());
+      }
       return res.status(HttpStatus.BAD_REQUEST).json({
         statusCode: 400,
         error: 'invalid_request',

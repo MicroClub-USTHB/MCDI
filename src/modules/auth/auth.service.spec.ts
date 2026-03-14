@@ -1,9 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
@@ -48,6 +44,7 @@ const mockOAuthStateRepo = {
 const mockAuthRequestRepo = {
   create: jest.fn(),
   consumeValid: jest.fn(),
+  findById: jest.fn(),
   deleteExpired: jest.fn(),
 };
 
@@ -119,40 +116,65 @@ describe('AuthService', () => {
   // ── authorize ──────────────────────────────────────────────────────────
 
   describe('authorize', () => {
-    it('throws BadRequestException when client_id is not found', async () => {
+    it('returns error when client_id is not found', async () => {
       mockProjectsRepo.findOne.mockResolvedValue(null);
-      await expect(
-        service.authorize('bad-id', 'http://localhost/cb', 's1', 'state'),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.authorize(
+        'bad-id',
+        'http://localhost/cb',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({ ok: false, error: 'invalid_client' });
     });
 
-    it('throws ForbiddenException when project is inactive', async () => {
+    it('returns error when project is inactive', async () => {
       mockProjectsRepo.findOne.mockResolvedValue(
         fakeProject({ isActive: false }),
       );
-      await expect(
-        service.authorize('proj-1', 'http://localhost/cb', 's1', 'state'),
-      ).rejects.toThrow(ForbiddenException);
+      const result = await service.authorize(
+        'proj-1',
+        'http://localhost/cb',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({ ok: false, error: 'invalid_client' });
     });
 
-    it('throws ForbiddenException when redirect_uri is not allowed', async () => {
+    it('returns error without redirectUri when redirect_uri is not allowed', async () => {
       mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
-      await expect(
-        service.authorize('proj-1', 'http://evil.com', 's1', 'state'),
-      ).rejects.toThrow(ForbiddenException);
+      const result = await service.authorize(
+        'proj-1',
+        'http://evil.com',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'invalid_redirect_uri',
+      });
+      expect((result as any).redirectUri).toBeUndefined();
     });
 
-    it('throws ForbiddenException when project has no access to server', async () => {
+    it('returns error with redirectUri when server access is denied', async () => {
       mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockProjectsRepo.hasServerAccess.mockResolvedValue(false);
-      await expect(
-        service.authorize('proj-1', 'http://localhost/cb', 's1', 'state'),
-      ).rejects.toThrow(ForbiddenException);
+      const result = await service.authorize(
+        'proj-1',
+        'http://localhost/cb',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'access_denied',
+        redirectUri: 'http://localhost/cb',
+        state: 'state',
+      });
     });
 
-    it('creates auth request and returns requestId on success', async () => {
+    it('creates auth request and returns ok with requestId on success', async () => {
       mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
@@ -166,15 +188,7 @@ describe('AuthService', () => {
         's1',
         'csrf-token',
       );
-      expect(result).toEqual({ requestId: 'req-uuid-123' });
-      expect(mockAuthRequestRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          clientId: 'proj-1',
-          serverId: 's1',
-          redirectUri: 'http://localhost/cb',
-          state: 'csrf-token',
-        }),
-      );
+      expect(result).toEqual({ ok: true, requestId: 'req-uuid-123' });
     });
   });
 

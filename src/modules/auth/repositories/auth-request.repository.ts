@@ -52,6 +52,18 @@ export class AuthRequestRepository {
     return row ?? null;
   }
 
+  // Look up any request by ID regardless of used/expired status.
+  // Used to recover redirect_uri and state for error redirects.
+  async findById(requestId: string) {
+    const [row] = await this.db
+      .select()
+      .from(schema.authRequests)
+      .where(eq(schema.authRequests.requestId, requestId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
   async deleteExpired() {
     const now = new Date();
     await this.db
