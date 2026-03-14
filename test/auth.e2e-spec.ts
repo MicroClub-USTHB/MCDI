@@ -84,13 +84,13 @@ describeIf('/api/auth (e2e)', () => {
         .expect(400);
     });
 
-    it('returns 403 when redirect_uri is not whitelisted', async () => {
+    it('returns 400 when redirect_uri is not whitelisted', async () => {
       const { serverId } = await seedAdminContext(db);
       const { id: projectId } = await seedTestProject(db, serverId, {
         name: 'E2E Bad URI',
       });
 
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/api/auth/authorize')
         .query({
           client_id: projectId,
@@ -98,7 +98,9 @@ describeIf('/api/auth (e2e)', () => {
           server_id: serverId,
           state: 'csrf-test',
         })
-        .expect(403);
+        .expect(400);
+
+      expect(res.body).toMatchObject({ error: 'invalid_redirect_uri' });
     });
 
     it('returns 400 when required query params are missing', async () => {
@@ -108,14 +110,14 @@ describeIf('/api/auth (e2e)', () => {
         .expect(400);
     });
 
-    it('returns 403 when project is inactive', async () => {
+    it('returns 400 when project is inactive', async () => {
       const { serverId } = await seedAdminContext(db);
       const { id: projectId } = await seedTestProject(db, serverId, {
         name: 'E2E Inactive',
         isActive: false,
       });
 
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/api/auth/authorize')
         .query({
           client_id: projectId,
@@ -123,7 +125,9 @@ describeIf('/api/auth (e2e)', () => {
           server_id: serverId,
           state: 'csrf-test',
         })
-        .expect(403);
+        .expect(400);
+
+      expect(res.body).toMatchObject({ error: 'invalid_client' });
     });
   });
 
