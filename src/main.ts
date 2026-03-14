@@ -12,6 +12,7 @@ import { PostgresExceptionFilter } from './common/filters/drizzle.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.enableShutdownHooks();
   const configService = app.get(ConfigService);
 
   const port = configService.get<number>('app.port') || 3000;

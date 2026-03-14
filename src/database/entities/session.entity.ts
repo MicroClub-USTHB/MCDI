@@ -11,7 +11,7 @@ export const sessions = pgTable('sessions', {
   projectId: uuid('project_id').references(() => projects.id),
   /** The Discord server ID verified against during login */
   serverId: varchar('server_id', { length: 255 }),
-  token: text('token').notNull(),
+  token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

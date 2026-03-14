@@ -245,6 +245,8 @@ export class AuthController {
 
   @Post('validate')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @UseGuards(ThrottlerGuard)
   @ApiOperation({
     summary: 'Validate session token',
     description:
@@ -260,6 +262,10 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid or expired session token.' })
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty token).',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many validation requests — retry after a short delay.',
   })
   async validateSession(@Body() dto: ValidateSessionDto) {
     return this.authService.validateSession(dto.token);
