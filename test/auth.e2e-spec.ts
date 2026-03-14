@@ -44,70 +44,86 @@ describeIf('/api/auth (e2e)', () => {
     await clearAllTables(db);
   });
 
-  // ─── POST /api/auth/login-session ──────────────────────────────
+  // ─── GET /api/auth/authorize ──────────────────────────────
 
-  describe('POST /api/auth/login-session', () => {
-    it('returns loginUrl when API key is valid', async () => {
+  describe('GET /api/auth/authorize', () => {
+    it('redirects to /auth/discord when params are valid', async () => {
       const { serverId } = await seedAdminContext(db);
-      const { apiKey } = await seedTestProject(db, serverId, {
-        name: 'E2E Login Session',
+      const { id: projectId } = await seedTestProject(db, serverId, {
+        name: 'E2E Authorize',
       });
 
       const res = await request(app.getHttpServer())
-        .post('/api/auth/login-session')
-        .set('X-API-Key', apiKey)
-        .send({ serverId, redirectUri: 'http://localhost:4000/callback' })
-        .expect(200);
+        .get('/api/auth/authorize')
+        .query({
+          client_id: projectId,
+          redirect_uri: 'http://localhost:4000/callback',
+          server_id: serverId,
+          state: 'csrf-test-token',
+        })
+        .expect(302);
 
-      expect(res.body.loginUrl).toMatch(/\/api\/auth\/login\/.+/);
+      expect(res.headers.location).toBe('/api/auth/discord');
+      expect(res.headers['set-cookie']).toBeDefined();
+      const cookie = (res.headers['set-cookie'] as unknown as string[]).find(
+        (c: string) => c.startsWith('mcdi_auth_req='),
+      );
+      expect(cookie).toBeDefined();
+      expect(cookie).toContain('HttpOnly');
     });
 
-    it('returns 401 when X-API-Key header is missing', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/login-session')
-        .send({ redirectUri: 'http://localhost:4000/callback' })
-        .expect(401);
-
-      expect(res.body).toMatchObject({
-        statusCode: 401,
-        message: 'X-API-Key header is required',
-      });
-    });
-  });
-
-  // ─── GET /api/auth/login/:token ──────────────────────────────
-
-  describe('GET /api/auth/login/:token', () => {
-    it('renders error page when token is invalid', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/auth/login/nonexistent-token-abc')
-        .expect(200);
-
-      expect(res.text).toMatch(/invalid_token|expired|invalid/i);
+    it('returns 400 when client_id is invalid', async () => {
+      await request(app.getHttpServer())
+        .get('/api/auth/authorize')
+        .query({
+          client_id: '00000000-0000-0000-0000-000000000000',
+          redirect_uri: 'http://localhost:4000/callback',
+          server_id: '123456789012345678',
+          state: 'csrf-test',
+        })
+        .expect(400);
     });
 
-    it('renders login page with valid login token', async () => {
+    it('returns 403 when redirect_uri is not whitelisted', async () => {
       const { serverId } = await seedAdminContext(db);
-      const { apiKey } = await seedTestProject(db, serverId, {
-        name: 'E2E Test Project',
+      const { id: projectId } = await seedTestProject(db, serverId, {
+        name: 'E2E Bad URI',
       });
 
-      // First create a login session
-      const sessionRes = await request(app.getHttpServer())
-        .post('/api/auth/login-session')
-        .set('X-API-Key', apiKey)
-        .send({ serverId, redirectUri: 'http://localhost:4000/callback' })
-        .expect(200);
+      await request(app.getHttpServer())
+        .get('/api/auth/authorize')
+        .query({
+          client_id: projectId,
+          redirect_uri: 'http://evil.com/steal',
+          server_id: serverId,
+          state: 'csrf-test',
+        })
+        .expect(403);
+    });
 
-      // Extract token from loginUrl
-      const token = sessionRes.body.loginUrl.split('/api/auth/login/')[1];
+    it('returns 400 when required query params are missing', async () => {
+      await request(app.getHttpServer())
+        .get('/api/auth/authorize')
+        .query({ client_id: 'not-a-uuid' })
+        .expect(400);
+    });
 
-      const res = await request(app.getHttpServer())
-        .get(`/api/auth/login/${token}`)
-        .expect(200);
+    it('returns 403 when project is inactive', async () => {
+      const { serverId } = await seedAdminContext(db);
+      const { id: projectId } = await seedTestProject(db, serverId, {
+        name: 'E2E Inactive',
+        isActive: false,
+      });
 
-      // The login page should include a Discord login prompt
-      expect(res.text).toMatch(/discord/i);
+      await request(app.getHttpServer())
+        .get('/api/auth/authorize')
+        .query({
+          client_id: projectId,
+          redirect_uri: 'http://localhost:4000/callback',
+          server_id: serverId,
+          state: 'csrf-test',
+        })
+        .expect(403);
     });
   });
 
@@ -418,9 +434,7 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 401 when no token is provided', async () => {
-      await request(app.getHttpServer())
-        .get('/api/auth/admin/me')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/auth/admin/me').expect(401);
     });
 
     it('returns 401 for an expired session', async () => {
@@ -474,10 +488,15 @@ describeIf('/api/auth (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/api/auth/admin/set-password')
         .set('Authorization', `Bearer ${sessionToken}`)
-        .send({ currentPassword: INITIAL_PASSWORD, newPassword: 'newSecure!99' })
+        .send({
+          currentPassword: INITIAL_PASSWORD,
+          newPassword: 'newSecure!99',
+        })
         .expect(200);
 
-      expect(res.body).toMatchObject({ message: 'Password updated successfully' });
+      expect(res.body).toMatchObject({
+        message: 'Password updated successfully',
+      });
 
       // Verify the new password works for login
       await request(app.getHttpServer())
@@ -490,7 +509,10 @@ describeIf('/api/auth (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/auth/admin/set-password')
         .set('Authorization', `Bearer ${sessionToken}`)
-        .send({ currentPassword: 'wrong-password', newPassword: 'newSecure!99' })
+        .send({
+          currentPassword: 'wrong-password',
+          newPassword: 'newSecure!99',
+        })
         .expect(401);
     });
 
@@ -513,7 +535,10 @@ describeIf('/api/auth (e2e)', () => {
     it('returns 401 when no token is provided', async () => {
       await request(app.getHttpServer())
         .post('/api/auth/admin/set-password')
-        .send({ currentPassword: INITIAL_PASSWORD, newPassword: 'newSecure!99' })
+        .send({
+          currentPassword: INITIAL_PASSWORD,
+          newPassword: 'newSecure!99',
+        })
         .expect(401);
     });
   });
