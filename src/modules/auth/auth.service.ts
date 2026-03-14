@@ -9,199 +9,110 @@ import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import {
   DiscordService,
   DiscordOAuthProfile,
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { ServersRepository } from '../servers/servers.repository';
 import { randomBytes } from 'crypto';
 import {
   buildDiscordOAuthUrl,
   buildErrorRedirect,
   buildSuccessPost,
-  validateApiKeyAndGetProject,
 } from './utils';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
-  private readonly discordClientSecret: string;
   private readonly discordRedirectUri: string;
-  private readonly discordAdminRedirectUri: string;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly memberRepository: MemberRepository,
     private readonly oauthStateRepository: OAuthStateRepository,
-    private readonly loginTokenRepository: LoginTokenRepository,
+    private readonly authRequestRepository: AuthRequestRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly projectsRepository: ProjectsRepository,
-    private readonly serversRepository: ServersRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
-    this.discordClientSecret = this.configService.get<string>(
-      'discord.clientSecret',
-    )!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
     )!;
-    this.discordAdminRedirectUri = this.configService.get<string>(
-      'discord.adminRedirectUri',
-    )!;
   }
 
-  // ─── Step 1 — Validate API key & render login page ───────
+  // ─── Authorization request ─────────────────────────────
 
   /**
-   * Validate the platform's API key and resolve the project context.
-   * Called when a user lands on the MCDI login page.
-   *
-   * Flow:
-   *  1. Look up the project by API key
-   *  2. If external → serverId or serverName is required
-   *  3. If internal → use main server
-   *  4. Validate redirect URI against allowlist
-   *  5. Check project has access to the target server
-   *  6. Return project info so the login page can render
+   * Handle GET /auth/authorize — validates the client's params, creates
+   * a short-lived auth request in the DB, and returns the request ID
+   * (to be stored in a cookie by the controller).
    */
-  async validateLoginRequest(
-    apiKey: string,
-    serverId?: string,
-    serverName?: string,
-    redirectUri?: string,
+  async authorize(
+    clientId: string,
+    redirectUri: string,
+    serverId: string,
+    state: string,
   ) {
-    const project = await validateApiKeyAndGetProject(
-      this.projectsRepository,
-      apiKey,
-    );
-
-    // Determine target server
-    let targetServerId: string;
-
-    if (project.isInternal) {
-      const mainServer = await this.serversRepository.findMain();
-      if (!mainServer) {
-        throw new BadRequestException('Main server not configured');
-      }
-      targetServerId = mainServer.id;
-    } else {
-      // External platforms: resolve serverId from serverName if provided
-      if (!serverId && serverName) {
-        const server = await this.serversRepository.findByName(serverName);
-        if (!server) {
-          throw new BadRequestException(
-            `Server with name "${serverName}" not found`,
-          );
-        }
-        targetServerId = server.id;
-      } else if (serverId) {
-        targetServerId = serverId;
-      } else {
-        throw new BadRequestException(
-          'serverId or serverName is required for external platforms',
-        );
-      }
-
-      // Verify project has access to this server
-      const hasAccess = await this.projectsRepository.hasServerAccess(
-        project.id,
-        targetServerId,
-      );
-      if (!hasAccess) {
-        throw new ForbiddenException(
-          'Project does not have access to this server',
-        );
-      }
+    const project = await this.projectsRepository.findOne(clientId);
+    if (!project) {
+      throw new BadRequestException('Invalid client_id');
+    }
+    if (!project.isActive) {
+      throw new ForbiddenException('Project is inactive');
     }
 
-    // Resolve redirect URI
-    const finalRedirectUri = redirectUri || project.redirectUri;
-    if (!finalRedirectUri) {
-      throw new BadRequestException(
-        'No redirect URI configured for this project',
-      );
-    }
-
-    // Validate redirect URI against allowlist
     const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
       project.id,
-      finalRedirectUri,
+      redirectUri,
     );
     if (!isAllowed) {
       throw new ForbiddenException('Redirect URI not allowed for this project');
     }
 
-    return {
-      project,
-      serverId: targetServerId,
-      redirectUri: finalRedirectUri,
-    };
-  }
-
-  // ─── Login session (secure two-step flow) ────────────────
-
-  /**
-   * Create a short-lived login token that encodes the project context.
-   * The platform calls this server-to-server with the API key in a header,
-   * then redirects the user's browser to the returned loginUrl.
-   * This keeps the API key out of URLs entirely.
-   */
-  async createLoginSession(
-    apiKey: string,
-    serverId?: string,
-    serverName?: string,
-    redirectUri?: string,
-  ) {
-    // Reuse existing validation logic
-    const context = await this.validateLoginRequest(
-      apiKey,
+    const hasAccess = await this.projectsRepository.hasServerAccess(
+      project.id,
       serverId,
-      serverName,
-      redirectUri,
     );
+    if (!hasAccess) {
+      throw new ForbiddenException(
+        'Project does not have access to this server',
+      );
+    }
 
-    // Generate a short-lived token (5 minutes)
-    const token = randomBytes(32).toString('hex');
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 5);
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
-    await this.loginTokenRepository.create({
-      token,
-      projectId: context.project.id,
-      serverId: context.serverId,
-      redirectUri: context.redirectUri,
+    const authRequest = await this.authRequestRepository.create({
+      clientId: project.id,
+      redirectUri,
+      serverId,
+      state,
       expiresAt,
     });
 
-    const baseUrl = this.configService.get<string>('app.baseUrl') || '';
-    return {
-      loginUrl: `${baseUrl}/api/auth/login/${token}`,
-    };
+    return { requestId: authRequest.requestId };
   }
 
   /**
-   * Resolve a login token to its stored project context.
-   * Used by GET /auth/login/:token to render the login page.
+   * Resolve an auth request by its ID. Returns null if expired or already used.
    */
-  async resolveLoginToken(token: string) {
-    const loginToken = await this.loginTokenRepository.findValid(token);
-    if (!loginToken) {
-      return null;
-    }
-    const project = await this.projectsRepository.findOne(loginToken.projectId);
-    return {
-      ...loginToken,
-      projectName: project?.name ?? loginToken.projectId,
-    };
+  async resolveAuthRequest(requestId: string) {
+    return this.authRequestRepository.findValid(requestId);
   }
 
-  // ─── Step 2 — Build Discord OAuth URL ────────────────────
+  /**
+   * Mark an auth request as used so it cannot be replayed.
+   */
+  async consumeAuthRequest(requestId: string) {
+    await this.authRequestRepository.markAsUsed(requestId);
+  }
+
+  // ─── Build Discord OAuth URL ──────────────────────────
 
   /**
    * Build the Discord OAuth URL with project context encoded in state.
@@ -212,6 +123,7 @@ export class AuthService {
     projectId: string,
     serverId: string,
     redirectUri: string,
+    clientState?: string,
   ) {
     // Generate secure random state token
     const state = randomBytes(32).toString('hex');
@@ -225,6 +137,7 @@ export class AuthService {
       projectId,
       serverId,
       redirectUri,
+      clientState,
       expiresAt,
     });
 
@@ -237,26 +150,20 @@ export class AuthService {
     };
   }
 
-  // ─── Step 3 — Discord callback → session → redirect ─────
+  // ─── Discord callback → session → redirect ─────────────
 
   /**
    * Handle the callback from Discord after user authorization.
-   * This is the core step: it does everything in one shot.
    *
-   * Flow:
-   *  1. Validate state token (one-time use, not expired)
-   *  2. Exchange Discord code for access token
-   *  3. Fetch Discord profile (identify + email)
-   *  4. Upsert member in DB
-   *  5. Verify user is in the target Discord server
-   *  6. Check role-based access for the project
-   *  7. Create session token (30 days)
-   *  8. Redirect back to platform with token + member + roles
+   * Validates the OAuth state, exchanges the code for an access token,
+   * fetches the user profile, upserts the member, verifies guild membership,
+   * checks role access, creates a 30-day session, and redirects back to
+   * the platform with the token, member info, roles, and client state.
    */
   async handleDiscordCallback(discordCode: string, stateToken: string) {
     const stateResult = await this.validateAndConsumeState(stateToken);
     if (!stateResult.ok) return stateResult.redirect;
-    const { projectId, serverId, redirectUri } = stateResult.data;
+    const { projectId, serverId, redirectUri, clientState } = stateResult.data;
 
     const tokenResult = await this.exchangeCodeForToken(
       discordCode,
@@ -310,10 +217,11 @@ export class AuthService {
         email: member.email,
       },
       roles,
+      clientState,
     );
   }
 
-  // ─── Step 1 — Validate & consume state token ─────────────
+  // ─── Validate & consume state token ─────────────────────
 
   private async validateAndConsumeState(stateToken: string) {
     const stateData =
@@ -339,7 +247,7 @@ export class AuthService {
     return { ok: true as const, data: stateData };
   }
 
-  // ─── Step 2 — Exchange Discord code for access token ─────
+  // ─── Exchange Discord code for access token ─────────────
 
   private async exchangeCodeForToken(code: string, redirectUri: string) {
     const accessToken = await this.discordService.exchangeOAuthCode(
@@ -361,7 +269,7 @@ export class AuthService {
     return { ok: true as const, data: accessToken };
   }
 
-  // ─── Step 3 — Fetch Discord profile ──────────────────────
+  // ─── Fetch Discord profile ───────────────────────────────
 
   private async resolveDiscordProfile(
     accessToken: string,
@@ -383,7 +291,7 @@ export class AuthService {
     return { ok: true as const, data: profile };
   }
 
-  // ─── Step 4 — Upsert member ───────────────────────────────
+  // ─── Upsert member ───────────────────────────────────────
 
   private async upsertMemberFromProfile(profile: DiscordOAuthProfile) {
     return this.memberRepository.upsert({
@@ -397,7 +305,7 @@ export class AuthService {
     });
   }
 
-  // ─── Steps 5 + 5b — Verify guild membership & sync roles ─
+  // ─── Verify guild membership & sync roles ────────────────
 
   private async verifyGuildAndSyncRoles(
     serverId: string,
@@ -440,7 +348,7 @@ export class AuthService {
     return { ok: true as const, data: guildMember.roleIds };
   }
 
-  // ─── Step 6 — Check project role access ────────────────────
+  // ─── Check project role access ──────────────────────────
 
   private async checkProjectRoleAccess(
     projectId: string,
@@ -469,7 +377,7 @@ export class AuthService {
     return { ok: true as const };
   }
 
-  // ─── Steps 7 + 8 — Create session & fetch DB roles ───────
+  // ─── Create session & fetch DB roles ─────────────────────
 
   private async createSessionWithRoles(
     memberId: string,
@@ -545,7 +453,7 @@ export class AuthService {
     await Promise.all([
       this.sessionRepository.deleteExpired(),
       this.oauthStateRepository.deleteExpired(),
-      this.loginTokenRepository.deleteExpired(),
+      this.authRequestRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
     ]);
     return { success: true };

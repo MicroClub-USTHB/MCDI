@@ -9,6 +9,7 @@ export interface CreateOAuthStateDto {
   projectId: string;
   serverId: string;
   redirectUri: string;
+  clientState?: string;
   expiresAt: Date;
 }
 
@@ -27,6 +28,7 @@ export class OAuthStateRepository {
         projectId: data.projectId,
         serverId: data.serverId,
         redirectUri: data.redirectUri,
+        clientState: data.clientState,
         expiresAt: data.expiresAt,
       })
       .returning();
