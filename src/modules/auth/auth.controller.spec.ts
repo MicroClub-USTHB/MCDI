@@ -1,20 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
-  validateLoginRequest: jest.fn(),
+  authorize: jest.fn(),
+  resolveAuthRequest: jest.fn(),
+  consumeAuthRequest: jest.fn(),
   buildDiscordLoginUrl: jest.fn(),
   handleDiscordCallback: jest.fn(),
   validateSession: jest.fn(),
   logout: jest.fn(),
   logoutAll: jest.fn(),
   cleanupExpired: jest.fn(),
-  createLoginSession: jest.fn(),
-  resolveLoginToken: jest.fn(),
 };
 
 const mockAdminAuthService = {
@@ -29,7 +30,8 @@ const mockRes = () => ({
   redirect: jest.fn(),
   cookie: jest.fn(),
   clearCookie: jest.fn(),
-  render: jest.fn(),
+  status: jest.fn().mockReturnThis(),
+  json: jest.fn(),
 });
 
 describe('AuthController', () => {
@@ -41,6 +43,13 @@ describe('AuthController', () => {
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         { provide: AdminAuthService, useValue: mockAdminAuthService },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === 'app.apiPrefix' ? 'api' : 'development',
+          },
+        },
       ],
     })
       .overrideGuard(ThrottlerGuard)
@@ -53,147 +62,107 @@ describe('AuthController', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  // ── createLoginSession ────────────────────────────────────────────────
+  // ── authorize ───────────────────────────────────────────────────────
 
-  describe('createLoginSession', () => {
-    it('throws UnauthorizedException when X-API-Key header is missing', async () => {
-      await expect(
-        controller.createLoginSession(
-          undefined as any,
-          { redirectUri: 'http://localhost/callback' } as any,
-        ),
-      ).rejects.toThrow('X-API-Key header is required');
-    });
-
-    it('delegates to authService.createLoginSession', async () => {
-      mockAuthService.createLoginSession.mockResolvedValue({
-        loginUrl: '/api/auth/login/abc123',
+  describe('authorize', () => {
+    it('creates auth request, sets cookie, and redirects to /auth/discord', async () => {
+      mockAuthService.authorize.mockResolvedValue({
+        requestId: 'req-uuid-123',
       });
-      const result = await controller.createLoginSession('pk_1234.secret', {
-        serverId: 's1',
-        redirectUri: 'http://localhost/callback',
-      });
-      expect(result).toMatchObject({ loginUrl: '/api/auth/login/abc123' });
-      expect(mockAuthService.createLoginSession).toHaveBeenCalledWith(
-        'pk_1234.secret',
-        's1',
-        undefined,
+      const res = mockRes();
+      const dto = {
+        client_id: 'project-uuid',
+        redirect_uri: 'http://localhost/callback',
+        server_id: '123456789',
+        state: 'csrf-token',
+      };
+      await controller.authorize(dto, res as any);
+      expect(mockAuthService.authorize).toHaveBeenCalledWith(
+        'project-uuid',
         'http://localhost/callback',
+        '123456789',
+        'csrf-token',
       );
-    });
-  });
-
-  // ── login ────────────────────────────────────────────────────────────
-
-  describe('login', () => {
-    it('returns error context when token is missing', async () => {
-      const res = mockRes();
-      const result = await controller.login(undefined as any, res as any);
-      expect(result).toMatchObject({ error: 'missing_token' });
-    });
-
-    it('returns project context and sets cookie on valid login token', async () => {
-      mockAuthService.resolveLoginToken.mockResolvedValue({
-        projectId: 'p1',
-        serverId: 's1',
-        redirectUri: 'http://localhost/callback',
-      });
-      const res = mockRes();
-      const result = await controller.login('valid-token', res as any);
-      expect(result).toMatchObject({ serverId: 's1' });
       expect(res.cookie).toHaveBeenCalledWith(
-        'mcdi_login_ctx',
-        'valid-token',
-        expect.objectContaining({ httpOnly: true }),
+        'mcdi_auth_req',
+        'req-uuid-123',
+        expect.objectContaining({ httpOnly: true, sameSite: 'lax' }),
       );
-    });
-
-    it('returns error when token is expired', async () => {
-      mockAuthService.resolveLoginToken.mockResolvedValue(null);
-      const res = mockRes();
-      const result = await controller.login('expired-token', res as any);
-      expect(result).toMatchObject({ error: 'invalid_token' });
-    });
-
-    it('returns error when service throws', async () => {
-      mockAuthService.resolveLoginToken.mockRejectedValue(
-        new Error('DB error'),
-      );
-      const res = mockRes();
-      const result = await controller.login('bad-token', res as any);
-      expect(result).toMatchObject({ error: 'invalid_request' });
+      expect(res.redirect).toHaveBeenCalledWith('/api/auth/discord');
     });
   });
 
   // ── startDiscordAuth ─────────────────────────────────────────────────
 
   describe('startDiscordAuth', () => {
-    it('redirects to Discord OAuth URL with valid login token from cookie', async () => {
-      mockAuthService.resolveLoginToken.mockResolvedValue({
-        projectId: 'p1',
+    it('redirects to Discord OAuth URL with valid auth request from cookie', async () => {
+      mockAuthService.resolveAuthRequest.mockResolvedValue({
+        clientId: 'p1',
         serverId: 's1',
         redirectUri: 'http://localhost/callback',
+        state: 'csrf-abc',
       });
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
         url: 'https://discord.com/oauth2/authorize?...',
       });
-      const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
+      const req = { cookies: { mcdi_auth_req: 'req-uuid-123' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
+      expect(mockAuthService.consumeAuthRequest).toHaveBeenCalledWith(
+        'req-uuid-123',
+      );
+      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_auth_req');
       expect(res.redirect).toHaveBeenCalledWith(
         'https://discord.com/oauth2/authorize?...',
       );
-      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_login_ctx');
     });
 
-    it('renders error page when cookie is missing', async () => {
+    it('returns 400 when cookie is missing', async () => {
       const req = { cookies: {} };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
-      expect(res.render).toHaveBeenCalledWith(
-        'login',
-        expect.objectContaining({
-          error: 'missing_context',
-        }),
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'missing_context' }),
       );
       expect(res.redirect).not.toHaveBeenCalled();
     });
 
-    it('renders error page when login token is invalid', async () => {
-      mockAuthService.resolveLoginToken.mockResolvedValue(null);
-      const req = { cookies: { mcdi_login_ctx: 'bad-token' } };
+    it('returns 400 when auth request is invalid or expired', async () => {
+      mockAuthService.resolveAuthRequest.mockResolvedValue(null);
+      const req = { cookies: { mcdi_auth_req: 'bad-uuid' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
-      expect(res.render).toHaveBeenCalledWith(
-        'login',
-        expect.objectContaining({
-          error: 'invalid_token',
-        }),
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'invalid_request' }),
       );
-      expect(res.redirect).not.toHaveBeenCalled();
+      expect(res.clearCookie).toHaveBeenCalledWith('mcdi_auth_req');
     });
 
-    it('passes token data to buildDiscordLoginUrl', async () => {
-      mockAuthService.resolveLoginToken.mockResolvedValue({
-        projectId: 'proj-42',
+    it('passes client state to buildDiscordLoginUrl', async () => {
+      mockAuthService.resolveAuthRequest.mockResolvedValue({
+        clientId: 'proj-42',
         serverId: 'srv-99',
         redirectUri: 'https://platform.example.com/callback',
+        state: 'platform-csrf-xyz',
       });
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
         url: 'https://discord.com/oauth2/authorize?state=xyz',
       });
-      const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
+      const req = { cookies: { mcdi_auth_req: 'req-uuid' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
       expect(mockAuthService.buildDiscordLoginUrl).toHaveBeenCalledWith(
         'proj-42',
         'srv-99',
         'https://platform.example.com/callback',
+        'platform-csrf-xyz',
       );
     });
   });
 
-  // ── discordCallback ──────────────────────────────────────────────────
+  // ── discordCallback ────────────────────────────────────────────────
 
   it('discordCallback sends HTML form post on success', async () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
@@ -228,7 +197,7 @@ describe('AuthController', () => {
     expect(res.send).not.toHaveBeenCalled();
   });
 
-  // ── validateSession ──────────────────────────────────────────────────
+  // ── validateSession ────────────────────────────────────────────────
 
   it('validateSession delegates to authService', async () => {
     mockAuthService.validateSession.mockResolvedValue({
@@ -240,7 +209,7 @@ describe('AuthController', () => {
     expect(result).toMatchObject({ roles: [] });
   });
 
-  // ── logout ────────────────────────────────────────────────────────────
+  // ── logout ──────────────────────────────────────────────────────────
 
   it('logout delegates to authService', async () => {
     mockAuthService.logout.mockResolvedValue({ success: true });
@@ -260,7 +229,7 @@ describe('AuthController', () => {
     expect(result).toEqual({ success: true });
   });
 
-  // ── adminMe ───────────────────────────────────────────────────────────
+  // ── adminMe ─────────────────────────────────────────────────────────
 
   describe('adminMe', () => {
     it('extracts token and delegates to adminAuthService.getMe', async () => {
@@ -273,7 +242,7 @@ describe('AuthController', () => {
     });
   });
 
-  // ── adminSetPassword ──────────────────────────────────────────────────
+  // ── adminSetPassword ────────────────────────────────────────────────
 
   describe('adminSetPassword', () => {
     it('delegates with no currentPassword when setting for the first time', async () => {

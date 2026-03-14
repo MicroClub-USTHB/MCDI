@@ -6,7 +6,7 @@ export class UpdateRedirectUriDto {
     description:
       'Allowed redirect URI(s) for this project. ' +
       'Use a comma-separated list to allow multiple URIs. ' +
-      'The value passed in POST /auth/login-session must exactly match one of these.',
+      'The value passed in GET /auth/authorize must exactly match one of these.',
     example: 'https://events.microclub.net/auth/callback',
     minLength: 1,
   })
