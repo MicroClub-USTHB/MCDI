@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, lt, and } from 'drizzle-orm';
+import { eq, lt, and, gt } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
@@ -31,31 +31,25 @@ export class AuthRequestRepository {
     return row;
   }
 
-  async findValid(requestId: string) {
-    const now = new Date();
+  /**
+   * Atomically find and consume a valid auth request.
+   * Sets used=true in the same UPDATE query to prevent race conditions
+   * where two concurrent requests could both pass a SELECT check.
+   */
+  async consumeValid(requestId: string) {
     const [row] = await this.db
-      .select()
-      .from(schema.authRequests)
+      .update(schema.authRequests)
+      .set({ used: true })
       .where(
         and(
           eq(schema.authRequests.requestId, requestId),
           eq(schema.authRequests.used, false),
+          gt(schema.authRequests.expiresAt, new Date()),
         ),
       )
-      .limit(1);
+      .returning();
 
-    if (!row || row.expiresAt <= now) {
-      return null;
-    }
-
-    return row;
-  }
-
-  async markAsUsed(requestId: string) {
-    await this.db
-      .update(schema.authRequests)
-      .set({ used: true })
-      .where(eq(schema.authRequests.requestId, requestId));
+    return row ?? null;
   }
 
   async deleteExpired() {

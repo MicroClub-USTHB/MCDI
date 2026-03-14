@@ -130,10 +130,12 @@ export class AuthController {
       });
     }
 
-    const authRequest = await this.authService.resolveAuthRequest(requestId);
+    // Atomic consume: marks as used and returns the row in one query.
+    // If two requests race, only one gets the row back.
+    const authRequest = await this.authService.consumeAuthRequest(requestId);
+    res.clearCookie('mcdi_auth_req');
 
     if (!authRequest) {
-      res.clearCookie('mcdi_auth_req');
       return res.status(HttpStatus.BAD_REQUEST).json({
         statusCode: 400,
         error: 'invalid_request',
@@ -141,10 +143,6 @@ export class AuthController {
           'Authorization request has expired or was already used. Please try again.',
       });
     }
-
-    // Mark as used and clear cookie — single-use
-    await this.authService.consumeAuthRequest(requestId);
-    res.clearCookie('mcdi_auth_req');
 
     const result = await this.authService.buildDiscordLoginUrl(
       authRequest.clientId,

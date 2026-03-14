@@ -99,17 +99,11 @@ export class AuthService {
   }
 
   /**
-   * Resolve an auth request by its ID. Returns null if expired or already used.
-   */
-  async resolveAuthRequest(requestId: string) {
-    return this.authRequestRepository.findValid(requestId);
-  }
-
-  /**
-   * Mark an auth request as used so it cannot be replayed.
+   * Atomically find and consume an auth request.
+   * Returns null if expired, already used, or not found.
    */
   async consumeAuthRequest(requestId: string) {
-    await this.authRequestRepository.markAsUsed(requestId);
+    return this.authRequestRepository.consumeValid(requestId);
   }
 
   // ─── Build Discord OAuth URL ──────────────────────────

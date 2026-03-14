@@ -8,7 +8,6 @@ import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
   authorize: jest.fn(),
-  resolveAuthRequest: jest.fn(),
   consumeAuthRequest: jest.fn(),
   buildDiscordLoginUrl: jest.fn(),
   handleDiscordCallback: jest.fn(),
@@ -96,7 +95,7 @@ describe('AuthController', () => {
 
   describe('startDiscordAuth', () => {
     it('redirects to Discord OAuth URL with valid auth request from cookie', async () => {
-      mockAuthService.resolveAuthRequest.mockResolvedValue({
+      mockAuthService.consumeAuthRequest.mockResolvedValue({
         clientId: 'p1',
         serverId: 's1',
         redirectUri: 'http://localhost/callback',
@@ -129,7 +128,7 @@ describe('AuthController', () => {
     });
 
     it('returns 400 when auth request is invalid or expired', async () => {
-      mockAuthService.resolveAuthRequest.mockResolvedValue(null);
+      mockAuthService.consumeAuthRequest.mockResolvedValue(null);
       const req = { cookies: { mcdi_auth_req: 'bad-uuid' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
@@ -141,7 +140,7 @@ describe('AuthController', () => {
     });
 
     it('passes client state to buildDiscordLoginUrl', async () => {
-      mockAuthService.resolveAuthRequest.mockResolvedValue({
+      mockAuthService.consumeAuthRequest.mockResolvedValue({
         clientId: 'proj-42',
         serverId: 'srv-99',
         redirectUri: 'https://platform.example.com/callback',

@@ -47,8 +47,7 @@ const mockOAuthStateRepo = {
 
 const mockAuthRequestRepo = {
   create: jest.fn(),
-  findValid: jest.fn(),
-  markAsUsed: jest.fn(),
+  consumeValid: jest.fn(),
   deleteExpired: jest.fn(),
 };
 
@@ -242,30 +241,21 @@ describe('AuthService', () => {
     });
   });
 
-  // ── resolveAuthRequest ──────────────────────────────────────────────────
-
-  describe('resolveAuthRequest', () => {
-    it('returns auth request when valid', async () => {
-      const req = { requestId: 'r1', clientId: 'p1', serverId: 's1' };
-      mockAuthRequestRepo.findValid.mockResolvedValue(req);
-      const result = await service.resolveAuthRequest('r1');
-      expect(result).toEqual(req);
-    });
-
-    it('returns null when expired or used', async () => {
-      mockAuthRequestRepo.findValid.mockResolvedValue(null);
-      const result = await service.resolveAuthRequest('bad-id');
-      expect(result).toBeNull();
-    });
-  });
-
   // ── consumeAuthRequest ────────────────────────────────────────────────
 
   describe('consumeAuthRequest', () => {
-    it('marks the auth request as used', async () => {
-      mockAuthRequestRepo.markAsUsed.mockResolvedValue(undefined);
-      await service.consumeAuthRequest('r1');
-      expect(mockAuthRequestRepo.markAsUsed).toHaveBeenCalledWith('r1');
+    it('atomically consumes and returns a valid auth request', async () => {
+      const req = { requestId: 'r1', clientId: 'p1', serverId: 's1' };
+      mockAuthRequestRepo.consumeValid.mockResolvedValue(req);
+      const result = await service.consumeAuthRequest('r1');
+      expect(result).toEqual(req);
+      expect(mockAuthRequestRepo.consumeValid).toHaveBeenCalledWith('r1');
+    });
+
+    it('returns null when expired or already used', async () => {
+      mockAuthRequestRepo.consumeValid.mockResolvedValue(null);
+      const result = await service.consumeAuthRequest('bad-id');
+      expect(result).toBeNull();
     });
   });
 
