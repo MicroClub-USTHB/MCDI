@@ -29,6 +29,7 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { buildErrorPage } from './utils';
 import { extractBearerToken } from '../../common/utils/auth.util';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import {
@@ -139,12 +140,11 @@ export class AuthController {
 
     if (!requestId) {
       // No cookie — no way to know where to redirect
-      return res.status(HttpStatus.BAD_REQUEST).json({
-        statusCode: 400,
-        error: 'missing_context',
-        message:
-          'Authorization session not found. Start from the platform login.',
-      });
+      const { html } = buildErrorPage(
+        'missing_context',
+        'Authorization session not found. Please start from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
     }
 
     // Atomic consume: marks as used and returns the row in one query.
@@ -165,12 +165,11 @@ export class AuthController {
         url.searchParams.set('state', original.state);
         return res.redirect(url.toString());
       }
-      return res.status(HttpStatus.BAD_REQUEST).json({
-        statusCode: 400,
-        error: 'invalid_request',
-        message:
-          'Authorization request has expired or was already used. Please try again.',
-      });
+      const { html } = buildErrorPage(
+        'invalid_request',
+        'Authorization request has expired or was already used. Please try again from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
     }
 
     const result = await this.authService.buildDiscordLoginUrl(

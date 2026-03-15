@@ -32,6 +32,8 @@ const mockRes = () => ({
   clearCookie: jest.fn(),
   status: jest.fn().mockReturnThis(),
   json: jest.fn(),
+  type: jest.fn().mockReturnThis(),
+  send: jest.fn(),
 });
 
 describe('AuthController', () => {
@@ -157,13 +159,14 @@ describe('AuthController', () => {
       );
     });
 
-    it('returns 400 when cookie is missing', async () => {
+    it('returns HTML error page when cookie is missing', async () => {
       const req = { cookies: {} };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'missing_context' }),
+      expect(res.type).toHaveBeenCalledWith('html');
+      expect(res.send).toHaveBeenCalledWith(
+        expect.stringContaining('missing_context'),
       );
       expect(res.redirect).not.toHaveBeenCalled();
     });
@@ -186,15 +189,16 @@ describe('AuthController', () => {
       expect(res.clearCookie).toHaveBeenCalledWith('mcdi_auth_req');
     });
 
-    it('returns JSON 400 when auth request is not found at all', async () => {
+    it('returns HTML error page when auth request is not found at all', async () => {
       mockAuthService.consumeAuthRequest.mockResolvedValue(null);
       mockAuthService.findAuthRequestById.mockResolvedValue(null);
       const req = { cookies: { mcdi_auth_req: 'gone-uuid' } };
       const res = mockRes();
       await controller.startDiscordAuth(req as any, res as any);
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: 'invalid_request' }),
+      expect(res.type).toHaveBeenCalledWith('html');
+      expect(res.send).toHaveBeenCalledWith(
+        expect.stringContaining('invalid_request'),
       );
     });
 

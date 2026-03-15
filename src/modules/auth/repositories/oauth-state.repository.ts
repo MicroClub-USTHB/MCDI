@@ -56,6 +56,18 @@ export class OAuthStateRepository {
     return states[0] || null;
   }
 
+  // Look up an OAuth state row by its token regardless of used/expired status.
+  // Used to recover redirectUri and clientState for error redirects.
+  async findByState(state: string) {
+    const [row] = await this.db
+      .select()
+      .from(schema.oauthStates)
+      .where(eq(schema.oauthStates.state, state))
+      .limit(1);
+
+    return row ?? null;
+  }
+
   /**
    * Mark a state token as used
    */

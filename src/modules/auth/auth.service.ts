@@ -187,6 +187,7 @@ export class AuthService {
     const tokenResult = await this.exchangeCodeForToken(
       discordCode,
       redirectUri,
+      clientState,
     );
     if (!tokenResult.ok) return tokenResult.redirect;
     const accessToken = tokenResult.data;
@@ -194,6 +195,7 @@ export class AuthService {
     const profileResult = await this.resolveDiscordProfile(
       accessToken,
       redirectUri,
+      clientState,
     );
     if (!profileResult.ok) return profileResult.redirect;
     const profile = profileResult.data;
@@ -206,6 +208,7 @@ export class AuthService {
       profile.id,
       member.id,
       redirectUri,
+      clientState,
     );
     if (!guildResult.ok) return guildResult.redirect;
     const userDiscordRoleIds = guildResult.data;
@@ -214,6 +217,7 @@ export class AuthService {
       projectId,
       userDiscordRoleIds,
       redirectUri,
+      clientState,
     );
     if (!accessResult.ok) return accessResult.redirect;
 
@@ -247,7 +251,23 @@ export class AuthService {
       await this.oauthStateRepository.findValidState(stateToken);
 
     if (!stateData) {
-      // Generic error to prevent state enumeration attacks
+      // Try to recover the original row so we can redirect the error
+      // back to the client instead of dumping the user on a dead-end page.
+      const original = await this.oauthStateRepository.findByState(stateToken);
+
+      if (original) {
+        return {
+          ok: false as const,
+          redirect: buildErrorRedirect(
+            original.redirectUri,
+            'invalid_state',
+            'Authentication request has expired or was already used',
+            original.clientState,
+          ),
+        };
+      }
+
+      // Completely unknown state token — nowhere to redirect
       const fallbackUri =
         this.configService.get<string>('app.baseUrl') + '/error';
       return {
@@ -268,7 +288,11 @@ export class AuthService {
 
   // ─── Exchange Discord code for access token ─────────────
 
-  private async exchangeCodeForToken(code: string, redirectUri: string) {
+  private async exchangeCodeForToken(
+    code: string,
+    redirectUri: string,
+    clientState?: string | null,
+  ) {
     const accessToken = await this.discordService.exchangeOAuthCode(
       code,
       this.discordRedirectUri,
@@ -281,6 +305,7 @@ export class AuthService {
           redirectUri,
           'discord_error',
           'Failed to authenticate with Discord',
+          clientState,
         ),
       };
     }
@@ -293,6 +318,7 @@ export class AuthService {
   private async resolveDiscordProfile(
     accessToken: string,
     redirectUri: string,
+    clientState?: string | null,
   ) {
     const profile = await this.discordService.fetchOAuthProfile(accessToken);
 
@@ -303,6 +329,7 @@ export class AuthService {
           redirectUri,
           'profile_error',
           'Failed to fetch Discord profile',
+          clientState,
         ),
       };
     }
@@ -332,6 +359,7 @@ export class AuthService {
     discordUserId: string,
     memberId: string,
     redirectUri: string,
+    clientState?: string | null,
   ) {
     const guildMember = await this.discordService.fetchOAuthGuildMember(
       serverId,
@@ -348,7 +376,12 @@ export class AuthService {
           : `You must be a member of the required Discord server (ID: ${serverId})`;
       return {
         ok: false as const,
-        redirect: buildErrorRedirect(redirectUri, 'not_in_server', reason),
+        redirect: buildErrorRedirect(
+          redirectUri,
+          'not_in_server',
+          reason,
+          clientState,
+        ),
       };
     }
 
@@ -373,6 +406,7 @@ export class AuthService {
     projectId: string,
     userDiscordRoleIds: string[],
     redirectUri: string,
+    clientState?: string | null,
   ) {
     const allowedRoleIds =
       await this.projectsRepository.findAllowedRoleIds(projectId);
@@ -388,6 +422,7 @@ export class AuthService {
             redirectUri,
             'insufficient_roles',
             'You do not have the required roles to access this platform',
+            clientState,
           ),
         };
       }

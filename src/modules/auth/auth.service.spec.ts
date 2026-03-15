@@ -37,6 +37,7 @@ const mockProjectsRepo = {
 const mockOAuthStateRepo = {
   create: jest.fn(),
   findValidState: jest.fn(),
+  findByState: jest.fn(),
   markAsUsed: jest.fn(),
   deleteExpired: jest.fn(),
 };
@@ -295,16 +296,38 @@ describe('AuthService', () => {
       });
     }
 
-    it('returns error redirect when state token is invalid/expired', async () => {
+    it('redirects error to client when state is expired but row exists', async () => {
       mockOAuthStateRepo.findValidState.mockResolvedValue(null);
+      mockOAuthStateRepo.findByState.mockResolvedValue({
+        redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-xyz',
+      });
 
       const result = await service.handleDiscordCallback(
         'code-123',
-        'bad-state',
+        'expired-state',
       );
       expect(result).toMatchObject({
         url: expect.stringContaining('invalid_state'),
       });
+      // Should redirect to the client's URI, not the fallback
+      expect((result as any).url).toContain('localhost/callback');
+      expect((result as any).url).toContain('state=csrf-xyz');
+    });
+
+    it('redirects to fallback when state token is completely unknown', async () => {
+      mockOAuthStateRepo.findValidState.mockResolvedValue(null);
+      mockOAuthStateRepo.findByState.mockResolvedValue(null);
+
+      const result = await service.handleDiscordCallback(
+        'code-123',
+        'unknown-state',
+      );
+      expect(result).toMatchObject({
+        url: expect.stringContaining('invalid_state'),
+      });
+      // Falls back to app.baseUrl/error
+      expect((result as any).url).toContain('localhost/error');
     });
 
     it('returns error redirect when Discord token exchange fails', async () => {
@@ -312,6 +335,7 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
@@ -327,6 +351,7 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         url: expect.stringContaining('discord_error'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when Discord profile fetch fails', async () => {
@@ -334,17 +359,19 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
 
       mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null); // profile fetch fails
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null);
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('profile_error'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when user is not in the Discord server', async () => {
@@ -352,6 +379,7 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
@@ -369,12 +397,13 @@ describe('AuthService', () => {
         ok: false,
         status: 404,
         roleIds: [],
-      }); // not in server
+      });
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('not_in_server'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when user lacks required roles', async () => {
@@ -382,6 +411,7 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
@@ -401,7 +431,7 @@ describe('AuthService', () => {
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: true,
         status: 200,
-        roleIds: ['role-other'], // user has role-other, not role-required
+        roleIds: ['role-other'],
       });
       mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
@@ -409,6 +439,7 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         url: expect.stringContaining('insufficient_roles'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('creates session and returns redirect URL on success (no role restriction)', async () => {
@@ -416,6 +447,7 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
       mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
