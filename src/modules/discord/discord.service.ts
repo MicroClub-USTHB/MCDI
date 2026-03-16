@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DISCORD_CLIENT } from './discord.constants';
-import Discord, { ChannelType } from 'discord.js';
+import Discord from 'discord.js';
 
 export interface DiscordOAuthProfile {
   id: string;
@@ -38,6 +38,35 @@ export class DiscordService {
   ) {}
   getClient(): Discord.Client {
     return this.client;
+  }
+
+  private isDmBasedChannel(
+    channel: Discord.AnyChannel,
+  ): channel is Discord.DMChannel | Discord.PartialDMChannel {
+    return channel.type === 'DM' || channel.type === 'GROUP_DM';
+  }
+
+  private isGuildChannel(channel: Discord.AnyChannel): channel is Discord.GuildChannel {
+    return 'guild' in channel;
+  }
+
+  private isTextBasedChannel(
+    channel: Discord.AnyChannel,
+  ): channel is Discord.TextBasedChannel {
+    return 'messages' in channel;
+  }
+
+  private isWebhookCapableChannel(
+    channel: Discord.AnyChannel,
+  ): channel is Discord.TextBasedChannel {
+    return (
+      this.isTextBasedChannel(channel) &&
+      !this.isDmBasedChannel(channel) &&
+      !channel.isThread() &&
+      channel.type !== 'GUILD_CATEGORY' &&
+      'fetchWebhooks' in channel &&
+      'createWebhook' in channel
+    );
   }
 
   async getUserById(userId: string): Promise<Discord.User | null> {
@@ -89,7 +118,7 @@ export class DiscordService {
     }
   }
 
-  async getChannelById(channelId: string): Promise<Discord.Channel | null> {
+  async getChannelById(channelId: string): Promise<Discord.AnyChannel | null> {
     try {
       const channel = await this.client.channels.fetch(channelId);
       return channel;
@@ -124,7 +153,7 @@ export class DiscordService {
     try {
       const guild = await this.getGuildById(guildId);
       if (!guild) return null;
-      const channel = await guild.channels.create({ name, ...options });
+      const channel = await guild.channels.create(name, options);
       return channel;
     } catch (error: unknown) {
       this.logger.debug(error instanceof Error ? error.message : String(error));
@@ -135,7 +164,7 @@ export class DiscordService {
   async deleteChannel(channelId: string): Promise<boolean> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || channel.isDMBased()) return false;
+      if (!channel || this.isDmBasedChannel(channel)) return false;
       await channel.delete();
       return true;
     } catch (error: unknown) {
@@ -146,11 +175,13 @@ export class DiscordService {
 
   async editChannel(
     channelId: string,
-    options: Discord.GuildChannelEditOptions,
+    options: Discord.ChannelData,
   ): Promise<Discord.GuildBasedChannel | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || channel.isDMBased()) return null;
+      if (!channel || this.isDmBasedChannel(channel) || !this.isGuildChannel(channel)) {
+        return null;
+      }
       const editedChannel = await channel.edit(options);
       return editedChannel;
     } catch (error: unknown) {
@@ -161,11 +192,11 @@ export class DiscordService {
 
   async getChannelMessages(
     channelId: string,
-    options?: Discord.FetchMessagesOptions,
+    options?: Discord.ChannelLogsQueryOptions,
   ): Promise<Discord.Collection<string, Discord.Message> | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || !channel.isTextBased()) return null;
+      if (!channel || !this.isTextBasedChannel(channel)) return null;
       const messages = await channel.messages.fetch(options);
       return messages;
     } catch (error: unknown) {
@@ -180,7 +211,7 @@ export class DiscordService {
   ): Promise<Discord.Message | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || !channel.isTextBased()) return null;
+      if (!channel || !this.isTextBasedChannel(channel)) return null;
       const message = await channel.messages.fetch(messageId);
       return message;
     } catch (error: unknown) {
@@ -200,7 +231,7 @@ export class DiscordService {
   ) {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || !channel.isTextBased() || channel.isDMBased())
+      if (!channel || !this.isTextBasedChannel(channel) || this.isDmBasedChannel(channel))
         return null;
       const deletedMessages = await channel.bulkDelete(messages, filterOld);
       return deletedMessages;
@@ -274,11 +305,11 @@ export class DiscordService {
 
   async sendMessage(
     channelId: string,
-    content: string | Discord.MessageCreateOptions,
+    content: string | Discord.MessageOptions,
   ): Promise<Discord.Message | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || !channel.isSendable()) return null;
+      if (!channel || !this.isTextBasedChannel(channel)) return null;
 
       const message = await channel.send(content);
       return message;
@@ -295,7 +326,7 @@ export class DiscordService {
   ): Promise<Discord.Message | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || !channel.isSendable()) return null;
+      if (!channel || !this.isTextBasedChannel(channel)) return null;
 
       const message = await channel.messages.fetch(messageId);
       const editedMessage = await message.edit(content);
@@ -309,7 +340,7 @@ export class DiscordService {
     try {
       const channel = await this.getChannelById(channelId);
 
-      if (!channel || !channel.isSendable()) return false;
+      if (!channel || !this.isTextBasedChannel(channel)) return false;
 
       const message = await channel.messages.fetch(messageId);
       await message.delete();
@@ -325,12 +356,7 @@ export class DiscordService {
   ): Promise<Discord.Collection<string, Discord.Webhook> | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (
-        !channel ||
-        channel.isDMBased() ||
-        channel.isThread() ||
-        channel.type === ChannelType.GuildCategory
-      )
+      if (!channel || !this.isWebhookCapableChannel(channel))
         return null;
       const webhooks = await channel.fetchWebhooks();
       return webhooks;
@@ -346,12 +372,7 @@ export class DiscordService {
   ): Promise<Discord.Webhook | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (
-        !channel ||
-        channel.isDMBased() ||
-        channel.isThread() ||
-        channel.type === ChannelType.GuildCategory
-      )
+      if (!channel || !this.isWebhookCapableChannel(channel))
         return null;
       const webhook = await channel.createWebhook({ name, ...options });
       return webhook;

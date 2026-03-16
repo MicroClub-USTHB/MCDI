@@ -16,15 +16,13 @@ const DiscordProvider: Provider = {
   useFactory: async (configService: ConfigService) => {
     const client = new Discord.Client({
       intents: [
-        Discord.GatewayIntentBits.Guilds,
-        Discord.GatewayIntentBits.GuildMembers,
-        Discord.GatewayIntentBits.GuildPresences,
-        Discord.GatewayIntentBits.GuildInvites,
-        Discord.GatewayIntentBits.GuildVoiceStates,
-        Discord.GatewayIntentBits.GuildWebhooks,
-
-        Discord.GatewayIntentBits.GuildMessages,
-        Discord.GatewayIntentBits.MessageContent,
+        Discord.Intents.FLAGS.GUILDS,
+        Discord.Intents.FLAGS.GUILD_MEMBERS,
+        Discord.Intents.FLAGS.GUILD_PRESENCES,
+        Discord.Intents.FLAGS.GUILD_INVITES,
+        Discord.Intents.FLAGS.GUILD_VOICE_STATES,
+        Discord.Intents.FLAGS.GUILD_WEBHOOKS,
+        Discord.Intents.FLAGS.GUILD_MESSAGES,
       ],
     });
 

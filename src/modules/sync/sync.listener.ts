@@ -53,7 +53,7 @@ export class SyncListener
 
   onApplicationBootstrap() {
     // All modules are ready — safe to query the DB now
-    if (this.client.isReady()) {
+    if (this.client.readyAt) {
       this.scheduleStartupSync();
     } else {
       this.client.once('ready', () => this.scheduleStartupSync());
