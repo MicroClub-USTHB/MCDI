@@ -275,7 +275,7 @@ export class ProjectsController {
     description:
       'Sets the redirect URI(s) allowed for this project. ' +
       'Accepts a single URI or a comma-separated list. ' +
-      'The value passed to POST /auth/login-session must exactly match one of these.',
+      'The value passed to GET /auth/authorize must exactly match one of these.',
   })
   @ApiParam({
     name: 'id',

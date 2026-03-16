@@ -1,19 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { ServersRepository } from '../servers/servers.repository';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -31,11 +26,6 @@ const mockMemberRepo = {
   getMemberRolesInServer: jest.fn(),
 };
 
-const mockServersRepo = {
-  findMain: jest.fn(),
-  findByName: jest.fn(),
-};
-
 const mockProjectsRepo = {
   findByApiKey: jest.fn(),
   isRedirectUriAllowed: jest.fn(),
@@ -47,13 +37,16 @@ const mockProjectsRepo = {
 const mockOAuthStateRepo = {
   create: jest.fn(),
   findValidState: jest.fn(),
+  consumeValid: jest.fn(),
+  findByState: jest.fn(),
   markAsUsed: jest.fn(),
   deleteExpired: jest.fn(),
 };
 
-const mockLoginTokenRepo = {
+const mockAuthRequestRepo = {
   create: jest.fn(),
-  findValid: jest.fn(),
+  consumeValid: jest.fn(),
+  findById: jest.fn(),
   deleteExpired: jest.fn(),
 };
 
@@ -105,13 +98,12 @@ describe('AuthService', () => {
         { provide: SessionRepository, useValue: mockSessionRepo },
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: OAuthStateRepository, useValue: mockOAuthStateRepo },
-        { provide: LoginTokenRepository, useValue: mockLoginTokenRepo },
+        { provide: AuthRequestRepository, useValue: mockAuthRequestRepo },
         {
           provide: AdminOAuthStateRepository,
           useValue: mockAdminOAuthStateRepo,
         },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
-        { provide: ServersRepository, useValue: mockServersRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
       ],
@@ -123,65 +115,82 @@ describe('AuthService', () => {
     jest.clearAllMocks();
   });
 
-  // ── validateLoginRequest ────────────────────────────────────────────────
+  // ── authorize ──────────────────────────────────────────────────────────
 
-  describe('validateLoginRequest', () => {
-    it('throws UnauthorizedException when API key is not found', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
-      await expect(service.validateLoginRequest('bad-key')).rejects.toThrow(
-        UnauthorizedException,
+  describe('authorize', () => {
+    it('returns error when client_id is not found', async () => {
+      mockProjectsRepo.findOne.mockResolvedValue(null);
+      const result = await service.authorize(
+        'bad-id',
+        'http://localhost/cb',
+        's1',
+        'state',
       );
+      expect(result).toMatchObject({ ok: false, error: 'invalid_client' });
     });
 
-    it('throws BadRequestException for external project without serverId or serverName', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(
-        fakeProject({ isInternal: false }),
+    it('returns error when project is inactive', async () => {
+      mockProjectsRepo.findOne.mockResolvedValue(
+        fakeProject({ isActive: false }),
       );
-      await expect(
-        service.validateLoginRequest('pk_good.secret'),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.authorize(
+        'proj-1',
+        'http://localhost/cb',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({ ok: false, error: 'invalid_client' });
     });
 
-    it('throws BadRequestException when main server is not configured for internal project', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(
-        fakeProject({ isInternal: true }),
+    it('returns error without redirectUri when redirect_uri is not allowed', async () => {
+      mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
+      const result = await service.authorize(
+        'proj-1',
+        'http://evil.com',
+        's1',
+        'state',
       );
-      mockServersRepo.findMain.mockResolvedValue(null);
-      await expect(
-        service.validateLoginRequest('pk_good.secret'),
-      ).rejects.toThrow(BadRequestException);
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'invalid_redirect_uri',
+      });
+      expect((result as any).redirectUri).toBeUndefined();
     });
 
-    it('throws ForbiddenException when project has no access to the server', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(
-        fakeProject({ isInternal: false }),
-      );
+    it('returns error with redirectUri when server access is denied', async () => {
+      mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockProjectsRepo.hasServerAccess.mockResolvedValue(false);
-      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
-      await expect(
-        service.validateLoginRequest(
-          'pk_good.secret',
-          'guild-1',
-          undefined,
-          'http://localhost/callback',
-        ),
-      ).rejects.toThrow(ForbiddenException);
+      const result = await service.authorize(
+        'proj-1',
+        'http://localhost/cb',
+        's1',
+        'state',
+      );
+      expect(result).toMatchObject({
+        ok: false,
+        error: 'access_denied',
+        redirectUri: 'http://localhost/cb',
+        state: 'state',
+      });
     });
 
-    it('returns project info and resolved serverId on success', async () => {
-      const project = fakeProject({ isInternal: false });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
+    it('creates auth request and returns ok with requestId on success', async () => {
+      mockProjectsRepo.findOne.mockResolvedValue(fakeProject());
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
+      mockAuthRequestRepo.create.mockResolvedValue({
+        requestId: 'req-uuid-123',
+      });
 
-      const result = await service.validateLoginRequest(
-        'pk_good.secret',
-        'guild-1',
-        undefined,
-        'http://localhost/callback',
+      const result = await service.authorize(
+        'proj-1',
+        'http://localhost/cb',
+        's1',
+        'csrf-token',
       );
-      expect(result.project.id).toBe('proj-1');
-      expect(result.serverId).toBe('guild-1');
+      expect(result).toEqual({ ok: true, requestId: 'req-uuid-123' });
     });
   });
 
@@ -248,80 +257,21 @@ describe('AuthService', () => {
     });
   });
 
-  // ── validateLoginRequest — additional branches ─────────────────────────
+  // ── consumeAuthRequest ────────────────────────────────────────────────
 
-  describe('validateLoginRequest (additional branches)', () => {
-    it('resolves serverId by serverName when serverId is omitted', async () => {
-      const project = fakeProject({ isInternal: false });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockServersRepo.findByName.mockResolvedValue({
-        id: 'guild-by-name',
-      });
-      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
-
-      const result = await service.validateLoginRequest(
-        'pk_good.secret',
-        undefined,
-        'Main Server',
-        'http://localhost/callback',
-      );
-      expect(result.serverId).toBe('guild-by-name');
+  describe('consumeAuthRequest', () => {
+    it('atomically consumes and returns a valid auth request', async () => {
+      const req = { requestId: 'r1', clientId: 'p1', serverId: 's1' };
+      mockAuthRequestRepo.consumeValid.mockResolvedValue(req);
+      const result = await service.consumeAuthRequest('r1');
+      expect(result).toEqual(req);
+      expect(mockAuthRequestRepo.consumeValid).toHaveBeenCalledWith('r1');
     });
 
-    it('throws BadRequestException when server is not found by name', async () => {
-      const project = fakeProject({ isInternal: false });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockServersRepo.findByName.mockResolvedValue(null);
-
-      await expect(
-        service.validateLoginRequest(
-          'pk_good.secret',
-          undefined,
-          'Unknown Server',
-          'http://localhost/callback',
-        ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('handles internal project using main server id', async () => {
-      const project = fakeProject({ isInternal: true });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockServersRepo.findMain.mockResolvedValue({ id: 'main-guild' });
-      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
-
-      const result = await service.validateLoginRequest(
-        'pk_good.secret',
-        undefined,
-        undefined,
-        'http://localhost/callback',
-      );
-      expect(result.serverId).toBe('main-guild');
-    });
-
-    it('throws BadRequestException when project has no redirect URI configured', async () => {
-      const project = fakeProject({ isInternal: false, redirectUri: null });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
-      await expect(
-        service.validateLoginRequest('pk_good.secret', 'guild-1'),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('throws ForbiddenException when redirect URI is not on the allowlist', async () => {
-      const project = fakeProject({ isInternal: false });
-      mockProjectsRepo.findByApiKey.mockResolvedValue(project);
-      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
-
-      await expect(
-        service.validateLoginRequest(
-          'pk_good.secret',
-          'guild-1',
-          undefined,
-          'http://evil.com/callback',
-        ),
-      ).rejects.toThrow(ForbiddenException);
+    it('returns null when expired or already used', async () => {
+      mockAuthRequestRepo.consumeValid.mockResolvedValue(null);
+      const result = await service.consumeAuthRequest('bad-id');
+      expect(result).toBeNull();
     });
   });
 
@@ -347,16 +297,38 @@ describe('AuthService', () => {
       });
     }
 
-    it('returns error redirect when state token is invalid/expired', async () => {
-      mockOAuthStateRepo.findValidState.mockResolvedValue(null);
+    it('redirects error to client when state is expired but row exists', async () => {
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(null);
+      mockOAuthStateRepo.findByState.mockResolvedValue({
+        redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-xyz',
+      });
 
       const result = await service.handleDiscordCallback(
         'code-123',
-        'bad-state',
+        'expired-state',
       );
       expect(result).toMatchObject({
         url: expect.stringContaining('invalid_state'),
       });
+      // Should redirect to the client's URI, not the fallback
+      expect((result as any).url).toContain('localhost/callback');
+      expect((result as any).url).toContain('state=csrf-xyz');
+    });
+
+    it('redirects to fallback when state token is completely unknown', async () => {
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(null);
+      mockOAuthStateRepo.findByState.mockResolvedValue(null);
+
+      const result = await service.handleDiscordCallback(
+        'code-123',
+        'unknown-state',
+      );
+      expect(result).toMatchObject({
+        url: expect.stringContaining('invalid_state'),
+      });
+      // Falls back to app.baseUrl/error
+      expect((result as any).url).toContain('localhost/error');
     });
 
     it('returns error redirect when Discord token exchange fails', async () => {
@@ -364,9 +336,9 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
 
       fetchMock.mockResolvedValueOnce(
         mockFetchResponse({ error: 'invalid_code' }, false, 400),
@@ -379,6 +351,7 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         url: expect.stringContaining('discord_error'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when Discord profile fetch fails', async () => {
@@ -386,17 +359,18 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
 
       mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null); // profile fetch fails
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null);
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('profile_error'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when user is not in the Discord server', async () => {
@@ -404,9 +378,9 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
@@ -421,12 +395,13 @@ describe('AuthService', () => {
         ok: false,
         status: 404,
         roleIds: [],
-      }); // not in server
+      });
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
         url: expect.stringContaining('not_in_server'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('returns error redirect when user lacks required roles', async () => {
@@ -434,9 +409,9 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
@@ -453,7 +428,7 @@ describe('AuthService', () => {
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: true,
         status: 200,
-        roleIds: ['role-other'], // user has role-other, not role-required
+        roleIds: ['role-other'],
       });
       mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
@@ -461,6 +436,7 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         url: expect.stringContaining('insufficient_roles'),
       });
+      expect((result as any).url).toContain('state=csrf-abc');
     });
 
     it('creates session and returns redirect URL on success (no role restriction)', async () => {
@@ -468,9 +444,9 @@ describe('AuthService', () => {
         projectId: 'proj-1',
         serverId: 'guild-1',
         redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
@@ -551,91 +527,18 @@ describe('AuthService', () => {
   // ── cleanupExpired ───────────────────────────────────────────────────────
 
   describe('cleanupExpired', () => {
-    it('calls deleteExpired on session, oauth state, login token, and admin oauth state repos', async () => {
+    it('calls deleteExpired on session, oauth state, auth request, and admin oauth state repos', async () => {
       mockSessionRepo.deleteExpired.mockResolvedValue(undefined);
       mockOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
-      mockLoginTokenRepo.deleteExpired.mockResolvedValue(undefined);
+      mockAuthRequestRepo.deleteExpired.mockResolvedValue(undefined);
       mockAdminOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
 
       const result = await service.cleanupExpired();
       expect(result).toEqual({ success: true });
       expect(mockSessionRepo.deleteExpired).toHaveBeenCalled();
       expect(mockOAuthStateRepo.deleteExpired).toHaveBeenCalled();
-      expect(mockLoginTokenRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockAuthRequestRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
-    });
-  });
-
-  // ── createLoginSession ──────────────────────────────────────────────────
-
-  describe('createLoginSession', () => {
-    it('validates API key, creates token, and returns loginUrl', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
-      // Use full project flow mocking via validateLoginRequest path
-      const proj = fakeProject();
-      // Mock the project lookup that validateApiKeyAndGetProject does
-      mockProjectsRepo.findByApiKey.mockResolvedValue(proj);
-      mockProjectsRepo.hasServerAccess.mockResolvedValue(true);
-      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
-      mockLoginTokenRepo.create.mockResolvedValue({ token: 'abc123' });
-
-      const result = await service.createLoginSession(
-        'pk_1234.secrethex',
-        'srv-1',
-        undefined,
-        'http://localhost/callback',
-      );
-
-      expect(result.loginUrl).toContain('/api/auth/login/');
-      expect(mockLoginTokenRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: 'proj-1',
-          serverId: 'srv-1',
-          redirectUri: 'http://localhost/callback',
-        }),
-      );
-    });
-
-    it('throws when API key is invalid', async () => {
-      mockProjectsRepo.findByApiKey.mockResolvedValue(null);
-
-      await expect(
-        service.createLoginSession(
-          'bad.key',
-          'srv-1',
-          undefined,
-          'http://localhost/callback',
-        ),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-  });
-
-  // ── resolveLoginToken ───────────────────────────────────────────────────
-
-  describe('resolveLoginToken', () => {
-    it('returns token data when valid', async () => {
-      const tokenData = {
-        token: 'abc',
-        projectId: 'p1',
-        serverId: 's1',
-        redirectUri: 'http://localhost/callback',
-        expiresAt: new Date(Date.now() + 300000),
-      };
-      mockLoginTokenRepo.findValid.mockResolvedValue(tokenData);
-      mockProjectsRepo.findOne.mockResolvedValue({
-        id: 'p1',
-        name: 'My Project',
-      });
-
-      const result = await service.resolveLoginToken('abc');
-      expect(result).toEqual({ ...tokenData, projectName: 'My Project' });
-    });
-
-    it('returns null when token is expired or not found', async () => {
-      mockLoginTokenRepo.findValid.mockResolvedValue(null);
-
-      const result = await service.resolveLoginToken('expired-token');
-      expect(result).toBeNull();
     });
   });
 });

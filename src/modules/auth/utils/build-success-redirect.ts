@@ -31,6 +31,7 @@ export function buildSuccessPost(
   expiresAt: Date,
   member: MemberPayload,
   roles: RolePayload[],
+  clientState?: string | null,
 ): { html: string } {
   const fields: Record<string, string> = {
     token,
@@ -38,6 +39,10 @@ export function buildSuccessPost(
     member: JSON.stringify(member),
     roles: JSON.stringify(roles),
   };
+
+  if (clientState) {
+    fields.state = clientState;
+  }
 
   const inputs = Object.entries(fields)
     .map(

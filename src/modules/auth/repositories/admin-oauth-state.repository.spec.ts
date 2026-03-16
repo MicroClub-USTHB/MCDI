@@ -80,6 +80,23 @@ describe('AdminOAuthStateRepository', () => {
     });
   });
 
+  describe('consumeValid', () => {
+    it('atomically consumes and returns a valid state when found', async () => {
+      const state = fakeState({ used: 'true' });
+      const db = buildDb([state]);
+      const repo = await buildRepo(db);
+      const result = await repo.consumeValid('admin-rand-state-123');
+      expect(result).toEqual(state);
+      expect(db.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns null when no valid state can be consumed', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      expect(await repo.consumeValid('unknown-state')).toBeNull();
+    });
+  });
+
   describe('markAsUsed', () => {
     it('calls update without errors', async () => {
       const db = buildDb([]);

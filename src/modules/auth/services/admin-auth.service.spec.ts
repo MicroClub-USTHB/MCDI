@@ -34,6 +34,7 @@ describe('AdminAuthService', () => {
     const mockAdminOAuthRepo = {
       create: jest.fn(),
       findValidState: jest.fn(),
+      consumeValid: jest.fn(),
       markAsUsed: jest.fn(),
     };
     const mockConfig = {
@@ -258,14 +259,14 @@ describe('AdminAuthService', () => {
     });
 
     it('throws Unauthorized if state is invalid', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue(null);
+      adminOAuthStateRepository.consumeValid.mockResolvedValue(null);
       await expect(
         service.handleAdminDiscordCallback('code', 'invalid'),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws Unauthorized if Discord token exchange fails', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({
+      adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
@@ -279,7 +280,7 @@ describe('AdminAuthService', () => {
     });
 
     it('throws Unauthorized if Discord profile fetch fails', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({
+      adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
@@ -297,7 +298,7 @@ describe('AdminAuthService', () => {
     });
 
     it('throws Forbidden if member is not system admin', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({
+      adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
@@ -323,7 +324,7 @@ describe('AdminAuthService', () => {
     });
 
     it('returns token and member if successful', async () => {
-      adminOAuthStateRepository.findValidState.mockResolvedValue({
+      adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
       globalFetch.mockResolvedValueOnce({
@@ -351,9 +352,6 @@ describe('AdminAuthService', () => {
       expect(res.token).toBeDefined();
       expect(res.member.username).toBe('admin');
       expect(res.member.displayName).toBe('Admin User');
-      expect(adminOAuthStateRepository.markAsUsed).toHaveBeenCalledWith(
-        'valid',
-      );
       expect(sessionRepository.create).toHaveBeenCalled();
     });
   });

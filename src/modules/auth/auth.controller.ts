@@ -1,17 +1,13 @@
 import {
   Controller,
   Get,
-  Render,
   Query,
-  Param,
   Post,
   Body,
   Res,
   Req,
-  Headers,
   HttpCode,
   HttpStatus,
-  UnauthorizedException,
   UseGuards,
   UsePipes,
   ValidationPipe,
@@ -26,14 +22,14 @@ import {
   ApiForbiddenResponse,
   ApiBadRequestResponse,
   ApiBearerAuth,
-  ApiParam,
   ApiBody,
-  ApiProduces,
   ApiExcludeEndpoint,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { buildErrorPage } from './utils';
 import { extractBearerToken } from '../../common/utils/auth.util';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import {
@@ -42,8 +38,7 @@ import {
   LogoutAllDto,
   ValidateSessionResponseDto,
   SuccessResponseDto,
-  CreateLoginSessionDto,
-  LoginSessionResponseDto,
+  AuthorizeQueryDto,
   AdminPasswordLoginDto,
   AdminLoginResponseDto,
   SetPasswordDto,
@@ -53,162 +48,141 @@ import {
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
+  private readonly apiPrefix: string;
+
   constructor(
     private readonly authService: AuthService,
     private readonly adminAuthService: AdminAuthService,
-  ) {}
-
-  // ─── Step 0 — Create login session (server-to-server)
-  // Platform calls this with API key in header to get a short-lived login URL.
-  // The user's browser never sees the API key.
-
-  @Post('login-session')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Create a login session (server-to-server)',
-    description:
-      'Platforms call this endpoint server-to-server with their API key in the X-API-Key header. ' +
-      'Returns a short-lived login URL that the platform redirects the user to. ' +
-      'This keeps the API key out of browser URLs, logs, and history.',
-  })
-  @ApiBody({ type: CreateLoginSessionDto })
-  @ApiOkResponse({
-    description: 'Login URL created.',
-    type: LoginSessionResponseDto,
-  })
-  @ApiUnauthorizedResponse({ description: 'Invalid API key.' })
-  @ApiForbiddenResponse({ description: 'Server is disabled.' })
-  @ApiBadRequestResponse({ description: 'Invalid request body.' })
-  async createLoginSession(
-    @Headers('x-api-key') apiKey: string,
-    @Body() dto: CreateLoginSessionDto,
+    private readonly configService: ConfigService,
   ) {
-    if (!apiKey) {
-      throw new UnauthorizedException('X-API-Key header is required');
-    }
+    this.apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
+  }
 
-    return this.authService.createLoginSession(
-      apiKey,
-      dto.serverId,
-      dto.serverName,
-      dto.redirectUri,
+  // ─── Authorization request ─────────────────────────────
+  // Platform redirects user here with query params. MCDI validates, stores
+  // the request in DB, sets a cookie, and redirects to Discord OAuth.
+
+  @Get('authorize')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'Initiate authorization request',
+    description:
+      'Standard OAuth-style authorization endpoint. The platform redirects the user here ' +
+      'with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters.\n\n' +
+      'MCDI validates the params, creates a short-lived auth request in the DB, ' +
+      'sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Discord OAuth authorization page.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid or missing query parameters.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Project inactive, redirect URI not allowed, or server not accessible.',
+  })
+  async authorize(@Query() dto: AuthorizeQueryDto, @Res() res: Response) {
+    const result = await this.authService.authorize(
+      dto.client_id,
+      dto.redirect_uri,
+      dto.server_id,
+      dto.state,
     );
-  }
 
-  // ─── Step 1 — Login page (token-based)
-  // Platform redirects user here with: /api/auth/login/<token>
-  // MCDI looks up the login token which already contains the validated project context.
-
-  @Get('login/:token')
-  @Render('login')
-  @ApiOperation({
-    summary: 'Render login page (token-based)',
-    description:
-      'The platform redirects the user here using the loginUrl returned by POST /auth/login-session. ' +
-      'MCDI looks up the short-lived token to recover the project context, sets an httpOnly session ' +
-      'cookie so the token never reappears in a URL, then renders the login page.',
-  })
-  @ApiParam({
-    name: 'token',
-    required: true,
-    description: 'Short-lived login token from POST /auth/login-session',
-  })
-  @ApiProduces('text/html')
-  @ApiOkResponse({ description: 'Login page rendered (HTML).' })
-  async login(
-    @Param('token') token: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    if (!token) {
-      return {
-        error: 'missing_token',
-        errorDescription: 'No login token provided',
-      };
-    }
-
-    try {
-      const loginToken = await this.authService.resolveLoginToken(token);
-
-      if (!loginToken) {
-        return {
-          error: 'invalid_token',
-          errorDescription:
-            'Login link has expired or is invalid. Please request a new one from the platform.',
-        };
+    if (!result.ok) {
+      // If redirect_uri was validated, redirect the error back to the client
+      if (result.redirectUri) {
+        const url = new URL(result.redirectUri);
+        url.searchParams.set('error', result.error);
+        url.searchParams.set('error_description', result.description);
+        url.searchParams.set('state', result.state);
+        return res.redirect(url.toString());
       }
-
-      // Store the login token in an httpOnly cookie (5-min TTL matches the token)
-      // so it never needs to appear in a URL again.
-      res.cookie('mcdi_login_ctx', token, {
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 5 * 60 * 1000,
+      // Can't trust redirect_uri — return JSON to the browser
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: 400,
+        error: result.error,
+        message: result.description,
       });
-
-      return {
-        projectName: loginToken.projectName,
-        serverId: loginToken.serverId,
-        redirectUri: loginToken.redirectUri,
-      };
-    } catch (err) {
-      return {
-        error: 'invalid_request',
-        errorDescription: (err as Error).message || 'Something went wrong',
-      };
     }
+
+    res.cookie('mcdi_auth_req', result.requestId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.configService.get<string>('app.nodeEnv') === 'production',
+      maxAge: 10 * 60 * 1000,
+    });
+
+    return res.redirect(`/${this.apiPrefix}/auth/discord`);
   }
 
-  // ─── Step 2 — Start Discord OAuth
-  // User clicks "Login with Discord" → this endpoint looks up the login token and redirects.
+  // ─── Start Discord OAuth ──────────────────────────────
+  // Reads the auth request from the cookie and redirects to Discord.
 
   @Get('discord')
   @ApiOperation({
     summary: 'Redirect to Discord OAuth',
     description:
-      'Called when user clicks "Login with Discord" on the MCDI login page. ' +
-      'Reads the login context from the httpOnly `mcdi_login_ctx` cookie set during the ' +
-      'login page render — no token ever appears in the URL.',
+      'Reads the auth request ID from the httpOnly `mcdi_auth_req` cookie ' +
+      'set by GET /auth/authorize. Resolves the request, marks it as used, ' +
+      'and redirects to Discord OAuth.',
   })
   @ApiResponse({
     status: 302,
-    description: 'Redirects to Discord OAuth authorization page',
+    description: 'Redirects to Discord OAuth authorization page.',
   })
   async startDiscordAuth(@Req() req: Request, @Res() res: Response) {
-    const loginTokenValue: string | undefined = (
+    const requestId: string | undefined = (
       req.cookies as Record<string, string>
-    )?.mcdi_login_ctx;
+    )?.mcdi_auth_req;
 
-    if (!loginTokenValue) {
-      return res.render('login', {
-        error: 'missing_context',
-        errorDescription:
-          'Login session not found. Please use the login link provided by the platform.',
-      });
+    if (!requestId) {
+      // No cookie — no way to know where to redirect
+      const { html } = buildErrorPage(
+        'missing_context',
+        'Authorization session not found. Please start from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
     }
 
-    const tokenData = await this.authService.resolveLoginToken(loginTokenValue);
+    // Atomic consume: marks as used and returns the row in one query.
+    // If two requests race, only one gets the row back.
+    const authRequest = await this.authService.consumeAuthRequest(requestId);
+    res.clearCookie('mcdi_auth_req');
 
-    if (!tokenData) {
-      return res.render('login', {
-        error: 'invalid_token',
-        errorDescription:
-          'Login link has expired or is invalid. Please request a new one from the platform.',
-      });
+    if (!authRequest) {
+      // Consume failed — look up the original request for redirect info
+      const original = await this.authService.findAuthRequestById(requestId);
+      if (original) {
+        const url = new URL(original.redirectUri);
+        url.searchParams.set('error', 'invalid_request');
+        url.searchParams.set(
+          'error_description',
+          'Authorization request has expired or was already used',
+        );
+        url.searchParams.set('state', original.state);
+        return res.redirect(url.toString());
+      }
+      const { html } = buildErrorPage(
+        'invalid_request',
+        'Authorization request has expired or was already used. Please try again from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
     }
-
-    // Clear the cookie — it is single-use from this point forward
-    res.clearCookie('mcdi_login_ctx');
 
     const result = await this.authService.buildDiscordLoginUrl(
-      tokenData.projectId,
-      tokenData.serverId,
-      tokenData.redirectUri,
+      authRequest.clientId,
+      authRequest.serverId,
+      authRequest.redirectUri,
+      authRequest.state,
     );
 
     return res.redirect(result.url);
   }
 
-  // ─── Step 3 — Discord callback ───────────────────────────
+  // ─── Discord callback ───────────────────────────────────
   // Discord redirects here after user authenticates.
   // MCDI processes everything and redirects back to the platform with token + member + roles.
 

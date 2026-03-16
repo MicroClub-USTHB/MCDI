@@ -9,6 +9,7 @@ export interface CreateOAuthStateDto {
   projectId: string;
   serverId: string;
   redirectUri: string;
+  clientState?: string;
   expiresAt: Date;
 }
 
@@ -27,6 +28,7 @@ export class OAuthStateRepository {
         projectId: data.projectId,
         serverId: data.serverId,
         redirectUri: data.redirectUri,
+        clientState: data.clientState,
         expiresAt: data.expiresAt,
       })
       .returning();
@@ -52,6 +54,39 @@ export class OAuthStateRepository {
       .limit(1);
 
     return states[0] || null;
+  }
+
+  /**
+   * Atomically find and consume a valid OAuth state token.
+   * Sets used=true in the same UPDATE query to prevent races where
+   * concurrent callbacks could both pass a prior validity check.
+   */
+  async consumeValid(state: string) {
+    const [row] = await this.db
+      .update(schema.oauthStates)
+      .set({ used: 'true' })
+      .where(
+        and(
+          eq(schema.oauthStates.state, state),
+          eq(schema.oauthStates.used, 'false'),
+          gt(schema.oauthStates.expiresAt, new Date()),
+        ),
+      )
+      .returning();
+
+    return row ?? null;
+  }
+
+  // Look up an OAuth state row by its token regardless of used/expired status.
+  // Used to recover redirectUri and clientState for error redirects.
+  async findByState(state: string) {
+    const [row] = await this.db
+      .select()
+      .from(schema.oauthStates)
+      .where(eq(schema.oauthStates.state, state))
+      .limit(1);
+
+    return row ?? null;
   }
 
   /**

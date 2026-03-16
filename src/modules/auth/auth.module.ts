@@ -5,7 +5,7 @@ import { AdminAuthService } from './services/admin-auth.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
-import { LoginTokenRepository } from './repositories/login-token.repository';
+import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { DiscordModule } from '../discord/discord.module';
@@ -21,7 +21,7 @@ import { ServersModule } from '../servers/servers.module';
     SessionRepository,
     MemberRepository,
     OAuthStateRepository,
-    LoginTokenRepository,
+    AuthRequestRepository,
     AdminOAuthStateRepository,
     SystemAdminGuard,
   ],
