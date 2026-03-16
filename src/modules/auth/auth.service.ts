@@ -6,9 +6,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash, randomBytes } from 'crypto';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
-import { OAuthStateRepository } from './repositories/oauth-state.repository';
+import { AuthRequestRepository } from './repositories/auth-request.repository';
+import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { LoginTokenRepository } from './repositories/login-token.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import {
@@ -17,11 +19,10 @@ import {
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { ServersRepository } from '../servers/servers.repository';
-import { randomBytes } from 'crypto';
 import {
+  buildCallbackCodeRedirect,
   buildDiscordOAuthUrl,
   buildErrorRedirect,
-  buildSuccessPost,
   validateApiKeyAndGetProject,
 } from './utils';
 
@@ -36,7 +37,8 @@ export class AuthService {
   constructor(
     private readonly sessionRepository: SessionRepository,
     private readonly memberRepository: MemberRepository,
-    private readonly oauthStateRepository: OAuthStateRepository,
+    private readonly authRequestRepository: AuthRequestRepository,
+    private readonly callbackCodeRepository: CallbackCodeRepository,
     private readonly loginTokenRepository: LoginTokenRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly projectsRepository: ProjectsRepository,
@@ -157,6 +159,7 @@ export class AuthService {
     serverId?: string,
     serverName?: string,
     redirectUri?: string,
+    state?: string,
   ) {
     // Reuse existing validation logic
     const context = await this.validateLoginRequest(
@@ -176,6 +179,7 @@ export class AuthService {
       projectId: context.project.id,
       serverId: context.serverId,
       redirectUri: context.redirectUri,
+      state,
       expiresAt,
     });
 
@@ -204,59 +208,67 @@ export class AuthService {
   // ─── Step 2 — Build Discord OAuth URL ────────────────────
 
   /**
-   * Build the Discord OAuth URL with project context encoded in state.
+   * Build the Discord OAuth URL with project context stored in a one-time auth request.
    * Called when the user clicks "Login with Discord" on the MCDI page.
-   * State is stored in DB for one-time use with 10-minute expiration.
+   * The request ID is sent to Discord as the OAuth state and mirrored into a secure cookie.
    */
   async buildDiscordLoginUrl(
     projectId: string,
     serverId: string,
     redirectUri: string,
+    state?: string,
   ) {
-    // Generate secure random state token
-    const state = randomBytes(32).toString('hex');
+    const requestId = randomBytes(32).toString('hex');
 
-    // Store state in database with 10-minute expiration
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
-    await this.oauthStateRepository.create({
-      state,
-      projectId,
+    await this.authRequestRepository.create({
+      requestId,
+      clientId: projectId,
       serverId,
       redirectUri,
+      state,
       expiresAt,
     });
 
     return {
+      requestId,
       url: buildDiscordOAuthUrl(
         this.discordClientId,
         this.discordRedirectUri,
-        state,
+        requestId,
       ),
     };
   }
 
-  // ─── Step 3 — Discord callback → session → redirect ─────
+  // ─── Step 3 — Discord callback → callback code → redirect ─
 
   /**
    * Handle the callback from Discord after user authorization.
    * This is the core step: it does everything in one shot.
    *
    * Flow:
-   *  1. Validate state token (one-time use, not expired)
+   *  1. Validate auth request (one-time use, not expired)
    *  2. Exchange Discord code for access token
    *  3. Fetch Discord profile (identify + email)
    *  4. Upsert member in DB
    *  5. Verify user is in the target Discord server
    *  6. Check role-based access for the project
-   *  7. Create session token (30 days)
-   *  8. Redirect back to platform with token + member + roles
+   *  7. Generate a short-lived callback code and store only its hash
+   *  8. Redirect back to platform with the callback code + original state
    */
-  async handleDiscordCallback(discordCode: string, stateToken: string) {
-    const stateResult = await this.validateAndConsumeState(stateToken);
-    if (!stateResult.ok) return stateResult.redirect;
-    const { projectId, serverId, redirectUri } = stateResult.data;
+  async handleDiscordCallback(
+    discordCode: string,
+    requestId?: string,
+    discordState?: string,
+  ) {
+    const authRequestResult = await this.validateAndConsumeAuthRequest(
+      requestId,
+      discordState,
+    );
+    if (!authRequestResult.ok) return authRequestResult.redirect;
+    const { clientId, serverId, redirectUri, state } = authRequestResult.data;
 
     const tokenResult = await this.exchangeCodeForToken(
       discordCode,
@@ -285,42 +297,53 @@ export class AuthService {
     const userDiscordRoleIds = guildResult.data;
 
     const accessResult = await this.checkProjectRoleAccess(
-      projectId,
+      clientId,
       userDiscordRoleIds,
       redirectUri,
     );
     if (!accessResult.ok) return accessResult.redirect;
 
-    const { token, expiresAt, roles } = await this.createSessionWithRoles(
-      member.id,
-      projectId,
-      serverId,
-    );
+    const callbackCode = randomBytes(32).toString('hex');
+    const callbackCodeHash = createHash('sha256')
+      .update(callbackCode)
+      .digest('hex');
+    const expiresAt = new Date(Date.now() + 90_000);
 
-    return buildSuccessPost(
+    await this.callbackCodeRepository.create({
+      codeHash: callbackCodeHash,
+      clientId,
       redirectUri,
-      token,
+      memberId: member.id,
+      serverId,
       expiresAt,
-      {
-        id: member.id,
-        username: member.username,
-        globalName: member.globalName,
-        displayName: member.displayName,
-        avatar: member.avatar,
-        email: member.email,
-      },
-      roles,
-    );
+    });
+
+    return buildCallbackCodeRedirect(redirectUri, callbackCode, state);
   }
 
-  // ─── Step 1 — Validate & consume state token ─────────────
+  // ─── Step 1 — Validate & consume auth request ─────────────
 
-  private async validateAndConsumeState(stateToken: string) {
-    const stateData =
-      await this.oauthStateRepository.findValidState(stateToken);
+  private async validateAndConsumeAuthRequest(
+    requestId?: string,
+    discordState?: string,
+  ) {
+    if (!requestId) {
+      const fallbackUri =
+        this.configService.get<string>('app.baseUrl') + '/error';
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(
+          fallbackUri,
+          'invalid_state',
+          'Authentication request was not found',
+        ),
+      };
+    }
 
-    if (!stateData) {
-      // Generic error to prevent state enumeration attacks
+    const authRequest =
+      await this.authRequestRepository.findValidRequest(requestId);
+
+    if (!authRequest) {
       const fallbackUri =
         this.configService.get<string>('app.baseUrl') + '/error';
       return {
@@ -333,10 +356,20 @@ export class AuthService {
       };
     }
 
-    // Mark as used immediately to prevent replay attacks
-    await this.oauthStateRepository.markAsUsed(stateToken);
+    if (discordState && discordState !== requestId) {
+      return {
+        ok: false as const,
+        redirect: buildErrorRedirect(
+          authRequest.redirectUri,
+          'invalid_state',
+          'Authentication request did not match callback state',
+        ),
+      };
+    }
 
-    return { ok: true as const, data: stateData };
+    await this.authRequestRepository.markAsUsed(requestId);
+
+    return { ok: true as const, data: authRequest };
   }
 
   // ─── Step 2 — Exchange Discord code for access token ─────
@@ -544,7 +577,8 @@ export class AuthService {
   async cleanupExpired() {
     await Promise.all([
       this.sessionRepository.deleteExpired(),
-      this.oauthStateRepository.deleteExpired(),
+      this.authRequestRepository.deleteExpired(),
+      this.callbackCodeRepository.deleteExpired(),
       this.loginTokenRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
     ]);

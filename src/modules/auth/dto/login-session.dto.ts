@@ -31,6 +31,16 @@ export class CreateLoginSessionDto {
   @IsString()
   @IsNotEmpty()
   redirectUri: string;
+
+  @ApiProperty({
+    description:
+      'Opaque state value supplied by the client application and echoed back after authentication',
+    example: 'req_9b2f4f3e',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  state?: string;
 }
 
 export class LoginSessionResponseDto {

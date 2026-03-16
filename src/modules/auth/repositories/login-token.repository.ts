@@ -9,6 +9,7 @@ export interface CreateLoginTokenDto {
   projectId: string;
   serverId: string;
   redirectUri: string;
+  state?: string;
   expiresAt: Date;
 }
 
@@ -27,6 +28,7 @@ export class LoginTokenRepository {
         projectId: data.projectId,
         serverId: data.serverId,
         redirectUri: data.redirectUri,
+        state: data.state,
         expiresAt: data.expiresAt,
       })
       .returning();

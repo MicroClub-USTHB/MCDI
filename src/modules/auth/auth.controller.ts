@@ -92,6 +92,7 @@ export class AuthController {
       dto.serverId,
       dto.serverName,
       dto.redirectUri,
+      dto.state,
     );
   }
 
@@ -203,7 +204,15 @@ export class AuthController {
       tokenData.projectId,
       tokenData.serverId,
       tokenData.redirectUri,
+      tokenData.state,
     );
+
+    res.cookie('request_id', result.requestId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      maxAge: 10 * 60 * 1000,
+    });
 
     return res.redirect(result.url);
   }
@@ -219,24 +228,33 @@ export class AuthController {
     description:
       'Discord redirects here after user authorization. This endpoint is not called directly by platforms.\n\n' +
       'MCDI processes the callback:\n' +
+      '1. Loads the request context from the secure request_id cookie\n' +
       '1. Exchanges the Discord code for an access token\n' +
       '2. Fetches user profile & email\n' +
       '3. Upserts member in the database\n' +
       '4. Verifies Discord server membership\n' +
       '5. Checks project role requirements\n' +
-      '6. Creates a session token (valid 30 days)\n' +
-      "7. Redirects to the platform's redirect_uri with ?token=...&member=...&roles=...\n\n" +
+      '6. Issues a short-lived callback code\n' +
+      "7. Redirects to the platform's redirect_uri with ?code=...&state=...\n\n" +
       'On error, redirects with ?error=...&error_description=...',
   })
   async discordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const result = await this.authService.handleDiscordCallback(code, state);
-    if ('html' in result) {
-      return res.type('html').send(result.html);
-    }
+    const requestId: string | undefined = (
+      req.cookies as Record<string, string>
+    )?.request_id;
+
+    res.clearCookie('request_id');
+
+    const result = await this.authService.handleDiscordCallback(
+      code,
+      requestId,
+      state,
+    );
     return res.redirect(result.url);
   }
 

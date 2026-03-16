@@ -9,6 +9,7 @@ export const loginTokens = pgTable('login_tokens', {
     .notNull(),
   serverId: varchar('server_id', { length: 255 }).notNull(),
   redirectUri: text('redirect_uri').notNull(),
+  state: text('state'),
   expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
