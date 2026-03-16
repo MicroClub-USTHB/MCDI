@@ -79,6 +79,7 @@ describe('AuthController', () => {
         's1',
         undefined,
         'http://localhost/callback',
+        undefined,
       );
     });
   });
@@ -135,6 +136,7 @@ describe('AuthController', () => {
         redirectUri: 'http://localhost/callback',
       });
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
+        requestId: 'req-123',
         url: 'https://discord.com/oauth2/authorize?...',
       });
       const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
@@ -144,6 +146,11 @@ describe('AuthController', () => {
         'https://discord.com/oauth2/authorize?...',
       );
       expect(res.clearCookie).toHaveBeenCalledWith('mcdi_login_ctx');
+      expect(res.cookie).toHaveBeenCalledWith(
+        'request_id',
+        'req-123',
+        expect.objectContaining({ httpOnly: true, secure: true }),
+      );
     });
 
     it('renders error page when cookie is missing', async () => {
@@ -180,6 +187,7 @@ describe('AuthController', () => {
         redirectUri: 'https://platform.example.com/callback',
       });
       mockAuthService.buildDiscordLoginUrl.mockResolvedValue({
+        requestId: 'req-xyz',
         url: 'https://discord.com/oauth2/authorize?state=xyz',
       });
       const req = { cookies: { mcdi_login_ctx: 'valid-token' } };
@@ -189,27 +197,37 @@ describe('AuthController', () => {
         'proj-42',
         'srv-99',
         'https://platform.example.com/callback',
+        undefined,
       );
     });
   });
 
   // ── discordCallback ──────────────────────────────────────────────────
 
-  it('discordCallback sends HTML form post on success', async () => {
+  it('discordCallback redirects with a callback code on success', async () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
-      html: '<html><form method="POST"></form></html>',
+      url: 'http://localhost/callback?code=cb-123&state=state-123',
     });
     const res = {
-      type: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      clearCookie: jest.fn(),
       redirect: jest.fn(),
     };
-    await controller.discordCallback('code123', 'state456', res as any);
-    expect(res.type).toHaveBeenCalledWith('html');
-    expect(res.send).toHaveBeenCalledWith(
-      '<html><form method="POST"></form></html>',
+    const req = { cookies: { request_id: 'req-123' } };
+    await controller.discordCallback(
+      'code123',
+      'state456',
+      req as any,
+      res as any,
     );
-    expect(res.redirect).not.toHaveBeenCalled();
+    expect(mockAuthService.handleDiscordCallback).toHaveBeenCalledWith(
+      'code123',
+      'req-123',
+      'state456',
+    );
+    expect(res.clearCookie).toHaveBeenCalledWith('request_id');
+    expect(res.redirect).toHaveBeenCalledWith(
+      'http://localhost/callback?code=cb-123&state=state-123',
+    );
   });
 
   it('discordCallback redirects on error', async () => {
@@ -217,15 +235,19 @@ describe('AuthController', () => {
       url: 'http://localhost/callback?error=invalid_state',
     });
     const res = {
-      type: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      clearCookie: jest.fn(),
       redirect: jest.fn(),
     };
-    await controller.discordCallback('code123', 'bad-state', res as any);
+    const req = { cookies: { request_id: 'req-456' } };
+    await controller.discordCallback(
+      'code123',
+      'bad-state',
+      req as any,
+      res as any,
+    );
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost/callback?error=invalid_state',
     );
-    expect(res.send).not.toHaveBeenCalled();
   });
 
   // ── validateSession ──────────────────────────────────────────────────
