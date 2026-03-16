@@ -37,6 +37,27 @@ export class AdminOAuthStateRepository {
     return states[0] || null;
   }
 
+  /**
+   * Atomically find and consume a valid admin OAuth state token.
+   * Sets used=true in the same UPDATE query to prevent concurrent
+   * callbacks from consuming the same state twice.
+   */
+  async consumeValid(state: string) {
+    const [row] = await this.db
+      .update(schema.adminOauthStates)
+      .set({ used: 'true' })
+      .where(
+        and(
+          eq(schema.adminOauthStates.state, state),
+          eq(schema.adminOauthStates.used, 'false'),
+          gt(schema.adminOauthStates.expiresAt, new Date()),
+        ),
+      )
+      .returning();
+
+    return row ?? null;
+  }
+
   async markAsUsed(state: string) {
     await this.db
       .update(schema.adminOauthStates)

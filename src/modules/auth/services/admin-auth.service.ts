@@ -130,15 +130,13 @@ export class AdminAuthService {
   async handleAdminDiscordCallback(discordCode: string, stateToken: string) {
     // 1. Validate state
     const stateData =
-      await this.adminOAuthStateRepository.findValidState(stateToken);
+      await this.adminOAuthStateRepository.consumeValid(stateToken);
 
     if (!stateData) {
       throw new UnauthorizedException(
         'Invalid or expired authentication request',
       );
     }
-
-    await this.adminOAuthStateRepository.markAsUsed(stateToken);
 
     // 2. Exchange code for access token
     const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
@@ -294,4 +292,5 @@ export class AdminAuthService {
     await this.memberRepository.setPasswordHash(session.memberId, newHash);
 
     return { message: 'Password updated successfully' };
-  }}
+  }
+}
