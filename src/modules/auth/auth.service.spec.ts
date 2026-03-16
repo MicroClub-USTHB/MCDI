@@ -37,6 +37,7 @@ const mockProjectsRepo = {
 const mockOAuthStateRepo = {
   create: jest.fn(),
   findValidState: jest.fn(),
+  consumeValid: jest.fn(),
   findByState: jest.fn(),
   markAsUsed: jest.fn(),
   deleteExpired: jest.fn(),
@@ -297,7 +298,7 @@ describe('AuthService', () => {
     }
 
     it('redirects error to client when state is expired but row exists', async () => {
-      mockOAuthStateRepo.findValidState.mockResolvedValue(null);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(null);
       mockOAuthStateRepo.findByState.mockResolvedValue({
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-xyz',
@@ -316,7 +317,7 @@ describe('AuthService', () => {
     });
 
     it('redirects to fallback when state token is completely unknown', async () => {
-      mockOAuthStateRepo.findValidState.mockResolvedValue(null);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(null);
       mockOAuthStateRepo.findByState.mockResolvedValue(null);
 
       const result = await service.handleDiscordCallback(
@@ -337,8 +338,7 @@ describe('AuthService', () => {
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
 
       fetchMock.mockResolvedValueOnce(
         mockFetchResponse({ error: 'invalid_code' }, false, 400),
@@ -361,8 +361,7 @@ describe('AuthService', () => {
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
 
       mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
       mockDiscordService.fetchOAuthProfile.mockResolvedValue(null);
@@ -381,8 +380,7 @@ describe('AuthService', () => {
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
@@ -413,8 +411,7 @@ describe('AuthService', () => {
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',
@@ -449,8 +446,7 @@ describe('AuthService', () => {
         redirectUri: 'http://localhost/callback',
         clientState: 'csrf-abc',
       };
-      mockOAuthStateRepo.findValidState.mockResolvedValue(stateData);
-      mockOAuthStateRepo.markAsUsed.mockResolvedValue(undefined);
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
       mockMemberRepo.upsert.mockResolvedValue({
         id: 'user-1',
         username: 'alice',

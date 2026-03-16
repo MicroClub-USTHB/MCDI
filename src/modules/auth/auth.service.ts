@@ -247,8 +247,7 @@ export class AuthService {
   // ─── Validate & consume state token ─────────────────────
 
   private async validateAndConsumeState(stateToken: string) {
-    const stateData =
-      await this.oauthStateRepository.findValidState(stateToken);
+    const stateData = await this.oauthStateRepository.consumeValid(stateToken);
 
     if (!stateData) {
       // Try to recover the original row so we can redirect the error
@@ -279,9 +278,6 @@ export class AuthService {
         ),
       };
     }
-
-    // Mark as used immediately to prevent replay attacks
-    await this.oauthStateRepository.markAsUsed(stateToken);
 
     return { ok: true as const, data: stateData };
   }
