@@ -28,6 +28,12 @@ export interface DiscordGuildRole {
   position: number;
 }
 
+type EditableChannel = Extract<Discord.AnyChannel, { edit: (data: Discord.ChannelData) => Promise<unknown> }>;
+type WebhookCapableChannel = {
+  fetchWebhooks: () => Promise<Discord.Collection<string, Discord.Webhook>>;
+  createWebhook: (options: { name: string } & Discord.ChannelWebhookCreateOptions) => Promise<Discord.Webhook>;
+};
+
 @Injectable()
 export class DiscordService {
   private readonly logger = new Logger(DiscordService.name);
@@ -43,11 +49,11 @@ export class DiscordService {
   private isDmBasedChannel(
     channel: Discord.AnyChannel,
   ): channel is Discord.DMChannel | Discord.PartialDMChannel {
-    return channel.type === 'DM' || channel.type === 'GROUP_DM';
+    return channel.type === 'DM';
   }
 
-  private isGuildChannel(channel: Discord.AnyChannel): channel is Discord.GuildChannel {
-    return 'guild' in channel;
+  private isEditableChannel(channel: Discord.AnyChannel): channel is EditableChannel {
+    return 'edit' in channel && typeof channel.edit === 'function';
   }
 
   private isTextBasedChannel(
@@ -58,14 +64,14 @@ export class DiscordService {
 
   private isWebhookCapableChannel(
     channel: Discord.AnyChannel,
-  ): channel is Discord.TextBasedChannel {
+  ): boolean {
     return (
-      this.isTextBasedChannel(channel) &&
       !this.isDmBasedChannel(channel) &&
       !channel.isThread() &&
-      channel.type !== 'GUILD_CATEGORY' &&
       'fetchWebhooks' in channel &&
+      typeof channel.fetchWebhooks === 'function' &&
       'createWebhook' in channel
+      && typeof channel.createWebhook === 'function'
     );
   }
 
@@ -179,7 +185,7 @@ export class DiscordService {
   ): Promise<Discord.GuildBasedChannel | null> {
     try {
       const channel = await this.getChannelById(channelId);
-      if (!channel || this.isDmBasedChannel(channel) || !this.isGuildChannel(channel)) {
+      if (!channel || this.isDmBasedChannel(channel) || !this.isEditableChannel(channel)) {
         return null;
       }
       const editedChannel = await channel.edit(options);
@@ -358,7 +364,8 @@ export class DiscordService {
       const channel = await this.getChannelById(channelId);
       if (!channel || !this.isWebhookCapableChannel(channel))
         return null;
-      const webhooks = await channel.fetchWebhooks();
+      const webhookChannel = channel as Discord.AnyChannel & WebhookCapableChannel;
+      const webhooks = await webhookChannel.fetchWebhooks();
       return webhooks;
     } catch (error: unknown) {
       this.logger.debug(error instanceof Error ? error.message : String(error));
@@ -374,7 +381,8 @@ export class DiscordService {
       const channel = await this.getChannelById(channelId);
       if (!channel || !this.isWebhookCapableChannel(channel))
         return null;
-      const webhook = await channel.createWebhook({ name, ...options });
+      const webhookChannel = channel as Discord.AnyChannel & WebhookCapableChannel;
+      const webhook = await webhookChannel.createWebhook({ name, ...options });
       return webhook;
     } catch (error: unknown) {
       this.logger.debug(error instanceof Error ? error.message : String(error));
