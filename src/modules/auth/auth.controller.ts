@@ -204,7 +204,7 @@ export class AuthController {
       tokenData.projectId,
       tokenData.serverId,
       tokenData.redirectUri,
-      tokenData.state,
+      tokenData.state ?? undefined,
     );
 
     res.cookie('request_id', result.requestId, {
