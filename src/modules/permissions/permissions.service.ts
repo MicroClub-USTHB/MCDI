@@ -1,11 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CheckPermissionDto } from './dto/check-permission.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
-import { PermissionsRepository } from './permissions.repository';
+import {
+  ListInheritanceRulesFilters,
+  PermissionsRepository,
+} from './permissions.repository';
+import { PermissionCacheService } from './permission-cache.service';
 
 @Injectable()
 export class PermissionsService {
-  constructor(private readonly permissionsRepository: PermissionsRepository) {}
+  constructor(
+    private readonly permissionsRepository: PermissionsRepository,
+    private readonly permissionCache: PermissionCacheService,
+  ) {}
 
   async checkPermission(dto: CheckPermissionDto) {
     const memberId = dto.discordId?.trim();
@@ -18,16 +25,74 @@ export class PermissionsService {
       );
     }
 
-    const permissionId =
-      await this.permissionsRepository.findPermissionIdByName(permissionName);
+    // ── Fast path: use cached permission set if available ──────────────
+    const cached = this.permissionCache.get(memberId, serverId);
+    if (cached) {
+      const allPerms = cached.permissions;
+      // ADMINISTRATOR in any source = full access
+      if (allPerms.includes('ADMINISTRATOR')) {
+        return { allowed: true, source: 'cached' as const };
+      }
+      if (allPerms.includes(permissionName)) {
+        return { allowed: true, source: 'cached' as const };
+      }
+      return { allowed: false, source: 'cached' as const };
+    }
 
-    if (!permissionId) {
+    // ── Slow path: DB queries ──────────────────────────────────────────
+    const reqPermId =
+      await this.permissionsRepository.findPermissionIdByName(permissionName);
+    const adminPermId =
+      await this.permissionsRepository.findPermissionIdByName('ADMINISTRATOR');
+
+    if (!reqPermId && !adminPermId) {
+      return { allowed: false, source: 'none' as const };
+    }
+
+    // Attempt to bypass with ADMINISTRATOR privilege early
+    if (adminPermId) {
+      const isGlobalAdmin =
+        await this.permissionsRepository.hasGlobalRolePermission(
+          memberId,
+          adminPermId,
+        );
+      if (isGlobalAdmin) return { allowed: true, source: 'global' as const };
+
+      const isServerAdmin =
+        await this.permissionsRepository.hasServerPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
+      if (isServerAdmin) return { allowed: true, source: 'server' as const };
+
+      const isHierarchyAdmin =
+        await this.permissionsRepository.hasHierarchyPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
+      if (isHierarchyAdmin)
+        return { allowed: true, source: 'hierarchy' as const };
+
+      const isInheritAdmin =
+        await this.permissionsRepository.hasInheritedPermission(
+          memberId,
+          serverId,
+          adminPermId,
+        );
+      if (isInheritAdmin)
+        return { allowed: true, source: 'inherited' as const };
+    }
+
+    // Not an admin, check standard specifically requested permission
+    if (!reqPermId) {
       return { allowed: false, source: 'none' as const };
     }
 
     const hasGlobal = await this.permissionsRepository.hasGlobalRolePermission(
       memberId,
-      permissionId,
+      reqPermId,
     );
     if (hasGlobal) {
       return { allowed: true, source: 'global' as const };
@@ -36,16 +101,28 @@ export class PermissionsService {
     const hasServer = await this.permissionsRepository.hasServerPermission(
       memberId,
       serverId,
-      permissionId,
+      reqPermId,
     );
     if (hasServer) {
       return { allowed: true, source: 'server' as const };
     }
+
+    // Check same-server vertical hierarchy (higher-rank roles inherit lower-rank permissions)
+    const hasHierarchy =
+      await this.permissionsRepository.hasHierarchyPermission(
+        memberId,
+        serverId,
+        reqPermId,
+      );
+    if (hasHierarchy) {
+      return { allowed: true, source: 'hierarchy' as const };
+    }
+
     const hasInherited =
       await this.permissionsRepository.hasInheritedPermission(
         memberId,
         serverId,
-        permissionId,
+        reqPermId,
       );
     if (hasInherited) {
       return { allowed: true, source: 'inherited' as const };
@@ -117,8 +194,8 @@ export class PermissionsService {
     return { message: 'Inheritance rule saved', rule };
   }
 
-  async listInheritanceRules() {
-    return this.permissionsRepository.listInheritanceRules();
+  async listInheritanceRules(filters?: ListInheritanceRulesFilters) {
+    return this.permissionsRepository.listInheritanceRules(filters);
   }
 
   private normalizePermissionNames(names: string[]): string[] {
@@ -137,43 +214,105 @@ export class PermissionsService {
       throw new BadRequestException('discordId and serverId are required');
     }
 
-    if (
-      !/^\d{17,20}$/.test(memberId) ||
-      !/^\d{17,20}$/.test(normalizedServerId)
-    ) {
-      throw new BadRequestException('Invalid discordId or serverId format');
+    // ── Cache hit ────────────────────────────────────────────────────────
+    const cached = this.permissionCache.get(memberId, normalizedServerId);
+    if (cached) {
+      return {
+        discordId: memberId,
+        serverId: normalizedServerId,
+        ...cached,
+      };
     }
 
-    const [globalPermissions, serverPermissions, inheritedPermissions] =
-      await Promise.all([
-        this.permissionsRepository.listGlobalPermissionNames(memberId),
-        this.permissionsRepository.listServerPermissionNames(
-          memberId,
-          normalizedServerId,
-        ),
-        this.permissionsRepository.listInheritedPermissionNames(
-          memberId,
-          normalizedServerId,
-        ),
-      ]);
+    // ── Cache miss: resolve from DB ──────────────────────────────────────
+    const [
+      globalPermissions,
+      serverPermissions,
+      hierarchyPermissions,
+      inheritedPermissions,
+    ] = await Promise.all([
+      this.permissionsRepository.listGlobalPermissionNames(memberId),
+      this.permissionsRepository.listServerPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+      this.permissionsRepository.listHierarchyPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+      this.permissionsRepository.listInheritedPermissionNames(
+        memberId,
+        normalizedServerId,
+      ),
+    ]);
 
     const global = this.normalizePermissionNames(globalPermissions);
     const server = this.normalizePermissionNames(serverPermissions);
+    const hierarchy = this.normalizePermissionNames(hierarchyPermissions);
     const inherited = this.normalizePermissionNames(inheritedPermissions);
 
     const permissions = Array.from(
-      new Set([...global, ...server, ...inherited]),
+      new Set([...global, ...server, ...hierarchy, ...inherited]),
     ).sort();
 
-    return {
+    const result = {
       discordId: memberId,
       serverId: normalizedServerId,
       permissions,
-      sources: {
-        global,
-        server,
-        inherited,
-      },
+      sources: { global, server, hierarchy, inherited },
     };
+
+    // Populate cache for future calls
+    this.permissionCache.set(memberId, normalizedServerId, {
+      permissions,
+      sources: { global, server, hierarchy, inherited },
+    });
+
+    return result;
+  }
+
+  async hasAllPermissions(
+    serverId: string,
+    discordId: string,
+    requestedPermissions: string[],
+  ) {
+    const resolved = await this.getMemberPermissions(serverId, discordId);
+    const allPerms = resolved.permissions;
+
+    // ADMINISTRATOR = full access
+    if (allPerms.includes('ADMINISTRATOR')) {
+      return { allowed: true, missing: [] };
+    }
+
+    const normalized = requestedPermissions
+      .map((p) => p.trim().toUpperCase())
+      .filter((p) => p.length > 0);
+
+    const missing = normalized.filter((p) => !allPerms.includes(p));
+    return { allowed: missing.length === 0, missing };
+  }
+
+  async hasAnyPermission(
+    serverId: string,
+    discordId: string,
+    requestedPermissions: string[],
+  ) {
+    const resolved = await this.getMemberPermissions(serverId, discordId);
+    const allPerms = resolved.permissions;
+
+    // ADMINISTRATOR = full access
+    if (allPerms.includes('ADMINISTRATOR')) {
+      return {
+        allowed: true,
+        matched: requestedPermissions.map((p) => p.trim().toUpperCase()),
+      };
+    }
+
+    const normalized = requestedPermissions
+      .map((p) => p.trim().toUpperCase())
+      .filter((p) => p.length > 0);
+
+    const matched = normalized.filter((p) => allPerms.includes(p));
+    return { allowed: matched.length > 0, matched };
   }
 }

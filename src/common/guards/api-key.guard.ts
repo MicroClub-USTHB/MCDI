@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Injectable,
   CanActivate,
@@ -8,6 +5,7 @@ import {
   UnauthorizedException,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import { DRIZZLE } from '../../database/database.module';
@@ -16,25 +14,33 @@ import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
-import { ProjectsAccessService } from '../../modules/projects/projects-access.service';
+import { ProjectsService } from '../../modules/projects/projects.service';
 import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
-import type { ProjectServerOperation } from '../../modules/projects/projects-access.types';
+import type { ProjectServerOperation } from '../../modules/projects/projects.repository';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
 import { validateScope } from '../utils/scope.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
+type ProjectRow = typeof schema.projects.$inferSelect;
+
+interface RequestWithProject extends Request {
+  project?: ProjectRow;
+}
+
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
+  private readonly logger = new Logger(ApiKeyGuard.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
-    private readonly projectsAccessService: ProjectsAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const apiKey = this.extractApiKey(request);
+    const request = context.switchToHttp().getRequest<RequestWithProject>();
+    const apiKey = extractApiKey(request);
 
     if (!apiKey) {
       throw new UnauthorizedException('API key is required');
@@ -47,22 +53,36 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
-    void this.db
-      .update(schema.projects)
-      .set({ apiKeyLastUsedAt: new Date() })
-      .where(eq(schema.projects.id, project.id));
+    Promise.resolve(
+      this.db
+        .update(schema.projects)
+        .set({ apiKeyLastUsedAt: new Date() })
+        .where(eq(schema.projects.id, project.id)),
+    ).catch((err: unknown) => {
+      this.logger.warn(
+        `Failed to update apiKeyLastUsedAt for project ${project.id}: ${String(err)}`,
+      );
+    });
 
-    // Check required scope if set on the route via @RequireScope()
+    // Check required scope — needs serverId since scopes are per project-server
     const requiredScope = this.reflector.get<string>(
       SCOPE_KEY,
       context.getHandler(),
     );
-    if (requiredScope) {
-      await validateScope(this.db, project.id, requiredScope);
-    }
 
     // Checking if project has access to the requested server
     const serverId = this.extractServerId(request);
+
+    // If a scope is required, a serverId must be present (scopes are per-server)
+    if (requiredScope) {
+      if (!serverId) {
+        throw new BadRequestException(
+          'Server ID is required when scope validation is needed',
+        );
+      }
+      await validateScope(this.db, project.id, serverId, requiredScope);
+    }
+
     if (!serverId) {
       request.project = project;
       return true;
@@ -90,7 +110,7 @@ export class ApiKeyGuard implements CanActivate {
         [context.getHandler(), context.getClass()],
       ) ?? 'READ';
 
-    await this.projectsAccessService.assertProjectAccessOperation(
+    await this.projectsService.assertProjectAccessOperation(
       project.id,
       serverId,
       requiredOperation,
@@ -101,13 +121,7 @@ export class ApiKeyGuard implements CanActivate {
     return true;
   }
 
-  private extractApiKey(request: Request): string | null {
-    return extractApiKey(request);
-  }
-
-  private async validateApiKey(
-    apiKey: string,
-  ): Promise<typeof schema.projects.$inferSelect | null> {
+  private async validateApiKey(apiKey: string): Promise<ProjectRow | null> {
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 
@@ -136,8 +150,8 @@ export class ApiKeyGuard implements CanActivate {
     return isValid ? project : null;
   }
 
-  private extractServerId(request: Request): string | null {
-    const serverId = request.params.serverId || request.query.serverId;
+  private extractServerId(request: RequestWithProject): string | null {
+    const serverId = request.params['serverId'] ?? request.query['serverId'];
     return typeof serverId === 'string' ? serverId : null;
   }
 }

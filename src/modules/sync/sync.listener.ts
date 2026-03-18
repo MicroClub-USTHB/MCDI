@@ -5,13 +5,16 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  OnApplicationBootstrap,
 } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { SyncService } from './sync.service';
-import { Client, GuildMember, User, Role } from 'discord.js';
+import { Client, Guild, GuildMember, User, Role } from 'discord.js';
 
 @Injectable()
-export class SyncListener implements OnModuleInit, OnModuleDestroy {
+export class SyncListener
+  implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap
+{
   private readonly logger = new Logger(SyncListener.name);
   private client: Client;
 
@@ -25,6 +28,7 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     this.logger.log('Registering Discord event listeners for sync');
 
+    // Member events
     this.client.on('guildMemberAdd', this.handleGuildMemberAdd.bind(this));
     this.client.on(
       'guildMemberRemove',
@@ -36,10 +40,24 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
     );
     this.client.on('userUpdate', this.handleUserUpdate.bind(this));
 
-    //role event listeners
+    // Role events
     this.client.on('roleCreate', this.handleRoleCreate.bind(this));
     this.client.on('roleUpdate', this.handleRoleUpdate.bind(this));
     this.client.on('roleDelete', this.handleRoleDelete.bind(this));
+
+    // Guild (server) lifecycle events
+    this.client.on('guildCreate', this.handleGuildCreate.bind(this));
+    this.client.on('guildUpdate', this.handleGuildUpdate.bind(this));
+    this.client.on('guildDelete', this.handleGuildDelete.bind(this));
+  }
+
+  onApplicationBootstrap() {
+    // All modules are ready — safe to query the DB now
+    if (this.client.isReady()) {
+      this.scheduleStartupSync();
+    } else {
+      this.client.once('ready', () => this.scheduleStartupSync());
+    }
   }
 
   onModuleDestroy() {
@@ -51,7 +69,61 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
     this.client.removeAllListeners('roleCreate');
     this.client.removeAllListeners('roleUpdate');
     this.client.removeAllListeners('roleDelete');
+    this.client.removeAllListeners('guildCreate');
+    this.client.removeAllListeners('guildUpdate');
+    this.client.removeAllListeners('guildDelete');
   }
+
+  // ─── Startup ────────────────────────────────────────────────────
+
+  private scheduleStartupSync(): void {
+    this.syncService.startupSyncAll().catch((err: unknown) => {
+      this.logger.error(
+        'Startup sync failed',
+        err instanceof Error ? err.stack : String(err),
+      );
+    });
+  }
+
+  // ─── Guild (Server) Events ──────────────────────────────────────
+
+  private async handleGuildCreate(guild: Guild): Promise<void> {
+    try {
+      await this.syncService.handleGuildCreate(guild);
+    } catch (error) {
+      this.logger.error(
+        `Error in guildCreate handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async handleGuildDelete(guild: Guild): Promise<void> {
+    try {
+      await this.syncService.handleGuildDelete(guild);
+    } catch (error) {
+      this.logger.error(
+        `Error in guildDelete handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async handleGuildUpdate(
+    oldGuild: Guild,
+    newGuild: Guild,
+  ): Promise<void> {
+    try {
+      await this.syncService.handleGuildUpdate(oldGuild, newGuild);
+    } catch (error) {
+      this.logger.error(
+        `Error in guildUpdate handler: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // ─── Member Events ──────────────────────────────────────────────
 
   private async handleGuildMemberAdd(member: GuildMember): Promise<void> {
     try {
@@ -100,7 +172,8 @@ export class SyncListener implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // role event handlers
+  // ─── Role Events ────────────────────────────────────────────────
+
   private async handleRoleCreate(role: Role): Promise<void> {
     try {
       await this.syncService.handleRoleCreate(role);

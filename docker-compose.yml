@@ -1,125 +1,37 @@
+
 services:
-  # NestJS Application (Development)
-  app:
+  api:
+    
     build:
-      context: .
-      dockerfile: Dockerfile.dev
-    container_name: mcdi-app-dev
-    restart: unless-stopped
+      context: .                  # Look for files in the current directory
+      dockerfile: Dockerfile.dev   # Use our specific development blueprint
     ports:
-      - '${APP_PORT:-3000}:3000'
+      - '3000:3000'
+      - '4983:4983'  # Drizzle Studio
+
+  
     environment:
       - NODE_ENV=development
-      - PORT=3000
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres_password}
-      - DB_DATABASE=${DB_DATABASE:-mcdi_pgdb}
-      - DATABASE_URL=postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:-postgres_password}@postgres:5432/${DB_DATABASE:-mcdi_pgdb}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_password}
-    volumes:
-      - .:/app
-      - /app/node_modules
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - mcdi-network
-    command: npm run start:dev
+      - DATABASE_URL=postgresql://myuser:mypassword@database:5432/mcdi
 
-  # PostgreSQL Database
-  postgres:
+    depends_on:
+      - database
+
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+
+  database:
     image: postgres:16-alpine
-    container_name: mcdi-postgres
-    restart: unless-stopped
+    restart: always
     ports:
-      - '${DB_PORT:-5432}:5432'
+      - '5432:5432'
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres_password}
-      POSTGRES_DB: ${DB_DATABASE:-mcdi_pgdb}
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=mcdi
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - mcdi-network
-
-  # pgAdmin - Database Management UI
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: mcdi-pgadmin
-    restart: unless-stopped
-    ports:
-      - '${PGADMIN_PORT:-8080}:80'
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@mcdi.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - mcdi-network
-
-  # Redis - Caching and Session Store
-  redis:
-    image: redis:7-alpine
-    container_name: mcdi-redis
-    restart: unless-stopped
-    ports:
-      - '${REDIS_PORT:-6379}:6379'
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - mcdi-network
-
-  # Redis Commander - Redis Management UI
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: mcdi-redis-commander
-    restart: unless-stopped
-    ports:
-      - '${REDIS_COMMANDER_PORT:-8081}:8081'
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-redis_password}
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - mcdi-network
-
-  # Mailhog - Email Testing (Optional)
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: mcdi-mailhog
-    restart: unless-stopped
-    ports:
-      - '${MAILHOG_SMTP_PORT:-1025}:1025' # SMTP server
-      - '${MAILHOG_UI_PORT:-8025}:8025' # Web UI
-    networks:
-      - mcdi-network
-
-networks:
-  mcdi-network:
-    driver: bridge
+      - my_db_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
+  my_db_data:

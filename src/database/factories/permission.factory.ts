@@ -5,9 +5,8 @@ export const createPermissionFactory = (
   overrides?: Partial<typeof permissions.$inferInsert>,
 ) => {
   return {
-    name: faker.lorem.words(2),
+    key: faker.lorem.words(2).toUpperCase().replace(/\s+/g, '_'),
     description: faker.lorem.sentence(),
-    code: faker.string.alpha(10).toUpperCase(),
     bitfield: BigInt(faker.number.int({ min: 1, max: 1000000 })),
     ...overrides,
   };

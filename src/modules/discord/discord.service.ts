@@ -1,11 +1,40 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DISCORD_CLIENT } from './discord.constants';
 import Discord, { ChannelType } from 'discord.js';
 
+export interface DiscordOAuthProfile {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  display_name?: string | null;
+  avatar?: string | null;
+  email?: string | null;
+}
+
+export interface OAuthGuildMemberResult {
+  /** HTTP status returned by Discord (200, 403, 404, etc.) */
+  status: number;
+  /** Whether the user is confirmed to be in the guild. */
+  ok: boolean;
+  /** Discord role IDs held by the member in this guild. */
+  roleIds: string[];
+}
+
+export interface DiscordGuildRole {
+  id: string;
+  name: string;
+  color: number;
+  position: number;
+}
+
 @Injectable()
 export class DiscordService {
+  private readonly logger = new Logger(DiscordService.name);
+
   constructor(
     @Inject(DISCORD_CLIENT) private readonly client: Discord.Client,
+    private readonly configService: ConfigService,
   ) {}
   getClient(): Discord.Client {
     return this.client;
@@ -15,7 +44,8 @@ export class DiscordService {
     try {
       const user = await this.client.users.fetch(userId);
       return user;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -24,7 +54,8 @@ export class DiscordService {
     try {
       const guild = await this.client.guilds.fetch(guildId);
       return guild;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -38,7 +69,8 @@ export class DiscordService {
       if (!guild) return null;
       const member = await guild.members.fetch(userId);
       return member;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -51,7 +83,8 @@ export class DiscordService {
       if (!guild) return null;
       const members = await guild.members.fetch();
       return members;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -60,7 +93,8 @@ export class DiscordService {
     try {
       const channel = await this.client.channels.fetch(channelId);
       return channel;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -76,7 +110,8 @@ export class DiscordService {
       if (!guild) return null;
       const channels = await guild.channels.fetch();
       return channels;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -91,7 +126,8 @@ export class DiscordService {
       if (!guild) return null;
       const channel = await guild.channels.create({ name, ...options });
       return channel;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -102,7 +138,8 @@ export class DiscordService {
       if (!channel || channel.isDMBased()) return false;
       await channel.delete();
       return true;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -116,7 +153,8 @@ export class DiscordService {
       if (!channel || channel.isDMBased()) return null;
       const editedChannel = await channel.edit(options);
       return editedChannel;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -130,7 +168,8 @@ export class DiscordService {
       if (!channel || !channel.isTextBased()) return null;
       const messages = await channel.messages.fetch(options);
       return messages;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -144,7 +183,8 @@ export class DiscordService {
       if (!channel || !channel.isTextBased()) return null;
       const message = await channel.messages.fetch(messageId);
       return message;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -164,7 +204,8 @@ export class DiscordService {
         return null;
       const deletedMessages = await channel.bulkDelete(messages, filterOld);
       return deletedMessages;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -178,7 +219,8 @@ export class DiscordService {
       if (!guild) return null;
       const role = await guild.roles.fetch(roleId);
       return role;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -193,7 +235,8 @@ export class DiscordService {
       if (!member) return false;
       await member.roles.add(roleId);
       return true;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -208,7 +251,8 @@ export class DiscordService {
       if (!member) return false;
       await member.roles.remove(roleId);
       return true;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -222,7 +266,8 @@ export class DiscordService {
       const member = await this.getGuildMember(guildId, userId);
       if (!member) return false;
       return member.roles.cache.has(roleId);
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -237,7 +282,8 @@ export class DiscordService {
 
       const message = await channel.send(content);
       return message;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -254,7 +300,8 @@ export class DiscordService {
       const message = await channel.messages.fetch(messageId);
       const editedMessage = await message.edit(content);
       return editedMessage;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -267,7 +314,8 @@ export class DiscordService {
       const message = await channel.messages.fetch(messageId);
       await message.delete();
       return true;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -286,7 +334,8 @@ export class DiscordService {
         return null;
       const webhooks = await channel.fetchWebhooks();
       return webhooks;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -306,8 +355,104 @@ export class DiscordService {
         return null;
       const webhook = await channel.createWebhook({ name, ...options });
       return webhook;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
       return null;
     }
+  }
+
+  // ─── OAuth2 / REST helpers (user-facing, not bot-client) ────────────────
+
+  /**
+   * Exchange a Discord authorization code for a user access token.
+   * Uses the configured OAuth2 client credentials.
+   * Returns the access token string, or null if the exchange fails.
+   */
+  async exchangeOAuthCode(
+    code: string,
+    redirectUri: string,
+  ): Promise<string | null> {
+    const clientId = this.configService.get<string>('discord.clientId')!;
+    const clientSecret = this.configService.get<string>(
+      'discord.clientSecret',
+    )!;
+
+    const res = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { access_token: string };
+    return data.access_token;
+  }
+
+  /**
+   * Fetch the authenticated user's Discord profile using their OAuth access token.
+   * Returns the profile, or null if the request fails.
+   */
+  async fetchOAuthProfile(
+    accessToken: string,
+  ): Promise<DiscordOAuthProfile | null> {
+    const res = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) return null;
+
+    return res.json() as Promise<DiscordOAuthProfile>;
+  }
+
+  /**
+   * Verify that a user is a member of a Discord guild via their OAuth access
+   * token (requires `guilds.members.read` scope).
+   * Returns membership status and the user's role IDs in that guild.
+   */
+  async fetchOAuthGuildMember(
+    guildId: string,
+    accessToken: string,
+  ): Promise<OAuthGuildMemberResult> {
+    const res = await fetch(
+      `https://discord.com/api/users/@me/guilds/${guildId}/member`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    if (!res.ok) {
+      return { status: res.status, ok: false, roleIds: [] };
+    }
+
+    const data = (await res.json()) as { roles?: string[] };
+    return { status: res.status, ok: true, roleIds: data.roles ?? [] };
+  }
+
+  /**
+   * Fetch all roles defined in a Discord guild via the bot token, then
+   * filter to only those whose IDs appear in `memberRoleIds`.
+   * Returns an empty array if the request fails.
+   */
+  async fetchGuildRolesForMember(
+    guildId: string,
+    memberRoleIds: string[],
+  ): Promise<DiscordGuildRole[]> {
+    if (memberRoleIds.length === 0) return [];
+
+    const botToken = this.configService.get<string>('discord.token')!;
+
+    const res = await fetch(`https://discord.com/api/guilds/${guildId}/roles`, {
+      headers: { Authorization: `Bot ${botToken}` },
+    });
+
+    if (!res.ok) return [];
+
+    const allRoles = (await res.json()) as DiscordGuildRole[];
+    return allRoles.filter((r) => memberRoleIds.includes(r.id));
   }
 }

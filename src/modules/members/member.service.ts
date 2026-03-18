@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { MemberRepository } from './member.repository';
 import { GetMembersQueryDto } from './dto/get-members-query.dto';
 import { plainToInstance } from 'class-transformer';
@@ -31,13 +27,6 @@ export class MemberService {
     serverId: string,
     discordId: string,
   ): Promise<MemberResponseDto> {
-    // Validate Discord ID format
-    if (!this.isValidSnowflake(discordId)) {
-      throw new BadRequestException(
-        'Invalid Discord ID format. Must be 17-20 digit number.',
-      );
-    }
-
     const member = await this.memberRepository.findMemberByDiscordId(
       serverId,
       discordId,
@@ -58,14 +47,7 @@ export class MemberService {
     serverId: string,
     queryDto: GetMembersQueryDto,
   ): Promise<PaginatedResponse<MemberSearchResponseDto>> {
-    const { query, roleId } = queryDto;
-
-    // Validate role ID
-    if (roleId && !this.isValidSnowflake(roleId)) {
-      throw new BadRequestException(
-        'Invalid role ID format. Must be 17-20 digit number.',
-      );
-    }
+    const { query, roleId, isClubMember, isActive } = queryDto;
 
     const dbPagination = queryDto.getDbPagination();
 
@@ -74,6 +56,8 @@ export class MemberService {
       query,
       roleId,
       dbPagination,
+      isClubMember,
+      isActive,
     );
 
     const data = members.map((member) =>
@@ -93,9 +77,5 @@ export class MemberService {
     };
 
     return { data, pagination };
-  }
-
-  private isValidSnowflake(id: string): boolean {
-    return /^\d{17,20}$/.test(id);
   }
 }

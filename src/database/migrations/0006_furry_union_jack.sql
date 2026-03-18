@@ -1,0 +1,1 @@
+ALTER TABLE "members" ADD COLUMN "is_system_admin" boolean DEFAULT false NOT NULL;

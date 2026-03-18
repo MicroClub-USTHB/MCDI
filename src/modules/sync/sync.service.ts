@@ -1,58 +1,45 @@
-/* eslint-disable @typescript-eslint/only-throw-error */
 import {
   Injectable,
   Logger,
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { Guild, GuildMember, User, Role } from 'discord.js';
 import { DiscordService } from '../discord/discord.service';
-import { MemberRepository } from '../members/member.repository';
 import { ServersRepository } from '../servers/servers.repository';
 import { SyncRepository } from './sync.repository';
-import { Guild, GuildMember, User, Role } from 'discord.js';
-import { members } from '../../database/entities/member.entity';
+import { MemberSyncService } from './services/member-sync.service';
+import { RoleSyncService } from './services/role-sync.service';
+import { ServerSyncService } from './services/server-sync.service';
+import { SyncLogService } from './services/sync-log.service';
+import { SyncChangeEntry } from './sync-types';
+import { SyncTarget } from './dto/trigger-sync.dto';
 import { SyncStatusDto } from './dto/sync-status.dto';
+import { SyncLogsResponseDto } from './dto/sync-log.dto';
+import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
 
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
-  private readonly MAX_RETRIES = 3;
-  private readonly RETRY_DELAY_MS = 1000;
 
   constructor(
     private readonly discordService: DiscordService,
-    private readonly memberRepository: MemberRepository,
     private readonly serversRepository: ServersRepository,
     private readonly syncRepository: SyncRepository,
+    private readonly memberSyncService: MemberSyncService,
+    private readonly roleSyncService: RoleSyncService,
+    private readonly serverSyncService: ServerSyncService,
+    private readonly syncLogService: SyncLogService,
   ) {}
 
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    context: string,
-  ): Promise<T> {
-    let lastError: Error | undefined;
-    for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        this.logger.warn(
-          `Retry ${attempt}/${this.MAX_RETRIES} for ${context} failed: ${lastError.message}`,
-        );
-        if (attempt < this.MAX_RETRIES) {
-          const delay = this.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      }
-    }
-    throw lastError;
-  }
+  // ── Bulk sync orchestration ──────────────────────────────────────────
 
-  async triggerFullSync(serverId: string): Promise<{ syncId: number }> {
+  async triggerFullSync(
+    serverId: string,
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<{ syncId: number }> {
     const server = await this.serversRepository.findById(serverId);
-    if (!server) {
-      throw new NotFoundException('Server not found');
-    }
+    if (!server) throw new NotFoundException('Server not found');
 
     const inProgress = await this.syncRepository.getInProgressLog(serverId);
     if (inProgress) {
@@ -61,26 +48,55 @@ export class SyncService {
       );
     }
 
-    const startedAt = new Date();
     const log = await this.syncRepository.createLog(
       serverId,
       'manual',
       'in_progress',
-      startedAt,
+      new Date(),
     );
-
-    this.runFullSync(serverId, log.id).catch((err: unknown) => {
-      const errorStack = err instanceof Error ? err.stack : String(err);
+    this.runFullSync(serverId, log.id, target).catch((err: unknown) => {
       this.logger.error(
         `Background sync failed for server ${serverId}`,
-        errorStack,
+        err instanceof Error ? err.stack : String(err),
       );
     });
-
     return { syncId: log.id };
   }
 
-  private async runFullSync(serverId: string, syncId: number): Promise<void> {
+  async triggerMultipleSyncs(
+    serverIds: string[],
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<{
+    results: { serverId: string; syncId?: number; error?: string }[];
+  }> {
+    let targetsToSync = serverIds;
+    if (!targetsToSync || targetsToSync.length === 0) {
+      const activeServers = await this.serversRepository.findAllActive();
+      targetsToSync = activeServers.map((s) => s.id);
+      this.logger.log(
+        `No serverIds provided. Scheduled sync for all ${targetsToSync.length} active servers.`,
+      );
+    }
+    const results: { serverId: string; syncId?: number; error?: string }[] = [];
+    for (const id of targetsToSync) {
+      try {
+        const result = await this.triggerFullSync(id, target);
+        results.push({ serverId: id, syncId: result.syncId });
+      } catch (err: unknown) {
+        results.push({
+          serverId: id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { results };
+  }
+
+  private async runFullSync(
+    serverId: string,
+    syncId: number,
+    target: SyncTarget = SyncTarget.ALL,
+  ): Promise<void> {
     const guild = await this.discordService.getGuildById(serverId);
     if (!guild) {
       await this.syncRepository.updateLog(syncId, {
@@ -92,63 +108,42 @@ export class SyncService {
     }
 
     const syncStart = new Date();
+    const changeBuffer: SyncChangeEntry[] = [];
     let membersSynced = 0;
     let rolesSynced = 0;
+    let deactivatedCount = 0;
 
     try {
-      // Sync all roles
-      this.logger.debug(`Fetching all roles for guild ${serverId}`);
-      const guildRoles = await guild.roles.fetch();
-      for (const [, role] of guildRoles) {
-        await this.withRetry(
-          () =>
-            this.serversRepository.upsertRole({
-              id: role.id,
-              serverId: guild.id,
-              name: role.name,
-              color: role.color,
-              hoist: role.hoist,
-              position: role.position,
-              managed: role.managed,
-              mentionable: role.mentionable,
-            }),
-          `upsertRole(${role.id})`,
+      await this.serverSyncService.syncServerInfo(
+        serverId,
+        guild,
+        syncStart,
+        syncId,
+        changeBuffer,
+      );
+
+      if (target === SyncTarget.ALL || target === SyncTarget.ROLES) {
+        const r = await this.roleSyncService.syncAllRoles(
+          guild,
+          syncId,
+          changeBuffer,
         );
-      }
-      this.logger.log(
-        `Upserted ${guildRoles.size} roles for server ${serverId}`,
-      );
-
-      // Sync members
-      let lastId: string | undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
-        if (lastId) {
-          fetchOptions.after = lastId;
-        }
-
-        const fetched = await guild.members.fetch(fetchOptions);
-        if (fetched.size === 0) break;
-
-        for (const [, guildMember] of fetched) {
-          await this.processMember(guild, guildMember, syncStart);
-          membersSynced++;
-          rolesSynced += guildMember.roles.cache.size;
-        }
-
-        lastId = fetched.last()?.id;
-        hasMore = fetched.size === 1000;
+        rolesSynced += r.rolesSynced;
       }
 
-      // Mark inactive members
-      const deactivatedCount =
-        await this.memberRepository.markInactiveForServer(serverId, syncStart);
-      this.logger.log(
-        `Deactivated ${deactivatedCount} members in server ${serverId}`,
-      );
+      if (target === SyncTarget.ALL || target === SyncTarget.MEMBERS) {
+        const m = await this.memberSyncService.syncAllMembers(
+          guild,
+          syncId,
+          syncStart,
+          changeBuffer,
+        );
+        membersSynced += m.membersSynced;
+        rolesSynced += m.rolesSynced;
+        deactivatedCount = m.deactivatedCount;
+      }
 
+      await this.syncLogService.flushChangeBuffer(changeBuffer);
       await this.syncRepository.updateLog(syncId, {
         status: 'success',
         membersSynced,
@@ -157,8 +152,13 @@ export class SyncService {
         message: `Sync completed. ${deactivatedCount} members marked inactive.`,
       });
     } catch (error: unknown) {
-      const errorStack = error instanceof Error ? error.stack : String(error);
-      this.logger.error(`Full sync failed for server ${serverId}`, errorStack);
+      this.logger.error(
+        `Full sync failed for server ${serverId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      await this.syncLogService.flushChangeBuffer(changeBuffer).catch(() => {
+        /* best-effort */
+      });
       await this.syncRepository.updateLog(syncId, {
         status: 'failed',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -167,227 +167,141 @@ export class SyncService {
     }
   }
 
+  // ── Startup sync ─────────────────────────────────────────────────────
+
+  async startupSyncAll(): Promise<void> {
+    const activeServers = await this.serversRepository.findAllActive();
+    this.logger.log(
+      `Bot ready — starting boot sync for ${activeServers.length} active server(s)`,
+    );
+    for (const server of activeServers) {
+      try {
+        const guild = await this.discordService.getGuildById(server.id);
+        if (!guild) {
+          this.logger.warn(
+            `Bot not in server ${server.id} (${server.name}) — skipping boot sync`,
+          );
+          continue;
+        }
+        const inProgress = await this.syncRepository.getInProgressLog(
+          server.id,
+        );
+        if (inProgress) {
+          this.logger.log(
+            `Skipping boot sync for ${server.id} — sync already in progress`,
+          );
+          continue;
+        }
+        const log = await this.syncRepository.createLog(
+          server.id,
+          'full',
+          'in_progress',
+          new Date(),
+        );
+        this.runFullSync(server.id, log.id).catch((err: unknown) => {
+          this.logger.error(
+            `Boot sync failed for server ${server.id}`,
+            err instanceof Error ? err.stack : String(err),
+          );
+        });
+      } catch (err: unknown) {
+        this.logger.error(
+          `Error scheduling boot sync for server ${server.id}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      }
+    }
+  }
+
+  // ── Delegate: Member events ──────────────────────────────────────────
+
   async processMember(
     guild: Guild,
     guildMember: GuildMember,
     syncTime: Date,
   ): Promise<void> {
-    // Upsert member
-    const memberData: typeof members.$inferInsert = {
-      id: guildMember.id,
-      username: guildMember.user.username,
-      globalName: guildMember.user.globalName ?? null,
-      displayName: guildMember.nickname ?? null,
-      avatar: guildMember.user.avatarURL(),
-      email: null,
-      isClubMember: false,
-      joinedAt: guildMember.joinedAt ?? null,
-      syncedAt: syncTime,
-    };
-    await this.withRetry(
-      () => this.memberRepository.upsertMember(memberData),
-      `upsertMember(${guildMember.id})`,
-    );
-
-    // Upsert server membership
-    await this.withRetry(
-      () =>
-        this.memberRepository.upsertServerMembership({
-          serverId: guild.id,
-          memberId: guildMember.id,
-          joinedAt: guildMember.joinedAt ?? null,
-          isActive: true,
-          lastSyncedAt: syncTime,
-        }),
-      `upsertServerMembership(${guildMember.id})`,
-    );
-
-    // Replace roles
-    const roleIds = [...guildMember.roles.cache.keys()];
-    await this.withRetry(
-      () =>
-        this.memberRepository.replaceMemberRoles(
-          guild.id,
-          guildMember.id,
-          roleIds,
-        ),
-      `replaceMemberRoles(${guildMember.id})`,
-    );
+    return this.memberSyncService.processMember(guild, guildMember, syncTime);
   }
 
-  //Event Handlers
   async handleMemberAdd(guildMember: GuildMember): Promise<void> {
-    this.logger.debug(
-      `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
-    );
-    await this.processMember(guildMember.guild, guildMember, new Date());
+    return this.memberSyncService.handleMemberAdd(guildMember);
   }
 
   async handleMemberRemove(guildMember: GuildMember): Promise<void> {
-    this.logger.debug(
-      `Member removed: ${guildMember.id} in ${guildMember.guild.id}`,
-    );
-    await this.withRetry(
-      () =>
-        this.memberRepository.upsertServerMembership({
-          serverId: guildMember.guild.id,
-          memberId: guildMember.id,
-          joinedAt: guildMember.joinedAt ?? null,
-          isActive: false,
-          lastSyncedAt: new Date(),
-        }),
-      `handleMemberRemove upsertServerMembership(${guildMember.id})`,
-    );
+    return this.memberSyncService.handleMemberRemove(guildMember);
   }
 
   async handleMemberUpdate(
     oldMember: GuildMember,
     newMember: GuildMember,
   ): Promise<void> {
-    this.logger.debug(
-      `Member updated: ${newMember.id} in ${newMember.guild.id}`,
-    );
-
-    const syncTime = new Date();
-
-    // Update member profile
-    if (
-      oldMember.user.username !== newMember.user.username ||
-      oldMember.user.globalName !== newMember.user.globalName ||
-      oldMember.user.avatar !== newMember.user.avatar ||
-      oldMember.nickname !== newMember.nickname
-    ) {
-      await this.withRetry(
-        () =>
-          this.memberRepository.upsertMember({
-            id: newMember.id,
-            username: newMember.user.username,
-            globalName: newMember.user.globalName ?? null,
-            displayName: newMember.nickname ?? null,
-            avatar: newMember.user.avatarURL(),
-            email: null,
-            isClubMember: false,
-            joinedAt: newMember.joinedAt ?? null,
-            syncedAt: syncTime,
-          }),
-        `handleMemberUpdate upsertMember(${newMember.id})`,
-      );
-    }
-
-    // Update roles
-    const oldRoles = oldMember.roles.cache;
-    const newRoles = newMember.roles.cache;
-    if (
-      oldRoles.size !== newRoles.size ||
-      !oldRoles.every((role) => newRoles.has(role.id))
-    ) {
-      await this.withRetry(
-        () =>
-          this.memberRepository.replaceMemberRoles(
-            newMember.guild.id,
-            newMember.id,
-            [...newRoles.keys()],
-          ),
-        `handleMemberUpdate replaceMemberRoles(${newMember.id})`,
-      );
-    }
-
-    // Update membership
-    await this.withRetry(
-      () =>
-        this.memberRepository.upsertServerMembership({
-          serverId: newMember.guild.id,
-          memberId: newMember.id,
-          joinedAt: newMember.joinedAt ?? null,
-          isActive: true,
-          lastSyncedAt: syncTime,
-        }),
-      `handleMemberUpdate upsertServerMembership(${newMember.id})`,
-    );
+    return this.memberSyncService.handleMemberUpdate(oldMember, newMember);
   }
 
   async handleUserUpdate(oldUser: User, newUser: User): Promise<void> {
-    this.logger.debug(`User updated: ${newUser.id}`);
-
-    await this.withRetry(
-      () =>
-        this.memberRepository.upsertMember({
-          id: newUser.id,
-          username: newUser.username,
-          globalName: newUser.globalName ?? null,
-          displayName: null,
-          avatar: newUser.avatarURL(),
-          email: null,
-          isClubMember: false,
-          joinedAt: null,
-          syncedAt: new Date(),
-        }),
-      `handleUserUpdate upsertMember(${newUser.id})`,
-    );
+    return this.memberSyncService.handleUserUpdate(oldUser, newUser);
   }
 
-  // Role Event Handlers
+  // ── Delegate: Role events ────────────────────────────────────────────
+
   async handleRoleCreate(role: Role): Promise<void> {
-    this.logger.debug(`Role created: ${role.id} in ${role.guild.id}`);
-    await this.withRetry(
-      () =>
-        this.serversRepository.upsertRole({
-          id: role.id,
-          serverId: role.guild.id,
-          name: role.name,
-          color: role.color,
-          hoist: role.hoist,
-          position: role.position,
-          managed: role.managed,
-          mentionable: role.mentionable,
-        }),
-      `handleRoleCreate upsertRole(${role.id})`,
-    );
+    return this.roleSyncService.handleRoleCreate(role);
   }
 
   async handleRoleUpdate(role: Role): Promise<void> {
-    this.logger.debug(`Role updated: ${role.id} in ${role.guild.id}`);
-    await this.withRetry(
-      () =>
-        this.serversRepository.upsertRole({
-          id: role.id,
-          serverId: role.guild.id,
-          name: role.name,
-          color: role.color,
-          hoist: role.hoist,
-          position: role.position,
-          managed: role.managed,
-          mentionable: role.mentionable,
-        }),
-      `handleRoleUpdate upsertRole(${role.id})`,
-    );
+    return this.roleSyncService.handleRoleUpdate(role);
   }
 
   async handleRoleDelete(role: Role): Promise<void> {
-    this.logger.debug(`Role deleted: ${role.id} from ${role.guild.id}`);
-    await this.withRetry(
-      () => this.memberRepository.deleteMemberRolesByRoleId(role.id),
-      `handleRoleDelete deleteMemberRolesByRoleId(${role.id})`,
-    );
-    await this.withRetry(
-      () => this.serversRepository.deleteRole(role.id),
-      `handleRoleDelete deleteRole(${role.id})`,
-    );
+    return this.roleSyncService.handleRoleDelete(role);
   }
 
-  async getSyncStatus(serverId: string): Promise<SyncStatusDto | null> {
-    const log = await this.syncRepository.getLatestLog(serverId);
-    if (!log) return null;
+  // ── Delegate: Guild events ────────────────────────────────────────────
 
-    return {
-      serverId: log.serverId,
-      lastSyncAt: log.finishedAt?.toISOString() ?? null,
-      status: log.status,
-      membersSynced: log.membersSynced,
-      rolesSynced: log.rolesSynced,
-      message: log.message ?? undefined,
-      startedAt: log.startedAt.toISOString(),
-      finishedAt: log.finishedAt?.toISOString(),
-    };
+  async handleGuildCreate(guild: Guild): Promise<void> {
+    const { shouldSync, logId } =
+      await this.serverSyncService.prepareGuildCreate(guild);
+    if (shouldSync && logId !== undefined) {
+      this.runFullSync(guild.id, logId).catch((err: unknown) => {
+        this.logger.error(
+          `guildCreate sync failed for ${guild.id}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      });
+    }
+  }
+
+  async handleGuildDelete(guild: Guild): Promise<void> {
+    return this.serverSyncService.handleGuildDelete(guild);
+  }
+
+  async handleGuildUpdate(oldGuild: Guild, newGuild: Guild): Promise<void> {
+    return this.serverSyncService.handleGuildUpdate(oldGuild, newGuild);
+  }
+
+  // ── Delegate: Query / status ─────────────────────────────────────────
+
+  async getSyncStatus(serverId: string): Promise<SyncStatusDto | null> {
+    return this.syncLogService.getSyncStatus(serverId);
+  }
+
+  async getAllServersSyncStatus(): Promise<SyncStatusDto[]> {
+    return this.syncLogService.getAllServersSyncStatus();
+  }
+
+  async getSyncLogs(
+    serverId: string,
+    limit = 20,
+    offset = 0,
+  ): Promise<SyncLogsResponseDto> {
+    return this.syncLogService.getSyncLogs(serverId, limit, offset);
+  }
+
+  async getSyncChangeDetails(
+    syncLogId: number,
+    limit = 100,
+    offset = 0,
+  ): Promise<SyncChangeDetailsResponseDto> {
+    return this.syncLogService.getSyncChangeDetails(syncLogId, limit, offset);
   }
 }

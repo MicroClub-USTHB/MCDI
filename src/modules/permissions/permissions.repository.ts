@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql, SQL } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
   permissions,
@@ -20,6 +20,13 @@ type UpsertInheritanceRuleInput = {
   now: Date;
 };
 
+export interface ListInheritanceRulesFilters {
+  sourceRoleId?: string;
+  enabled?: boolean;
+  targetScope?: string;
+  serverId?: string;
+}
+
 @Injectable()
 export class PermissionsRepository {
   constructor(
@@ -31,7 +38,7 @@ export class PermissionsRepository {
     const [row] = await this.db
       .select({ id: permissions.id })
       .from(permissions)
-      .where(eq(permissions.name, permissionName))
+      .where(eq(permissions.key, permissionName))
       .limit(1);
 
     return row?.id ?? null;
@@ -83,6 +90,94 @@ export class PermissionsRepository {
       .limit(1);
 
     return Boolean(row);
+  }
+
+  /**
+   * F6 gap closure: vertical hierarchy inheritance within a single server.
+   * If a member holds a role at hierarchyLevel N, they also get permissions
+   * from all roles with a LOWER hierarchyLevel (higher hierarchyLevel number = lower rank)
+   * in the same server.
+   * Convention: lower hierarchyLevel value = higher rank (e.g. Executive=1, Lead=2, Member=3).
+   */
+  async hasHierarchyPermission(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+  ): Promise<boolean> {
+    // Find the highest rank (lowest hierarchyLevel) the member holds in this server
+    const memberRoles = await this.db
+      .select({ hierarchyLevel: roles.hierarchyLevel })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      );
+
+    if (!memberRoles.length) return false;
+
+    const highestRank = Math.min(...memberRoles.map((r) => r.hierarchyLevel!));
+
+    // Check if any role at a lower rank (higher or equal hierarchyLevel number)
+    // in this server has the requested permission
+    const [row] = await this.db
+      .select({ roleId: roles.id })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+          sql`${roles.hierarchyLevel} >= ${highestRank}`,
+          eq(rolePermissions.permissionId, permissionId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  /**
+   * F6 gap closure: list all permission names the member inherits via hierarchy
+   * (from lower-ranked roles in the same server).
+   */
+  async listHierarchyPermissionNames(
+    memberId: string,
+    serverId: string,
+  ): Promise<string[]> {
+    const memberRoles = await this.db
+      .select({ hierarchyLevel: roles.hierarchyLevel })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      );
+
+    if (!memberRoles.length) return [];
+
+    const highestRank = Math.min(...memberRoles.map((r) => r.hierarchyLevel!));
+
+    const rows = await this.db
+      .select({ name: permissions.key })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+          sql`${roles.hierarchyLevel} >= ${highestRank}`,
+        ),
+      );
+
+    return Array.from(new Set(rows.map((r) => r.name)));
   }
 
   async getMainServerId(): Promise<string | null> {
@@ -240,8 +335,24 @@ export class PermissionsRepository {
     });
   }
 
-  async listInheritanceRules() {
-    const rows = await this.db
+  async listInheritanceRules(filters: ListInheritanceRulesFilters = {}) {
+    const conditions: SQL[] = [];
+
+    if (filters.sourceRoleId) {
+      conditions.push(
+        eq(roleInheritanceRules.sourceRoleId, filters.sourceRoleId),
+      );
+    }
+    if (filters.enabled !== undefined) {
+      conditions.push(eq(roleInheritanceRules.enabled, filters.enabled));
+    }
+    if (filters.targetScope) {
+      conditions.push(
+        eq(roleInheritanceRules.targetScope, filters.targetScope),
+      );
+    }
+
+    const baseQuery = this.db
       .select({
         id: roleInheritanceRules.id,
         sourceRoleId: roleInheritanceRules.sourceRoleId,
@@ -254,7 +365,12 @@ export class PermissionsRepository {
       .leftJoin(
         roleInheritanceRuleTargets,
         eq(roleInheritanceRuleTargets.ruleId, roleInheritanceRules.id),
-      );
+      )
+      .$dynamic();
+
+    const rows = await (conditions.length > 0
+      ? baseQuery.where(and(...conditions))
+      : baseQuery);
 
     const byId = new Map<
       number,
@@ -290,11 +406,19 @@ export class PermissionsRepository {
       }
     }
 
-    return Array.from(byId.values()).sort((a, b) => b.id - a.id);
+    return Array.from(byId.values())
+      .sort((a, b) => b.id - a.id)
+      .filter((rule) => {
+        if (!filters.serverId) return true;
+        return (
+          rule.targetScope === 'all' ||
+          rule.targetServerIds.includes(filters.serverId)
+        );
+      });
   }
   async listGlobalPermissionNames(memberId: string): Promise<string[]> {
     const rows = await this.db
-      .select({ name: permissions.name })
+      .select({ name: permissions.key })
       .from(serverMemberRoles)
       .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
@@ -311,7 +435,7 @@ export class PermissionsRepository {
     serverId: string,
   ): Promise<string[]> {
     const rows = await this.db
-      .select({ name: permissions.name })
+      .select({ name: permissions.key })
       .from(serverMembers)
       .innerJoin(
         serverMemberRoles,
@@ -379,7 +503,7 @@ export class PermissionsRepository {
     const targetRows = await this.db
       .select({
         roleName: roles.name,
-        permissionName: permissions.name,
+        permissionName: permissions.key,
       })
       .from(roles)
       .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))

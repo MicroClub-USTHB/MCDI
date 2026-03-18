@@ -11,11 +11,16 @@ import {
 import {
   ApiTags,
   ApiBearerAuth,
+  ApiBadRequestResponse,
+  ApiForbiddenResponse,
+  ApiOkResponse,
   ApiOperation,
-  ApiResponse,
+  ApiNotFoundResponse,
   ApiParam,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { toCsv } from '../../common/utils/csv.util';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { AdminMembersService } from './admin-members.service';
 import {
@@ -25,19 +30,13 @@ import {
   PaginatedCrossServerListDto,
 } from './dto';
 
-@ApiTags('Admin Members')
-@ApiBearerAuth()
+@ApiTags('Members')
+@ApiBearerAuth('session-token')
 @Controller('admin/members')
 @UseGuards(SystemAdminGuard)
 export class AdminMembersController {
   constructor(private readonly adminMembersService: AdminMembersService) {}
 
-  /**
-   * GET /admin/members/:discordId/servers
-   *
-   * Per-member cross-server detail: every managed server they belong to,
-   * roles, join date, and club-member classification.
-   */
   @Get(':discordId/servers')
   @ApiOperation({
     summary: 'Get member cross-server view',
@@ -49,27 +48,20 @@ export class AdminMembersController {
     description: 'Discord user ID (snowflake)',
     example: '876543210987654321',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Member cross-server view returned successfully',
+  @ApiOkResponse({
+    description: 'Member cross-server view retrieved successfully.',
     type: MemberCrossServerViewDto,
   })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
-  @ApiResponse({ status: 404, description: 'Member not found' })
+  @ApiNotFoundResponse({ description: 'Member not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
   async getMemberServers(
     @Param('discordId') discordId: string,
   ): Promise<MemberCrossServerViewDto> {
     return this.adminMembersService.getMemberCrossServerView(discordId);
   }
 
-  /**
-   * GET /admin/members/cross-server?filter=club|all&page=1&limit=20&search=
-   *
-   * Paginated cross-server list for admin dashboard.
-   */
   @Get('cross-server')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
@@ -77,27 +69,19 @@ export class AdminMembersController {
     description:
       'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server.',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Paginated cross-server member list',
+  @ApiOkResponse({
+    description: 'Paginated cross-server member list retrieved.',
     type: PaginatedCrossServerListDto,
   })
-  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
   async getCrossServerList(
     @Query() query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
     return this.adminMembersService.getCrossServerList(query);
   }
 
-  /**
-   * GET /admin/members/export?filter=club|all&format=csv|json
-   *
-   * Exports the cross-server member report as CSV or JSON.
-   */
   @Get('export')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
@@ -105,11 +89,10 @@ export class AdminMembersController {
     description:
       'Exports the cross-server member report as a downloadable CSV or JSON file.',
   })
-  @ApiResponse({ status: 200, description: 'File download (CSV or JSON)' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized – invalid or missing admin credentials',
-  })
+  @ApiOkResponse({ description: 'File download (CSV or JSON).' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   async exportMembers(
     @Query() query: ExportQueryDto,
     @Res() res: Response,
@@ -117,7 +100,7 @@ export class AdminMembersController {
     const rows = await this.adminMembersService.getExportData(query.filter);
 
     if (query.format === 'csv') {
-      const csv = this.toCsv(rows);
+      const csv = toCsv(rows);
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader(
         'Content-Disposition',
@@ -132,26 +115,5 @@ export class AdminMembersController {
       );
       res.json(rows);
     }
-  }
-
-  // ────────────── helpers ──────────────
-
-  private toCsv(rows: Record<string, unknown>[]): string {
-    if (rows.length === 0) return '';
-
-    const headers = Object.keys(rows[0]);
-    const escape = (val: unknown): string => {
-      const str = String(val ?? '');
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    const lines = [
-      headers.join(','),
-      ...rows.map((r) => headers.map((h) => escape(r[h])).join(',')),
-    ];
-    return lines.join('\n');
   }
 }

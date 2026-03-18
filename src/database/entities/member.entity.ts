@@ -14,6 +14,8 @@ export const members = pgTable('members', {
   avatar: text('avatar'),
   email: varchar('email', { length: 255 }),
   isClubMember: boolean('is_club_member').default(false).notNull(),
+  isSystemAdmin: boolean('is_system_admin').default(false).notNull(),
+  passwordHash: text('password_hash'),
   joinedAt: timestamp('joined_at'),
   syncedAt: timestamp('synced_at', { withTimezone: true }),
   createdAt: timestamp('created_at').defaultNow().notNull(),

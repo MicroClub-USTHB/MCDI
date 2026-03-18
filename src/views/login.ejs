@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCDI - Login</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-card">
+            <div class="logo-section">
+                <!-- Replace with actual logo path if available -->
+                <div class="logo-placeholder">
+                    <i class="fa-brands fa-discord"></i>
+                </div>
+                <h1>MCDI</h1>
+                <p>MicroClub Discord Interface</p>
+            </div>
+
+            <div class="content-section">
+                <% if (typeof error !== 'undefined' && error) { %>
+                    <div class="status-message error">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <h2>Authentication Failed</h2>
+                        <p><%= typeof errorDescription !== 'undefined' && errorDescription ? errorDescription : 'Something went wrong. Please try again.' %></p>
+                    </div>
+                <% } else if (typeof serverId !== 'undefined' && serverId) { %>
+                    <div class="login-actions">
+                        <% if (typeof projectName !== 'undefined' && projectName) { %>
+                            <p>Log in to <strong><%= projectName %></strong></p>
+                        <% } else { %>
+                            <p>Please log in to continue</p>
+                        <% } %>
+                        <a href="/api/auth/discord" class="btn-discord">
+                            <i class="fa-brands fa-discord"></i> Login with Discord
+                        </a>
+                    </div>
+                <% } else { %>
+                    <div class="status-message error">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <h2>Invalid Login Link</h2>
+                        <p>This page must be accessed via a valid login link from a registered platform.</p>
+                    </div>
+                <% } %>
+            </div>
+
+            <footer>
+                <p>&copy; 2026 MicroClub</p>
+            </footer>
+        </div>
+    </div>
+</body>
+
+</html>

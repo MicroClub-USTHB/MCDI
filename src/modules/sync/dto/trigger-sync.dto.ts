@@ -1,12 +1,30 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Matches } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
+
+export enum SyncTarget {
+  ALL = 'all',
+  MEMBERS = 'members',
+  ROLES = 'roles',
+}
 
 export class TriggerSyncDto {
-  @ApiProperty({
-    description: 'Discord server (guild) ID',
-    example: '123456789012345678',
+  @ApiPropertyOptional({
+    description:
+      'Array of Discord server (guild) IDs to sync. Leave empty or omit to sync ALL active servers.',
+    example: ['123456789012345678', '876543210987654321'],
+    isArray: true,
   })
-  @IsString()
-  @Matches(/^\d{17,20}$/, { message: 'Invalid server ID format' })
-  serverId: string;
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  serverIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'What entities to sync',
+    enum: SyncTarget,
+    default: SyncTarget.ALL,
+  })
+  @IsOptional()
+  @IsEnum(SyncTarget)
+  target?: SyncTarget;
 }

@@ -14,6 +14,13 @@ coverage
 .nyc_output
 test-results
 
+# RESTler fuzzing workspace outputs
+restler/Compile
+restler/Test
+restler/Fuzz
+restler/FuzzLean
+restler/openapi.json
+
 # IDE and editor files
 .vscode
 .idea

@@ -1,5 +1,6 @@
 import {
   Inject,
+  Logger,
   Module,
   OnModuleDestroy,
   OnModuleInit,
@@ -31,13 +32,12 @@ const DiscordProvider: Provider = {
 
     try {
       await client.login(TOKEN);
-    } catch (err) {
-      console.warn(
-        '[DiscordModule] Failed to login with Discord token:',
-        (err as Error).message,
-        '— Discord features will be unavailable.',
+    } catch (error) {
+      new Logger('DiscordModule').warn(
+        `Discord bot login failed - bot features will be unavailable. OAuth flow still works. ${(error as Error).message}`,
       );
     }
+
     return client;
   },
   inject: [ConfigService],
@@ -49,17 +49,19 @@ const DiscordProvider: Provider = {
   exports: [DISCORD_CLIENT, DiscordService],
 })
 export class DiscordModule implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DiscordModule.name);
+
   constructor(
     @Inject(DISCORD_CLIENT) private readonly client: Discord.Client,
   ) {}
 
   onModuleInit() {
-    console.log('DiscordModule initialized');
-    console.log('Discord client logged in as:', this.client.user?.tag);
+    this.logger.log('DiscordModule initialized');
+    this.logger.log(`Discord client logged in as: ${this.client.user?.tag}`);
   }
 
   async onModuleDestroy() {
-    console.log('Destroying Discord client');
+    this.logger.log('Destroying Discord client');
     try {
       await this.client.destroy();
     } catch {

@@ -1,0 +1,8 @@
+# RESTler generated files — do not commit
+Compile/
+Test/
+Fuzz/
+FuzzLean/
+FuzzBFS/
+openapi.json
+*.log
