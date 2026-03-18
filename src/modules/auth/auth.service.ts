@@ -5,17 +5,14 @@ import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
+import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import {
   DiscordService,
   DiscordOAuthProfile,
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { randomBytes } from 'crypto';
-import {
-  buildDiscordOAuthUrl,
-  buildErrorRedirect,
-  buildSuccessPost,
-} from './utils';
+import { randomBytes, createHash } from 'crypto';
+import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +26,7 @@ export class AuthService {
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly authRequestRepository: AuthRequestRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
+    private readonly callbackCodeRepository: CallbackCodeRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
@@ -176,8 +174,8 @@ export class AuthService {
    *
    * Validates the OAuth state, exchanges the code for an access token,
    * fetches the user profile, upserts the member, verifies guild membership,
-   * checks role access, creates a 30-day session, and redirects back to
-   * the platform with the token, member info, roles, and client state.
+   * checks role access, issues a short-lived callback code (120s), and
+   * redirects to the platform with ?code=...&state=... for secure exchange.
    */
   async handleDiscordCallback(discordCode: string, stateToken: string) {
     const stateResult = await this.validateAndConsumeState(stateToken);
@@ -221,25 +219,11 @@ export class AuthService {
     );
     if (!accessResult.ok) return accessResult.redirect;
 
-    const { token, expiresAt, roles } = await this.createSessionWithRoles(
-      member.id,
+    return this.issueCallbackCode(
       projectId,
-      serverId,
-    );
-
-    return buildSuccessPost(
       redirectUri,
-      token,
-      expiresAt,
-      {
-        id: member.id,
-        username: member.username,
-        globalName: member.globalName,
-        displayName: member.displayName,
-        avatar: member.avatar,
-        email: member.email,
-      },
-      roles,
+      member.id,
+      serverId,
       clientState,
     );
   }
@@ -427,31 +411,39 @@ export class AuthService {
     return { ok: true as const };
   }
 
-  // ─── Create session & fetch DB roles ─────────────────────
+  // ─── Issue callback code ────────────────────────────────
 
-  private async createSessionWithRoles(
-    memberId: string,
+  /**
+   * Generate a one-time callback code, store only its SHA-256 hash,
+   * and redirect the browser to the platform with the plaintext code.
+   */
+  private async issueCallbackCode(
     projectId: string,
+    redirectUri: string,
+    memberId: string,
     serverId: string,
-  ) {
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+    clientState?: string | null,
+  ): Promise<{ url: string }> {
+    const rawCode = randomBytes(32).toString('hex');
+    const codeHash = createHash('sha256').update(rawCode).digest('hex');
 
-    await this.sessionRepository.create({
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + 120);
+
+    await this.callbackCodeRepository.create({
+      codeHash,
+      clientId: projectId,
+      redirectUri,
       memberId,
-      projectId,
       serverId,
-      token,
       expiresAt,
     });
 
-    const roles = await this.memberRepository.getMemberRolesInServer(
-      memberId,
-      serverId,
-    );
+    const url = new URL(redirectUri);
+    url.searchParams.set('code', rawCode);
+    if (clientState) url.searchParams.set('state', clientState);
 
-    return { token, expiresAt, roles };
+    return { url: url.toString() };
   }
 
   // ─── Validate session
@@ -505,6 +497,7 @@ export class AuthService {
       this.oauthStateRepository.deleteExpired(),
       this.authRequestRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
+      this.callbackCodeRepository.deleteExpired(),
     ]);
     return { success: true };
   }

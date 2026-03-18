@@ -184,7 +184,7 @@ export class AuthController {
 
   // ─── Discord callback ───────────────────────────────────
   // Discord redirects here after user authenticates.
-  // MCDI processes everything and redirects back to the platform with token + member + roles.
+  // MCDI processes everything and redirects back to the platform with a callback code.
 
   @Get('discord/callback')
   @ApiExcludeEndpoint()
@@ -198,8 +198,8 @@ export class AuthController {
       '3. Upserts member in the database\n' +
       '4. Verifies Discord server membership\n' +
       '5. Checks project role requirements\n' +
-      '6. Creates a session token (valid 30 days)\n' +
-      "7. Redirects to the platform's redirect_uri with ?token=...&member=...&roles=...\n\n" +
+      '6. Issues a short-lived callback code (120s TTL)\n' +
+      "7. Redirects to the platform's redirect_uri with ?code=...&state=...\n\n" +
       'On error, redirects with ?error=...&error_description=...',
   })
   async discordCallback(
@@ -208,9 +208,6 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const result = await this.authService.handleDiscordCallback(code, state);
-    if ('html' in result) {
-      return res.type('html').send(result.html);
-    }
     return res.redirect(result.url);
   }
 
