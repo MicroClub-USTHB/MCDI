@@ -424,6 +424,21 @@ export class AuthService {
     serverId: string,
     clientState?: string | null,
   ): Promise<{ url: string }> {
+    // Defense-in-depth: re-validate redirect_uri at the point of redirect
+    const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
+      projectId,
+      redirectUri,
+    );
+    if (!isAllowed) {
+      const fallbackUri =
+        this.configService.get<string>('app.baseUrl') + '/error';
+      return buildErrorRedirect(
+        fallbackUri,
+        'invalid_redirect_uri',
+        'Redirect URI is no longer allowed for this project',
+      );
+    }
+
     const rawCode = randomBytes(32).toString('hex');
     const codeHash = createHash('sha256').update(rawCode).digest('hex');
 
