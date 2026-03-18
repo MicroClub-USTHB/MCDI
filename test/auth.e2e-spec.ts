@@ -15,9 +15,24 @@ import {
   seedTestProject,
   TestDb,
 } from './helpers/db';
-import { disableNock, enableNock } from './helpers/discord-mock';
-import { members, sessions } from '../src/database/entities';
+import {
+  disableNock,
+  enableNock,
+  mockDiscordToken,
+  mockDiscordProfile,
+  mockDiscordGuildMember,
+  mockDiscordGuildRoles,
+} from './helpers/discord-mock';
+import {
+  members,
+  sessions,
+  callbackCodes,
+  roles,
+} from '../src/database/entities';
 import { hash } from 'bcryptjs';
+import { createHash } from 'crypto';
+import { eq } from 'drizzle-orm';
+import nock from 'nock';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -259,6 +274,142 @@ describeIf('/api/auth (e2e)', () => {
         .expect(200);
 
       expect(res.body).toEqual({ success: true });
+    });
+
+    it('removes expired callback codes', async () => {
+      const { memberId, serverId } = await seedAdminContext(db);
+      const { id: projectId } = await seedTestProject(db, serverId, {
+        name: 'E2E Cleanup CB',
+      });
+
+      // Insert an expired callback code
+      await db.insert(callbackCodes).values({
+        id: crypto.randomUUID(),
+        codeHash: 'expired-hash-for-cleanup-test-0000000000000000',
+        clientId: projectId,
+        redirectUri: 'http://localhost:4000/callback',
+        memberId,
+        serverId,
+        expiresAt: new Date(Date.now() - 1000),
+        used: false,
+      });
+
+      await request(app.getHttpServer()).post('/api/auth/cleanup').expect(200);
+
+      // Verify it was removed
+      const rows = await db
+        .select()
+        .from(callbackCodes)
+        .where(
+          eq(
+            callbackCodes.codeHash,
+            'expired-hash-for-cleanup-test-0000000000000000',
+          ),
+        );
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  // ─── GET /api/auth/discord/callback (full flow) ─────────────
+
+  describe('GET /api/auth/discord/callback', () => {
+    const DISCORD_USER_ID = '800000000000000042';
+    const DISCORD_USERNAME = 'oauth_e2e_user';
+    const DISCORD_ROLE_ID = '700000000000000042';
+
+    it('redirects to redirect_uri with ?code=...&state=...', async () => {
+      const { serverId } = await seedAdminContext(db);
+      const { id: projectId } = await seedTestProject(db, serverId, {
+        name: 'E2E Callback Flow',
+      });
+
+      // Seed the Discord role in our DB so role sync works
+      await db.insert(roles).values({
+        id: DISCORD_ROLE_ID,
+        serverId,
+        name: 'E2E Role',
+        color: 0x00ff00,
+        hoist: false,
+        position: 2,
+        managed: false,
+        mentionable: false,
+      });
+
+      // Step 1: GET /auth/authorize → sets cookie, redirects to /auth/discord
+      const authorizeRes = await request(app.getHttpServer())
+        .get('/api/auth/authorize')
+        .query({
+          client_id: projectId,
+          redirect_uri: 'http://localhost:4000/callback',
+          server_id: serverId,
+          state: 'client-csrf-token',
+        })
+        .expect(302);
+
+      const cookies = authorizeRes.headers['set-cookie'] as unknown as string[];
+      const authCookie = cookies.find((c: string) =>
+        c.startsWith('mcdi_auth_req='),
+      )!;
+
+      // Step 2: GET /auth/discord with cookie → redirects to Discord OAuth URL
+      const discordRes = await request(app.getHttpServer())
+        .get('/api/auth/discord')
+        .set('Cookie', authCookie)
+        .expect(302);
+
+      // Extract the state token from the Discord redirect URL
+      const discordUrl = new URL(discordRes.headers.location);
+      const oauthState = discordUrl.searchParams.get('state')!;
+      expect(oauthState).toBeTruthy();
+
+      // Step 3: Mock all Discord API calls
+      nock.cleanAll();
+      mockDiscordToken('test-access-token-e2e');
+      mockDiscordProfile({
+        id: DISCORD_USER_ID,
+        username: DISCORD_USERNAME,
+        email: 'e2e@discord.test',
+      });
+      mockDiscordGuildMember(serverId, { roles: [DISCORD_ROLE_ID] });
+      mockDiscordGuildRoles(serverId, [
+        {
+          id: DISCORD_ROLE_ID,
+          name: 'E2E Role',
+          color: 0x00ff00,
+          position: 2,
+        },
+      ]);
+
+      // Step 4: GET /auth/discord/callback → redirects to platform with code
+      const callbackRes = await request(app.getHttpServer())
+        .get('/api/auth/discord/callback')
+        .query({ code: 'discord-auth-code-e2e', state: oauthState })
+        .expect(302);
+
+      const redirectUrl = new URL(callbackRes.headers.location);
+      expect(redirectUrl.origin + redirectUrl.pathname).toBe(
+        'http://localhost:4000/callback',
+      );
+      expect(redirectUrl.searchParams.get('code')).toBeTruthy();
+      expect(redirectUrl.searchParams.get('code')!.length).toBe(64); // 32 bytes hex
+      expect(redirectUrl.searchParams.get('state')).toBe('client-csrf-token');
+
+      // Step 5: Verify the hash is stored in callback_codes
+      const rawCode = redirectUrl.searchParams.get('code')!;
+      const expectedHash = createHash('sha256').update(rawCode).digest('hex');
+
+      const [row] = await db
+        .select()
+        .from(callbackCodes)
+        .where(eq(callbackCodes.codeHash, expectedHash));
+
+      expect(row).toBeDefined();
+      expect(row.clientId).toBe(projectId);
+      expect(row.memberId).toBe(DISCORD_USER_ID);
+      expect(row.serverId).toBe(serverId);
+      expect(row.redirectUri).toBe('http://localhost:4000/callback');
+      expect(row.used).toBe(false);
+      expect(new Date(row.expiresAt).getTime()).toBeGreaterThan(Date.now());
     });
   });
 
