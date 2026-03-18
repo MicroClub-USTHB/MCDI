@@ -19,6 +19,9 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
   private readonly discordRedirectUri: string;
+  private readonly authRequestTtlSec: number;
+  private readonly oauthStateTtlSec: number;
+  private readonly callbackCodeTtlSec: number;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -34,6 +37,15 @@ export class AuthService {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
+    )!;
+    this.authRequestTtlSec = this.configService.get<number>(
+      'app.authRequestTtlSec',
+    )!;
+    this.oauthStateTtlSec = this.configService.get<number>(
+      'app.oauthStateTtlSec',
+    )!;
+    this.callbackCodeTtlSec = this.configService.get<number>(
+      'app.callbackCodeTtlSec',
     )!;
   }
 
@@ -100,7 +112,7 @@ export class AuthService {
     }
 
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.authRequestTtlSec);
 
     const authRequest = await this.authRequestRepository.create({
       clientId: project.id,
@@ -145,9 +157,8 @@ export class AuthService {
     // Generate secure random state token
     const state = randomBytes(32).toString('hex');
 
-    // Store state in database with 10-minute expiration
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.oauthStateTtlSec);
 
     await this.oauthStateRepository.create({
       state,
@@ -443,7 +454,7 @@ export class AuthService {
     const codeHash = createHash('sha256').update(rawCode).digest('hex');
 
     const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + 120);
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.callbackCodeTtlSec);
 
     await this.callbackCodeRepository.create({
       codeHash,

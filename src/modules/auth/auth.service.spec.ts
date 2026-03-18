@@ -72,13 +72,16 @@ const mockDiscordService = {
 };
 const mockConfig = {
   get: jest.fn((key: string) => {
-    const map: Record<string, string> = {
+    const map: Record<string, string | number> = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
       'discord.adminRedirectUri':
         'http://localhost/auth/admin/discord/callback',
       'app.baseUrl': 'http://localhost',
+      'app.authRequestTtlSec': 600,
+      'app.oauthStateTtlSec': 600,
+      'app.callbackCodeTtlSec': 120,
     };
     return map[key];
   }),
