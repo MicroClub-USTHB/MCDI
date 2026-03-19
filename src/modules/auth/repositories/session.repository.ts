@@ -122,6 +122,17 @@ export class SessionRepository {
       .where(eq(schema.sessions.memberId, memberId));
   }
 
+  async deleteAllForMember(projectId: string, memberId: string) {
+    await this.db
+      .delete(schema.sessions)
+      .where(
+        and(
+          eq(schema.sessions.projectId, projectId),
+          eq(schema.sessions.memberId, memberId),
+        ),
+      );
+  }
+
   async deleteExpired() {
     const now = new Date();
     await this.db

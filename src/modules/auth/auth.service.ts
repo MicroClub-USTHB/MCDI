@@ -195,7 +195,7 @@ export class AuthService {
     if (!stateResult.ok) return stateResult.redirect;
     const { projectId, serverId, redirectUri, clientState } = stateResult.data;
 
-    const tokenResult = await this.exchangeCodeForToken(
+    const tokenResult = await this.exchangeDiscordCodeForToken(
       discordCode,
       redirectUri,
       clientState,
@@ -281,7 +281,7 @@ export class AuthService {
 
   // ─── Exchange Discord code for access token ─────────────
 
-  private async exchangeCodeForToken(
+  private async exchangeDiscordCodeForToken(
     code: string,
     redirectUri: string,
     clientState?: string | null,
