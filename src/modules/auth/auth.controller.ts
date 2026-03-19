@@ -248,9 +248,12 @@ export class AuthController {
   })
   async exchangeCode(
     @Body() dto: ExchangeCodeDto,
-    @Req() req: RequestWithProject,
   ): Promise<TokenResponseDto> {
-    return this.authService.exchangeCodeForToken(dto.code, req.project!.id);
+    return this.authService.exchangeCodeForToken(
+      dto.clientId,
+      dto.code,
+      dto.redirectUri,
+    );
   }
 
   // ─── Validate session ────────────────────────────────────
