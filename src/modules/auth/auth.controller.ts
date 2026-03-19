@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UnauthorizedException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -248,7 +249,14 @@ export class AuthController {
   })
   async exchangeCode(
     @Body() dto: ExchangeCodeDto,
+    @Req() req: any,
   ): Promise<TokenResponseDto> {
+    if (dto.clientId !== req.project?.id) {
+      throw new UnauthorizedException(
+        'Client ID mismatch: API Key does not belong to the requested project',
+      );
+    }
+
     return this.authService.exchangeCodeForToken(
       dto.clientId,
       dto.code,

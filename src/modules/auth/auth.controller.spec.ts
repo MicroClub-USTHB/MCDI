@@ -264,19 +264,35 @@ describe('AuthController', () => {
 
   // ── exchangeCode ────────────────────────────────────────────────────
 
-  it('exchangeCode delegates to authService', async () => {
-    const expiresAt = new Date();
-    mockAuthService.exchangeCodeForToken.mockResolvedValue({
-      token: 'new-tok',
-      expiresAt,
+  describe('exchangeCode', () => {
+    it('throws UnauthorizedException when clientId mismatch', async () => {
+      const req = { project: { id: 'p1' } };
+      await expect(
+        controller.exchangeCode({ clientId: 'p2', code: 'c1', redirectUri: 'r1' }, req as any),
+      ).rejects.toThrow(UnauthorizedException);
     });
-    const req = { project: { id: 'p1' } };
-    const result = await controller.exchangeCode(
-      { code: 'c1' },
-      req as any,
-    );
-    expect(mockAuthService.exchangeCodeForToken).toHaveBeenCalledWith('c1', 'p1');
-    expect(result).toEqual({ token: 'new-tok', expiresAt });
+
+    it('exchangeCode delegates to authService on success', async () => {
+      const expiresAt = new Date();
+      const mockResult = {
+        token: 'new-tok',
+        expiresAt,
+        member: { id: 'u1' },
+        roles: [],
+      };
+      mockAuthService.exchangeCodeForToken.mockResolvedValue(mockResult);
+      const req = { project: { id: 'p1' } };
+      const result = await controller.exchangeCode(
+        { clientId: 'p1', code: 'c1', redirectUri: 'r1' },
+        req as any,
+      );
+      expect(mockAuthService.exchangeCodeForToken).toHaveBeenCalledWith(
+        'p1',
+        'c1',
+        'r1',
+      );
+      expect(result).toEqual(mockResult);
+    });
   });
 
   // ── logout ──────────────────────────────────────────────────────────
