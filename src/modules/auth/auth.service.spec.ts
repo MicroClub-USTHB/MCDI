@@ -230,7 +230,7 @@ describe('AuthService', () => {
   describe('validateSession', () => {
     it('throws UnauthorizedException when session is not found', async () => {
       mockSessionRepo.findByTokenWithMember.mockResolvedValue(null);
-      await expect(service.validateSession('bad-token')).rejects.toThrow(
+      await expect(service.validateSession('bad-token', 'proj-1')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -245,10 +245,10 @@ describe('AuthService', () => {
       });
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
 
-      await expect(service.validateSession('exp-token')).rejects.toThrow(
+      await expect(service.validateSession('exp-token', 'proj-1')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('exp-token');
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('exp-token', 'proj-1');
     });
 
     it('returns member and roles for a valid session', async () => {
@@ -263,7 +263,7 @@ describe('AuthService', () => {
         { name: 'Member' },
       ]);
 
-      const result = await service.validateSession('valid-token');
+      const result = await service.validateSession('valid-token', 'proj-1');
       expect(result.member).toMatchObject({ username: 'alice' });
       expect(result.roles).toHaveLength(1);
     });
@@ -542,7 +542,7 @@ describe('AuthService', () => {
         member: { id: 'u1', username: 'alice' },
       });
 
-      const result = await service.validateSession('valid-token');
+      const result = await service.validateSession('valid-token', 'proj-1');
       expect(result.roles).toEqual([]);
       expect(mockMemberRepo.getMemberRolesInServer).not.toHaveBeenCalled();
     });
@@ -553,9 +553,9 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('deletes the session token', async () => {
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
-      const result = await service.logout('tok');
+      const result = await service.logout('tok', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('tok');
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('tok', 'proj-1');
     });
   });
 
@@ -564,7 +564,7 @@ describe('AuthService', () => {
   describe('logoutAll', () => {
     it('deletes all sessions for the member', async () => {
       mockSessionRepo.deleteByMemberId.mockResolvedValue(undefined);
-      const result = await service.logoutAll('u1');
+      const result = await service.logoutAll('u1', 'proj-1');
       expect(result).toEqual({ success: true });
       expect(mockSessionRepo.deleteByMemberId).toHaveBeenCalledWith('u1');
     });

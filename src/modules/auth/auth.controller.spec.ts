@@ -16,6 +16,7 @@ const mockAuthService = {
   logout: jest.fn(),
   logoutAll: jest.fn(),
   cleanupExpired: jest.fn(),
+  exchangeCodeForToken: jest.fn(),
 };
 
 const mockAdminAuthService = {
@@ -255,23 +256,44 @@ describe('AuthController', () => {
       member: {},
       roles: [],
     });
-    const result = await controller.validateSession({ token: 'tok' });
-    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok');
+    const req = { project: { id: 'p1' } };
+    const result = await controller.validateSession({ token: 'tok' }, req as any);
+    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok', 'p1');
     expect(result).toMatchObject({ roles: [] });
+  });
+
+  // ── exchangeCode ────────────────────────────────────────────────────
+
+  it('exchangeCode delegates to authService', async () => {
+    const expiresAt = new Date();
+    mockAuthService.exchangeCodeForToken.mockResolvedValue({
+      token: 'new-tok',
+      expiresAt,
+    });
+    const req = { project: { id: 'p1' } };
+    const result = await controller.exchangeCode(
+      { code: 'c1' },
+      req as any,
+    );
+    expect(mockAuthService.exchangeCodeForToken).toHaveBeenCalledWith('c1', 'p1');
+    expect(result).toEqual({ token: 'new-tok', expiresAt });
   });
 
   // ── logout ──────────────────────────────────────────────────────────
 
   it('logout delegates to authService', async () => {
     mockAuthService.logout.mockResolvedValue({ success: true });
-    const result = await controller.logout({ token: 'tok' });
+    const req = { project: { id: 'p1' } };
+    const result = await controller.logout({ token: 'tok' }, req as any);
+    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'p1');
     expect(result).toEqual({ success: true });
   });
 
   it('logoutAll delegates to authService', async () => {
     mockAuthService.logoutAll.mockResolvedValue({ success: true });
-    await controller.logoutAll({ memberId: 'u1' });
-    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1');
+    const req = { project: { id: 'p1' } };
+    await controller.logoutAll({ memberId: 'u1' }, req as any);
+    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'p1');
   });
 
   it('cleanupExpired delegates to authService', async () => {
