@@ -377,13 +377,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "bitfield": {
-          "name": "bitfield",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "0"
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1167,13 +1160,6 @@
           "primaryKey": false,
           "notNull": false,
           "default": false
-        },
-        "permissions_bits": {
-          "name": "permissions_bits",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "0"
         },
         "is_global": {
           "name": "is_global",

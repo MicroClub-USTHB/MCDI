@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsNotEmpty } from 'class-validator';
-
+ 
 export class ValidateSessionDto {
   @ApiProperty({
     description: 'Session token',
@@ -11,3 +11,4 @@ export class ValidateSessionDto {
   @IsNotEmpty()
   token: string;
 }
+ 

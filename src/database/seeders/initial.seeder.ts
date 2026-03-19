@@ -503,7 +503,6 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
     await db.insert(schema.sessions).values(adminSession).onConflictDoNothing();
-    console.log(`  - Admin session token: ${adminSession.token}`);
   }
 
   // 3. Public project (MCDI Dashboard) - no role restrictions

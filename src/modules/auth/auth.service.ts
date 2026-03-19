@@ -472,21 +472,24 @@ export class AuthService {
     return { url: url.toString() };
   }
 
-  // ─── Validate session
+  // ─── Validate session ────────────────────────────────────
 
   /**
    * Validate session token and return member + roles.
-   * Platforms call this anytime to check if a token is still valid.
+   * Scoped to the calling project — tokens from other projects are treated as invalid.
    */
-  async validateSession(token: string) {
-    const session = await this.sessionRepository.findByTokenWithMember(token);
+  async validateSession(token: string, projectId: string) {
+    const session = await this.sessionRepository.findByTokenWithMember(
+      token,
+      projectId,
+    );
 
     if (!session) {
       throw new UnauthorizedException('Invalid session');
     }
 
     if (new Date() > session.expiresAt) {
-      await this.sessionRepository.deleteByToken(token);
+      await this.sessionRepository.deleteByToken(token, projectId);
       throw new UnauthorizedException('Session expired');
     }
 
@@ -503,17 +506,24 @@ export class AuthService {
     };
   }
 
-  // ─── Logout
+  // ─── Logout ──────────────────────────────────────────────
 
-  async logout(token: string) {
-    await this.sessionRepository.deleteByToken(token);
+  /**
+   * Invalidate a single session token.
+   * Scoped to the calling project — tokens from other projects are ignored.
+   */
+  async logout(token: string, projectId: string) {
+    await this.sessionRepository.deleteByToken(token, projectId);
     return { success: true };
   }
 
-  async logoutAll(memberId: string) {
-    await this.sessionRepository.deleteByMemberId(memberId);
-    return { success: true };
-  }
+  /**
+   * Invalidate all sessions for a member within the calling project.
+   */
+async logoutAll(memberId: string, projectId: string) {
+  await this.sessionRepository.deleteAllForMember(projectId, memberId);
+  return { success: true };
+}
 
   // ─── Maintenance ─────────────────────────────────────────
 

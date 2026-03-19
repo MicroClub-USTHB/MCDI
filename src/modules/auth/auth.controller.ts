@@ -29,9 +29,10 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { buildErrorPage } from './utils';
 import { extractBearerToken } from '../../common/utils/auth.util';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -44,6 +45,8 @@ import {
   SetPasswordDto,
   AdminMeResponseDto,
 } from './dto';
+
+type RequestWithProject = Request & { project?: { id: string } };
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -213,17 +216,21 @@ export class AuthController {
 
   // ─── Validate session ────────────────────────────────────
   // Platforms call this anytime to verify a token is valid and get current member + roles.
+  // Requires a valid X-API-Key — sessions are scoped to the calling project.
 
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @ApiBearerAuth('api-key')
   @ApiOperation({
-    summary: 'Validate session token',
+    summary: 'Validate session token (project-scoped)',
     description:
       'External platforms call this to validate a session token and retrieve ' +
       'current member information + their roles. Roles are fetched live from the DB ' +
-      'so they always reflect the latest state.',
+      'so they always reflect the latest state.\n\n' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are resolved — tokens from other projects are treated as invalid.',
   })
   @ApiBody({ type: ValidateSessionDto })
   @ApiOkResponse({
@@ -238,18 +245,26 @@ export class AuthController {
     status: 429,
     description: 'Too many validation requests — retry after a short delay.',
   })
-  async validateSession(@Body() dto: ValidateSessionDto) {
-    return this.authService.validateSession(dto.token);
+  async validateSession(
+    @Body() dto: ValidateSessionDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.validateSession(dto.token, req.project!.id);
   }
 
   // ─── Logout ──────────────────────────────────────────────
+  // Requires a valid X-API-Key — only sessions belonging to the calling project are deleted.
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('api-key')
   @ApiOperation({
-    summary: 'Invalidate session token',
+    summary: 'Invalidate session token (project-scoped)',
     description:
-      'External platforms call this when their user logs out to invalidate the MCDI session token.',
+      'External platforms call this when their user logs out to invalidate the MCDI session token.\n\n' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are deleted — tokens from other projects are ignored.',
   })
   @ApiBody({ type: LogoutDto })
   @ApiOkResponse({
@@ -259,17 +274,23 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty token).',
   })
-  async logout(@Body() dto: LogoutDto) {
-    return this.authService.logout(dto.token);
+  async logout(
+    @Body() dto: LogoutDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.logout(dto.token, req.project!.id);
   }
 
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('api-key')
   @ApiOperation({
-    summary: 'Invalidate all sessions for a member',
+    summary: 'Invalidate all sessions for a member (project-scoped)',
     description:
-      'Invalidates all session tokens for a member across all platforms. ' +
-      'Typically called by MCDI admin operations.',
+      'Invalidates all session tokens for a member within the calling project. ' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are affected.',
   })
   @ApiBody({ type: LogoutAllDto })
   @ApiOkResponse({
@@ -279,8 +300,11 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty memberId).',
   })
-  async logoutAll(@Body() dto: LogoutAllDto) {
-    return this.authService.logoutAll(dto.memberId);
+  async logoutAll(
+    @Body() dto: LogoutAllDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.logoutAll(dto.memberId, req.project!.id);
   }
 
   // ─── System Admin Login ─────────────────────────────────────
