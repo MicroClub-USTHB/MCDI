@@ -226,37 +226,26 @@ describe('AuthController', () => {
 
   // ── discordCallback ────────────────────────────────────────────────
 
-  it('discordCallback sends HTML form post on success', async () => {
+  it('discordCallback redirects to platform with callback code on success', async () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
-      html: '<html><form method="POST"></form></html>',
+      url: 'http://localhost/callback?code=abc123&state=csrf',
     });
-    const res = {
-      type: jest.fn().mockReturnThis(),
-      send: jest.fn(),
-      redirect: jest.fn(),
-    };
+    const res = { redirect: jest.fn() };
     await controller.discordCallback('code123', 'state456', res as any);
-    expect(res.type).toHaveBeenCalledWith('html');
-    expect(res.send).toHaveBeenCalledWith(
-      '<html><form method="POST"></form></html>',
+    expect(res.redirect).toHaveBeenCalledWith(
+      'http://localhost/callback?code=abc123&state=csrf',
     );
-    expect(res.redirect).not.toHaveBeenCalled();
   });
 
   it('discordCallback redirects on error', async () => {
     mockAuthService.handleDiscordCallback.mockResolvedValue({
       url: 'http://localhost/callback?error=invalid_state',
     });
-    const res = {
-      type: jest.fn().mockReturnThis(),
-      send: jest.fn(),
-      redirect: jest.fn(),
-    };
+    const res = { redirect: jest.fn() };
     await controller.discordCallback('code123', 'bad-state', res as any);
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost/callback?error=invalid_state',
     );
-    expect(res.send).not.toHaveBeenCalled();
   });
 
   // ── validateSession ────────────────────────────────────────────────

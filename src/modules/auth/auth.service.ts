@@ -5,23 +5,23 @@ import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
+import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import {
   DiscordService,
   DiscordOAuthProfile,
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
-import { randomBytes } from 'crypto';
-import {
-  buildDiscordOAuthUrl,
-  buildErrorRedirect,
-  buildSuccessPost,
-} from './utils';
+import { randomBytes, createHash } from 'crypto';
+import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly discordClientId: string;
   private readonly discordRedirectUri: string;
+  private readonly authRequestTtlSec: number;
+  private readonly oauthStateTtlSec: number;
+  private readonly callbackCodeTtlSec: number;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -29,6 +29,7 @@ export class AuthService {
     private readonly oauthStateRepository: OAuthStateRepository,
     private readonly authRequestRepository: AuthRequestRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
+    private readonly callbackCodeRepository: CallbackCodeRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
@@ -36,6 +37,15 @@ export class AuthService {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordRedirectUri = this.configService.get<string>(
       'discord.redirectUri',
+    )!;
+    this.authRequestTtlSec = this.configService.get<number>(
+      'app.authRequestTtlSec',
+    )!;
+    this.oauthStateTtlSec = this.configService.get<number>(
+      'app.oauthStateTtlSec',
+    )!;
+    this.callbackCodeTtlSec = this.configService.get<number>(
+      'app.callbackCodeTtlSec',
     )!;
   }
 
@@ -102,7 +112,7 @@ export class AuthService {
     }
 
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.authRequestTtlSec);
 
     const authRequest = await this.authRequestRepository.create({
       clientId: project.id,
@@ -147,9 +157,8 @@ export class AuthService {
     // Generate secure random state token
     const state = randomBytes(32).toString('hex');
 
-    // Store state in database with 10-minute expiration
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.oauthStateTtlSec);
 
     await this.oauthStateRepository.create({
       state,
@@ -176,8 +185,8 @@ export class AuthService {
    *
    * Validates the OAuth state, exchanges the code for an access token,
    * fetches the user profile, upserts the member, verifies guild membership,
-   * checks role access, creates a 30-day session, and redirects back to
-   * the platform with the token, member info, roles, and client state.
+   * checks role access, issues a short-lived callback code (120s), and
+   * redirects to the platform with ?code=...&state=... for secure exchange.
    */
   async handleDiscordCallback(discordCode: string, stateToken: string) {
     const stateResult = await this.validateAndConsumeState(stateToken);
@@ -221,25 +230,11 @@ export class AuthService {
     );
     if (!accessResult.ok) return accessResult.redirect;
 
-    const { token, expiresAt, roles } = await this.createSessionWithRoles(
-      member.id,
+    return this.issueCallbackCode(
       projectId,
-      serverId,
-    );
-
-    return buildSuccessPost(
       redirectUri,
-      token,
-      expiresAt,
-      {
-        id: member.id,
-        username: member.username,
-        globalName: member.globalName,
-        displayName: member.displayName,
-        avatar: member.avatar,
-        email: member.email,
-      },
-      roles,
+      member.id,
+      serverId,
       clientState,
     );
   }
@@ -427,31 +422,54 @@ export class AuthService {
     return { ok: true as const };
   }
 
-  // ─── Create session & fetch DB roles ─────────────────────
+  // ─── Issue callback code ────────────────────────────────
 
-  private async createSessionWithRoles(
-    memberId: string,
+  /**
+   * Generate a one-time callback code, store only its SHA-256 hash,
+   * and redirect the browser to the platform with the plaintext code.
+   */
+  private async issueCallbackCode(
     projectId: string,
+    redirectUri: string,
+    memberId: string,
     serverId: string,
-  ) {
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-
-    await this.sessionRepository.create({
-      memberId,
+    clientState?: string | null,
+  ): Promise<{ url: string }> {
+    // Defense-in-depth: re-validate redirect_uri at the point of redirect
+    const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
       projectId,
+      redirectUri,
+    );
+    if (!isAllowed) {
+      const fallbackUri =
+        this.configService.get<string>('app.baseUrl') + '/error';
+      return buildErrorRedirect(
+        fallbackUri,
+        'invalid_redirect_uri',
+        'Redirect URI is no longer allowed for this project',
+      );
+    }
+
+    const rawCode = randomBytes(32).toString('hex');
+    const codeHash = createHash('sha256').update(rawCode).digest('hex');
+
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.callbackCodeTtlSec);
+
+    await this.callbackCodeRepository.create({
+      codeHash,
+      clientId: projectId,
+      redirectUri,
+      memberId,
       serverId,
-      token,
       expiresAt,
     });
 
-    const roles = await this.memberRepository.getMemberRolesInServer(
-      memberId,
-      serverId,
-    );
+    const url = new URL(redirectUri);
+    url.searchParams.set('code', rawCode);
+    if (clientState) url.searchParams.set('state', clientState);
 
-    return { token, expiresAt, roles };
+    return { url: url.toString() };
   }
 
   // ─── Validate session
@@ -505,6 +523,7 @@ export class AuthService {
       this.oauthStateRepository.deleteExpired(),
       this.authRequestRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
+      this.callbackCodeRepository.deleteExpired(),
     ]);
     return { success: true };
   }

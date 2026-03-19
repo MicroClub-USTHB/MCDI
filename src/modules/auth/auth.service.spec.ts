@@ -7,6 +7,7 @@ import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
+import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 
@@ -57,6 +58,12 @@ const mockAdminOAuthStateRepo = {
   deleteExpired: jest.fn(),
 };
 
+const mockCallbackCodeRepo = {
+  create: jest.fn(),
+  consumeValid: jest.fn(),
+  deleteExpired: jest.fn(),
+};
+
 const mockDiscordService = {
   exchangeOAuthCode: jest.fn(),
   fetchOAuthProfile: jest.fn(),
@@ -65,13 +72,16 @@ const mockDiscordService = {
 };
 const mockConfig = {
   get: jest.fn((key: string) => {
-    const map: Record<string, string> = {
+    const map: Record<string, string | number> = {
       'discord.clientId': 'client-id',
       'discord.clientSecret': 'client-secret',
       'discord.redirectUri': 'http://localhost/auth/discord/callback',
       'discord.adminRedirectUri':
         'http://localhost/auth/admin/discord/callback',
       'app.baseUrl': 'http://localhost',
+      'app.authRequestTtlSec': 600,
+      'app.oauthStateTtlSec': 600,
+      'app.callbackCodeTtlSec': 120,
     };
     return map[key];
   }),
@@ -103,6 +113,7 @@ describe('AuthService', () => {
           provide: AdminOAuthStateRepository,
           useValue: mockAdminOAuthStateRepo,
         },
+        { provide: CallbackCodeRepository, useValue: mockCallbackCodeRepo },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
@@ -439,7 +450,7 @@ describe('AuthService', () => {
       expect((result as any).url).toContain('state=csrf-abc');
     });
 
-    it('creates session and returns redirect URL on success (no role restriction)', async () => {
+    it('issues callback code and returns redirect URL on success (no role restriction)', async () => {
       const stateData = {
         projectId: 'proj-1',
         serverId: 'guild-1',
@@ -456,11 +467,9 @@ describe('AuthService', () => {
         email: null,
       });
       mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
-      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]); // no role restriction
-      mockSessionRepo.create.mockResolvedValue(undefined);
-      mockMemberRepo.getMemberRolesInServer.mockResolvedValue([
-        { name: 'Member' },
-      ]);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
+      mockCallbackCodeRepo.create.mockResolvedValue(undefined);
 
       mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
       mockDiscordService.fetchOAuthProfile.mockResolvedValue({
@@ -479,8 +488,44 @@ describe('AuthService', () => {
       mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
 
       const result = await service.handleDiscordCallback('code', 'state');
-      expect(result).toMatchObject({ html: expect.stringContaining('token') });
-      expect(mockSessionRepo.create).toHaveBeenCalled();
+      expect(result).toMatchObject({ url: expect.stringContaining('code=') });
+      expect((result as any).url).toContain('state=csrf-abc');
+      expect(mockCallbackCodeRepo.create).toHaveBeenCalled();
+    });
+
+    it('returns fallback error when redirect_uri is no longer allowed', async () => {
+      const stateData = {
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        redirectUri: 'http://localhost/callback',
+        clientState: 'csrf-abc',
+      };
+      mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
+      mockMemberRepo.upsert.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
+      mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]);
+      mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
+
+      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
+      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
+        id: 'user-1',
+        username: 'alice',
+      });
+      mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        status: 200,
+        roleIds: [],
+      });
+      mockDiscordService.fetchGuildRolesForMember.mockResolvedValue([]);
+
+      const result = await service.handleDiscordCallback('code', 'state');
+      expect(result).toMatchObject({
+        url: expect.stringContaining('invalid_redirect_uri'),
+      });
+      expect((result as any).url).toContain('localhost/error');
     });
   });
 
@@ -532,6 +577,7 @@ describe('AuthService', () => {
       mockOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
       mockAuthRequestRepo.deleteExpired.mockResolvedValue(undefined);
       mockAdminOAuthStateRepo.deleteExpired.mockResolvedValue(undefined);
+      mockCallbackCodeRepo.deleteExpired.mockResolvedValue(undefined);
 
       const result = await service.cleanupExpired();
       expect(result).toEqual({ success: true });
@@ -539,6 +585,7 @@ describe('AuthService', () => {
       expect(mockOAuthStateRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAuthRequestRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockCallbackCodeRepo.deleteExpired).toHaveBeenCalled();
     });
   });
 });
