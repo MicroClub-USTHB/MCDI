@@ -22,6 +22,7 @@ export class AuthService {
   private readonly authRequestTtlSec: number;
   private readonly oauthStateTtlSec: number;
   private readonly callbackCodeTtlSec: number;
+  private readonly sessionTtlSec: number;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -47,6 +48,7 @@ export class AuthService {
     this.callbackCodeTtlSec = this.configService.get<number>(
       'app.callbackCodeTtlSec',
     )!;
+    this.sessionTtlSec = this.configService.get<number>('app.sessionTtlSec')!;
   }
 
   // ─── Authorization request ─────────────────────────────
@@ -470,6 +472,46 @@ export class AuthService {
     if (clientState) url.searchParams.set('state', clientState);
 
     return { url: url.toString() };
+  }
+
+  // ─── Exchange callback code for session token ──────────
+
+  /**
+   * Exchange a one-time callback code for a long-lived session token.
+   * Secure backend-to-backend exchange using X-API-Key (provided by guard).
+   */
+  async exchangeCodeForToken(code: string, projectId: string) {
+    const codeHash = createHash('sha256').update(code).digest('hex');
+
+    const callbackCode = await this.callbackCodeRepository.consumeValid(codeHash);
+
+    if (!callbackCode) {
+      throw new UnauthorizedException('Invalid or expired callback code');
+    }
+
+    if (callbackCode.clientId !== projectId) {
+      this.logger.warn(
+        `Project ${projectId} tried to exchange code belonging to ${callbackCode.clientId}`,
+      );
+      throw new UnauthorizedException('Invalid callback code');
+    }
+
+    const token = randomBytes(48).toString('hex');
+    const expiresAt = new Date();
+    expiresAt.setSeconds(expiresAt.getSeconds() + this.sessionTtlSec);
+
+    await this.sessionRepository.create({
+      token,
+      expiresAt,
+      memberId: callbackCode.memberId,
+      projectId: callbackCode.clientId,
+      serverId: callbackCode.serverId,
+    });
+
+    return {
+      token,
+      expiresAt,
+    };
   }
 
   // ─── Validate session ────────────────────────────────────
