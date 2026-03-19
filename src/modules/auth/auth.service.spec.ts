@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
@@ -10,6 +10,7 @@ import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repo
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
+import { DRIZZLE } from '../../database/database.module';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -18,14 +19,19 @@ const mockSessionRepo = {
   findByTokenWithMember: jest.fn(),
   deleteByToken: jest.fn(),
   deleteByMemberId: jest.fn(),
-  deleteExpired: jest.fn(),
   deleteAllForMember: jest.fn(),
+  deleteExpired: jest.fn(),
+};
+
+const mockDb = {
+  transaction: jest.fn((cb) => cb(mockDb)),
 };
 
 const mockMemberRepo = {
   upsert: jest.fn(),
   syncMemberServerData: jest.fn(),
   getMemberRolesInServer: jest.fn(),
+  findById: jest.fn(),
 };
 
 const mockProjectsRepo = {
@@ -119,6 +125,7 @@ describe('AuthService', () => {
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
+        { provide: DRIZZLE, useValue: mockDb },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -594,46 +601,54 @@ describe('AuthService', () => {
   // ─── exchangeCodeForToken ──────────────────────────────────────────────
 
   describe('exchangeCodeForToken', () => {
-    it('throws UnauthorizedException when code is invalid or expired', async () => {
+    it('throws BadRequestException when code is invalid or expired', async () => {
       mockCallbackCodeRepo.consumeValid.mockResolvedValue(null);
-      await expect(service.exchangeCodeForToken('bad-code', 'p1')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.exchangeCodeForToken('p1', 'bad-code', 'http://redir'),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws UnauthorizedException when project mismatch', async () => {
-      mockCallbackCodeRepo.consumeValid.mockResolvedValue({
-        clientId: 'p1',
-        memberId: 'u1',
-        serverId: 's1',
-      });
-      await expect(service.exchangeCodeForToken('code', 'p2')).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('creates a session and returns token + expiresAt on success', async () => {
+    it('creates a session and returns token + user profile on success', async () => {
       const callbackData = {
         clientId: 'p1',
         memberId: 'u1',
         serverId: 's1',
       };
+      const memberData = { id: 'u1', username: 'alice' };
+      const rolesData = [{ roleId: 'r1', roleName: 'Admin' }];
+
       mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
       mockSessionRepo.create.mockResolvedValue({
         token: 'new-session-tok',
         expiresAt: new Date(),
       });
+      mockMemberRepo.findById.mockResolvedValue(memberData);
+      mockMemberRepo.getMemberRolesInServer.mockResolvedValue(rolesData);
 
-      const result = await service.exchangeCodeForToken('good-code', 'p1');
+      const result = await service.exchangeCodeForToken(
+        'p1',
+        'good-code',
+        'http://redir',
+      );
 
       expect(result.token).toBeDefined();
-      expect(result.expiresAt).toBeInstanceOf(Date);
+      expect(result.member).toEqual(memberData);
+      expect(result.roles).toEqual(rolesData);
+
+      expect(mockCallbackCodeRepo.consumeValid).toHaveBeenCalledWith(
+        expect.any(String),
+        'p1',
+        'http://redir',
+        expect.anything(),
+      );
+
       expect(mockSessionRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           memberId: 'u1',
           projectId: 'p1',
           serverId: 's1',
         }),
+        expect.anything(),
       );
     });
   });
