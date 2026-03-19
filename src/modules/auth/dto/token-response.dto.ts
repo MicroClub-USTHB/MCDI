@@ -12,4 +12,15 @@ export class TokenResponseDto {
     example: '2026-04-18T12:00:00.000Z',
   })
   expiresAt: Date;
+
+  @ApiProperty({
+    description: 'Basic profile information for the authenticated member',
+  })
+  member: any;
+
+  @ApiProperty({
+    description: 'List of roles the member has in the associated server',
+    example: [{ id: '123', name: 'Member' }],
+  })
+  roles: any[];
 }
