@@ -12,7 +12,8 @@ import {
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
-import { DRIZZLE, DrizzleDB } from '../../database/database.module';
+import { DRIZZLE } from '../../database/database.module';
+import type { DrizzleDB } from '../../database/database.module';
 import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 
 @Injectable()
