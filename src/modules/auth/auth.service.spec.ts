@@ -82,6 +82,7 @@ const mockConfig = {
       'app.authRequestTtlSec': 600,
       'app.oauthStateTtlSec': 600,
       'app.callbackCodeTtlSec': 120,
+      'app.sessionTtlSec': 2592000,
     };
     return map[key];
   }),
@@ -586,6 +587,53 @@ describe('AuthService', () => {
       expect(mockAuthRequestRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
       expect(mockCallbackCodeRepo.deleteExpired).toHaveBeenCalled();
+    });
+  });
+
+  // ─── exchangeCodeForToken ──────────────────────────────────────────────
+
+  describe('exchangeCodeForToken', () => {
+    it('throws UnauthorizedException when code is invalid or expired', async () => {
+      mockCallbackCodeRepo.consumeValid.mockResolvedValue(null);
+      await expect(service.exchangeCodeForToken('bad-code', 'p1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('throws UnauthorizedException when project mismatch', async () => {
+      mockCallbackCodeRepo.consumeValid.mockResolvedValue({
+        clientId: 'p1',
+        memberId: 'u1',
+        serverId: 's1',
+      });
+      await expect(service.exchangeCodeForToken('code', 'p2')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('creates a session and returns token + expiresAt on success', async () => {
+      const callbackData = {
+        clientId: 'p1',
+        memberId: 'u1',
+        serverId: 's1',
+      };
+      mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
+      mockSessionRepo.create.mockResolvedValue({
+        token: 'new-session-tok',
+        expiresAt: new Date(),
+      });
+
+      const result = await service.exchangeCodeForToken('good-code', 'p1');
+
+      expect(result.token).toBeDefined();
+      expect(result.expiresAt).toBeInstanceOf(Date);
+      expect(mockSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          memberId: 'u1',
+          projectId: 'p1',
+          serverId: 's1',
+        }),
+      );
     });
   });
 });
