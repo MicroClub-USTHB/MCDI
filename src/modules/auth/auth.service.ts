@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
@@ -12,6 +12,7 @@ import {
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
+import { DRIZZLE, DrizzleDB } from '../../database/database.module';
 import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 
 @Injectable()
@@ -34,6 +35,7 @@ export class AuthService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordRedirectUri = this.configService.get<string>(
@@ -479,39 +481,65 @@ export class AuthService {
   /**
    * Exchange a one-time callback code for a long-lived session token.
    * Secure backend-to-backend exchange using X-API-Key (provided by guard).
+   *
+   * Transactional exchange: consumes the callback code and issues the session
+   * token atomically to prevent replay attacks and ensure consistency.
    */
-  async exchangeCodeForToken(code: string, projectId: string) {
+  async exchangeCodeForToken(
+    clientId: string,
+    code: string,
+    redirectUri: string,
+  ) {
     const codeHash = createHash('sha256').update(code).digest('hex');
 
-    const callbackCode = await this.callbackCodeRepository.consumeValid(codeHash);
-
-    if (!callbackCode) {
-      throw new UnauthorizedException('Invalid or expired callback code');
-    }
-
-    if (callbackCode.clientId !== projectId) {
-      this.logger.warn(
-        `Project ${projectId} tried to exchange code belonging to ${callbackCode.clientId}`,
+    return await this.db.transaction(async (tx) => {
+      const callbackCode = await this.callbackCodeRepository.consumeValid(
+        codeHash,
+        clientId,
+        redirectUri,
+        tx,
       );
-      throw new UnauthorizedException('Invalid callback code');
-    }
 
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + this.sessionTtlSec);
+      if (!callbackCode) {
+        throw new BadRequestException(
+          'Invalid, used, or expired callback code for this client/redirect_uri',
+        );
+      }
 
-    await this.sessionRepository.create({
-      token,
-      expiresAt,
-      memberId: callbackCode.memberId,
-      projectId: callbackCode.clientId,
-      serverId: callbackCode.serverId,
+      const token = randomBytes(48).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setSeconds(expiresAt.getSeconds() + this.sessionTtlSec);
+
+      const session = await this.sessionRepository.create(
+        {
+          token,
+          expiresAt,
+          memberId: callbackCode.memberId,
+          projectId: callbackCode.clientId,
+          serverId: callbackCode.serverId,
+        },
+        tx,
+      );
+
+      const member = await this.memberRepository.findById(
+        callbackCode.memberId,
+        tx,
+      );
+      const roles = callbackCode.serverId
+        ? await this.memberRepository.getMemberRolesInServer(
+            callbackCode.memberId,
+            callbackCode.serverId,
+            tx,
+          )
+        : [];
+
+      return {
+        token,
+        expiresAt,
+        member,
+        roles,
+      };
     });
-
-    return {
-      token,
-      expiresAt,
-    };
   }
 
   // ─── Validate session ────────────────────────────────────
