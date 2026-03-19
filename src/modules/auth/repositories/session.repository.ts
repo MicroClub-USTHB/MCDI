@@ -135,14 +135,18 @@ export class SessionRepository {
       );
   }
 
-  async deleteByMemberId(memberId: string) {
-    await this.db
+  async deleteByMemberId(memberId: string, tx: DrizzleDB = this.db) {
+    await tx
       .delete(schema.sessions)
       .where(eq(schema.sessions.memberId, memberId));
   }
 
-  async deleteAllForMember(projectId: string, memberId: string) {
-    await this.db
+  async deleteAllForMember(
+    projectId: string,
+    memberId: string,
+    tx: DrizzleDB = this.db,
+  ) {
+    await tx
       .delete(schema.sessions)
       .where(
         and(
@@ -152,9 +156,9 @@ export class SessionRepository {
       );
   }
 
-  async deleteExpired() {
+  async deleteExpired(tx: DrizzleDB = this.db) {
     const now = new Date();
-    await this.db
+    await tx
       .delete(schema.sessions)
       .where(lt(schema.sessions.expiresAt, now));
   }

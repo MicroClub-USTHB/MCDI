@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
@@ -57,6 +58,8 @@ describe('AuthController', () => {
       ],
     })
       .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SystemAdminGuard)
       .useValue({ canActivate: () => true })
