@@ -19,6 +19,7 @@ const mockSessionRepo = {
   deleteByToken: jest.fn(),
   deleteByMemberId: jest.fn(),
   deleteExpired: jest.fn(),
+  deleteAllForMember: jest.fn(),
 };
 
 const mockMemberRepo = {
@@ -563,10 +564,10 @@ describe('AuthService', () => {
 
   describe('logoutAll', () => {
     it('deletes all sessions for the member', async () => {
-      mockSessionRepo.deleteByMemberId.mockResolvedValue(undefined);
+      mockSessionRepo.deleteAllForMember.mockResolvedValue(undefined);
       const result = await service.logoutAll('u1', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteByMemberId).toHaveBeenCalledWith('u1');
+      expect(mockSessionRepo.deleteAllForMember).toHaveBeenCalledWith('proj-1', 'u1');
     });
   });
 
