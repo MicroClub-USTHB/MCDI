@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   Logger,
   HttpException,
+  ConflictException,
 } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { CreateServerDto } from './dto/create-server.dto';
@@ -75,6 +76,9 @@ export class ServersService {
   }
 
   async updateServer(serverId: string, dto: UpdateServerDto) {
+    const existing = await this.serversRepository.findById(serverId);
+    if (!existing) throw new NotFoundException('Server not found');
+
     const now = new Date();
     const patch: Record<string, unknown> = { updatedAt: now };
 
@@ -92,11 +96,15 @@ export class ServersService {
       await this.serversRepository.clearMainServer(now);
       patch.isMain = true;
     } else if (dto.isMain === false) {
+      if (existing.isMain) {
+        throw new ConflictException(
+          'Main server cannot be unset without assigning another main server',
+        );
+      }
       patch.isMain = false;
     }
 
     const row = await this.serversRepository.updateById(serverId, patch);
-    if (!row) throw new NotFoundException('Server not found');
     return row;
   }
 
@@ -109,19 +117,26 @@ export class ServersService {
   async deleteServer(serverId: string) {
     const existing = await this.serversRepository.findById(serverId);
     if (!existing) throw new NotFoundException('Server not found');
+    if (existing.isMain) {
+      throw new ConflictException('Main server cannot be deleted');
+    }
 
     await this.serversRepository.deleteServerCascade(serverId);
     return { message: 'Server deleted successfully', serverId };
   }
 
   async disableServer(serverId: string, dto: DisableServerDto) {
+    const existing = await this.serversRepository.findById(serverId);
+    if (!existing) throw new NotFoundException('Server not found');
+    if (existing.isMain) {
+      throw new ConflictException('Main server cannot be disabled');
+    }
+
     const row = await this.serversRepository.updateById(serverId, {
       isActive: false,
       disabledReason: dto.disabledReason ?? null,
       updatedAt: new Date(),
     });
-
-    if (!row) throw new NotFoundException('Server not found');
     return row;
   }
 
