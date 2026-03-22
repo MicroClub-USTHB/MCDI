@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { DiscordIdentityService } from './services/discord-identity.service';
+import { SessionIssuanceService } from './services/session-issuance.service';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
@@ -19,6 +21,8 @@ import { ServersModule } from '../servers/servers.module';
   providers: [
     AuthService,
     AdminAuthService,
+    DiscordIdentityService,
+    SessionIssuanceService,
     SessionRepository,
     MemberRepository,
     OAuthStateRepository,
