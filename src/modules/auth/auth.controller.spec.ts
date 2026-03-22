@@ -4,6 +4,7 @@ import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
@@ -55,6 +56,8 @@ describe('AuthController', () => {
       ],
     })
       .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SystemAdminGuard)
       .useValue({ canActivate: () => true })
@@ -255,8 +258,15 @@ describe('AuthController', () => {
       member: {},
       roles: [],
     });
-    const result = await controller.validateSession({ token: 'tok' });
-    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok');
+    const req = { project: { id: 'proj-1' } };
+    const result = await controller.validateSession(
+      { token: 'tok' },
+      req as any,
+    );
+    expect(mockAuthService.validateSession).toHaveBeenCalledWith(
+      'tok',
+      'proj-1',
+    );
     expect(result).toMatchObject({ roles: [] });
   });
 
@@ -264,14 +274,17 @@ describe('AuthController', () => {
 
   it('logout delegates to authService', async () => {
     mockAuthService.logout.mockResolvedValue({ success: true });
-    const result = await controller.logout({ token: 'tok' });
+    const req = { project: { id: 'proj-1' } };
+    const result = await controller.logout({ token: 'tok' }, req as any);
+    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'proj-1');
     expect(result).toEqual({ success: true });
   });
 
   it('logoutAll delegates to authService', async () => {
     mockAuthService.logoutAll.mockResolvedValue({ success: true });
-    await controller.logoutAll({ memberId: 'u1' });
-    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1');
+    const req = { project: { id: 'proj-1' } };
+    await controller.logoutAll({ memberId: 'u1' }, req as any);
+    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'proj-1');
   });
 
   it('cleanupExpired delegates to authService', async () => {
