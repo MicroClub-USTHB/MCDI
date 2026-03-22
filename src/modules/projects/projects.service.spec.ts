@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectsRepository } from './projects.repository';
 
@@ -68,8 +73,9 @@ describe('ProjectsService', () => {
   describe('create', () => {
     it('returns a full API key (prefix.secret) and the project row', async () => {
       const project = fakeProject();
+      mockRepo.findMainServers.mockResolvedValue([{ id: 'guild-1' }]);
+      mockRepo.findServerById.mockResolvedValue({ id: 'guild-1' });
       mockRepo.create.mockResolvedValue(project);
-      mockRepo.findMainServers.mockResolvedValue([]);
 
       const result = await service.create({
         name: 'Test',
@@ -83,8 +89,9 @@ describe('ProjectsService', () => {
 
     it('stores the hash, not the plaintext secret', async () => {
       const project = fakeProject();
+      mockRepo.findMainServers.mockResolvedValue([{ id: 'guild-1' }]);
+      mockRepo.findServerById.mockResolvedValue({ id: 'guild-1' });
       mockRepo.create.mockResolvedValue(project);
-      mockRepo.findMainServers.mockResolvedValue([]);
 
       await service.create({ name: 'P', description: '' });
 
@@ -92,6 +99,32 @@ describe('ProjectsService', () => {
       expect(arg).toHaveProperty('apiKeyHash');
       expect(arg).toHaveProperty('apiKeyPrefix');
       expect(arg).not.toHaveProperty('fullKey');
+    });
+
+    it('throws ConflictException when no main server exists and serverAccess is omitted', async () => {
+      mockRepo.findMainServers.mockResolvedValue([]);
+
+      await expect(service.create({ name: 'Test' })).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when serverAccess contains unknown server ids', async () => {
+      mockRepo.findServerById
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'guild-2' });
+
+      await expect(
+        service.create({
+          name: 'Test',
+          serverAccess: [
+            { serverId: 'guild-1' },
+            { serverId: 'guild-2' },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepo.create).not.toHaveBeenCalled();
     });
   });
 
