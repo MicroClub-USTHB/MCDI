@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { SessionRepository } from './session.repository';
 import { DRIZZLE } from '../../../database/database.module';
+import { hashSessionToken } from '../../../common/utils/session-token.util';
 
 function buildDb(finalValue: unknown = []) {
   function makeChain(): any {
@@ -132,6 +133,29 @@ describe('SessionRepository', () => {
         expiresAt: session.expiresAt,
       });
       expect(result).toEqual(session);
+    });
+
+    it('hashes the token and preserves project and server scope', async () => {
+      const session = fakeSession();
+      const db = buildDb([session]);
+      const repo = await buildRepo(db);
+
+      await repo.create({
+        memberId: 'mem-1',
+        projectId: 'proj-1',
+        serverId: 'srv-1',
+        token: 'tok-plain',
+        expiresAt: session.expiresAt,
+      });
+
+      const insertChain = db.insert.mock.results[0].value;
+      expect(insertChain.values).toHaveBeenCalledWith({
+        memberId: 'mem-1',
+        projectId: 'proj-1',
+        serverId: 'srv-1',
+        token: hashSessionToken('tok-plain'),
+        expiresAt: session.expiresAt,
+      });
     });
   });
 

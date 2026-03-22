@@ -1,10 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, lt, gt } from 'drizzle-orm';
-import { createHash } from 'crypto';
 import { DRIZZLE } from '../../../database/database.module';
 import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
+import { hashSessionToken } from '../../../common/utils/session-token.util';
 
 export interface CreateSessionDto {
   memberId: string;
@@ -18,10 +17,6 @@ export interface CreateSessionDto {
 export class SessionRepository {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
-  private hashToken(token: string) {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
   async findById(id: string) {
     const sessions = await this.db
       .select()
@@ -33,7 +28,7 @@ export class SessionRepository {
   }
 
   async findByToken(token: string, tx: DrizzleDB = this.db) {
-    const hashedToken = this.hashToken(token);
+    const hashedToken = hashSessionToken(token);
     const sessions = await tx
       .select()
       .from(schema.sessions)
@@ -48,7 +43,7 @@ export class SessionRepository {
     projectId?: string,
     tx: DrizzleDB = this.db,
   ) {
-    const hashedToken = this.hashToken(token);
+    const hashedToken = hashSessionToken(token);
     const sessions = await tx
       .select({
         session: schema.sessions,
@@ -83,7 +78,7 @@ export class SessionRepository {
   }
 
   async findValidByToken(token: string, tx: DrizzleDB = this.db) {
-    const hashedToken = this.hashToken(token);
+    const hashedToken = hashSessionToken(token);
     const now = new Date();
     const sessions = await tx
       .select()
@@ -100,7 +95,7 @@ export class SessionRepository {
   }
 
   async create(data: CreateSessionDto, tx: DrizzleDB = this.db) {
-    const hashedToken = this.hashToken(data.token);
+    const hashedToken = hashSessionToken(data.token);
     const sessions = await tx
       .insert(schema.sessions)
       .values({
@@ -124,7 +119,7 @@ export class SessionRepository {
     projectId?: string,
     tx: DrizzleDB = this.db,
   ) {
-    const hashedToken = this.hashToken(token);
+    const hashedToken = hashSessionToken(token);
     await tx
       .delete(schema.sessions)
       .where(
@@ -168,7 +163,7 @@ export class SessionRepository {
     expiresAt: Date,
     tx: DrizzleDB = this.db,
   ) {
-    const hashedToken = this.hashToken(token);
+    const hashedToken = hashSessionToken(token);
     const sessions = await tx
       .update(schema.sessions)
       .set({ expiresAt })
