@@ -18,7 +18,6 @@ const mockSessionRepo = {
   create: jest.fn(),
   findByTokenWithMember: jest.fn(),
   deleteByToken: jest.fn(),
-  deleteByMemberId: jest.fn(),
   deleteAllForMember: jest.fn(),
   deleteExpired: jest.fn(),
 };

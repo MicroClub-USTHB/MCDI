@@ -313,6 +313,7 @@ describe('AuthController', () => {
     const result = await controller.logout({ token: 'tok' }, req as any);
     expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'proj-1');
     expect(result).toEqual({ success: true });
+    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'proj-1');
   });
 
   it('logoutAll delegates to authService', async () => {
