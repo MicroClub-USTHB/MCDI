@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { SessionRepository } from './repositories/session.repository';
@@ -10,6 +10,7 @@ import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repo
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
+import { DRIZZLE } from '../../database/database.module';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -18,13 +19,19 @@ const mockSessionRepo = {
   findByTokenWithMember: jest.fn(),
   deleteByToken: jest.fn(),
   deleteByMemberId: jest.fn(),
+  deleteAllForMember: jest.fn(),
   deleteExpired: jest.fn(),
+};
+
+const mockDb = {
+  transaction: jest.fn((cb) => cb(mockDb)),
 };
 
 const mockMemberRepo = {
   upsert: jest.fn(),
   syncMemberServerData: jest.fn(),
   getMemberRolesInServer: jest.fn(),
+  findById: jest.fn(),
 };
 
 const mockProjectsRepo = {
@@ -82,6 +89,7 @@ const mockConfig = {
       'app.authRequestTtlSec': 600,
       'app.oauthStateTtlSec': 600,
       'app.callbackCodeTtlSec': 120,
+      'app.sessionTtlSec': 2592000,
     };
     return map[key];
   }),
@@ -117,6 +125,7 @@ describe('AuthService', () => {
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
+        { provide: DRIZZLE, useValue: mockDb },
       ],
     }).compile();
     service = module.get(AuthService);
@@ -229,7 +238,7 @@ describe('AuthService', () => {
   describe('validateSession', () => {
     it('throws UnauthorizedException when session is not found', async () => {
       mockSessionRepo.findByTokenWithMember.mockResolvedValue(null);
-      await expect(service.validateSession('bad-token')).rejects.toThrow(
+      await expect(service.validateSession('bad-token', 'proj-1')).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -244,10 +253,10 @@ describe('AuthService', () => {
       });
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
 
-      await expect(service.validateSession('exp-token')).rejects.toThrow(
+      await expect(service.validateSession('exp-token', 'proj-1')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('exp-token');
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('exp-token', 'proj-1');
     });
 
     it('returns member and roles for a valid session', async () => {
@@ -262,7 +271,7 @@ describe('AuthService', () => {
         { name: 'Member' },
       ]);
 
-      const result = await service.validateSession('valid-token');
+      const result = await service.validateSession('valid-token', 'proj-1');
       expect(result.member).toMatchObject({ username: 'alice' });
       expect(result.roles).toHaveLength(1);
     });
@@ -541,7 +550,7 @@ describe('AuthService', () => {
         member: { id: 'u1', username: 'alice' },
       });
 
-      const result = await service.validateSession('valid-token');
+      const result = await service.validateSession('valid-token', 'proj-1');
       expect(result.roles).toEqual([]);
       expect(mockMemberRepo.getMemberRolesInServer).not.toHaveBeenCalled();
     });
@@ -552,9 +561,9 @@ describe('AuthService', () => {
   describe('logout', () => {
     it('deletes the session token', async () => {
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
-      const result = await service.logout('tok');
+      const result = await service.logout('tok', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('tok');
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('tok', 'proj-1');
     });
   });
 
@@ -562,10 +571,10 @@ describe('AuthService', () => {
 
   describe('logoutAll', () => {
     it('deletes all sessions for the member', async () => {
-      mockSessionRepo.deleteByMemberId.mockResolvedValue(undefined);
-      const result = await service.logoutAll('u1');
+      mockSessionRepo.deleteAllForMember.mockResolvedValue(undefined);
+      const result = await service.logoutAll('u1', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteByMemberId).toHaveBeenCalledWith('u1');
+      expect(mockSessionRepo.deleteAllForMember).toHaveBeenCalledWith('proj-1', 'u1');
     });
   });
 
@@ -586,6 +595,61 @@ describe('AuthService', () => {
       expect(mockAuthRequestRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
       expect(mockCallbackCodeRepo.deleteExpired).toHaveBeenCalled();
+    });
+  });
+
+  // ─── exchangeCodeForToken ──────────────────────────────────────────────
+
+  describe('exchangeCodeForToken', () => {
+    it('throws BadRequestException when code is invalid or expired', async () => {
+      mockCallbackCodeRepo.consumeValid.mockResolvedValue(null);
+      await expect(
+        service.exchangeCodeForToken('p1', 'bad-code', 'http://redir'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('creates a session and returns token + user profile on success', async () => {
+      const callbackData = {
+        clientId: 'p1',
+        memberId: 'u1',
+        serverId: 's1',
+      };
+      const memberData = { id: 'u1', username: 'alice' };
+      const rolesData = [{ roleId: 'r1', roleName: 'Admin' }];
+
+      mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
+      mockSessionRepo.create.mockResolvedValue({
+        token: 'new-session-tok',
+        expiresAt: new Date(),
+      });
+      mockMemberRepo.findById.mockResolvedValue(memberData);
+      mockMemberRepo.getMemberRolesInServer.mockResolvedValue(rolesData);
+
+      const result = await service.exchangeCodeForToken(
+        'p1',
+        'good-code',
+        'http://redir',
+      );
+
+      expect(result.token).toBeDefined();
+      expect(result.member).toEqual(memberData);
+      expect(result.roles).toEqual(rolesData);
+
+      expect(mockCallbackCodeRepo.consumeValid).toHaveBeenCalledWith(
+        expect.any(String),
+        'p1',
+        'http://redir',
+        expect.anything(),
+      );
+
+      expect(mockSessionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          memberId: 'u1',
+          projectId: 'p1',
+          serverId: 's1',
+        }),
+        expect.anything(),
+      );
     });
   });
 });

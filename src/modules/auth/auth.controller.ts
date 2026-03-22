@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UnauthorizedException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -44,6 +45,8 @@ import {
   AdminLoginResponseDto,
   SetPasswordDto,
   AdminMeResponseDto,
+  ExchangeCodeDto,
+  TokenResponseDto,
 } from './dto';
 
 type RequestWithProject = Request & { project?: { id: string } };
@@ -212,6 +215,53 @@ export class AuthController {
   ) {
     const result = await this.authService.handleDiscordCallback(code, state);
     return res.redirect(result.url);
+  }
+
+  // ─── Exchange callback code ──────────────────────────────
+  // Platforms call this to exchange a one-time callback code (from the redirect)
+  // for a long-lived session token. Requires a valid X-API-Key.
+
+  @Post('token')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @ApiBearerAuth('api-key')
+  @ApiOperation({
+    summary: 'Exchange callback code for session token (backend-to-backend)',
+    description:
+      'External platforms call this from their backend to exchange the short-lived ' +
+      '`code` received in the redirect for a final, long-lived session token.\n\n' +
+      'Requires a valid `X-API-Key` header. The code must belong to the project ' +
+      'associated with the API key.',
+  })
+  @ApiBody({ type: ExchangeCodeDto })
+  @ApiOkResponse({
+    description: 'Exchange successful — returns a long-lived session token.',
+    type: TokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid or expired callback code, or project mismatch.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many exchange requests — retry after a short delay.',
+  })
+  async exchangeCode(
+    @Body() dto: ExchangeCodeDto,
+    @Req() req: any,
+  ): Promise<TokenResponseDto> {
+    if (dto.clientId !== req.project?.id) {
+      throw new UnauthorizedException(
+        'Client ID mismatch: API Key does not belong to the requested project',
+      );
+    }
+
+    return this.authService.exchangeCodeForToken(
+      dto.clientId,
+      dto.code,
+      dto.redirectUri,
+    );
   }
 
   // ─── Validate session ────────────────────────────────────

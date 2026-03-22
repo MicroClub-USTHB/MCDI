@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { UnauthorizedException } from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
 const mockAuthService = {
@@ -16,6 +18,7 @@ const mockAuthService = {
   logout: jest.fn(),
   logoutAll: jest.fn(),
   cleanupExpired: jest.fn(),
+  exchangeCodeForToken: jest.fn(),
 };
 
 const mockAdminAuthService = {
@@ -55,6 +58,8 @@ describe('AuthController', () => {
       ],
     })
       .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SystemAdminGuard)
       .useValue({ canActivate: () => true })
@@ -255,23 +260,60 @@ describe('AuthController', () => {
       member: {},
       roles: [],
     });
-    const result = await controller.validateSession({ token: 'tok' });
-    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok');
+    const req = { project: { id: 'p1' } };
+    const result = await controller.validateSession({ token: 'tok' }, req as any);
+    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok', 'p1');
     expect(result).toMatchObject({ roles: [] });
+  });
+
+  // ── exchangeCode ────────────────────────────────────────────────────
+
+  describe('exchangeCode', () => {
+    it('throws UnauthorizedException when clientId mismatch', async () => {
+      const req = { project: { id: 'p1' } };
+      await expect(
+        controller.exchangeCode({ clientId: 'p2', code: 'c1', redirectUri: 'r1' }, req as any),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('exchangeCode delegates to authService on success', async () => {
+      const expiresAt = new Date();
+      const mockResult = {
+        token: 'new-tok',
+        expiresAt,
+        member: { id: 'u1' },
+        roles: [],
+      };
+      mockAuthService.exchangeCodeForToken.mockResolvedValue(mockResult);
+      const req = { project: { id: 'p1' } };
+      const result = await controller.exchangeCode(
+        { clientId: 'p1', code: 'c1', redirectUri: 'r1' },
+        req as any,
+      );
+      expect(mockAuthService.exchangeCodeForToken).toHaveBeenCalledWith(
+        'p1',
+        'c1',
+        'r1',
+      );
+      expect(result).toEqual(mockResult);
+    });
   });
 
   // ── logout ──────────────────────────────────────────────────────────
 
   it('logout delegates to authService', async () => {
     mockAuthService.logout.mockResolvedValue({ success: true });
-    const result = await controller.logout({ token: 'tok' });
+    const req = { project: { id: 'p1' } };
+    const result = await controller.logout({ token: 'tok' }, req as any);
+    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'p1');
     expect(result).toEqual({ success: true });
   });
 
   it('logoutAll delegates to authService', async () => {
     mockAuthService.logoutAll.mockResolvedValue({ success: true });
-    await controller.logoutAll({ memberId: 'u1' });
-    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1');
+    const req = { project: { id: 'p1' } };
+    await controller.logoutAll({ memberId: 'u1' }, req as any);
+    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'p1');
   });
 
   it('cleanupExpired delegates to authService', async () => {

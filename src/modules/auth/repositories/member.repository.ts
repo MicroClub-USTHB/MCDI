@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { and, eq, like, or, sql } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
+import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
 export interface CreateMemberDto {
@@ -28,10 +29,10 @@ export interface UpdateMemberDto {
 
 @Injectable()
 export class MemberRepository {
-  constructor(@Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>) {}
+  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
-  async findById(id: string) {
-    const members = await this.db
+  async findById(id: string, tx: DrizzleDB = this.db) {
+    const members = await tx
       .select()
       .from(schema.members)
       .where(eq(schema.members.id, id))
@@ -179,8 +180,12 @@ export class MemberRepository {
   }
 
   /** Get a member's role IDs and names in a specific server */
-  async getMemberRolesInServer(memberId: string, serverId: string) {
-    return this.db
+  async getMemberRolesInServer(
+    memberId: string,
+    serverId: string,
+    tx: DrizzleDB = this.db,
+  ) {
+    return tx
       .select({
         roleId: schema.serverMemberRoles.roleId,
         roleName: schema.roles.name,
