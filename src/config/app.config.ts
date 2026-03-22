@@ -14,4 +14,5 @@ export default registerAs('app', () => ({
   authRequestTtlSec: Number(process.env.AUTH_REQUEST_TTL_SEC) || 600,
   oauthStateTtlSec: Number(process.env.OAUTH_STATE_TTL_SEC) || 600,
   callbackCodeTtlSec: Number(process.env.CALLBACK_CODE_TTL_SEC) || 120,
+  sessionTtlSec: Number(process.env.SESSION_TTL_SEC) || 30 * 24 * 60 * 60, // 30 days
 }));

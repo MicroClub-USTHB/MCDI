@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, gt, lt } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
+import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 
 export interface CreateCallbackCodeDto {
@@ -15,7 +16,7 @@ export interface CreateCallbackCodeDto {
 
 @Injectable()
 export class CallbackCodeRepository {
-  constructor(@Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>) {}
+  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
 
   async create(data: CreateCallbackCodeDto) {
     const [row] = await this.db
@@ -37,13 +38,20 @@ export class CallbackCodeRepository {
    * Atomically find and consume a valid callback code by its hash.
    * Sets used=true in a single UPDATE to prevent replay attacks.
    */
-  async consumeValid(codeHash: string) {
-    const [row] = await this.db
+  async consumeValid(
+    codeHash: string,
+    clientId: string,
+    redirectUri: string,
+    tx: DrizzleDB = this.db,
+  ) {
+    const [row] = await tx
       .update(schema.callbackCodes)
       .set({ used: true })
       .where(
         and(
           eq(schema.callbackCodes.codeHash, codeHash),
+          eq(schema.callbackCodes.clientId, clientId),
+          eq(schema.callbackCodes.redirectUri, redirectUri),
           eq(schema.callbackCodes.used, false),
           gt(schema.callbackCodes.expiresAt, new Date()),
         ),
