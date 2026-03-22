@@ -1,4 +1,10 @@
-import { Injectable, Logger, UnauthorizedException, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  BadRequestException,
+  Inject,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
@@ -6,15 +12,14 @@ import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
-import {
-  DiscordService,
-  DiscordOAuthProfile,
-} from '../discord/discord.service';
+import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
 import { DRIZZLE } from '../../database/database.module';
 import type { DrizzleDB } from '../../database/database.module';
 import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
+import { DiscordIdentityService } from './services/discord-identity.service';
+import { SessionIssuanceService } from './services/session-issuance.service';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +41,8 @@ export class AuthService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
+    private readonly discordIdentityService: DiscordIdentityService,
+    private readonly sessionIssuanceService: SessionIssuanceService,
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
@@ -206,15 +213,13 @@ export class AuthService {
     if (!tokenResult.ok) return tokenResult.redirect;
     const accessToken = tokenResult.data;
 
-    const profileResult = await this.resolveDiscordProfile(
+    const identityResult = await this.resolveDiscordIdentity(
       accessToken,
       redirectUri,
       clientState,
     );
-    if (!profileResult.ok) return profileResult.redirect;
-    const profile = profileResult.data;
-
-    const member = await this.upsertMemberFromProfile(profile);
+    if (!identityResult.ok) return identityResult.redirect;
+    const { profile, member } = identityResult.data;
 
     const guildResult = await this.verifyGuildAndSyncRoles(
       serverId,
@@ -289,10 +294,11 @@ export class AuthService {
     redirectUri: string,
     clientState?: string | null,
   ) {
-    const accessToken = await this.discordService.exchangeOAuthCode(
-      code,
-      this.discordRedirectUri,
-    );
+    const accessToken =
+      await this.discordIdentityService.exchangeCodeForAccessToken(
+        code,
+        this.discordRedirectUri,
+      );
 
     if (!accessToken) {
       return {
@@ -309,16 +315,17 @@ export class AuthService {
     return { ok: true as const, data: accessToken };
   }
 
-  // ─── Fetch Discord profile ───────────────────────────────
-
-  private async resolveDiscordProfile(
+  private async resolveDiscordIdentity(
     accessToken: string,
     redirectUri: string,
     clientState?: string | null,
   ) {
-    const profile = await this.discordService.fetchOAuthProfile(accessToken);
+    const identity =
+      await this.discordIdentityService.resolveIdentityFromAccessToken(
+        accessToken,
+      );
 
-    if (!profile) {
+    if (!identity) {
       return {
         ok: false as const,
         redirect: buildErrorRedirect(
@@ -330,21 +337,7 @@ export class AuthService {
       };
     }
 
-    return { ok: true as const, data: profile };
-  }
-
-  // ─── Upsert member ───────────────────────────────────────
-
-  private async upsertMemberFromProfile(profile: DiscordOAuthProfile) {
-    return this.memberRepository.upsert({
-      id: profile.id,
-      username: profile.username,
-      globalName: profile.global_name || undefined,
-      displayName: profile.display_name || profile.global_name || undefined,
-      avatar: profile.avatar || undefined,
-      email: profile.email || undefined,
-      syncedAt: new Date(),
-    });
+    return { ok: true as const, data: identity };
   }
 
   // ─── Verify guild membership & sync roles ────────────────
@@ -507,25 +500,22 @@ export class AuthService {
         );
       }
 
-      const token = randomBytes(48).toString('hex');
-      const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + this.sessionTtlSec);
-
-      const session = await this.sessionRepository.create(
-        {
-          token,
-          expiresAt,
-          memberId: callbackCode.memberId,
-          projectId: callbackCode.clientId,
-          serverId: callbackCode.serverId,
-        },
-        tx,
-      );
+      const { token, expiresAt } =
+        await this.sessionIssuanceService.issueSession(
+          {
+            memberId: callbackCode.memberId,
+            ttlSeconds: this.sessionTtlSec,
+            projectId: callbackCode.clientId,
+            serverId: callbackCode.serverId,
+          },
+          tx,
+        );
 
       const member = await this.memberRepository.findById(
         callbackCode.memberId,
         tx,
       );
+
       const roles = callbackCode.serverId
         ? await this.memberRepository.getMemberRolesInServer(
             callbackCode.memberId,
@@ -591,10 +581,10 @@ export class AuthService {
   /**
    * Invalidate all sessions for a member within the calling project.
    */
-async logoutAll(memberId: string, projectId: string) {
-  await this.sessionRepository.deleteAllForMember(projectId, memberId);
-  return { success: true };
-}
+  async logoutAll(memberId: string, projectId: string) {
+    await this.sessionRepository.deleteAllForMember(projectId, memberId);
+    return { success: true };
+  }
 
   // ─── Maintenance ─────────────────────────────────────────
 
