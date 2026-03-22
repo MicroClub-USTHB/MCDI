@@ -260,9 +260,15 @@ describe('AuthController', () => {
       member: {},
       roles: [],
     });
-    const req = { project: { id: 'p1' } };
-    const result = await controller.validateSession({ token: 'tok' }, req as any);
-    expect(mockAuthService.validateSession).toHaveBeenCalledWith('tok', 'p1');
+    const req = { project: { id: 'proj-1' } };
+    const result = await controller.validateSession(
+      { token: 'tok' },
+      req as any,
+    );
+    expect(mockAuthService.validateSession).toHaveBeenCalledWith(
+      'tok',
+      'proj-1',
+    );
     expect(result).toMatchObject({ roles: [] });
   });
 
@@ -303,17 +309,17 @@ describe('AuthController', () => {
 
   it('logout delegates to authService', async () => {
     mockAuthService.logout.mockResolvedValue({ success: true });
-    const req = { project: { id: 'p1' } };
+    const req = { project: { id: 'proj-1' } };
     const result = await controller.logout({ token: 'tok' }, req as any);
-    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'p1');
+    expect(mockAuthService.logout).toHaveBeenCalledWith('tok', 'proj-1');
     expect(result).toEqual({ success: true });
   });
 
   it('logoutAll delegates to authService', async () => {
     mockAuthService.logoutAll.mockResolvedValue({ success: true });
-    const req = { project: { id: 'p1' } };
+    const req = { project: { id: 'proj-1' } };
     await controller.logoutAll({ memberId: 'u1' }, req as any);
-    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'p1');
+    expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'proj-1');
   });
 
   it('cleanupExpired delegates to authService', async () => {

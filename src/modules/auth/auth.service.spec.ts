@@ -238,9 +238,9 @@ describe('AuthService', () => {
   describe('validateSession', () => {
     it('throws UnauthorizedException when session is not found', async () => {
       mockSessionRepo.findByTokenWithMember.mockResolvedValue(null);
-      await expect(service.validateSession('bad-token', 'proj-1')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.validateSession('bad-token', 'proj-1'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException and deletes session when expired', async () => {
@@ -253,10 +253,13 @@ describe('AuthService', () => {
       });
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
 
-      await expect(service.validateSession('exp-token', 'proj-1')).rejects.toThrow(
-        UnauthorizedException,
+      await expect(
+        service.validateSession('exp-token', 'proj-1'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith(
+        'exp-token',
+        'proj-1',
       );
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('exp-token', 'proj-1');
     });
 
     it('returns member and roles for a valid session', async () => {
@@ -563,7 +566,10 @@ describe('AuthService', () => {
       mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
       const result = await service.logout('tok', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('tok', 'proj-1');
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith(
+        'tok',
+        'proj-1',
+      );
     });
   });
 
@@ -574,7 +580,10 @@ describe('AuthService', () => {
       mockSessionRepo.deleteAllForMember.mockResolvedValue(undefined);
       const result = await service.logoutAll('u1', 'proj-1');
       expect(result).toEqual({ success: true });
-      expect(mockSessionRepo.deleteAllForMember).toHaveBeenCalledWith('proj-1', 'u1');
+      expect(mockSessionRepo.deleteAllForMember).toHaveBeenCalledWith(
+        'proj-1',
+        'u1',
+      );
     });
   });
 

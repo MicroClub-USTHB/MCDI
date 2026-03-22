@@ -31,16 +31,102 @@ export interface DiscordGuildRole {
 @Injectable()
 export class DiscordService {
   private readonly logger = new Logger(DiscordService.name);
+  private readonly loginRetryDelayMs: number;
+  private connectPromise: Promise<void> | null = null;
+  private retryTimer: NodeJS.Timeout | null = null;
+  private destroyed = false;
 
   constructor(
     @Inject(DISCORD_CLIENT) private readonly client: Discord.Client,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.loginRetryDelayMs =
+      this.configService.get<number>('discord.loginRetryDelayMs') ?? 30_000;
+  }
+
   getClient(): Discord.Client {
     return this.client;
   }
 
+  isBotReady(): boolean {
+    return this.client.isReady();
+  }
+
+  hasGuildConnection(guildId: string): boolean {
+    return this.isBotReady() && this.client.guilds.cache.has(guildId);
+  }
+
+  onBotReady(callback: () => void): void {
+    if (this.isBotReady()) {
+      callback();
+      return;
+    }
+
+    this.client.once('ready', callback);
+  }
+
+  startBotConnection(): void {
+    if (this.destroyed || this.isBotReady() || this.connectPromise) {
+      return;
+    }
+
+    const token = this.configService.get<string>('discord.token');
+    if (!token) {
+      this.logger.warn(
+        'Discord bot token is not configured - bot features will remain disabled.',
+      );
+      return;
+    }
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+
+    this.connectPromise = this.client
+      .login(token)
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Discord bot login failed - bot features remain unavailable. Retrying in ${this.loginRetryDelayMs}ms. ${message}`,
+        );
+        this.scheduleReconnect();
+      })
+      .finally(() => {
+        this.connectPromise = null;
+      });
+  }
+
+  async destroyBotConnection(): Promise<void> {
+    this.destroyed = true;
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+
+    try {
+      await this.client.destroy();
+    } catch {
+      // ignore errors on shutdown
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.destroyed || this.retryTimer || this.isBotReady()) {
+      return;
+    }
+
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.startBotConnection();
+    }, this.loginRetryDelayMs);
+  }
+
   async getUserById(userId: string): Promise<Discord.User | null> {
+    if (!this.isBotReady()) return null;
+
     try {
       const user = await this.client.users.fetch(userId);
       return user;
@@ -51,6 +137,8 @@ export class DiscordService {
   }
 
   async getGuildById(guildId: string): Promise<Discord.Guild | null> {
+    if (!this.isBotReady()) return null;
+
     try {
       const guild = await this.client.guilds.fetch(guildId);
       return guild;
@@ -90,6 +178,8 @@ export class DiscordService {
   }
 
   async getChannelById(channelId: string): Promise<Discord.Channel | null> {
+    if (!this.isBotReady()) return null;
+
     try {
       const channel = await this.client.channels.fetch(channelId);
       return channel;
