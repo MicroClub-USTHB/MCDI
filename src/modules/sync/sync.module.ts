@@ -11,12 +11,14 @@ import { SyncLogService } from './services/sync-log.service';
 import { MemberSyncService } from './services/member-sync.service';
 import { RoleSyncService } from './services/role-sync.service';
 import { ServerSyncService } from './services/server-sync.service';
+import { PermissionsModule } from '../permissions/permissions.module';
 
 @Module({
   imports: [
     DatabaseModule,
     DiscordModule,
     forwardRef(() => MembersModule),
+    PermissionsModule,
     forwardRef(() => ServersModule),
   ],
   controllers: [SyncController],

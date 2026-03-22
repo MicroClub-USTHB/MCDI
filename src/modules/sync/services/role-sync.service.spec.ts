@@ -3,6 +3,7 @@ import { RoleSyncService } from './role-sync.service';
 import { ServersRepository } from '../../servers/servers.repository';
 import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
+import { PermissionCacheService } from '../../permissions/permission-cache.service';
 
 const mockServersRepo = {
   upsertRole: jest.fn(),
@@ -16,6 +17,10 @@ const mockMemberRepo = {
 
 const mockSyncLog = {
   recordEventChange: jest.fn(),
+};
+
+const mockPermissionCache = {
+  invalidateServer: jest.fn(),
 };
 
 const makeRole = (overrides: Partial<any> = {}): any => ({
@@ -41,6 +46,7 @@ describe('RoleSyncService', () => {
         { provide: ServersRepository, useValue: mockServersRepo },
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: SyncLogService, useValue: mockSyncLog },
+        { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
     }).compile();
     service = module.get(RoleSyncService);
@@ -57,6 +63,9 @@ describe('RoleSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleRoleCreate(makeRole());
+      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockServersRepo.upsertRole).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'role-1', name: 'Moderator' }),
       );
@@ -83,6 +92,9 @@ describe('RoleSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleRoleUpdate(makeRole({ name: 'Admin' }));
+      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',
         'role',
@@ -102,6 +114,9 @@ describe('RoleSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleRoleDelete(makeRole());
+      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockMemberRepo.deleteMemberRolesByRoleId).toHaveBeenCalledWith(
         'role-1',
       );
@@ -134,6 +149,9 @@ describe('RoleSyncService', () => {
       const result = await service.syncAllRoles(guild, 1, buffer);
 
       expect(result.rolesSynced).toBe(1);
+      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockServersRepo.upsertRole).toHaveBeenCalledTimes(1);
       expect(buffer).toHaveLength(1);
       expect(buffer[0].entityType).toBe('role');

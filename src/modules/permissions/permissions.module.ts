@@ -14,6 +14,6 @@ import { ProjectsModule } from '../projects/projects.module';
     PermissionsService,
     PermissionCacheService,
   ],
-  exports: [PermissionsService],
+  exports: [PermissionsService, PermissionCacheService],
 })
 export class PermissionsModule {}
