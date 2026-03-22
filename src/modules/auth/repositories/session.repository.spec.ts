@@ -1,6 +1,36 @@
 import { Test } from '@nestjs/testing';
 import { SessionRepository } from './session.repository';
 import { DRIZZLE } from '../../../database/database.module';
+import { hashSessionToken } from '../../../common/utils/session-token.util';
+
+function collectStringValues(
+  node: unknown,
+  values: string[] = [],
+  seen: WeakSet<object> = new WeakSet(),
+): string[] {
+  if (!node || typeof node !== 'object') {
+    return values;
+  }
+
+  if (seen.has(node)) {
+    return values;
+  }
+  seen.add(node);
+
+  if ('value' in node && typeof node.value === 'string') {
+    values.push(node.value);
+  }
+
+  if (Array.isArray(node)) {
+    node.forEach((item) => collectStringValues(item, values, seen));
+    return values;
+  }
+
+  Object.values(node).forEach((item) =>
+    collectStringValues(item, values, seen),
+  );
+  return values;
+}
 
 function buildDb(finalValue: unknown = []) {
   function makeChain(): any {
@@ -75,6 +105,18 @@ describe('SessionRepository', () => {
       const repo = await buildRepo(db);
       expect(await repo.findByToken('tok-abc')).toEqual(session);
     });
+
+    it('queries both raw and hashed token candidates', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+
+      await repo.findByToken('tok-abc');
+
+      const whereArg = db.select.mock.results[0].value.where.mock.calls[0][0];
+      expect(collectStringValues(whereArg)).toEqual(
+        expect.arrayContaining(['tok-abc', hashSessionToken('tok-abc')]),
+      );
+    });
   });
 
   describe('findByTokenWithMember', () => {
@@ -147,6 +189,24 @@ describe('SessionRepository', () => {
       });
       expect(result).toEqual(session);
     });
+
+    it('stores a hashed token value', async () => {
+      const session = fakeSession();
+      const db = buildDb([session]);
+      const repo = await buildRepo(db);
+
+      await repo.create({
+        memberId: 'mem-1',
+        token: 'tok-abc',
+        expiresAt: session.expiresAt,
+      });
+
+      expect(db.insert.mock.results[0].value.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: hashSessionToken('tok-abc'),
+        }),
+      );
+    });
   });
 
   describe('deleteByToken', () => {
@@ -164,6 +224,18 @@ describe('SessionRepository', () => {
         repo.deleteByToken('tok-abc', 'proj-1'),
       ).resolves.toBeUndefined();
       expect(db.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it('matches legacy raw and hashed token values when deleting', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+
+      await repo.deleteByToken('tok-abc');
+
+      const whereArg = db.delete.mock.results[0].value.where.mock.calls[0][0];
+      expect(collectStringValues(whereArg)).toEqual(
+        expect.arrayContaining(['tok-abc', hashSessionToken('tok-abc')]),
+      );
     });
   });
 

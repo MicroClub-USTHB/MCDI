@@ -1,8 +1,12 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, lt, gt } from 'drizzle-orm';
+import { eq, and, lt, gt, inArray } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
+import {
+  getSessionTokenCandidates,
+  hashSessionToken,
+} from '../../../common/utils/session-token.util';
 
 export interface CreateSessionDto {
   memberId: string;
@@ -27,16 +31,18 @@ export class SessionRepository {
   }
 
   async findByToken(token: string) {
+    const tokenCandidates = getSessionTokenCandidates(token);
     const sessions = await this.db
       .select()
       .from(schema.sessions)
-      .where(eq(schema.sessions.token, token))
+      .where(inArray(schema.sessions.token, tokenCandidates))
       .limit(1);
 
     return sessions[0] || null;
   }
 
   async findByTokenWithMember(token: string, projectId?: string) {
+    const tokenCandidates = getSessionTokenCandidates(token);
     const sessions = await this.db
       .select({
         session: schema.sessions,
@@ -47,10 +53,10 @@ export class SessionRepository {
       .where(
         projectId
           ? and(
-              eq(schema.sessions.token, token),
+              inArray(schema.sessions.token, tokenCandidates),
               eq(schema.sessions.projectId, projectId),
             )
-          : eq(schema.sessions.token, token),
+          : inArray(schema.sessions.token, tokenCandidates),
       )
       .limit(1);
 
@@ -74,12 +80,13 @@ export class SessionRepository {
 
   async findValidByToken(token: string) {
     const now = new Date();
+    const tokenCandidates = getSessionTokenCandidates(token);
     const sessions = await this.db
       .select()
       .from(schema.sessions)
       .where(
         and(
-          eq(schema.sessions.token, token),
+          inArray(schema.sessions.token, tokenCandidates),
           gt(schema.sessions.expiresAt, now),
         ),
       )
@@ -95,7 +102,7 @@ export class SessionRepository {
         memberId: data.memberId,
         projectId: data.projectId,
         serverId: data.serverId,
-        token: data.token,
+        token: hashSessionToken(data.token),
         expiresAt: data.expiresAt,
       })
       .returning();
@@ -108,15 +115,16 @@ export class SessionRepository {
   }
 
   async deleteByToken(token: string, projectId?: string) {
+    const tokenCandidates = getSessionTokenCandidates(token);
     await this.db
       .delete(schema.sessions)
       .where(
         projectId
           ? and(
-              eq(schema.sessions.token, token),
+              inArray(schema.sessions.token, tokenCandidates),
               eq(schema.sessions.projectId, projectId),
             )
-          : eq(schema.sessions.token, token),
+          : inArray(schema.sessions.token, tokenCandidates),
       );
   }
 
@@ -145,10 +153,11 @@ export class SessionRepository {
   }
 
   async updateExpiration(token: string, expiresAt: Date) {
+    const tokenCandidates = getSessionTokenCandidates(token);
     const sessions = await this.db
       .update(schema.sessions)
       .set({ expiresAt })
-      .where(eq(schema.sessions.token, token))
+      .where(inArray(schema.sessions.token, tokenCandidates))
       .returning();
 
     return sessions[0] || null;
