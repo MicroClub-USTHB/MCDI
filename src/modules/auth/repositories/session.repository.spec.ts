@@ -95,6 +95,20 @@ describe('SessionRepository', () => {
       const repo = await buildRepo(db);
       expect(await repo.findByTokenWithMember('ghost')).toBeNull();
     });
+
+    it('supports project-scoped lookup', async () => {
+      const session = fakeSession();
+      const member = { id: 'mem-1', username: 'alice' };
+      const db = buildDb([{ session, member }]);
+      const repo = await buildRepo(db);
+
+      await expect(
+        repo.findByTokenWithMember('tok-abc', 'proj-1'),
+      ).resolves.toMatchObject({
+        token: 'tok-abc',
+        projectId: 'proj-1',
+      });
+    });
   });
 
   describe('findByMemberId', () => {
@@ -142,6 +156,15 @@ describe('SessionRepository', () => {
       await expect(repo.deleteByToken('tok-abc')).resolves.toBeUndefined();
       expect(db.delete).toHaveBeenCalledTimes(1);
     });
+
+    it('supports project-scoped deletion', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await expect(
+        repo.deleteByToken('tok-abc', 'proj-1'),
+      ).resolves.toBeUndefined();
+      expect(db.delete).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('deleteByMemberId', () => {
@@ -149,6 +172,17 @@ describe('SessionRepository', () => {
       const db = buildDb([]);
       const repo = await buildRepo(db);
       await expect(repo.deleteByMemberId('mem-1')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('deleteAllForMember', () => {
+    it('deletes sessions scoped to a project/member pair', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await expect(
+        repo.deleteAllForMember('proj-1', 'mem-1'),
+      ).resolves.toBeUndefined();
+      expect(db.delete).toHaveBeenCalledTimes(1);
     });
   });
 

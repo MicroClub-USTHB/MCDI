@@ -36,7 +36,7 @@ export class SessionRepository {
     return sessions[0] || null;
   }
 
-  async findByTokenWithMember(token: string) {
+  async findByTokenWithMember(token: string, projectId?: string) {
     const sessions = await this.db
       .select({
         session: schema.sessions,
@@ -44,7 +44,14 @@ export class SessionRepository {
       })
       .from(schema.sessions)
       .leftJoin(schema.members, eq(schema.sessions.memberId, schema.members.id))
-      .where(eq(schema.sessions.token, token))
+      .where(
+        projectId
+          ? and(
+              eq(schema.sessions.token, token),
+              eq(schema.sessions.projectId, projectId),
+            )
+          : eq(schema.sessions.token, token),
+      )
       .limit(1);
 
     if (sessions.length === 0) {
@@ -100,16 +107,34 @@ export class SessionRepository {
     await this.db.delete(schema.sessions).where(eq(schema.sessions.id, id));
   }
 
-  async deleteByToken(token: string) {
+  async deleteByToken(token: string, projectId?: string) {
     await this.db
       .delete(schema.sessions)
-      .where(eq(schema.sessions.token, token));
+      .where(
+        projectId
+          ? and(
+              eq(schema.sessions.token, token),
+              eq(schema.sessions.projectId, projectId),
+            )
+          : eq(schema.sessions.token, token),
+      );
   }
 
   async deleteByMemberId(memberId: string) {
     await this.db
       .delete(schema.sessions)
       .where(eq(schema.sessions.memberId, memberId));
+  }
+
+  async deleteAllForMember(projectId: string, memberId: string) {
+    await this.db
+      .delete(schema.sessions)
+      .where(
+        and(
+          eq(schema.sessions.projectId, projectId),
+          eq(schema.sessions.memberId, memberId),
+        ),
+      );
   }
 
   async deleteExpired() {
