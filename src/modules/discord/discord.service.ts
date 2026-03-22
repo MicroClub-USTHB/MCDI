@@ -52,6 +52,10 @@ export class DiscordService {
     return this.client.isReady();
   }
 
+  hasGuildConnection(guildId: string): boolean {
+    return this.isBotReady() && this.client.guilds.cache.has(guildId);
+  }
+
   onBotReady(callback: () => void): void {
     if (this.isBotReady()) {
       callback();

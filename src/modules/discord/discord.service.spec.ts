@@ -83,6 +83,14 @@ describe('DiscordService', () => {
       expect(service.isBotReady()).toBe(true);
     });
 
+    it('reports guild connection only when ready and cached', () => {
+      mockClient.isReady.mockReturnValue(true);
+      mockClient.guilds = { cache: { has: jest.fn().mockReturnValue(true) } };
+
+      expect(service.hasGuildConnection('g-1')).toBe(true);
+      expect(mockClient.guilds.cache.has).toHaveBeenCalledWith('g-1');
+    });
+
     it('starts bot connection in the background', () => {
       mockClient.isReady.mockReturnValue(false);
 

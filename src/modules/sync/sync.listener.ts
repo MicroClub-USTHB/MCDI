@@ -53,10 +53,10 @@ export class SyncListener
 
   onApplicationBootstrap() {
     // All modules are ready — safe to query the DB now
-    if (this.client.isReady()) {
+    if (this.discordService.isBotReady()) {
       this.scheduleStartupSync();
     } else {
-      this.client.once('ready', () => this.scheduleStartupSync());
+      this.discordService.onBotReady(() => this.scheduleStartupSync());
     }
   }
 
