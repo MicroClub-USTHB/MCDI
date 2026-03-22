@@ -4,6 +4,7 @@ import { ServersRepository } from '../../servers/servers.repository';
 import { SyncRepository } from '../sync.repository';
 import { SyncChangeEntry } from '../sync-types';
 import { withRetry } from '../sync-retry.util';
+import { SyncTarget } from '../dto/trigger-sync.dto';
 
 @Injectable()
 export class ServerSyncService {
@@ -48,9 +49,7 @@ export class ServerSyncService {
 
   /**
    * Register a newly-joined guild and create a sync log entry.
-   * Returns whether a new sync should be kicked off and the log ID.
-   * SyncService is responsible for calling runFullSync afterwards to avoid
-   * a circular dependency.
+   * Returns whether a new queued sync should be kicked off and the log ID.
    */
   async prepareGuildCreate(
     guild: Guild,
@@ -65,14 +64,15 @@ export class ServerSyncService {
       type: 'other',
     });
 
-    const inProgress = await this.syncRepository.getInProgressLog(guild.id);
-    if (inProgress) return { shouldSync: false };
+    const activeLog = await this.syncRepository.getActiveLog(guild.id);
+    if (activeLog) return { shouldSync: false };
 
     const log = await this.syncRepository.createLog(
       guild.id,
       'full',
-      'in_progress',
+      'queued',
       new Date(),
+      SyncTarget.ALL,
     );
     return { shouldSync: true, logId: log.id };
   }

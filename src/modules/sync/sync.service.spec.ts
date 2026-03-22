@@ -16,10 +16,18 @@ const mockSyncRepo = {
   createLog: jest.fn(),
   updateLog: jest.fn(),
   getInProgressLog: jest.fn(),
+  getActiveLog: jest.fn(),
+  claimNextRunnableLog: jest.fn(),
+  touchHeartbeat: jest.fn(),
+};
+
+const mockClient = {
+  isReady: jest.fn().mockReturnValue(false),
 };
 
 const mockDiscord = {
   getGuildById: jest.fn(),
+  getClient: jest.fn(() => mockClient),
 };
 
 const mockServersRepo = {
@@ -94,7 +102,7 @@ describe('SyncService', () => {
 
     it('throws ConflictException when a sync is already in progress', async () => {
       mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
-      mockSyncRepo.getInProgressLog.mockResolvedValue({
+      mockSyncRepo.getActiveLog.mockResolvedValue({
         id: 5,
         status: 'in_progress',
       });
@@ -104,21 +112,23 @@ describe('SyncService', () => {
     });
 
     it('creates a sync log and returns its id when server is found and idle', async () => {
+      const drainSpy = jest
+        .spyOn(service, 'drainQueuedSyncs')
+        .mockResolvedValue(undefined);
       mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
-      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.getActiveLog.mockResolvedValue(null);
       mockSyncRepo.createLog.mockResolvedValue({ id: 42 });
-      // runFullSync runs in background — mock discord to exit cleanly
-      mockDiscord.getGuildById.mockResolvedValue(null);
-      mockSyncRepo.updateLog.mockResolvedValue({});
 
       const result = await service.triggerFullSync('guild-1');
       expect(result).toEqual({ syncId: 42 });
       expect(mockSyncRepo.createLog).toHaveBeenCalledWith(
         'guild-1',
         'manual',
-        'in_progress',
+        'queued',
         expect.any(Date),
+        SyncTarget.ALL,
       );
+      expect(drainSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -129,10 +139,8 @@ describe('SyncService', () => {
       mockServersRepo.findById
         .mockResolvedValueOnce({ id: 's1' })
         .mockResolvedValueOnce(null);
-      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.getActiveLog.mockResolvedValue(null);
       mockSyncRepo.createLog.mockResolvedValue({ id: 10 });
-      mockDiscord.getGuildById.mockResolvedValue(null);
-      mockSyncRepo.updateLog.mockResolvedValue({});
 
       const result = await service.triggerMultipleSyncs(
         ['s1', 's2'],
@@ -146,10 +154,8 @@ describe('SyncService', () => {
     it('syncs all active servers when no ids are provided', async () => {
       mockServersRepo.findAllActive.mockResolvedValue([{ id: 'srv-1' }]);
       mockServersRepo.findById.mockResolvedValue({ id: 'srv-1' });
-      mockSyncRepo.getInProgressLog.mockResolvedValue(null);
+      mockSyncRepo.getActiveLog.mockResolvedValue(null);
       mockSyncRepo.createLog.mockResolvedValue({ id: 7 });
-      mockDiscord.getGuildById.mockResolvedValue(null);
-      mockSyncRepo.updateLog.mockResolvedValue({});
 
       const result = await service.triggerMultipleSyncs([]);
       expect(result.results).toHaveLength(1);
@@ -223,22 +229,27 @@ describe('SyncService', () => {
   // ── handleGuildCreate ─────────────────────────────────────────────────
 
   describe('handleGuildCreate', () => {
-    it('starts a full sync when prepareGuildCreate returns shouldSync=true', async () => {
+    it('drains the queued sync when prepareGuildCreate returns shouldSync=true', async () => {
+      const drainSpy = jest
+        .spyOn(service, 'drainQueuedSyncs')
+        .mockResolvedValue(undefined);
       const guild: any = { id: 'guild-1', name: 'Test' };
       mockServerSyncService.prepareGuildCreate.mockResolvedValue({
         shouldSync: true,
         logId: 55,
       });
-      mockDiscord.getGuildById.mockResolvedValue(null);
-      mockSyncRepo.updateLog.mockResolvedValue({});
 
       await service.handleGuildCreate(guild);
       expect(mockServerSyncService.prepareGuildCreate).toHaveBeenCalledWith(
         guild,
       );
+      expect(drainSpy).toHaveBeenCalledTimes(1);
     });
 
     it('does not start a sync when prepareGuildCreate returns shouldSync=false', async () => {
+      const drainSpy = jest
+        .spyOn(service, 'drainQueuedSyncs')
+        .mockResolvedValue(undefined);
       const guild: any = { id: 'guild-1', name: 'Test' };
       mockServerSyncService.prepareGuildCreate.mockResolvedValue({
         shouldSync: false,
@@ -246,7 +257,82 @@ describe('SyncService', () => {
       });
 
       await service.handleGuildCreate(guild);
-      expect(mockDiscord.getGuildById).not.toHaveBeenCalled();
+      expect(drainSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── drainQueuedSyncs ──────────────────────────────────────────────────
+
+  describe('drainQueuedSyncs', () => {
+    it('does not claim jobs while the Discord client is not ready', async () => {
+      mockClient.isReady.mockReturnValue(false);
+
+      await service.drainQueuedSyncs();
+
+      expect(mockSyncRepo.claimNextRunnableLog).not.toHaveBeenCalled();
+    });
+
+    it('claims and completes a queued roles-only sync job', async () => {
+      const guild: any = { id: 'guild-1', name: 'Test Guild' };
+      mockClient.isReady.mockReturnValue(true);
+      mockSyncRepo.claimNextRunnableLog
+        .mockResolvedValueOnce({
+          id: 22,
+          serverId: 'guild-1',
+          target: SyncTarget.ROLES,
+        })
+        .mockResolvedValueOnce(null);
+      mockDiscord.getGuildById.mockResolvedValue(guild);
+      mockServerSyncService.syncServerInfo.mockResolvedValue(undefined);
+      mockRoleSyncService.syncAllRoles.mockResolvedValue({ rolesSynced: 3 });
+      mockSyncLogService.flushChangeBuffer.mockResolvedValue(undefined);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      await service.drainQueuedSyncs();
+
+      expect(mockServerSyncService.syncServerInfo).toHaveBeenCalledWith(
+        'guild-1',
+        guild,
+        expect.any(Date),
+        22,
+        expect.any(Array),
+      );
+      expect(mockRoleSyncService.syncAllRoles).toHaveBeenCalledWith(
+        guild,
+        22,
+        expect.any(Array),
+      );
+      expect(mockMemberSyncService.syncAllMembers).not.toHaveBeenCalled();
+      expect(mockSyncRepo.updateLog).toHaveBeenCalledWith(
+        22,
+        expect.objectContaining({
+          status: 'success',
+          rolesSynced: 3,
+        }),
+      );
+    });
+
+    it('marks the job failed when the guild cannot be fetched', async () => {
+      mockClient.isReady.mockReturnValue(true);
+      mockSyncRepo.claimNextRunnableLog
+        .mockResolvedValueOnce({
+          id: 33,
+          serverId: 'guild-1',
+          target: SyncTarget.ALL,
+        })
+        .mockResolvedValueOnce(null);
+      mockDiscord.getGuildById.mockResolvedValue(null);
+      mockSyncRepo.updateLog.mockResolvedValue({});
+
+      await service.drainQueuedSyncs();
+
+      expect(mockSyncRepo.updateLog).toHaveBeenCalledWith(
+        33,
+        expect.objectContaining({
+          status: 'failed',
+          message: 'Guild not found or bot not in server',
+        }),
+      );
     });
   });
 

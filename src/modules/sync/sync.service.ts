@@ -3,6 +3,8 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { Guild, GuildMember, User, Role } from 'discord.js';
 import { DiscordService } from '../discord/discord.service';
@@ -18,9 +20,15 @@ import { SyncStatusDto } from './dto/sync-status.dto';
 import { SyncLogsResponseDto } from './dto/sync-log.dto';
 import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
 
+const SYNC_QUEUE_POLL_INTERVAL_MS = 5000;
+const SYNC_QUEUE_HEARTBEAT_INTERVAL_MS = 15000;
+const SYNC_QUEUE_LEASE_TIMEOUT_MS = 60000;
+
 @Injectable()
-export class SyncService {
+export class SyncService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(SyncService.name);
+  private queuePollTimer: NodeJS.Timeout | null = null;
+  private isDrainingQueue = false;
 
   constructor(
     private readonly discordService: DiscordService,
@@ -32,6 +40,24 @@ export class SyncService {
     private readonly syncLogService: SyncLogService,
   ) {}
 
+  onApplicationBootstrap(): void {
+    if (this.queuePollTimer) return;
+
+    this.queuePollTimer = setInterval(() => {
+      this.requestQueueDrain();
+    }, SYNC_QUEUE_POLL_INTERVAL_MS);
+    this.queuePollTimer.unref?.();
+
+    this.requestQueueDrain();
+  }
+
+  onModuleDestroy(): void {
+    if (!this.queuePollTimer) return;
+
+    clearInterval(this.queuePollTimer);
+    this.queuePollTimer = null;
+  }
+
   // ── Bulk sync orchestration ──────────────────────────────────────────
 
   async triggerFullSync(
@@ -41,25 +67,21 @@ export class SyncService {
     const server = await this.serversRepository.findById(serverId);
     if (!server) throw new NotFoundException('Server not found');
 
-    const inProgress = await this.syncRepository.getInProgressLog(serverId);
-    if (inProgress) {
+    const activeLog = await this.syncRepository.getActiveLog(serverId);
+    if (activeLog) {
       throw new ConflictException(
-        'A sync is already in progress for this server',
+        'A sync is already queued or in progress for this server',
       );
     }
 
     const log = await this.syncRepository.createLog(
       serverId,
       'manual',
-      'in_progress',
+      'queued',
       new Date(),
+      target,
     );
-    this.runFullSync(serverId, log.id, target).catch((err: unknown) => {
-      this.logger.error(
-        `Background sync failed for server ${serverId}`,
-        err instanceof Error ? err.stack : String(err),
-      );
-    });
+    this.requestQueueDrain();
     return { syncId: log.id };
   }
 
@@ -97,23 +119,26 @@ export class SyncService {
     syncId: number,
     target: SyncTarget = SyncTarget.ALL,
   ): Promise<void> {
-    const guild = await this.discordService.getGuildById(serverId);
-    if (!guild) {
-      await this.syncRepository.updateLog(syncId, {
-        status: 'failed',
-        message: 'Guild not found or bot not in server',
-        finishedAt: new Date(),
-      });
-      return;
-    }
-
-    const syncStart = new Date();
-    const changeBuffer: SyncChangeEntry[] = [];
-    let membersSynced = 0;
-    let rolesSynced = 0;
-    let deactivatedCount = 0;
+    const heartbeatTimer = this.startHeartbeat(syncId);
 
     try {
+      const guild = await this.discordService.getGuildById(serverId);
+      if (!guild) {
+        await this.syncRepository.updateLog(syncId, {
+          status: 'failed',
+          message: 'Guild not found or bot not in server',
+          finishedAt: new Date(),
+          heartbeatAt: new Date(),
+        });
+        return;
+      }
+
+      const syncStart = new Date();
+      const changeBuffer: SyncChangeEntry[] = [];
+      let membersSynced = 0;
+      let rolesSynced = 0;
+      let deactivatedCount = 0;
+
       await this.serverSyncService.syncServerInfo(
         serverId,
         guild,
@@ -149,6 +174,7 @@ export class SyncService {
         membersSynced,
         rolesSynced,
         finishedAt: new Date(),
+        heartbeatAt: new Date(),
         message: `Sync completed. ${deactivatedCount} members marked inactive.`,
       });
     } catch (error: unknown) {
@@ -163,7 +189,10 @@ export class SyncService {
         status: 'failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         finishedAt: new Date(),
+        heartbeatAt: new Date(),
       });
+    } finally {
+      clearInterval(heartbeatTimer);
     }
   }
 
@@ -174,6 +203,7 @@ export class SyncService {
     this.logger.log(
       `Bot ready — starting boot sync for ${activeServers.length} active server(s)`,
     );
+    let queuedCount = 0;
     for (const server of activeServers) {
       try {
         const guild = await this.discordService.getGuildById(server.id);
@@ -183,33 +213,32 @@ export class SyncService {
           );
           continue;
         }
-        const inProgress = await this.syncRepository.getInProgressLog(
-          server.id,
-        );
-        if (inProgress) {
+        const activeLog = await this.syncRepository.getActiveLog(server.id);
+        if (activeLog) {
           this.logger.log(
-            `Skipping boot sync for ${server.id} — sync already in progress`,
+            `Skipping boot sync for ${server.id} — sync already queued or in progress`,
           );
           continue;
         }
         const log = await this.syncRepository.createLog(
           server.id,
           'full',
-          'in_progress',
+          'queued',
           new Date(),
+          SyncTarget.ALL,
         );
-        this.runFullSync(server.id, log.id).catch((err: unknown) => {
-          this.logger.error(
-            `Boot sync failed for server ${server.id}`,
-            err instanceof Error ? err.stack : String(err),
-          );
-        });
+        queuedCount += 1;
+        this.logger.log(`Queued boot sync ${log.id} for server ${server.id}`);
       } catch (err: unknown) {
         this.logger.error(
           `Error scheduling boot sync for server ${server.id}`,
           err instanceof Error ? err.stack : String(err),
         );
       }
+    }
+
+    if (queuedCount > 0) {
+      this.requestQueueDrain();
     }
   }
 
@@ -262,12 +291,8 @@ export class SyncService {
     const { shouldSync, logId } =
       await this.serverSyncService.prepareGuildCreate(guild);
     if (shouldSync && logId !== undefined) {
-      this.runFullSync(guild.id, logId).catch((err: unknown) => {
-        this.logger.error(
-          `guildCreate sync failed for ${guild.id}`,
-          err instanceof Error ? err.stack : String(err),
-        );
-      });
+      this.logger.log(`Queued guildCreate sync ${logId} for ${guild.id}`);
+      this.requestQueueDrain();
     }
   }
 
@@ -303,5 +328,54 @@ export class SyncService {
     offset = 0,
   ): Promise<SyncChangeDetailsResponseDto> {
     return this.syncLogService.getSyncChangeDetails(syncLogId, limit, offset);
+  }
+
+  async drainQueuedSyncs(): Promise<void> {
+    if (this.isDrainingQueue || !this.discordService.getClient().isReady()) {
+      return;
+    }
+
+    this.isDrainingQueue = true;
+    try {
+      let claimed = await this.claimNextSyncLog();
+      while (claimed) {
+        await this.runFullSync(
+          claimed.serverId,
+          claimed.id,
+          claimed.target as SyncTarget,
+        );
+        claimed = await this.claimNextSyncLog();
+      }
+    } finally {
+      this.isDrainingQueue = false;
+    }
+  }
+
+  private requestQueueDrain(): void {
+    this.drainQueuedSyncs().catch((err: unknown) => {
+      this.logger.error(
+        'Failed to drain sync queue',
+        err instanceof Error ? err.stack : String(err),
+      );
+    });
+  }
+
+  private async claimNextSyncLog() {
+    const staleBefore = new Date(Date.now() - SYNC_QUEUE_LEASE_TIMEOUT_MS);
+    return this.syncRepository.claimNextRunnableLog(staleBefore);
+  }
+
+  private startHeartbeat(syncId: number): NodeJS.Timeout {
+    const timer = setInterval(() => {
+      this.syncRepository.touchHeartbeat(syncId, new Date()).catch((err) => {
+        this.logger.warn(
+          `Failed to update sync heartbeat for ${syncId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+    }, SYNC_QUEUE_HEARTBEAT_INTERVAL_MS);
+    timer.unref?.();
+    return timer;
   }
 }
