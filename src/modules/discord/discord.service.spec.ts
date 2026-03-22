@@ -19,18 +19,23 @@ function makeGuild(overrides: Record<string, unknown> = {}) {
 
 function buildMockClient() {
   return {
+    destroy: jest.fn().mockResolvedValue(undefined),
     users: { fetch: jest.fn() },
     guilds: { fetch: jest.fn() },
     channels: { fetch: jest.fn() },
+    isReady: jest.fn().mockReturnValue(true),
+    login: jest.fn().mockResolvedValue('token'),
+    once: jest.fn(),
   };
 }
 
 const mockConfigService = {
   get: jest.fn((key: string) => {
-    const map: Record<string, string> = {
+    const map: Record<string, string | number> = {
       'discord.clientId': 'test-client-id',
       'discord.clientSecret': 'test-client-secret',
       'discord.token': 'test-bot-token',
+      'discord.loginRetryDelayMs': 25,
     };
     return map[key];
   }),
@@ -64,9 +69,89 @@ describe('DiscordService', () => {
     expect(service.getClient()).toBe(mockClient);
   });
 
+  describe('bot lifecycle', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('reports readiness from the client', () => {
+      mockClient.isReady.mockReturnValue(true);
+      expect(service.isBotReady()).toBe(true);
+    });
+
+    it('starts bot connection in the background', () => {
+      mockClient.isReady.mockReturnValue(false);
+
+      service.startBotConnection();
+
+      expect(mockClient.login).toHaveBeenCalledWith('test-bot-token');
+    });
+
+    it('does not login when the bot is already ready', () => {
+      mockClient.isReady.mockReturnValue(true);
+
+      service.startBotConnection();
+
+      expect(mockClient.login).not.toHaveBeenCalled();
+    });
+
+    it('retries login after a startup failure', async () => {
+      mockClient.isReady.mockReturnValue(false);
+      mockClient.login
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValueOnce('token');
+
+      service.startBotConnection();
+      await jest.advanceTimersByTimeAsync(25);
+
+      expect(mockClient.login).toHaveBeenCalledTimes(2);
+    });
+
+    it('calls ready handlers immediately when already connected', () => {
+      mockClient.isReady.mockReturnValue(true);
+      const callback = jest.fn();
+
+      service.onBotReady(callback);
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(mockClient.once).not.toHaveBeenCalled();
+    });
+
+    it('subscribes ready handlers when the bot is not connected yet', () => {
+      mockClient.isReady.mockReturnValue(false);
+      const callback = jest.fn();
+
+      service.onBotReady(callback);
+
+      expect(mockClient.once).toHaveBeenCalledWith('ready', callback);
+    });
+
+    it('clears retry state and destroys the client on shutdown', async () => {
+      mockClient.isReady.mockReturnValue(false);
+      mockClient.login.mockRejectedValueOnce(new Error('network down'));
+
+      service.startBotConnection();
+      await Promise.resolve();
+      await service.destroyBotConnection();
+      jest.runOnlyPendingTimers();
+
+      expect(mockClient.destroy).toHaveBeenCalledTimes(1);
+      expect(mockClient.login).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // ── getUserById ────────────────────────────────────────────────────────
 
   describe('getUserById', () => {
+    it('returns null when the bot is not ready', async () => {
+      mockClient.isReady.mockReturnValue(false);
+      expect(await service.getUserById('u-1')).toBeNull();
+    });
+
     it('returns the user on success', async () => {
       const fakeUser = { id: 'u-1' };
       mockClient.users.fetch.mockResolvedValue(fakeUser);
@@ -82,6 +167,11 @@ describe('DiscordService', () => {
   // ── getGuildById ──────────────────────────────────────────────────────
 
   describe('getGuildById', () => {
+    it('returns null when the bot is not ready', async () => {
+      mockClient.isReady.mockReturnValue(false);
+      expect(await service.getGuildById('g-1')).toBeNull();
+    });
+
     it('returns the guild on success', async () => {
       const guild = makeGuild();
       mockClient.guilds.fetch.mockResolvedValue(guild);
@@ -141,6 +231,11 @@ describe('DiscordService', () => {
   // ── getChannelById ────────────────────────────────────────────────────
 
   describe('getChannelById', () => {
+    it('returns null when the bot is not ready', async () => {
+      mockClient.isReady.mockReturnValue(false);
+      expect(await service.getChannelById('ch-1')).toBeNull();
+    });
+
     it('returns the channel on success', async () => {
       const chan = {
         id: 'ch-1',
