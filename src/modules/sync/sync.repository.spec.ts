@@ -45,6 +45,7 @@ function buildDb(finalValue: unknown = []) {
     update: jest.fn().mockImplementation(makeChain),
     delete: jest.fn().mockImplementation(makeChain),
   };
+  db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
   return db;
 }
 
@@ -60,9 +61,11 @@ const fakeLog = (overrides = {}) => ({
   serverId: 'guild-1',
   syncType: 'manual',
   status: 'in_progress',
+  target: 'all',
   membersSynced: 0,
   rolesSynced: 0,
   startedAt: new Date(),
+  heartbeatAt: null,
   finishedAt: null,
   message: null,
   ...overrides,
@@ -139,6 +142,91 @@ describe('SyncRepository', () => {
       const repo = await buildRepo(db);
       const result = await repo.getInProgressLog('guild-1');
       expect(result).toBeNull();
+    });
+  });
+
+  // ── getActiveLog ─────────────────────────────────────────────────────────
+
+  describe('getActiveLog', () => {
+    it('returns a queued log when one exists', async () => {
+      const log = fakeLog({ status: 'queued' });
+      const db = buildDb([log]);
+      const repo = await buildRepo(db);
+      const result = await repo.getActiveLog('guild-1');
+      expect(result).toEqual(log);
+    });
+
+    it('returns null when no queued or in-progress log exists', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getActiveLog('guild-1');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── claimNextRunnableLog ────────────────────────────────────────────────
+
+  describe('claimNextRunnableLog', () => {
+    it('claims the next queued log and stamps heartbeat data', async () => {
+      const queued = fakeLog({ id: 11, status: 'queued' });
+      const claimedAt = new Date('2026-03-22T10:00:00.000Z');
+      const claimed = fakeLog({
+        id: 11,
+        status: 'in_progress',
+        startedAt: claimedAt,
+        heartbeatAt: claimedAt,
+      });
+      const db = buildDb([queued]);
+      db.update = jest.fn().mockImplementation(() => {
+        const chain: any = {};
+        chain.set = jest.fn().mockReturnValue(chain);
+        chain.where = jest.fn().mockReturnValue(chain);
+        chain.returning = jest.fn().mockResolvedValue([claimed]);
+        return chain;
+      });
+      db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
+
+      const repo = await buildRepo(db);
+      const result = await repo.claimNextRunnableLog(
+        new Date('2026-03-22T09:55:00.000Z'),
+        claimedAt,
+      );
+
+      expect(result).toEqual(claimed);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it('returns null when another worker already claimed the selected log', async () => {
+      const queued = fakeLog({ id: 12, status: 'queued' });
+      const db = buildDb([queued]);
+      db.update = jest.fn().mockImplementation(() => {
+        const chain: any = {};
+        chain.set = jest.fn().mockReturnValue(chain);
+        chain.where = jest.fn().mockReturnValue(chain);
+        chain.returning = jest.fn().mockResolvedValue([]);
+        return chain;
+      });
+      db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
+
+      const repo = await buildRepo(db);
+      const result = await repo.claimNextRunnableLog(new Date());
+
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── touchHeartbeat ──────────────────────────────────────────────────────
+
+  describe('touchHeartbeat', () => {
+    it('updates heartbeatAt for an existing log', async () => {
+      const heartbeatAt = new Date('2026-03-22T10:10:00.000Z');
+      const updated = fakeLog({ heartbeatAt });
+      const db = buildDb([updated]);
+      const repo = await buildRepo(db);
+
+      const result = await repo.touchHeartbeat(1, heartbeatAt);
+      expect(result).toEqual(updated);
     });
   });
 
