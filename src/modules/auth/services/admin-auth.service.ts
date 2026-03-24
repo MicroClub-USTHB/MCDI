@@ -9,16 +9,18 @@ import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from '../repositories/session.repository';
 import { MemberRepository } from '../repositories/member.repository';
 import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.repository';
-import { DiscordService } from '../../discord/discord.service';
 import { randomBytes } from 'crypto';
 import { compare, hash } from 'bcryptjs';
 import { buildDiscordOAuthUrl } from '../utils';
+import { DiscordIdentityService } from './discord-identity.service';
+import { SessionIssuanceService } from './session-issuance.service';
+
+const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
 
 @Injectable()
 export class AdminAuthService {
   private readonly logger = new Logger(AdminAuthService.name);
   private readonly discordClientId: string;
-  private readonly discordClientSecret: string;
   private readonly discordAdminRedirectUri: string;
 
   constructor(
@@ -26,12 +28,10 @@ export class AdminAuthService {
     private readonly memberRepository: MemberRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly configService: ConfigService,
-    private readonly discordService: DiscordService,
+    private readonly discordIdentityService: DiscordIdentityService,
+    private readonly sessionIssuanceService: SessionIssuanceService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
-    this.discordClientSecret = this.configService.get<string>(
-      'discord.clientSecret',
-    )!;
     this.discordAdminRedirectUri = this.configService.get<string>(
       'discord.adminRedirectUri',
     )!;
@@ -66,15 +66,12 @@ export class AdminAuthService {
       );
     }
 
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 1);
-
-    await this.sessionRepository.create({
-      memberId: member.id,
-      token,
-      expiresAt,
-    });
+    const { token, expiresAt } = await this.sessionIssuanceService.issueSession(
+      {
+        memberId: member.id,
+        ttlSeconds: ADMIN_SESSION_TTL_SEC,
+      },
+    );
 
     return {
       token,
@@ -138,57 +135,27 @@ export class AdminAuthService {
       );
     }
 
-    // 2. Exchange code for access token
-    const tokenRes = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: this.discordClientId,
-        client_secret: this.discordClientSecret,
-        grant_type: 'authorization_code',
-        code: discordCode,
-        redirect_uri: this.discordAdminRedirectUri,
-      }),
-    });
+    const accessToken =
+      await this.discordIdentityService.exchangeCodeForAccessToken(
+        discordCode,
+        this.discordAdminRedirectUri,
+      );
 
-    if (!tokenRes.ok) {
-      const errBody = await tokenRes.text().catch(() => '');
-      this.logger.error(`Admin Discord token exchange failed: ${errBody}`);
+    if (!accessToken) {
+      this.logger.error('Admin Discord token exchange failed');
       throw new UnauthorizedException('Failed to authenticate with Discord');
     }
 
-    const { access_token: accessToken } = (await tokenRes.json()) as {
-      access_token: string;
-    };
+    const identity =
+      await this.discordIdentityService.resolveIdentityFromAccessToken(
+        accessToken,
+      );
 
-    // 3. Fetch Discord profile
-    const profileRes = await fetch('https://discord.com/api/users/@me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (!profileRes.ok) {
+    if (!identity) {
       throw new UnauthorizedException('Failed to fetch Discord profile');
     }
 
-    const profile = (await profileRes.json()) as {
-      id: string;
-      username: string;
-      global_name?: string | null;
-      display_name?: string | null;
-      avatar?: string | null;
-      email?: string | null;
-    };
-
-    // 4. Upsert member
-    const member = await this.memberRepository.upsert({
-      id: profile.id,
-      username: profile.username,
-      globalName: profile.global_name || undefined,
-      displayName: profile.display_name || profile.global_name || undefined,
-      avatar: profile.avatar || undefined,
-      email: profile.email || undefined,
-      syncedAt: new Date(),
-    });
+    const { member } = identity;
 
     // 5. Check isSystemAdmin
     if (!member.isSystemAdmin) {
@@ -197,16 +164,12 @@ export class AdminAuthService {
       );
     }
 
-    // 6. Issue 24-hour session
-    const token = randomBytes(48).toString('hex');
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 1);
-
-    await this.sessionRepository.create({
-      memberId: member.id,
-      token,
-      expiresAt,
-    });
+    const { token, expiresAt } = await this.sessionIssuanceService.issueSession(
+      {
+        memberId: member.id,
+        ttlSeconds: ADMIN_SESSION_TTL_SEC,
+      },
+    );
 
     return {
       token,

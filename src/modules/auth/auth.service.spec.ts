@@ -11,6 +11,8 @@ import { CallbackCodeRepository } from './repositories/callback-code.repository'
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { DRIZZLE } from '../../database/database.module';
+import { DiscordIdentityService } from './services/discord-identity.service';
+import { SessionIssuanceService } from './services/session-issuance.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -71,10 +73,17 @@ const mockCallbackCodeRepo = {
 };
 
 const mockDiscordService = {
-  exchangeOAuthCode: jest.fn(),
-  fetchOAuthProfile: jest.fn(),
   fetchOAuthGuildMember: jest.fn(),
   fetchGuildRolesForMember: jest.fn(),
+};
+
+const mockDiscordIdentityService = {
+  exchangeCodeForAccessToken: jest.fn(),
+  resolveIdentityFromAccessToken: jest.fn(),
+};
+
+const mockSessionIssuanceService = {
+  issueSession: jest.fn(),
 };
 const mockConfig = {
   get: jest.fn((key: string) => {
@@ -124,6 +133,14 @@ describe('AuthService', () => {
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
+        {
+          provide: DiscordIdentityService,
+          useValue: mockDiscordIdentityService,
+        },
+        {
+          provide: SessionIssuanceService,
+          useValue: mockSessionIssuanceService,
+        },
         { provide: DRIZZLE, useValue: mockDb },
       ],
     }).compile();
@@ -300,25 +317,6 @@ describe('AuthService', () => {
   // ── handleDiscordCallback ───────────────────────────────────────────────
 
   describe('handleDiscordCallback', () => {
-    let fetchMock: jest.SpyInstance;
-
-    beforeEach(() => {
-      fetchMock = jest.spyOn(global as any, 'fetch');
-    });
-
-    afterEach(() => {
-      fetchMock.mockRestore();
-    });
-
-    function mockFetchResponse(data: unknown, ok = true, status = 200) {
-      return Promise.resolve({
-        ok,
-        status,
-        json: () => Promise.resolve(data),
-        text: () => Promise.resolve(String(data)),
-      });
-    }
-
     it('redirects error to client when state is expired but row exists', async () => {
       mockOAuthStateRepo.consumeValid.mockResolvedValue(null);
       mockOAuthStateRepo.findByState.mockResolvedValue({
@@ -361,9 +359,8 @@ describe('AuthService', () => {
         clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
-
-      fetchMock.mockResolvedValueOnce(
-        mockFetchResponse({ error: 'invalid_code' }, false, 400),
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        null,
       );
 
       const result = await service.handleDiscordCallback(
@@ -385,8 +382,12 @@ describe('AuthService', () => {
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
 
-      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue(null);
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc-tok',
+      );
+      mockDiscordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        null,
+      );
 
       const result = await service.handleDiscordCallback('code', 'state');
       expect(result).toMatchObject({
@@ -403,16 +404,16 @@ describe('AuthService', () => {
         clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
-      mockMemberRepo.upsert.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-      });
-
-      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-      });
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc-tok',
+      );
+      mockDiscordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        {
+          accessToken: 'acc-tok',
+          profile: { id: 'user-1', username: 'alice' },
+          member: { id: 'user-1', username: 'alice' },
+        },
+      );
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: false,
         status: 404,
@@ -434,19 +435,26 @@ describe('AuthService', () => {
         clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
-      mockMemberRepo.upsert.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-      });
       mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectsRepo.findAllowedRoleIds.mockResolvedValue(['role-required']);
 
-      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-        email: null,
-      });
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc-tok',
+      );
+      mockDiscordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        {
+          accessToken: 'acc-tok',
+          profile: {
+            id: 'user-1',
+            username: 'alice',
+            email: null,
+          },
+          member: {
+            id: 'user-1',
+            username: 'alice',
+          },
+        },
+      );
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: true,
         status: 200,
@@ -469,28 +477,35 @@ describe('AuthService', () => {
         clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
-      mockMemberRepo.upsert.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-        globalName: null,
-        displayName: null,
-        avatar: null,
-        email: null,
-      });
       mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(true);
       mockCallbackCodeRepo.create.mockResolvedValue(undefined);
 
-      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-        global_name: null,
-        display_name: null,
-        avatar: null,
-        email: null,
-      });
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc-tok',
+      );
+      mockDiscordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        {
+          accessToken: 'acc-tok',
+          profile: {
+            id: 'user-1',
+            username: 'alice',
+            global_name: null,
+            display_name: null,
+            avatar: null,
+            email: null,
+          },
+          member: {
+            id: 'user-1',
+            username: 'alice',
+            globalName: null,
+            displayName: null,
+            avatar: null,
+            email: null,
+          },
+        },
+      );
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: true,
         status: 200,
@@ -512,19 +527,20 @@ describe('AuthService', () => {
         clientState: 'csrf-abc',
       };
       mockOAuthStateRepo.consumeValid.mockResolvedValue(stateData);
-      mockMemberRepo.upsert.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-      });
       mockMemberRepo.syncMemberServerData.mockResolvedValue(undefined);
       mockProjectsRepo.findAllowedRoleIds.mockResolvedValue([]);
       mockProjectsRepo.isRedirectUriAllowed.mockResolvedValue(false);
 
-      mockDiscordService.exchangeOAuthCode.mockResolvedValue('acc-tok');
-      mockDiscordService.fetchOAuthProfile.mockResolvedValue({
-        id: 'user-1',
-        username: 'alice',
-      });
+      mockDiscordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc-tok',
+      );
+      mockDiscordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        {
+          accessToken: 'acc-tok',
+          profile: { id: 'user-1', username: 'alice' },
+          member: { id: 'user-1', username: 'alice' },
+        },
+      );
       mockDiscordService.fetchOAuthGuildMember.mockResolvedValue({
         ok: true,
         status: 200,
@@ -626,9 +642,10 @@ describe('AuthService', () => {
       const rolesData = [{ roleId: 'r1', roleName: 'Admin' }];
 
       mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
-      mockSessionRepo.create.mockResolvedValue({
-        token: 'new-session-tok',
+      mockSessionIssuanceService.issueSession.mockResolvedValue({
+        token: 'new-issued-token',
         expiresAt: new Date(),
+        session: { id: 'sess-1' },
       });
       mockMemberRepo.findById.mockResolvedValue(memberData);
       mockMemberRepo.getMemberRolesInServer.mockResolvedValue(rolesData);
@@ -650,12 +667,13 @@ describe('AuthService', () => {
         expect.anything(),
       );
 
-      expect(mockSessionRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(mockSessionIssuanceService.issueSession).toHaveBeenCalledWith(
+        {
           memberId: 'u1',
+          ttlSeconds: 2592000,
           projectId: 'p1',
           serverId: 's1',
-        }),
+        },
         expect.anything(),
       );
     });

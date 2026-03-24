@@ -9,21 +9,21 @@ import { AdminAuthService } from './admin-auth.service';
 import { SessionRepository } from '../repositories/session.repository';
 import { MemberRepository } from '../repositories/member.repository';
 import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.repository';
-import { DiscordService } from '../../discord/discord.service';
 import { hash } from 'bcryptjs';
+import { DiscordIdentityService } from './discord-identity.service';
+import { SessionIssuanceService } from './session-issuance.service';
 
 describe('AdminAuthService', () => {
   let service: AdminAuthService;
   let sessionRepository: jest.Mocked<SessionRepository>;
   let memberRepository: jest.Mocked<MemberRepository>;
   let adminOAuthStateRepository: jest.Mocked<AdminOAuthStateRepository>;
-  let _configService: jest.Mocked<ConfigService>;
-  let _discordService: jest.Mocked<DiscordService>;
+  let discordIdentityService: jest.Mocked<DiscordIdentityService>;
+  let sessionIssuanceService: jest.Mocked<SessionIssuanceService>;
 
   beforeEach(async () => {
     const mockSessionRepo = {
       findValidByToken: jest.fn(),
-      create: jest.fn(),
     };
     const mockMemberRepo = {
       findById: jest.fn(),
@@ -45,9 +45,12 @@ describe('AdminAuthService', () => {
         return null;
       }),
     };
-    const mockDiscord = {
-      exchangeCodeForTokens: jest.fn(),
-      getUserProfile: jest.fn(),
+    const mockDiscordIdentity = {
+      exchangeCodeForAccessToken: jest.fn(),
+      resolveIdentityFromAccessToken: jest.fn(),
+    };
+    const mockSessionIssuance = {
+      issueSession: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -57,7 +60,8 @@ describe('AdminAuthService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthRepo },
         { provide: ConfigService, useValue: mockConfig },
-        { provide: DiscordService, useValue: mockDiscord },
+        { provide: DiscordIdentityService, useValue: mockDiscordIdentity },
+        { provide: SessionIssuanceService, useValue: mockSessionIssuance },
       ],
     }).compile();
 
@@ -65,8 +69,8 @@ describe('AdminAuthService', () => {
     sessionRepository = module.get(SessionRepository);
     memberRepository = module.get(MemberRepository);
     adminOAuthStateRepository = module.get(AdminOAuthStateRepository);
-    _configService = module.get(ConfigService);
-    _discordService = module.get(DiscordService);
+    discordIdentityService = module.get(DiscordIdentityService);
+    sessionIssuanceService = module.get(SessionIssuanceService);
   });
 
   describe('adminPasswordLogin', () => {
@@ -113,11 +117,19 @@ describe('AdminAuthService', () => {
         passwordHash: await hash('realpass', 1),
       };
       memberRepository.findByUsername.mockResolvedValue(mockMember as any);
-      sessionRepository.create.mockResolvedValue({ token: 't' } as any);
+      sessionIssuanceService.issueSession.mockResolvedValue({
+        token: 't',
+        expiresAt: new Date(),
+        session: { id: 'sess-1' },
+      } as any);
 
       const result = await service.adminPasswordLogin('u', 'realpass');
       expect(result.token).toBeDefined();
       expect(result.member.username).toBe('admin');
+      expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
+        memberId: '1',
+        ttlSeconds: 24 * 60 * 60,
+      });
     });
   });
 
@@ -248,16 +260,6 @@ describe('AdminAuthService', () => {
   });
 
   describe('handleAdminDiscordCallback', () => {
-    let globalFetch: jest.SpyInstance;
-
-    beforeEach(() => {
-      globalFetch = jest.spyOn(global, 'fetch').mockImplementation();
-    });
-
-    afterEach(() => {
-      globalFetch.mockRestore();
-    });
-
     it('throws Unauthorized if state is invalid', async () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValue(null);
       await expect(
@@ -269,10 +271,7 @@ describe('AdminAuthService', () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: false,
-        text: () => Promise.resolve('error'),
-      } as any);
+      discordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(null);
 
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),
@@ -283,14 +282,12 @@ describe('AdminAuthService', () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ access_token: 'acc_tok' }),
-      } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-      } as any);
+      discordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc_tok',
+      );
+      discordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue(
+        null,
+      );
 
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),
@@ -301,21 +298,13 @@ describe('AdminAuthService', () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ access_token: 'acc_tok' }),
-      } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            id: 'discord123',
-            username: 'user',
-          }),
-      } as any);
-      memberRepository.upsert.mockResolvedValue({
-        id: 'discord123',
-        isSystemAdmin: false,
+      discordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc_tok',
+      );
+      discordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue({
+        accessToken: 'acc_tok',
+        profile: { id: 'discord123', username: 'user' },
+        member: { id: 'discord123', isSystemAdmin: false },
       } as any);
 
       await expect(
@@ -327,32 +316,37 @@ describe('AdminAuthService', () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValue({
         state: 'valid',
       } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ access_token: 'acc_tok' }),
+      discordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc_tok',
+      );
+      discordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue({
+        accessToken: 'acc_tok',
+        profile: {
+          id: 'discord123',
+          username: 'admin',
+          display_name: 'Admin User',
+        },
+        member: {
+          id: 'discord123',
+          username: 'admin',
+          displayName: 'Admin User',
+          isSystemAdmin: true,
+        },
       } as any);
-      globalFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve({
-            id: 'discord123',
-            username: 'admin',
-            display_name: 'Admin User',
-          }),
+      sessionIssuanceService.issueSession.mockResolvedValue({
+        token: 'issued-token',
+        expiresAt: new Date(),
+        session: { id: 'sess-1' },
       } as any);
-      memberRepository.upsert.mockResolvedValue({
-        id: 'discord123',
-        username: 'admin',
-        displayName: 'Admin User',
-        isSystemAdmin: true,
-      } as any);
-      sessionRepository.create.mockResolvedValue(undefined as any);
 
       const res = await service.handleAdminDiscordCallback('code', 'valid');
-      expect(res.token).toBeDefined();
+      expect(res.token).toBe('issued-token');
       expect(res.member.username).toBe('admin');
       expect(res.member.displayName).toBe('Admin User');
-      expect(sessionRepository.create).toHaveBeenCalled();
+      expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
+        memberId: 'discord123',
+        ttlSeconds: 24 * 60 * 60,
+      });
     });
   });
 });
