@@ -11,7 +11,7 @@ export class SyncLogDto {
   syncType: string;
 
   @ApiProperty({
-    enum: ['success', 'failed', 'in_progress'],
+    enum: ['queued', 'in_progress', 'success', 'failed'],
     example: 'success',
   })
   status: string;

@@ -32,7 +32,7 @@ export class SessionRepository {
     const sessions = await tx
       .select()
       .from(schema.sessions)
-      .where(eq(schema.sessions.token, hashedToken))
+      .where(inArray(schema.sessions.token, tokenCandidates))
       .limit(1);
 
     return sessions[0] || null;
@@ -52,10 +52,12 @@ export class SessionRepository {
       .from(schema.sessions)
       .leftJoin(schema.members, eq(schema.sessions.memberId, schema.members.id))
       .where(
-        and(
-          eq(schema.sessions.token, hashedToken),
-          ...(projectId ? [eq(schema.sessions.projectId, projectId)] : []),
-        ),
+        projectId
+          ? and(
+              inArray(schema.sessions.token, tokenCandidates),
+              eq(schema.sessions.projectId, projectId),
+            )
+          : inArray(schema.sessions.token, tokenCandidates),
       )
       .limit(1);
 
@@ -80,12 +82,13 @@ export class SessionRepository {
   async findValidByToken(token: string, tx: DrizzleDB = this.db) {
     const hashedToken = hashSessionToken(token);
     const now = new Date();
-    const sessions = await tx
+    const tokenCandidates = getSessionTokenCandidates(token);
+    const sessions = await this.db
       .select()
       .from(schema.sessions)
       .where(
         and(
-          eq(schema.sessions.token, hashedToken),
+          inArray(schema.sessions.token, tokenCandidates),
           gt(schema.sessions.expiresAt, now),
         ),
       )
@@ -102,7 +105,7 @@ export class SessionRepository {
         memberId: data.memberId,
         projectId: data.projectId,
         serverId: data.serverId,
-        token: hashedToken,
+        token: hashSessionToken(data.token),
         expiresAt: data.expiresAt,
       })
       .returning();
@@ -123,10 +126,12 @@ export class SessionRepository {
     await tx
       .delete(schema.sessions)
       .where(
-        and(
-          eq(schema.sessions.token, hashedToken),
-          ...(projectId ? [eq(schema.sessions.projectId, projectId)] : []),
-        ),
+        projectId
+          ? and(
+              inArray(schema.sessions.token, tokenCandidates),
+              eq(schema.sessions.projectId, projectId),
+            )
+          : inArray(schema.sessions.token, tokenCandidates),
       );
   }
 
@@ -136,12 +141,8 @@ export class SessionRepository {
       .where(eq(schema.sessions.memberId, memberId));
   }
 
-  async deleteAllForMember(
-    projectId: string,
-    memberId: string,
-    tx: DrizzleDB = this.db,
-  ) {
-    await tx
+  async deleteAllForMember(projectId: string, memberId: string) {
+    await this.db
       .delete(schema.sessions)
       .where(
         and(
@@ -151,9 +152,9 @@ export class SessionRepository {
       );
   }
 
-  async deleteExpired(tx: DrizzleDB = this.db) {
+  async deleteExpired() {
     const now = new Date();
-    await tx
+    await this.db
       .delete(schema.sessions)
       .where(lt(schema.sessions.expiresAt, now));
   }
@@ -167,7 +168,7 @@ export class SessionRepository {
     const sessions = await tx
       .update(schema.sessions)
       .set({ expiresAt })
-      .where(eq(schema.sessions.token, hashedToken))
+      .where(inArray(schema.sessions.token, tokenCandidates))
       .returning();
 
     return sessions[0] || null;

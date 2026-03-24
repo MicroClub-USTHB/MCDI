@@ -1,9 +1,9 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Request } from 'express';
 import * as schema from '../../database/entities';
-import { hashSessionToken } from './session-token.util';
+import { getSessionTokenCandidates } from './session-token.util';
 
 /**
  * Extracts the Bearer token from the Authorization header.
@@ -46,14 +46,13 @@ export async function validateSession(
   db: NodePgDatabase<typeof schema>,
   token: string,
 ): Promise<string> {
-  const tokenHash = hashSessionToken(token);
   const [session] = await db
     .select({
       memberId: schema.sessions.memberId,
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
-    .where(eq(schema.sessions.token, tokenHash))
+    .where(inArray(schema.sessions.token, getSessionTokenCandidates(token)))
     .limit(1);
 
   if (!session) {

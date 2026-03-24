@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 
@@ -15,13 +15,11 @@ export async function isAdminMember(
   db: NodePgDatabase<typeof schema>,
   memberId: string,
 ): Promise<boolean> {
-  // 1. Find the active main server
+  // 1. Find the configured main server
   const [mainServer] = await db
     .select({ id: schema.servers.id })
     .from(schema.servers)
-    .where(
-      and(eq(schema.servers.isMain, true), eq(schema.servers.isActive, true)),
-    )
+    .where(eq(schema.servers.isMain, true))
     .limit(1);
 
   if (!mainServer) {

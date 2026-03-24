@@ -1,4 +1,6 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -31,6 +33,38 @@ export class ProjectsService {
   constructor(private readonly projectsRepository: ProjectsRepository) {}
 
   async create(dto: CreateProjectDto): Promise<CreateProjectResult> {
+    let serverAccessConfig = dto.serverAccess ?? [];
+
+    if (serverAccessConfig.length === 0) {
+      const mainServers = await this.projectsRepository.findMainServers();
+      if (mainServers.length === 0) {
+        throw new ConflictException(
+          'No active main server is configured. Provide explicit serverAccess or configure a main server first',
+        );
+      }
+
+      serverAccessConfig = mainServers.map((s) => ({
+        serverId: s.id,
+        scopes: Object.values(ProjectScope),
+      }));
+    }
+
+    const invalidServerIds: string[] = [];
+    for (const access of serverAccessConfig) {
+      const server = await this.projectsRepository.findServerById(
+        access.serverId,
+      );
+      if (!server) {
+        invalidServerIds.push(access.serverId);
+      }
+    }
+
+    if (invalidServerIds.length > 0) {
+      throw new BadRequestException(
+        `Unknown server IDs in serverAccess: ${Array.from(new Set(invalidServerIds)).join(', ')}`,
+      );
+    }
+
     const { fullKey, prefix, hash } = generateApiKey();
 
     const project = await this.projectsRepository.create({
@@ -43,23 +77,8 @@ export class ProjectsService {
       apiKeyPrefix: prefix,
     });
 
-    let serverAccessConfig = dto.serverAccess ?? [];
-
-    if (serverAccessConfig.length === 0) {
-      const mainServers = await this.projectsRepository.findMainServers();
-      serverAccessConfig = mainServers.map((s) => ({
-        serverId: s.id,
-        scopes: Object.values(ProjectScope),
-      }));
-    }
-
     const now = new Date();
     for (const access of serverAccessConfig) {
-      const server = await this.projectsRepository.findServerById(
-        access.serverId,
-      );
-      if (!server) continue; // skip invalid server IDs silently
-
       const scopes = access.scopes ?? Object.values(ProjectScope);
 
       await this.projectsRepository.upsertAccessMapping(

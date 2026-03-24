@@ -5,6 +5,7 @@ import {
   extractApiKey,
   validateSession,
 } from './auth.util';
+import { hashSessionToken } from './session-token.util';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,42 @@ describe('validateSession', () => {
     const db = buildMockDb([{ memberId: 'user-1', expiresAt: future }]);
     const result = await validateSession(db as any, 'valid-token');
     expect(result).toBe('user-1');
+  });
+
+  it('queries both legacy raw and hashed session tokens', async () => {
+    const future = new Date(Date.now() + 1_000_000);
+    const db = buildMockDb([{ memberId: 'user-1', expiresAt: future }]);
+
+    await validateSession(db as any, 'valid-token');
+
+    const whereArg = db.where.mock.calls[0][0];
+    const values: string[] = [];
+    const visit = (node: unknown, seen: WeakSet<object> = new WeakSet()) => {
+      if (!node || typeof node !== 'object') {
+        return;
+      }
+      if (seen.has(node)) {
+        return;
+      }
+      seen.add(node);
+      if ('value' in node && typeof node.value === 'string') {
+        values.push(node.value);
+      }
+      if (Array.isArray(node)) {
+        node.forEach((item) => visit(item, seen));
+        return;
+      }
+      Object.values(node).forEach((item) => visit(item, seen));
+    };
+
+    visit(whereArg);
+
+    expect(values).toEqual(
+      expect.arrayContaining([
+        'valid-token',
+        hashSessionToken('valid-token'),
+      ]),
+    );
   });
 
   it('throws UnauthorizedException when session is not found', async () => {

@@ -5,6 +5,7 @@ import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
 import { SyncChangeEntry } from '../sync-types';
 import { withRetry } from '../sync-retry.util';
+import { PermissionCacheService } from '../../permissions/permission-cache.service';
 
 @Injectable()
 export class RoleSyncService {
@@ -14,6 +15,7 @@ export class RoleSyncService {
     private readonly serversRepository: ServersRepository,
     private readonly memberRepository: MemberRepository,
     private readonly syncLogService: SyncLogService,
+    private readonly permissionCache: PermissionCacheService,
   ) {}
 
   /**
@@ -71,6 +73,7 @@ export class RoleSyncService {
     }
 
     this.logger.log(`Upserted ${guildRoles.size} roles for server ${guild.id}`);
+    this.permissionCache.invalidateServer(guild.id);
     return { rolesSynced: guildRoles.size };
   }
 
@@ -103,6 +106,7 @@ export class RoleSyncService {
       `handleRoleCreate syncRolePermissions(${role.id})`,
       this.logger,
     );
+    this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',
@@ -139,6 +143,7 @@ export class RoleSyncService {
       `handleRoleUpdate syncRolePermissions(${role.id})`,
       this.logger,
     );
+    this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',
@@ -160,6 +165,7 @@ export class RoleSyncService {
       `handleRoleDelete deleteRole(${role.id})`,
       this.logger,
     );
+    this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',

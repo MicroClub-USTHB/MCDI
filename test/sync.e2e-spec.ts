@@ -6,10 +6,10 @@
  *
  * Auth model: SystemAdminGuard (Bearer token).
  *
- * Note: `POST /admin/sync/full` triggers a background Discord sync.
- *   - The endpoint returns 202 immediately after creating the log entry.
- *   - The background sync will fail in the test environment (no Discord bot token),
- *     but the HTTP layer response is still valid to test.
+ * Note: `POST /admin/sync/full` queues a durable sync job.
+ *   - The endpoint returns 202 immediately after creating the queued log entry.
+ *   - In the test environment, Discord is not ready, so the queued job is not
+ *     drained automatically.
  *   - Status / logs / changes are tested with directly seeded data.
  */
 import { INestApplication } from '@nestjs/common';

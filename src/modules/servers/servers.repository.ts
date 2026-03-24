@@ -129,34 +129,30 @@ export class ServersRepository {
   }
 
   async deleteServerCascade(serverId: string) {
-    const roleRows = await this.db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(eq(roles.serverId, serverId));
+    await this.db.transaction(async (tx) => {
+      const roleRows = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.serverId, serverId));
 
-    const roleIds = roleRows.map((r) => r.id);
+      const roleIds = roleRows.map((r) => r.id);
 
-    if (roleIds.length > 0) {
-      await this.db
-        .delete(rolePermissions)
-        .where(inArray(rolePermissions.roleId, roleIds));
+      if (roleIds.length > 0) {
+        await tx
+          .delete(rolePermissions)
+          .where(inArray(rolePermissions.roleId, roleIds));
 
-      await this.db
-        .delete(serverMemberRoles)
-        .where(inArray(serverMemberRoles.roleId, roleIds));
-    }
+        await tx
+          .delete(serverMemberRoles)
+          .where(inArray(serverMemberRoles.roleId, roleIds));
+      }
 
-    await this.db
-      .delete(projectServers)
-      .where(eq(projectServers.serverId, serverId));
-    await this.db
-      .delete(serverSyncLogs)
-      .where(eq(serverSyncLogs.serverId, serverId));
-    await this.db
-      .delete(serverMembers)
-      .where(eq(serverMembers.serverId, serverId));
-    await this.db.delete(roles).where(eq(roles.serverId, serverId));
-    await this.db.delete(servers).where(eq(servers.id, serverId));
+      await tx.delete(projectServers).where(eq(projectServers.serverId, serverId));
+      await tx.delete(serverSyncLogs).where(eq(serverSyncLogs.serverId, serverId));
+      await tx.delete(serverMembers).where(eq(serverMembers.serverId, serverId));
+      await tx.delete(roles).where(eq(roles.serverId, serverId));
+      await tx.delete(servers).where(eq(servers.id, serverId));
+    });
   }
 
   // role sync
