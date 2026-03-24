@@ -97,6 +97,13 @@ export interface ListAuditFilters {
   action?: string;
 }
 
+export interface ProjectServerAccessState {
+  serverId: string;
+  serverIsActive: boolean;
+  operations: ProjectServerOperations | null;
+  scopes: string[] | null;
+}
+
 @Injectable()
 export class ProjectsRepository {
   constructor(
@@ -389,6 +396,31 @@ export class ProjectsRepository {
         isActive: servers.isActive,
       })
       .from(servers)
+      .where(eq(servers.id, serverId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  async findProjectServerAccessState(
+    projectId: string,
+    serverId: string,
+  ): Promise<ProjectServerAccessState | null> {
+    const [row] = await this.db
+      .select({
+        serverId: servers.id,
+        serverIsActive: servers.isActive,
+        operations: projectServers.operations,
+        scopes: projectServers.scopes,
+      })
+      .from(servers)
+      .leftJoin(
+        projectServers,
+        and(
+          eq(projectServers.serverId, servers.id),
+          eq(projectServers.projectId, projectId),
+        ),
+      )
       .where(eq(servers.id, serverId))
       .limit(1);
 

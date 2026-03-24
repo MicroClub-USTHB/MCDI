@@ -3,7 +3,6 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
-  ForbiddenException,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
@@ -15,11 +14,11 @@ import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { ProjectsService } from '../../modules/projects/projects.service';
+import { ProjectAuthCacheService } from '../../modules/projects/project-auth-cache.service';
 import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
 import type { ProjectServerOperation } from '../../modules/projects/projects.repository';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
-import { validateScope } from '../utils/scope.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
 
 type ProjectRow = typeof schema.projects.$inferSelect;
@@ -36,6 +35,7 @@ export class ApiKeyGuard implements CanActivate {
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
     private readonly projectsService: ProjectsService,
+    private readonly projectAuthCache: ProjectAuthCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -52,17 +52,7 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
-    // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
-    Promise.resolve(
-      this.db
-        .update(schema.projects)
-        .set({ apiKeyLastUsedAt: new Date() })
-        .where(eq(schema.projects.id, project.id)),
-    ).catch((err: unknown) => {
-      this.logger.warn(
-        `Failed to update apiKeyLastUsedAt for project ${project.id}: ${String(err)}`,
-      );
-    });
+    await this.touchApiKeyLastUsed(project.id);
 
     // Check required scope — needs serverId since scopes are per project-server
     const requiredScope = this.reflector.get<string>(
@@ -80,7 +70,6 @@ export class ApiKeyGuard implements CanActivate {
           'Server ID is required when scope validation is needed',
         );
       }
-      await validateScope(this.db, project.id, serverId, requiredScope);
     }
 
     if (!serverId) {
@@ -92,29 +81,18 @@ export class ApiKeyGuard implements CanActivate {
       throw new BadRequestException('Invalid server ID format');
     }
 
-    const [server] = await this.db
-      .select({ id: schema.servers.id })
-      .from(schema.servers)
-      .where(
-        and(eq(schema.servers.id, serverId), eq(schema.servers.isActive, true)),
-      )
-      .limit(1);
-
-    if (!server) {
-      throw new ForbiddenException('Server not found or inactive');
-    }
-
     const requiredOperation =
       this.reflector.getAllAndOverride<ProjectServerOperation>(
         PROJECT_OPERATION_KEY,
         [context.getHandler(), context.getClass()],
       ) ?? 'READ';
 
-    await this.projectsService.assertProjectAccessOperation(
-      project.id,
+    await this.projectsService.assertProjectServerRequestAccess({
+      projectId: project.id,
       serverId,
-      requiredOperation,
-    );
+      operation: requiredOperation,
+      requiredScope: requiredScope ?? undefined,
+    });
 
     request.project = project;
 
@@ -122,6 +100,11 @@ export class ApiKeyGuard implements CanActivate {
   }
 
   private async validateApiKey(apiKey: string): Promise<ProjectRow | null> {
+    const cachedProject = await this.projectAuthCache.get(apiKey);
+    if (cachedProject) {
+      return cachedProject;
+    }
+
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
 
@@ -147,7 +130,32 @@ export class ApiKeyGuard implements CanActivate {
 
     // Constant-time hash comparison — prevents timing attacks
     const isValid = verifyApiKey(secret, project.apiKeyHash);
-    return isValid ? project : null;
+    if (!isValid) {
+      return null;
+    }
+
+    await this.projectAuthCache.set(apiKey, project);
+    return project;
+  }
+
+  private async touchApiKeyLastUsed(projectId: string): Promise<void> {
+    const shouldRefresh =
+      await this.projectAuthCache.shouldRefreshLastUsed(projectId);
+
+    if (!shouldRefresh) {
+      return;
+    }
+
+    Promise.resolve(
+      this.db
+        .update(schema.projects)
+        .set({ apiKeyLastUsedAt: new Date() })
+        .where(eq(schema.projects.id, projectId)),
+    ).catch((err: unknown) => {
+      this.logger.warn(
+        `Failed to update apiKeyLastUsedAt for project ${projectId}: ${String(err)}`,
+      );
+    });
   }
 
   private extractServerId(request: RequestWithProject): string | null {

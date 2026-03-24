@@ -10,6 +10,12 @@ export default registerAs('app', () => ({
   corsOrigins: process.env.CORS_ORIGINS,
   permissionCacheTtlMs:
     Number(process.env.PERMISSION_CACHE_TTL_MS) || 5 * 60 * 1000,
+  projectAuthCacheTtlMs:
+    Number(process.env.PROJECT_AUTH_CACHE_TTL_MS) || 30_000,
+  projectAccessCacheTtlMs:
+    Number(process.env.PROJECT_ACCESS_CACHE_TTL_MS) || 30_000,
+  projectLastUsedWriteTtlMs:
+    Number(process.env.PROJECT_LAST_USED_WRITE_TTL_MS) || 60_000,
   // Auth TTLs (seconds)
   authRequestTtlSec: Number(process.env.AUTH_REQUEST_TTL_SEC) || 600,
   oauthStateTtlSec: Number(process.env.OAUTH_STATE_TTL_SEC) || 600,

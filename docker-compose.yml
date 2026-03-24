@@ -1,21 +1,23 @@
-
 services:
   api:
-    
     build:
-      context: .                  # Look for files in the current directory
-      dockerfile: Dockerfile.dev   # Use our specific development blueprint
+      context: .
+      dockerfile: Dockerfile.dev
     ports:
       - '3000:3000'
-      - '4983:4983'  # Drizzle Studio
+      - '4983:4983'
 
-  
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://myuser:mypassword@database:5432/mcdi
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      - REDIS_KEY_PREFIX=mcdi
 
     depends_on:
       - database
+      - redis
 
     volumes:
       - .:/usr/src/app
@@ -33,5 +35,15 @@ services:
     volumes:
       - my_db_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ['redis-server', '--requirepass', 'redis_password']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
 volumes:
   my_db_data:
+  redis_data:

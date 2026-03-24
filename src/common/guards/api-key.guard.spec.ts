@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { ApiKeyGuard } from './api-key.guard';
 import { DRIZZLE } from '../../database/database.module';
 import { ProjectsService } from '../../modules/projects/projects.service';
+import { ProjectAuthCacheService } from '../../modules/projects/project-auth-cache.service';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -47,9 +48,9 @@ describe('ApiKeyGuard', () => {
   let mockDb: any;
   let mockReflector: jest.Mocked<Reflector>;
   let mockAccessService: jest.Mocked<ProjectsService>;
+  let mockProjectAuthCache: jest.Mocked<ProjectAuthCacheService>;
 
   const setupGuard = async (projectRows: any[]) => {
-    // DB returns: [projects query, update set chain, servers query]
     let dbSelectCallIdx = 0;
     const selectResults = [projectRows];
     mockDb = {
@@ -71,7 +72,19 @@ describe('ApiKeyGuard', () => {
     } as any;
 
     mockAccessService = {
-      assertProjectAccessOperation: jest.fn().mockResolvedValue(undefined),
+      assertProjectServerRequestAccess: jest.fn().mockResolvedValue(undefined),
+    } as any;
+
+    const cacheStore = new Map<string, any>();
+    mockProjectAuthCache = {
+      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn(async (apiKey: string, project: any) => {
+        cacheStore.set(apiKey, project);
+      }),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+      clear: jest.fn().mockResolvedValue(undefined),
+      size: jest.fn().mockResolvedValue(cacheStore.size),
     } as any;
 
     const module = await Test.createTestingModule({
@@ -80,6 +93,7 @@ describe('ApiKeyGuard', () => {
         { provide: DRIZZLE, useValue: mockDb },
         { provide: Reflector, useValue: mockReflector },
         { provide: ProjectsService, useValue: mockAccessService },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
       ],
     }).compile();
 
@@ -125,9 +139,8 @@ describe('ApiKeyGuard', () => {
       apiKeyPrefix: prefix,
       apiKeyHash: hash,
     };
-    // First DB select returns project, second server lookup hits bad format check first
     let idx = 0;
-    const results = [[project], []];
+    const results = [[project]];
     const db = {
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
@@ -142,7 +155,18 @@ describe('ApiKeyGuard', () => {
       get: jest.fn().mockReturnValue(null),
       getAllAndOverride: jest.fn().mockReturnValue('READ'),
     };
-    const accessSvc: any = { assertProjectAccessOperation: jest.fn() };
+    const accessSvc: any = {
+      assertProjectServerRequestAccess: jest.fn(),
+    };
+    const cacheStore = new Map<string, any>();
+    const authCache: any = {
+      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn(async (apiKey: string, project: any) => {
+        cacheStore.set(apiKey, project);
+      }),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -150,6 +174,7 @@ describe('ApiKeyGuard', () => {
         { provide: DRIZZLE, useValue: db },
         { provide: Reflector, useValue: reflector },
         { provide: ProjectsService, useValue: accessSvc },
+        { provide: ProjectAuthCacheService, useValue: authCache },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);
@@ -190,7 +215,20 @@ describe('ApiKeyGuard', () => {
       get: jest.fn().mockReturnValue(null),
       getAllAndOverride: jest.fn(),
     } as any;
-    mockAccessService = { assertProjectAccessOperation: jest.fn() } as any;
+    mockAccessService = {
+      assertProjectServerRequestAccess: jest.fn(),
+    } as any;
+    const cacheStore = new Map<string, any>();
+    mockProjectAuthCache = {
+      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn(async (apiKey: string, project: any) => {
+        cacheStore.set(apiKey, project);
+      }),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+      clear: jest.fn().mockResolvedValue(undefined),
+      size: jest.fn().mockResolvedValue(cacheStore.size),
+    } as any;
 
     const module = await Test.createTestingModule({
       providers: [
@@ -198,6 +236,7 @@ describe('ApiKeyGuard', () => {
         { provide: DRIZZLE, useValue: mockDb },
         { provide: Reflector, useValue: mockReflector },
         { provide: ProjectsService, useValue: mockAccessService },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);
@@ -209,6 +248,202 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(ctx);
     expect(result).toBe(true);
     expect(req['project']).toMatchObject({ id: 'project-1' });
+  });
+
+  it('updates apiKeyLastUsedAt when Redis gating allows a refresh', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    let idx = 0;
+    const results = [[project]];
+    mockDb = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(results[idx++] ?? [])),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    mockReflector = {
+      get: jest.fn().mockReturnValue(null),
+      getAllAndOverride: jest.fn(),
+    } as any;
+    mockAccessService = {
+      assertProjectServerRequestAccess: jest.fn(),
+    } as any;
+    mockProjectAuthCache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(true),
+      invalidateProject: jest.fn(),
+      clear: jest.fn().mockResolvedValue(undefined),
+      size: jest.fn().mockResolvedValue(0),
+    } as any;
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: mockDb },
+        { provide: Reflector, useValue: mockReflector },
+        { provide: ProjectsService, useValue: mockAccessService },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    await guard.canActivate(
+      makeContext(
+        makeRequest({
+          headers: { authorization: `Bearer ${fullKey}` },
+        }),
+      ),
+    );
+
+    expect(mockProjectAuthCache.shouldRefreshLastUsed).toHaveBeenCalledWith(
+      'project-1',
+    );
+    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    expect(mockDb.set).toHaveBeenCalledWith({
+      apiKeyLastUsedAt: expect.any(Date),
+    });
+  });
+
+  it('reuses the cached project on subsequent requests with the same API key', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    let idx = 0;
+    const results = [[project]];
+    mockDb = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(results[idx++] ?? [])),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    mockReflector = {
+      get: jest.fn().mockReturnValue(null),
+      getAllAndOverride: jest.fn(),
+    } as any;
+    mockAccessService = {
+      assertProjectServerRequestAccess: jest.fn(),
+    } as any;
+
+    const cacheStore = new Map<string, any>();
+    mockProjectAuthCache = {
+      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn(async (apiKey: string, cachedProject: any) => {
+        cacheStore.set(apiKey, cachedProject);
+      }),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+      clear: jest.fn().mockResolvedValue(undefined),
+      size: jest.fn().mockResolvedValue(cacheStore.size),
+    } as any;
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: mockDb },
+        { provide: Reflector, useValue: mockReflector },
+        { provide: ProjectsService, useValue: mockAccessService },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    const firstRequest = makeRequest({
+      headers: { authorization: `Bearer ${fullKey}` },
+    });
+    const secondRequest = makeRequest({
+      headers: { authorization: `Bearer ${fullKey}` },
+    });
+
+    await guard.canActivate(makeContext(firstRequest));
+    await guard.canActivate(makeContext(secondRequest));
+
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
+    expect(mockProjectAuthCache.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards requiredScope to the cached project-server access assertion', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+
+    let idx = 0;
+    const results = [[project]];
+    mockDb = {
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      limit: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(results[idx++] ?? [])),
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+    };
+    mockReflector = {
+      get: jest.fn().mockReturnValue('read_members'),
+      getAllAndOverride: jest.fn().mockReturnValue('READ'),
+    } as any;
+    mockAccessService = {
+      assertProjectServerRequestAccess: jest.fn().mockResolvedValue(undefined),
+    } as any;
+    mockProjectAuthCache = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+      clear: jest.fn().mockResolvedValue(undefined),
+      size: jest.fn().mockResolvedValue(0),
+    } as any;
+
+    const module = await Test.createTestingModule({
+      providers: [
+        ApiKeyGuard,
+        { provide: DRIZZLE, useValue: mockDb },
+        { provide: Reflector, useValue: mockReflector },
+        { provide: ProjectsService, useValue: mockAccessService },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
+      ],
+    }).compile();
+    guard = module.get(ApiKeyGuard);
+
+    await guard.canActivate(
+      makeContext({
+        headers: { authorization: `Bearer ${fullKey}` },
+        params: { serverId: '123456789012345678' },
+      }),
+    );
+
+    expect(
+      mockAccessService.assertProjectServerRequestAccess,
+    ).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      serverId: '123456789012345678',
+      operation: 'READ',
+      requiredScope: 'read_members',
+    });
   });
 
   // ── Server not found / inactive ──
@@ -223,7 +458,7 @@ describe('ApiKeyGuard', () => {
     };
 
     let idx = 0;
-    const results = [[project], []]; // second call returns empty (server not found)
+    const results = [[project]];
     const db = {
       select: jest.fn().mockReturnThis(),
       from: jest.fn().mockReturnThis(),
@@ -238,7 +473,22 @@ describe('ApiKeyGuard', () => {
       get: jest.fn().mockReturnValue(null),
       getAllAndOverride: jest.fn().mockReturnValue('READ'),
     };
-    const accessSvc: any = { assertProjectAccessOperation: jest.fn() };
+    const accessSvc: any = {
+      assertProjectServerRequestAccess: jest
+        .fn()
+        .mockRejectedValue(
+          new ForbiddenException('Server not found or inactive'),
+        ),
+    };
+    const cacheStore = new Map<string, any>();
+    const authCache: any = {
+      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn(async (apiKey: string, project: any) => {
+        cacheStore.set(apiKey, project);
+      }),
+      shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
+      invalidateProject: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -246,6 +496,7 @@ describe('ApiKeyGuard', () => {
         { provide: DRIZZLE, useValue: db },
         { provide: Reflector, useValue: reflector },
         { provide: ProjectsService, useValue: accessSvc },
+        { provide: ProjectAuthCacheService, useValue: authCache },
       ],
     }).compile();
     guard = module.get(ApiKeyGuard);

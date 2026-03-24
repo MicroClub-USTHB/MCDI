@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectsRepository } from './projects.repository';
+import { ProjectAuthCacheService } from './project-auth-cache.service';
+import { ProjectAccessCacheService } from './project-access-cache.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -30,6 +32,7 @@ const mockRepo = {
   insertAuditEntry: jest.fn(),
   isOperationAllowed: jest.fn(),
   isScopeAllowed: jest.fn(),
+  findProjectServerAccessState: jest.fn(),
   listServersByProject: jest.fn(),
   listProjectsByServer: jest.fn(),
   listAccessMatrix: jest.fn(),
@@ -55,12 +58,33 @@ const fakeProject = (overrides = {}) => ({
 
 describe('ProjectsService', () => {
   let service: ProjectsService;
+  const mockProjectAuthCache = {
+    invalidateProject: jest.fn(),
+  };
+  const mockProjectAccessCache = {
+    get: jest.fn(),
+    set: jest.fn(),
+    invalidateProject: jest.fn(),
+    invalidateServer: jest.fn(),
+  };
 
   beforeEach(async () => {
+    mockProjectAuthCache.invalidateProject.mockResolvedValue(undefined);
+    mockProjectAccessCache.get.mockResolvedValue(null);
+    mockProjectAccessCache.set.mockResolvedValue(undefined);
+    mockProjectAccessCache.invalidateProject.mockResolvedValue(undefined);
+    mockProjectAccessCache.invalidateServer.mockResolvedValue(undefined);
+    mockRepo.findProjectServerAccessState.mockResolvedValue(null);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProjectsService,
         { provide: ProjectsRepository, useValue: mockRepo },
+        { provide: ProjectAuthCacheService, useValue: mockProjectAuthCache },
+        {
+          provide: ProjectAccessCacheService,
+          useValue: mockProjectAccessCache,
+        },
       ],
     }).compile();
     service = module.get(ProjectsService);
@@ -118,10 +142,7 @@ describe('ProjectsService', () => {
       await expect(
         service.create({
           name: 'Test',
-          serverAccess: [
-            { serverId: 'guild-1' },
-            { serverId: 'guild-2' },
-          ],
+          serverAccess: [{ serverId: 'guild-1' }, { serverId: 'guild-2' }],
         }),
       ).rejects.toThrow(BadRequestException);
       expect(mockRepo.create).not.toHaveBeenCalled();
@@ -181,6 +202,12 @@ describe('ProjectsService', () => {
 
       await service.revokeKey('proj-1');
       expect(mockRepo.setActive).toHaveBeenCalledWith('proj-1', false);
+      expect(mockProjectAuthCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
     });
   });
 
@@ -191,6 +218,12 @@ describe('ProjectsService', () => {
 
       await service.restoreKey('proj-1');
       expect(mockRepo.setActive).toHaveBeenCalledWith('proj-1', true);
+      expect(mockProjectAuthCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
     });
   });
 
@@ -198,8 +231,14 @@ describe('ProjectsService', () => {
 
   describe('delete', () => {
     it('resolves when project is deleted', async () => {
-      mockRepo.delete.mockResolvedValue(fakeProject());
+      mockRepo.delete.mockResolvedValue(true);
       await expect(service.delete('proj-1')).resolves.toBeUndefined();
+      expect(mockProjectAuthCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
     });
 
     it('throws NotFoundException when project does not exist', async () => {
@@ -242,6 +281,12 @@ describe('ProjectsService', () => {
       const result = await service.update('proj-1', { name: 'Renamed' });
 
       expect(result).toEqual(updated);
+      expect(mockProjectAuthCache.invalidateProject).toHaveBeenCalledWith(
+        updated.id,
+      );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        updated.id,
+      );
     });
   });
 
@@ -260,6 +305,12 @@ describe('ProjectsService', () => {
         'proj-1',
         expect.any(String),
         expect.any(String),
+      );
+      expect(mockProjectAuthCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
       );
     });
 
@@ -339,6 +390,12 @@ describe('ProjectsService', () => {
       const result = await service.grantAccess(baseParams);
 
       expect(result).toEqual(savedMapping);
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockRepo.insertAuditEntry).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'GRANT' }),
       );
@@ -432,6 +489,12 @@ describe('ProjectsService', () => {
         'proj-1',
         'guild-1',
       );
+      expect(mockProjectAccessCache.invalidateProject).toHaveBeenCalledWith(
+        'proj-1',
+      );
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockRepo.insertAuditEntry).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'REVOKE' }),
       );
@@ -442,7 +505,16 @@ describe('ProjectsService', () => {
 
   describe('canProjectAccessOperation', () => {
     it('returns true when operation is allowed', async () => {
-      mockRepo.isOperationAllowed.mockResolvedValue(true);
+      mockProjectAccessCache.get.mockResolvedValue({
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: [],
+      });
 
       const result = await service.canProjectAccessOperation(
         'proj-1',
@@ -450,10 +522,20 @@ describe('ProjectsService', () => {
         'READ',
       );
       expect(result).toBe(true);
+      expect(mockRepo.findProjectServerAccessState).not.toHaveBeenCalled();
     });
 
     it('returns false when operation is not allowed', async () => {
-      mockRepo.isOperationAllowed.mockResolvedValue(false);
+      mockProjectAccessCache.get.mockResolvedValue({
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: [],
+      });
 
       const result = await service.canProjectAccessOperation(
         'proj-1',
@@ -468,15 +550,66 @@ describe('ProjectsService', () => {
 
   describe('assertProjectAccessOperation', () => {
     it('resolves without error when operation is allowed', async () => {
-      mockRepo.isOperationAllowed.mockResolvedValue(true);
+      mockProjectAccessCache.get.mockResolvedValue({
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      });
 
       await expect(
         service.assertProjectAccessOperation('proj-1', 'guild-1', 'READ'),
       ).resolves.toBeUndefined();
     });
 
+    it('hydrates the access cache after a database lookup', async () => {
+      mockRepo.findProjectServerAccessState.mockResolvedValue({
+        serverId: 'guild-1',
+        serverIsActive: true,
+        operations: {
+          READ: true,
+          SEND_MESSAGES: true,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      });
+
+      await expect(
+        service.assertProjectServerRequestAccess({
+          projectId: 'proj-1',
+          serverId: 'guild-1',
+          operation: 'READ',
+          requiredScope: 'read_members',
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(mockProjectAccessCache.set).toHaveBeenCalledWith({
+        projectId: 'proj-1',
+        serverId: 'guild-1',
+        operations: {
+          READ: true,
+          SEND_MESSAGES: true,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      });
+    });
+
     it('throws ForbiddenException when operation is not allowed', async () => {
-      mockRepo.isOperationAllowed.mockResolvedValue(false);
+      mockRepo.findProjectServerAccessState.mockResolvedValue({
+        serverId: 'guild-1',
+        serverIsActive: true,
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      });
 
       await expect(
         service.assertProjectAccessOperation(
@@ -484,6 +617,45 @@ describe('ProjectsService', () => {
           'guild-1',
           'SEND_MESSAGES',
         ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when required scope is missing', async () => {
+      mockRepo.findProjectServerAccessState.mockResolvedValue({
+        serverId: 'guild-1',
+        serverIsActive: true,
+        operations: {
+          READ: true,
+          SEND_MESSAGES: true,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      });
+
+      await expect(
+        service.assertProjectServerRequestAccess({
+          projectId: 'proj-1',
+          serverId: 'guild-1',
+          operation: 'READ',
+          requiredScope: 'manage_bots',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when the target server is inactive', async () => {
+      mockRepo.findProjectServerAccessState.mockResolvedValue({
+        serverId: 'guild-1',
+        serverIsActive: false,
+        operations: null,
+        scopes: null,
+      });
+
+      await expect(
+        service.assertProjectServerRequestAccess({
+          projectId: 'proj-1',
+          serverId: 'guild-1',
+          operation: 'READ',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });

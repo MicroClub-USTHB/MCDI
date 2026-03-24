@@ -39,6 +39,11 @@ export class DiscordModule implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly discordService: DiscordService) {}
 
   onModuleInit() {
+    if (process.env.NODE_ENV === 'test') {
+      this.logger.log('Skipping Discord bot connection in test environment');
+      return;
+    }
+
     this.logger.log('DiscordModule initialized');
     this.discordService.onBotReady(() => {
       this.logger.log(

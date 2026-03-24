@@ -228,6 +228,36 @@ describe('ProjectsRepository', () => {
     });
   });
 
+  describe('findProjectServerAccessState', () => {
+    it('returns the joined server access state when found', async () => {
+      const row = {
+        serverId: 'guild-1',
+        serverIsActive: true,
+        operations: {
+          READ: true,
+          SEND_MESSAGES: false,
+          MANAGE_WEBHOOKS: false,
+        },
+        scopes: ['read_members'],
+      };
+      const db = buildDb([row]);
+      const repo = await buildRepo(db);
+
+      await expect(
+        repo.findProjectServerAccessState('proj-1', 'guild-1'),
+      ).resolves.toEqual(row);
+    });
+
+    it('returns null when the server row does not exist', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+
+      await expect(
+        repo.findProjectServerAccessState('proj-1', 'guild-x'),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('regenerateApiKey', () => {
     it('returns updated project', async () => {
       const updated = fakeProjectRow({ apiKeyPrefix: 'new-pfx' });
