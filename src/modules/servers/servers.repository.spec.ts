@@ -35,8 +35,8 @@ function buildDb(finalValue: unknown = []) {
     insert: jest.fn().mockImplementation(makeChain),
     update: jest.fn().mockImplementation(makeChain),
     delete: jest.fn().mockImplementation(makeChain),
-    transaction: jest.fn(),
   };
+  db.transaction = jest.fn().mockImplementation((cb: any) => cb(db));
   return db;
 }
 
@@ -81,8 +81,8 @@ function buildSequentialDb(results: unknown[]) {
     insert: jest.fn().mockImplementation(makeChain),
     update: jest.fn().mockImplementation(makeChain),
     delete: jest.fn().mockImplementation(makeChain),
-    transaction: jest.fn(),
   };
+  db.transaction = jest.fn().mockImplementation((cb: any) => cb(db));
   return db;
 }
 
@@ -214,6 +214,7 @@ describe('ServersRepository', () => {
       ]);
       const repo = await buildRepo(db);
       await expect(repo.deleteServerCascade('srv-1')).resolves.toBeUndefined();
+      expect(db.transaction).toHaveBeenCalledTimes(1);
       expect(db.select).toHaveBeenCalledTimes(1);
       expect(db.delete).toHaveBeenCalledTimes(7);
     });
@@ -232,6 +233,7 @@ describe('ServersRepository', () => {
       ]);
       const repo = await buildRepo(db);
       await expect(repo.deleteServerCascade('srv-1')).resolves.toBeUndefined();
+      expect(db.transaction).toHaveBeenCalledTimes(1);
       expect(db.delete).toHaveBeenCalledTimes(5);
     });
   });

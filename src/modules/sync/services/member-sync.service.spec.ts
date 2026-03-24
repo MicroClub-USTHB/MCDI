@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MemberSyncService } from './member-sync.service';
 import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
+import { PermissionCacheService } from '../../permissions/permission-cache.service';
 
 const mockMemberRepo = {
   upsertMember: jest.fn(),
@@ -13,6 +14,11 @@ const mockMemberRepo = {
 
 const mockSyncLog = {
   recordEventChange: jest.fn(),
+};
+
+const mockPermissionCache = {
+  invalidateMember: jest.fn(),
+  invalidateServer: jest.fn(),
 };
 
 const makeGuildMember = (overrides: Partial<any> = {}): any => ({
@@ -47,6 +53,7 @@ describe('MemberSyncService', () => {
         MemberSyncService,
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: SyncLogService, useValue: mockSyncLog },
+        { provide: PermissionCacheService, useValue: mockPermissionCache },
       ],
     }).compile();
     service = module.get(MemberSyncService);
@@ -90,6 +97,9 @@ describe('MemberSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleMemberAdd(makeGuildMember());
+      expect(mockPermissionCache.invalidateMember).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',
         'member',
@@ -108,6 +118,9 @@ describe('MemberSyncService', () => {
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleMemberRemove(makeGuildMember());
+      expect(mockPermissionCache.invalidateMember).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(mockMemberRepo.upsertServerMembership).toHaveBeenCalledWith(
         expect.objectContaining({ isActive: false }),
       );
@@ -131,8 +144,21 @@ describe('MemberSyncService', () => {
       mockMemberRepo.replaceMemberRoles.mockResolvedValue(undefined);
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
-      const newer = makeGuildMember({ nickname: 'bob' });
+      const newer = makeGuildMember({
+        nickname: 'bob',
+        roles: {
+          cache: {
+            keys: () => ['role-1', 'role-2'],
+            size: 2,
+            every: () => false,
+            has: (id: string) => id === 'role-1' || id === 'role-2',
+          },
+        },
+      });
       await service.handleMemberUpdate(base, newer);
+      expect(mockPermissionCache.invalidateMember).toHaveBeenCalledWith(
+        'user-1',
+      );
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',
         'member',
@@ -203,6 +229,9 @@ describe('MemberSyncService', () => {
 
       expect(result.membersSynced).toBe(1);
       expect(result.deactivatedCount).toBe(3);
+      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
       expect(mockMemberRepo.markInactiveForServer).toHaveBeenCalled();
     });
   });

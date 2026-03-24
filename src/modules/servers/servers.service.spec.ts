@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { ServersRepository } from './servers.repository';
 import { DiscordService } from '../discord/discord.service';
@@ -132,6 +132,7 @@ describe('ServersService', () => {
   describe('updateServer', () => {
     it('returns the updated server', async () => {
       const server = fakeServer({ name: 'Updated' });
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
       mockServersRepo.updateById.mockResolvedValue(server);
 
       const result = await service.updateServer('guild-1', { name: 'Updated' });
@@ -139,10 +140,19 @@ describe('ServersService', () => {
     });
 
     it('throws NotFoundException when server does not exist', async () => {
-      mockServersRepo.updateById.mockResolvedValue(null);
+      mockServersRepo.findById.mockResolvedValue(null);
       await expect(service.updateServer('missing', {})).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('throws ConflictException when trying to unset the main server', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer({ isMain: true }));
+
+      await expect(
+        service.updateServer('guild-1', { isMain: false }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockServersRepo.updateById).not.toHaveBeenCalled();
     });
   });
 
@@ -166,6 +176,15 @@ describe('ServersService', () => {
         NotFoundException,
       );
     });
+
+    it('throws ConflictException when trying to delete the main server', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer({ isMain: true }));
+
+      await expect(service.deleteServer('guild-1')).rejects.toThrow(
+        ConflictException,
+      );
+      expect(mockServersRepo.deleteServerCascade).not.toHaveBeenCalled();
+    });
   });
 
   // ── disableServer ──────────────────────────────────────────────────────
@@ -176,6 +195,7 @@ describe('ServersService', () => {
         isActive: false,
         disabledReason: 'Maintenance',
       });
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
       mockServersRepo.updateById.mockResolvedValue(server);
 
       const result = await service.disableServer('guild-1', {
@@ -187,10 +207,19 @@ describe('ServersService', () => {
     });
 
     it('throws NotFoundException when server does not exist', async () => {
-      mockServersRepo.updateById.mockResolvedValue(null);
+      mockServersRepo.findById.mockResolvedValue(null);
       await expect(
         service.disableServer('missing', { disabledReason: 'x' }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ConflictException when trying to disable the main server', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer({ isMain: true }));
+
+      await expect(
+        service.disableServer('guild-1', { disabledReason: 'x' }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockServersRepo.updateById).not.toHaveBeenCalled();
     });
   });
 
@@ -264,6 +293,7 @@ describe('ServersService', () => {
   describe('updateServer (additional branches)', () => {
     it('sets isMain=false in patch when dto.isMain is explicitly false', async () => {
       const server = fakeServer({ isMain: false });
+      mockServersRepo.findById.mockResolvedValue(server);
       mockServersRepo.updateById.mockResolvedValue(server);
 
       await service.updateServer('guild-1', { isMain: false });

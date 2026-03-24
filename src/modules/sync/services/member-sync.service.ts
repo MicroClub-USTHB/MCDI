@@ -5,6 +5,7 @@ import { SyncLogService } from './sync-log.service';
 import { SyncChangeEntry } from '../sync-types';
 import { members } from '../../../database/entities/member.entity';
 import { withRetry } from '../sync-retry.util';
+import { PermissionCacheService } from '../../permissions/permission-cache.service';
 
 @Injectable()
 export class MemberSyncService {
@@ -13,6 +14,7 @@ export class MemberSyncService {
   constructor(
     private readonly memberRepository: MemberRepository,
     private readonly syncLogService: SyncLogService,
+    private readonly permissionCache: PermissionCacheService,
   ) {}
 
   /**
@@ -120,6 +122,7 @@ export class MemberSyncService {
       guild.id,
       syncStart,
     );
+    this.permissionCache.invalidateServer(guild.id);
     this.logger.log(
       `Deactivated ${deactivatedCount} members in server ${guild.id}`,
     );
@@ -145,6 +148,7 @@ export class MemberSyncService {
       `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
     );
     await this.processMember(guildMember.guild, guildMember, new Date());
+    this.permissionCache.invalidateMember(guildMember.id);
     await this.syncLogService.recordEventChange(
       guildMember.guild.id,
       'member',
@@ -170,6 +174,7 @@ export class MemberSyncService {
       `handleMemberRemove upsertServerMembership(${guildMember.id})`,
       this.logger,
     );
+    this.permissionCache.invalidateMember(guildMember.id);
     await this.syncLogService.recordEventChange(
       guildMember.guild.id,
       'member',
@@ -244,6 +249,9 @@ export class MemberSyncService {
       `handleMemberUpdate upsertServerMembership(${newMember.id})`,
       this.logger,
     );
+    if (rolesChanged) {
+      this.permissionCache.invalidateMember(newMember.id);
+    }
 
     const changes: string[] = [];
     if (oldMember.user.username !== newMember.user.username)
