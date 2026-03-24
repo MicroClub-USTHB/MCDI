@@ -21,8 +21,10 @@ export class AuthMemberRoleDto {
   @ApiProperty({
     description: 'Role position (higher = more permissions)',
     example: 1,
+    required: false,
+    nullable: true,
   })
-  rolePosition: number;
+  rolePosition: number | null;
 }
 
 export class AuthMemberProfileDto {

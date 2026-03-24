@@ -120,6 +120,7 @@ export class SyncService implements OnApplicationBootstrap, OnModuleDestroy {
     target: SyncTarget = SyncTarget.ALL,
   ): Promise<void> {
     const heartbeatTimer = this.startHeartbeat(syncId);
+    const changeBuffer: SyncChangeEntry[] = [];
 
     try {
       const guild = await this.discordService.getGuildById(serverId);
@@ -134,7 +135,6 @@ export class SyncService implements OnApplicationBootstrap, OnModuleDestroy {
       }
 
       const syncStart = new Date();
-      const changeBuffer: SyncChangeEntry[] = [];
       let membersSynced = 0;
       let rolesSynced = 0;
       let deactivatedCount = 0;
