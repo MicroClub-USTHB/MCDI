@@ -49,17 +49,28 @@ export class SyncController {
   @ApiOperation({
     summary: 'Trigger a full sync',
     description:
-      'Starts a manual sync for one or more servers. ' +
+      'Queues a manual sync for one or more servers. ' +
       'Use `target` to limit the sync to MEMBERS, ROLES, or ALL (default). ' +
       'Omit `serverIds` to sync all active servers.',
   })
   @ApiBody({ type: TriggerSyncDto })
   @ApiAcceptedResponse({
-    description: 'Sync started.',
-    schema: { example: { syncId: 42 } },
+    description: 'Sync queued.',
+    schema: {
+      example: {
+        results: [
+          {
+            serverId: '123456789012345678',
+            syncId: 42,
+          },
+        ],
+      },
+    },
   })
   @ApiNotFoundResponse({ description: 'Server not found.' })
-  @ApiConflictResponse({ description: 'Sync already in progress.' })
+  @ApiConflictResponse({
+    description: 'Sync already queued or in progress.',
+  })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
   @ApiBadRequestResponse({ description: 'Invalid request body.' })

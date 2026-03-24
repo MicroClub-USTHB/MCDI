@@ -4,7 +4,23 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { serverSyncLogs } from '../../database/entities/server-sync-log.entity';
 import { syncChangeDetails } from '../../database/entities/sync-change-detail.entity';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import {
+  eq,
+  and,
+  desc,
+  sql,
+  asc,
+  isNull,
+  lt,
+  or,
+} from 'drizzle-orm';
+import { SyncTarget } from './dto/trigger-sync.dto';
+
+export type SyncLogStatus =
+  | 'queued'
+  | 'in_progress'
+  | 'success'
+  | 'failed';
 
 @Injectable()
 export class SyncRepository {
@@ -15,8 +31,9 @@ export class SyncRepository {
   async createLog(
     serverId: string,
     syncType: 'full' | 'incremental' | 'manual',
-    status: 'in_progress' | 'success' | 'failed',
+    status: SyncLogStatus,
     startedAt: Date,
+    target: SyncTarget = SyncTarget.ALL,
   ): Promise<typeof serverSyncLogs.$inferSelect> {
     const [log] = await this.db
       .insert(serverSyncLogs)
@@ -24,6 +41,7 @@ export class SyncRepository {
         serverId,
         syncType,
         status,
+        target,
         startedAt,
         membersSynced: 0,
         rolesSynced: 0,
@@ -57,6 +75,93 @@ export class SyncRepository {
         ),
       )
       .limit(1);
+    return log ?? null;
+  }
+
+  async getActiveLog(
+    serverId: string,
+  ): Promise<typeof serverSyncLogs.$inferSelect | null> {
+    const [log] = await this.db
+      .select()
+      .from(serverSyncLogs)
+      .where(
+        and(
+          eq(serverSyncLogs.serverId, serverId),
+          or(
+            eq(serverSyncLogs.status, 'queued'),
+            eq(serverSyncLogs.status, 'in_progress'),
+          ),
+        ),
+      )
+      .orderBy(desc(serverSyncLogs.startedAt), desc(serverSyncLogs.id))
+      .limit(1);
+    return log ?? null;
+  }
+
+  async claimNextRunnableLog(
+    staleBefore: Date,
+    claimedAt = new Date(),
+  ): Promise<typeof serverSyncLogs.$inferSelect | null> {
+    return this.db.transaction(async (tx) => {
+      const [candidate] = await tx
+        .select()
+        .from(serverSyncLogs)
+        .where(
+          or(
+            eq(serverSyncLogs.status, 'queued'),
+            and(
+              eq(serverSyncLogs.status, 'in_progress'),
+              or(
+                isNull(serverSyncLogs.heartbeatAt),
+                lt(serverSyncLogs.heartbeatAt, staleBefore),
+              ),
+            ),
+          ),
+        )
+        .orderBy(asc(serverSyncLogs.startedAt), asc(serverSyncLogs.id))
+        .limit(1);
+
+      if (!candidate) return null;
+
+      const claimWhere =
+        candidate.status === 'queued'
+          ? and(
+              eq(serverSyncLogs.id, candidate.id),
+              eq(serverSyncLogs.status, 'queued'),
+            )
+          : and(
+              eq(serverSyncLogs.id, candidate.id),
+              eq(serverSyncLogs.status, 'in_progress'),
+              or(
+                isNull(serverSyncLogs.heartbeatAt),
+                lt(serverSyncLogs.heartbeatAt, staleBefore),
+              ),
+            );
+
+      const [claimed] = await tx
+        .update(serverSyncLogs)
+        .set({
+          status: 'in_progress',
+          startedAt: claimedAt,
+          heartbeatAt: claimedAt,
+          finishedAt: null,
+        })
+        .where(claimWhere)
+        .returning();
+
+      return claimed ?? null;
+    });
+  }
+
+  async touchHeartbeat(
+    syncLogId: number,
+    heartbeatAt: Date,
+  ): Promise<typeof serverSyncLogs.$inferSelect | null> {
+    const [log] = await this.db
+      .update(serverSyncLogs)
+      .set({ heartbeatAt })
+      .where(eq(serverSyncLogs.id, syncLogId))
+      .returning();
     return log ?? null;
   }
 
