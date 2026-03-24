@@ -3,35 +3,6 @@ import { SessionRepository } from './session.repository';
 import { DRIZZLE } from '../../../database/database.module';
 import { hashSessionToken } from '../../../common/utils/session-token.util';
 
-function collectStringValues(
-  node: unknown,
-  values: string[] = [],
-  seen: WeakSet<object> = new WeakSet(),
-): string[] {
-  if (!node || typeof node !== 'object') {
-    return values;
-  }
-
-  if (seen.has(node)) {
-    return values;
-  }
-  seen.add(node);
-
-  if ('value' in node && typeof node.value === 'string') {
-    values.push(node.value);
-  }
-
-  if (Array.isArray(node)) {
-    node.forEach((item) => collectStringValues(item, values, seen));
-    return values;
-  }
-
-  Object.values(node).forEach((item) =>
-    collectStringValues(item, values, seen),
-  );
-  return values;
-}
-
 function buildDb(finalValue: unknown = []) {
   function makeChain(): any {
     const chain: any = {};
@@ -190,22 +161,27 @@ describe('SessionRepository', () => {
       expect(result).toEqual(session);
     });
 
-    it('stores a hashed token value', async () => {
+    it('hashes the token and preserves project and server scope', async () => {
       const session = fakeSession();
       const db = buildDb([session]);
       const repo = await buildRepo(db);
 
       await repo.create({
         memberId: 'mem-1',
-        token: 'tok-abc',
+        projectId: 'proj-1',
+        serverId: 'srv-1',
+        token: 'tok-plain',
         expiresAt: session.expiresAt,
       });
 
-      expect(db.insert.mock.results[0].value.values).toHaveBeenCalledWith(
-        expect.objectContaining({
-          token: hashSessionToken('tok-abc'),
-        }),
-      );
+      const insertChain = db.insert.mock.results[0].value;
+      expect(insertChain.values).toHaveBeenCalledWith({
+        memberId: 'mem-1',
+        projectId: 'proj-1',
+        serverId: 'srv-1',
+        token: hashSessionToken('tok-plain'),
+        expiresAt: session.expiresAt,
+      });
     });
   });
 
