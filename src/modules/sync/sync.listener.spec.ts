@@ -47,16 +47,26 @@ async function buildModule(
 ) {
   const mockClient = { ...buildMockClient(), ...clientOverrides };
   const mockSyncService = buildMockSyncService();
+  const mockDiscordService = {
+    getClient: () => mockClient,
+    isBotReady: jest.fn().mockReturnValue(false),
+    onBotReady: jest.fn(),
+  };
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       SyncListener,
-      { provide: DiscordService, useValue: { getClient: () => mockClient } },
+      { provide: DiscordService, useValue: mockDiscordService },
       { provide: SyncService, useValue: mockSyncService },
     ],
   }).compile();
 
-  return { listener: module.get(SyncListener), mockClient, mockSyncService };
+  return {
+    listener: module.get(SyncListener),
+    mockClient,
+    mockDiscordService,
+    mockSyncService,
+  };
 }
 
 describe('SyncListener', () => {
@@ -96,9 +106,11 @@ describe('SyncListener', () => {
 
   describe('onApplicationBootstrap', () => {
     it('calls startupSyncAll immediately when client is already ready', async () => {
-      const { listener, mockSyncService } = await buildModule({
+      const { listener, mockDiscordService, mockSyncService } =
+        await buildModule({
         isReady: jest.fn().mockReturnValue(true),
       });
+      mockDiscordService.isBotReady.mockReturnValue(true);
       listener.onApplicationBootstrap();
 
       // scheduleStartupSync is called synchronously; startupSyncAll is called async
@@ -107,16 +119,28 @@ describe('SyncListener', () => {
     });
 
     it('waits for the ready event when client is not ready', async () => {
-      const { listener, mockClient, mockSyncService } = await buildModule({
+      const { listener, mockDiscordService, mockSyncService } =
+        await buildModule({
         isReady: jest.fn().mockReturnValue(false),
       });
       listener.onApplicationBootstrap();
 
       expect(mockSyncService.startupSyncAll).not.toHaveBeenCalled();
-      expect(mockClient.once).toHaveBeenCalledWith(
-        'ready',
+      expect(mockDiscordService.onBotReady).toHaveBeenCalledWith(
         expect.any(Function),
       );
+    });
+
+    it('runs startup sync when the deferred ready callback fires', async () => {
+      const { listener, mockDiscordService, mockSyncService } =
+        await buildModule();
+      listener.onApplicationBootstrap();
+
+      const readyHandler = mockDiscordService.onBotReady.mock.calls[0][0];
+      readyHandler();
+      await Promise.resolve();
+
+      expect(mockSyncService.startupSyncAll).toHaveBeenCalledTimes(1);
     });
   });
 

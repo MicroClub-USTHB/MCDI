@@ -16,6 +16,7 @@ const mockServersRepo = {
 };
 
 const mockDiscordService = {
+  hasGuildConnection: jest.fn(),
   getGuildById: jest.fn(),
   getClient: jest.fn(),
 };
@@ -42,6 +43,7 @@ describe('ServersService', () => {
   let service: ServersService;
 
   beforeEach(async () => {
+    mockDiscordService.hasGuildConnection.mockReturnValue(false);
     mockDiscordService.getClient.mockReturnValue({
       isReady: () => false,
       guilds: { cache: { has: () => false } },
@@ -246,30 +248,29 @@ describe('ServersService', () => {
   // ── listServers ────────────────────────────────────────────────────────
 
   describe('listServers', () => {
-    it('returns servers with botConnected=false when client is not ready', async () => {
+    it('returns servers with botConnected=false when the bot is not connected', async () => {
       mockServersRepo.listServersWithLastSync.mockResolvedValue([
         { id: 'guild-1', name: 'Guild' },
       ]);
-      mockDiscordService.getClient.mockReturnValue({
-        isReady: () => false,
-        guilds: { cache: { has: () => false } },
-      });
+      mockDiscordService.hasGuildConnection.mockReturnValue(false);
 
       const result = await service.listServers();
       expect(result[0].botConnected).toBe(false);
     });
 
-    it('returns botConnected=true when client is ready and guild is cached', async () => {
+    it('returns botConnected=true when DiscordService reports a guild connection', async () => {
       mockServersRepo.listServersWithLastSync.mockResolvedValue([
         { id: 'guild-1', name: 'Guild' },
       ]);
-      mockDiscordService.getClient.mockReturnValue({
-        isReady: () => true,
-        guilds: { cache: { has: (id: string) => id === 'guild-1' } },
-      });
+      mockDiscordService.hasGuildConnection.mockImplementation(
+        (id: string) => id === 'guild-1',
+      );
 
       const result = await service.listServers();
       expect(result[0].botConnected).toBe(true);
+      expect(mockDiscordService.hasGuildConnection).toHaveBeenCalledWith(
+        'guild-1',
+      );
     });
   });
 

@@ -1,7 +1,9 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, lt, gt, inArray } from 'drizzle-orm';
+import { createHash } from 'crypto';
 import { DRIZZLE } from '../../../database/database.module';
+import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 import {
   getSessionTokenCandidates,
@@ -18,7 +20,11 @@ export interface CreateSessionDto {
 
 @Injectable()
 export class SessionRepository {
-  constructor(@Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>) {}
+  constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
+
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
+  }
 
   async findById(id: string) {
     const sessions = await this.db
@@ -78,7 +84,8 @@ export class SessionRepository {
       .limit(limit);
   }
 
-  async findValidByToken(token: string) {
+  async findValidByToken(token: string, tx: DrizzleDB = this.db) {
+    const hashedToken = this.hashToken(token);
     const now = new Date();
     const tokenCandidates = getSessionTokenCandidates(token);
     const sessions = await this.db
@@ -95,8 +102,9 @@ export class SessionRepository {
     return sessions[0] || null;
   }
 
-  async create(data: CreateSessionDto) {
-    const sessions = await this.db
+  async create(data: CreateSessionDto, tx: DrizzleDB = this.db) {
+    const hashedToken = this.hashToken(data.token);
+    const sessions = await tx
       .insert(schema.sessions)
       .values({
         memberId: data.memberId,
@@ -128,8 +136,8 @@ export class SessionRepository {
       );
   }
 
-  async deleteByMemberId(memberId: string) {
-    await this.db
+  async deleteByMemberId(memberId: string, tx: DrizzleDB = this.db) {
+    await tx
       .delete(schema.sessions)
       .where(eq(schema.sessions.memberId, memberId));
   }

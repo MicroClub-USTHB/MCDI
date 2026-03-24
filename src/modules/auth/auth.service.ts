@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from './repositories/session.repository';
 import { MemberRepository } from './repositories/member.repository';
@@ -12,6 +12,8 @@ import {
 } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
+import { DRIZZLE } from '../../database/database.module';
+import type { DrizzleDB } from '../../database/database.module';
 import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class AuthService {
   private readonly authRequestTtlSec: number;
   private readonly oauthStateTtlSec: number;
   private readonly callbackCodeTtlSec: number;
+  private readonly sessionTtlSec: number;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -33,6 +36,7 @@ export class AuthService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordRedirectUri = this.configService.get<string>(
@@ -47,6 +51,7 @@ export class AuthService {
     this.callbackCodeTtlSec = this.configService.get<number>(
       'app.callbackCodeTtlSec',
     )!;
+    this.sessionTtlSec = this.configService.get<number>('app.sessionTtlSec')!;
   }
 
   // ─── Authorization request ─────────────────────────────
@@ -193,7 +198,7 @@ export class AuthService {
     if (!stateResult.ok) return stateResult.redirect;
     const { projectId, serverId, redirectUri, clientState } = stateResult.data;
 
-    const tokenResult = await this.exchangeCodeForToken(
+    const tokenResult = await this.exchangeDiscordCodeForToken(
       discordCode,
       redirectUri,
       clientState,
@@ -279,7 +284,7 @@ export class AuthService {
 
   // ─── Exchange Discord code for access token ─────────────
 
-  private async exchangeCodeForToken(
+  private async exchangeDiscordCodeForToken(
     code: string,
     redirectUri: string,
     clientState?: string | null,
@@ -470,6 +475,72 @@ export class AuthService {
     if (clientState) url.searchParams.set('state', clientState);
 
     return { url: url.toString() };
+  }
+
+  // ─── Exchange callback code for session token ──────────
+
+  /**
+   * Exchange a one-time callback code for a long-lived session token.
+   * Secure backend-to-backend exchange using X-API-Key (provided by guard).
+   *
+   * Transactional exchange: consumes the callback code and issues the session
+   * token atomically to prevent replay attacks and ensure consistency.
+   */
+  async exchangeCodeForToken(
+    clientId: string,
+    code: string,
+    redirectUri: string,
+  ) {
+    const codeHash = createHash('sha256').update(code).digest('hex');
+
+    return await this.db.transaction(async (tx) => {
+      const callbackCode = await this.callbackCodeRepository.consumeValid(
+        codeHash,
+        clientId,
+        redirectUri,
+        tx,
+      );
+
+      if (!callbackCode) {
+        throw new BadRequestException(
+          'Invalid, used, or expired callback code for this client/redirect_uri',
+        );
+      }
+
+      const token = randomBytes(48).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setSeconds(expiresAt.getSeconds() + this.sessionTtlSec);
+
+      const session = await this.sessionRepository.create(
+        {
+          token,
+          expiresAt,
+          memberId: callbackCode.memberId,
+          projectId: callbackCode.clientId,
+          serverId: callbackCode.serverId,
+        },
+        tx,
+      );
+
+      const member = await this.memberRepository.findById(
+        callbackCode.memberId,
+        tx,
+      );
+      const roles = callbackCode.serverId
+        ? await this.memberRepository.getMemberRolesInServer(
+            callbackCode.memberId,
+            callbackCode.serverId,
+            tx,
+          )
+        : [];
+
+      return {
+        token,
+        expiresAt,
+        member,
+        roles,
+      };
+    });
   }
 
   // ─── Validate session ────────────────────────────────────

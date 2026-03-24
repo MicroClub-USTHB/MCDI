@@ -66,12 +66,9 @@ export class ServersService {
   async listServers(filters?: ListServersFilters) {
     const rows = await this.serversRepository.listServersWithLastSync(filters);
 
-    const client = this.discordService.getClient();
-    const clientReady = client.isReady();
-
     return rows.map((row) => ({
       ...row,
-      botConnected: clientReady && client.guilds.cache.has(row.id),
+      botConnected: this.discordService.hasGuildConnection(row.id),
     }));
   }
 
