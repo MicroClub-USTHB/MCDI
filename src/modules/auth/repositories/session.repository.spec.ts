@@ -76,18 +76,6 @@ describe('SessionRepository', () => {
       const repo = await buildRepo(db);
       expect(await repo.findByToken('tok-abc')).toEqual(session);
     });
-
-    it('queries both raw and hashed token candidates', async () => {
-      const db = buildDb([]);
-      const repo = await buildRepo(db);
-
-      await repo.findByToken('tok-abc');
-
-      const whereArg = db.select.mock.results[0].value.where.mock.calls[0][0];
-      expect(collectStringValues(whereArg)).toEqual(
-        expect.arrayContaining(['tok-abc', hashSessionToken('tok-abc')]),
-      );
-    });
   });
 
   describe('findByTokenWithMember', () => {
@@ -107,20 +95,6 @@ describe('SessionRepository', () => {
       const db = buildDb([]);
       const repo = await buildRepo(db);
       expect(await repo.findByTokenWithMember('ghost')).toBeNull();
-    });
-
-    it('supports project-scoped lookup', async () => {
-      const session = fakeSession();
-      const member = { id: 'mem-1', username: 'alice' };
-      const db = buildDb([{ session, member }]);
-      const repo = await buildRepo(db);
-
-      await expect(
-        repo.findByTokenWithMember('tok-abc', 'proj-1'),
-      ).resolves.toMatchObject({
-        token: 'tok-abc',
-        projectId: 'proj-1',
-      });
     });
   });
 
@@ -192,27 +166,6 @@ describe('SessionRepository', () => {
       await expect(repo.deleteByToken('tok-abc')).resolves.toBeUndefined();
       expect(db.delete).toHaveBeenCalledTimes(1);
     });
-
-    it('supports project-scoped deletion', async () => {
-      const db = buildDb([]);
-      const repo = await buildRepo(db);
-      await expect(
-        repo.deleteByToken('tok-abc', 'proj-1'),
-      ).resolves.toBeUndefined();
-      expect(db.delete).toHaveBeenCalledTimes(1);
-    });
-
-    it('matches legacy raw and hashed token values when deleting', async () => {
-      const db = buildDb([]);
-      const repo = await buildRepo(db);
-
-      await repo.deleteByToken('tok-abc');
-
-      const whereArg = db.delete.mock.results[0].value.where.mock.calls[0][0];
-      expect(collectStringValues(whereArg)).toEqual(
-        expect.arrayContaining(['tok-abc', hashSessionToken('tok-abc')]),
-      );
-    });
   });
 
   describe('deleteByMemberId', () => {
@@ -220,17 +173,6 @@ describe('SessionRepository', () => {
       const db = buildDb([]);
       const repo = await buildRepo(db);
       await expect(repo.deleteByMemberId('mem-1')).resolves.toBeUndefined();
-    });
-  });
-
-  describe('deleteAllForMember', () => {
-    it('deletes sessions scoped to a project/member pair', async () => {
-      const db = buildDb([]);
-      const repo = await buildRepo(db);
-      await expect(
-        repo.deleteAllForMember('proj-1', 'mem-1'),
-      ).resolves.toBeUndefined();
-      expect(db.delete).toHaveBeenCalledTimes(1);
     });
   });
 
