@@ -812,23 +812,39 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   ];
 
   for (const project of seededProjects) {
+    const upsertData = {
+      name: project.name,
+      description: project.description,
+      apiKeyHash: project.apiKeyHash,
+      apiKeyPrefix: project.apiKeyPrefix,
+      apiKeyCreatedAt: project.apiKeyCreatedAt ?? new Date(),
+      webhookUrl: project.webhookUrl,
+      redirectUri: project.redirectUri,
+      isInternal: project.isInternal ?? false,
+      isActive: project.isActive ?? true,
+      updatedAt: new Date(),
+    };
+
+    const existingById = await db
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(eq(schema.projects.id, project.id))
+      .limit(1);
+
+    if (existingById.length > 0) {
+      await db
+        .update(schema.projects)
+        .set(upsertData)
+        .where(eq(schema.projects.id, project.id));
+      continue;
+    }
+
     await db
       .insert(schema.projects)
       .values(project)
       .onConflictDoUpdate({
         target: schema.projects.name,
-        set: {
-          name: project.name,
-          description: project.description,
-          apiKeyHash: project.apiKeyHash,
-          apiKeyPrefix: project.apiKeyPrefix,
-          apiKeyCreatedAt: project.apiKeyCreatedAt ?? new Date(),
-          webhookUrl: project.webhookUrl,
-          redirectUri: project.redirectUri,
-          isInternal: project.isInternal ?? false,
-          isActive: project.isActive ?? true,
-          updatedAt: new Date(),
-        },
+        set: upsertData,
       });
   }
 
