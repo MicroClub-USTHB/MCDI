@@ -812,6 +812,12 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   ];
 
   for (const project of seededProjects) {
+    if (!project.id) {
+      throw new Error(`Seed project "${project.name}" is missing id`);
+    }
+
+    const projectId = project.id;
+
     const upsertData = {
       name: project.name,
       description: project.description,
@@ -828,14 +834,14 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     const existingById = await db
       .select({ id: schema.projects.id })
       .from(schema.projects)
-      .where(eq(schema.projects.id, project.id))
+      .where(eq(schema.projects.id, projectId))
       .limit(1);
 
     if (existingById.length > 0) {
       await db
         .update(schema.projects)
         .set(upsertData)
-        .where(eq(schema.projects.id, project.id));
+        .where(eq(schema.projects.id, projectId));
       continue;
     }
 
