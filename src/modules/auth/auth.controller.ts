@@ -33,7 +33,7 @@ import { AdminAuthService } from './services/admin-auth.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { buildErrorPage } from './utils';
-import { extractBearerToken } from '../../common/utils/auth.util';
+import { extractSessionToken } from '../../common/utils/auth.util';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -41,9 +41,7 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   AuthorizeQueryDto,
-  AdminPasswordLoginDto,
   AdminLoginResponseDto,
-  SetPasswordDto,
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
@@ -357,38 +355,12 @@ export class AuthController {
     return this.authService.logoutAll(dto.memberId, req.project!.id);
   }
 
-  // ─── System Admin Login ─────────────────────────────────────
-
-  @Post('admin/login')
-  @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @UseGuards(ThrottlerGuard)
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  @ApiOperation({
-    summary: 'System admin login (username + password)',
-    description:
-      'Authenticates a system admin using their Discord username and a pre-set password. ' +
-      'The member must exist, have `isSystemAdmin = true`, and have a password configured. ' +
-      'Returns a 24-hour Bearer token.' +
-      '\n\n**Rate limited:** 5 attempts per 60 seconds per IP.',
-  })
-  @ApiBody({ type: AdminPasswordLoginDto })
-  @ApiOkResponse({
-    description: 'Login successful — returns a 24-hour Bearer session token.',
-    type: AdminLoginResponseDto,
-  })
-  @ApiUnauthorizedResponse({ description: 'Invalid credentials.' })
-  @ApiForbiddenResponse({ description: 'Not a system admin.' })
-  @ApiBadRequestResponse({
-    description: 'Invalid request body (e.g. empty/short fields).',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'Too many login attempts — retry after 60 seconds.',
-  })
-  async adminPasswordLogin(@Body() dto: AdminPasswordLoginDto) {
-    return this.adminAuthService.adminPasswordLogin(dto.username, dto.password);
-  }
+  // ─── System Admin Login (Discord OAuth2 only) ──────────────
+  //
+  // GET  /auth/admin/discord          → initiate Discord OAuth
+  // GET  /auth/admin/discord/callback → handle Discord callback,
+  //                                     set httpOnly cookie, redirect to frontend
+  // GET  /auth/admin/me               → return current admin profile
 
   // ─── System Admin — Me ────────────────────────────────────────────────
 
@@ -398,7 +370,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Get current system admin profile',
     description:
-      'Returns the profile of the authenticated system admin based on their Bearer session token. ' +
+      'Returns the profile of the authenticated system admin based on their Bearer session token ' +
+      'or the `admin_session` httpOnly cookie set after Discord OAuth2 login. ' +
       'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
   })
   @ApiOkResponse({
@@ -409,51 +382,15 @@ export class AuthController {
     description: 'Missing, invalid, or expired session token.',
   })
   @ApiForbiddenResponse({
-    description: 'Valid session but the member is not a system admin.',
+    description: 'Valid session but the member is not an Executive.',
   })
   async adminMe(@Req() req: Request) {
-    const token = extractBearerToken(req)!;
+    const token = extractSessionToken(req)!;
     return this.adminAuthService.getMe(token);
   }
 
-  // ─── System Admin — Set Password ─────────────────────────────────────
-
-  @Post('admin/set-password')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
-  @ApiBearerAuth('session-token')
-  @UsePipes(new ValidationPipe({ whitelist: true }))
-  @ApiOperation({
-    summary: 'Set or change the system admin password',
-    description:
-      'Sets or updates the password for the authenticated system admin. ' +
-      'If a password is already configured, `currentPassword` must be provided and correct. ' +
-      'On first-time setup (no password yet), omit `currentPassword`.',
-  })
-  @ApiBody({ type: SetPasswordDto })
-  @ApiOkResponse({
-    description: 'Password updated successfully.',
-    schema: { example: { message: 'Password updated successfully' } },
-  })
-  @ApiUnauthorizedResponse({
-    description:
-      'Missing/invalid session token, or `currentPassword` is incorrect.',
-  })
-  @ApiForbiddenResponse({
-    description: 'Valid session but the member is not a system admin.',
-  })
-  @ApiBadRequestResponse({
-    description:
-      '`currentPassword` missing when the account already has a password, or `newPassword` is too short.',
-  })
-  async adminSetPassword(@Req() req: Request, @Body() dto: SetPasswordDto) {
-    const token = extractBearerToken(req)!;
-    return this.adminAuthService.setPassword(
-      token,
-      dto.currentPassword,
-      dto.newPassword,
-    );
-  }
+  // ─── POST /auth/admin/set-password has been removed.
+  // Admin access is gated solely on the Discord "Executive" role.
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
 
@@ -482,37 +419,36 @@ export class AuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
-    const result = await this.adminAuthService.handleAdminDiscordCallback(
-      code,
-      state,
-    );
+    const adminFrontendUrl =
+      this.configService.get<string>('discord.adminFrontendUrl') ||
+      '/admin';
+    const isProduction =
+      this.configService.get<string>('app.nodeEnv') === 'production';
 
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Admin Login — MCDI</title>
-  <style>
-    body { font-family: monospace; background: #0d1117; color: #c9d1d9; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 2rem; max-width: 600px; width: 90%; }
-    h1 { color: #58a6ff; font-size: 1.2rem; margin-top: 0; }
-    .token { background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 0.75rem; word-break: break-all; font-size: 0.85rem; color: #7ee787; }
-    p { color: #8b949e; font-size: 0.9rem; }
-    .expires { color: #8b949e; font-size: 0.8rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>System Admin Login Successful</h1>
-    <p>Welcome, <strong>${result.member.displayName || result.member.username}</strong>. Copy the token below and use it as a Bearer token.</p>
-    <div class="token">${result.token}</div>
-    <p class="expires">Expires: ${result.expiresAt.toISOString()}</p>
-  </div>
-</body>
-</html>`;
+    try {
+      const result = await this.adminAuthService.handleAdminDiscordCallback(
+        code,
+        state,
+      );
 
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
+      // Set an httpOnly session cookie so the admin frontend does not need to
+      // store the token in JS-accessible storage.
+      res.cookie('admin_session', result.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProduction,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: '/',
+      });
+
+      return res.redirect(adminFrontendUrl);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Authentication failed';
+      const url = new URL(adminFrontendUrl, this.configService.get<string>('app.baseUrl'));
+      url.searchParams.set('error', message);
+      return res.redirect(url.toString());
+    }
   }
 
   // ─── Maintenance ─────────────────────────────────────────

@@ -6,12 +6,11 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Request } from 'express';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
-import { extractBearerToken, validateSession } from '../utils/auth.util';
+import { extractSessionToken, validateSession } from '../utils/auth.util';
 import { isAdminMember } from '../utils/admin.util';
 
 @Injectable()
@@ -22,7 +21,8 @@ export class SystemAdminGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const token = extractBearerToken(request);
+    // Accept token from Authorization: Bearer <token> OR admin_session httpOnly cookie
+    const token = extractSessionToken(request);
 
     if (!token) {
       throw new UnauthorizedException('Session token is required');
@@ -31,20 +31,11 @@ export class SystemAdminGuard implements CanActivate {
     // 1. Validate session — must exist and not be expired
     const memberId = await validateSession(this.db, token);
 
-    // 2a. Fast-path: member has isSystemAdmin flag in DB
-    const [member] = await this.db
-      .select({ isSystemAdmin: schema.members.isSystemAdmin })
-      .from(schema.members)
-      .where(eq(schema.members.id, memberId))
-      .limit(1);
-
-    if (member?.isSystemAdmin) return true;
-
-    // 2b. Fall back: check Lead / Executive Discord role in the main server
-    const admin = await isAdminMember(this.db, memberId);
-    if (!admin) {
+    // 2. Sole access criterion: Executive Discord role in the main server
+    const isAdmin = await isAdminMember(this.db, memberId);
+    if (!isAdmin) {
       throw new ForbiddenException(
-        'Access restricted to system admins or Lead / Executive members',
+        'Access restricted to Executive members of the main server',
       );
     }
 

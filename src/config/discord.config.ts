@@ -12,4 +12,10 @@ export default registerAs('discord', () => ({
       '/auth/discord/callback',
       '/auth/admin/discord/callback',
     ),
+  /** The main MCDI Discord guild — used for admin Executive role verification */
+  mainGuildId: process.env.MC_GUILD_ID,
+  /** Where to redirect after a successful admin Discord OAuth callback */
+  adminFrontendUrl:
+    process.env.ADMIN_FRONTEND_URL ||
+    `${process.env.BASE_URL || 'http://localhost:3000'}/admin`,
 }));

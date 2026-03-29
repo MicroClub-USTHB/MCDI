@@ -1,27 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class SetPasswordDto {
-  @ApiPropertyOptional({
-    description:
-      'Current password — required when the admin already has a password configured. ' +
-      'Omit only on first-time password setup.',
-    example: 'oldPassword123',
-  })
-  @IsOptional()
-  @IsString()
-  currentPassword?: string;
-
-  @ApiProperty({
-    description: 'New password. Must be at least 8 characters.',
-    example: 'newSecurePass!9',
-    minLength: 8,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(8)
-  newPassword: string;
-}
 
 export class AdminMeResponseDto {
   @ApiProperty({
