@@ -72,8 +72,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getJson<T>(key: string): Promise<T | null> {
-    const raw = await this.run(() => this.client.get(key));
-    if (!raw) {
+    const raw = await this.run<string | null>(() => this.client.get(key));
+    if (!raw || typeof raw !== 'string') {
       return null;
     }
 

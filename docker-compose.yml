@@ -24,6 +24,8 @@ services:
       - database
       - redis
 
+    command: sh -lc "npm install && until npm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && npm run start:dev"
+
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
