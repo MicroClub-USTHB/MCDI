@@ -1,10 +1,10 @@
-# MCDI - Feature Specification (MVP)
+# MCDI - Current Release Requirements
 
 ## MicroClub Discord Interface
 
-> This document contains the MVP scope only.
-> For later phases + System Architecture, see `specefication_document_last_version.md`.
-> For database tables/relations, see `database_architecture_mvp.md`.
+> This document reflects the requirements implemented in the current backend release.
+> For next-phase roadmap and architecture direction, see `specefication_document_last_version.md`.
+> For schema details, see `database_architecture_mvp.md`.
 
 ---
 
@@ -12,70 +12,100 @@
 
 ### What is MCDI?
 
-MCDI is a centralized backend service that connects all MicroClub applications to Discord. Instead of each project implementing Discord integration separately, MCDI provides everything out-of-the-box through a simple API.
+MCDI is the centralized backend service that connects MicroClub applications to Discord for authentication, membership checks, permission resolution, and multi-server administration.
 
-### The Goal
+### Current Release Goal
 
-- Login once with Discord, access all MicroClub apps
-- Centralized member and permission management
-- Easy Discord operations (send messages, create webhooks, etc.)
+The current release focuses on:
 
-### Target Users
+- one reusable Discord login flow for MicroClub projects
+- central member and role synchronization
+- project-scoped access control per server
+- admin tooling for projects, servers, sync, and cross-server visibility
 
-- **Club Members**: Login to various club applications
-- **Project Developers**: Integrate their apps with MCDI
-- **Club Admins**: Manage projects and monitor the system
+### Primary Users
+
+- **Club Members**: sign in to MicroClub apps with Discord
+- **Project Developers**: integrate their apps through MCDI APIs
+- **System Admins**: manage projects, servers, permissions, and sync operations
 
 ---
 
-## MVP Version
+## 2. Requirement Status Summary
 
-## 2. Core Features
+| ID | Requirement | Status | Notes |
+| --- | --- | --- | --- |
+| F1 | Discord OAuth Login | Implemented | Browser redirect flow with validated project, redirect URI, and server access |
+| F2 | API Key Authentication for Projects | Implemented | `X-API-Key` auth with hash-only secret storage |
+| F4 | Member Data Access | Implemented | Single-member lookup, paginated search, effective permission listing |
+| F5 | Member Synchronization Using Discord.js | Implemented | Startup sync, manual sync queue, and real-time member updates |
+| F6 | Role-Based Permissions | Implemented | Permission resolution based on synchronized Discord roles |
+| F7 | Server-Side Permission Checking API | Implemented | Single and batch checks plus resolved permission listing |
+| F8 | Server Registration And Configuration | Implemented | Register, list, update, enable, disable, and delete servers |
+| F9 | Multi-Server Member View | Implemented | Admin cross-server member view and export |
+| F10 | Server-Scoped Permissions | Implemented | Project access, scopes, and permission checks are server-aware |
+| F11 | Server Synchronization | Implemented | Queue-based full syncs and gateway-driven incremental updates |
+| F12 | Server Access Control For Projects | Implemented | Per-project/per-server mappings with operations, scopes, and audit logs |
+| F13 | Server Statistics And Dashboard | Partial | Sync status, logs, and exports exist; full analytics dashboard is not yet implemented |
 
-### Feature Category: Authentication & Access Control
+---
+
+## 3. Detailed Current Requirements
+
+### Feature Category: Authentication And Access Control
 
 #### F1. Discord OAuth Login
 
-**What**: Members can login to any MicroClub project using their Discord account
+**What**: Members can log in to a MicroClub application through Discord using MCDI as the central identity service.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a club member, I want to login to a MicroClub app using my Discord account, so I don't need to create another username and password.
+- Project initiates login with `client_id`, `redirect_uri`, `server_id`, and `state`
+- MCDI validates the project and the exact redirect URI
+- MCDI confirms the project has access to the requested server
+- User is redirected to Discord OAuth
+- After callback, MCDI verifies guild membership and project access rules
+- MCDI returns a one-time callback code to the project for backend exchange
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Click "Login with Discord" on any MicroClub app
-- Redirected to Discord to authorize
-- Automatically logged in after Discord approval
-- Only works if member is in the Discord server
-- Possibility to make Auth just for certain groups (Leads for example)
-
-**Success Criteria**:
-
-- Member can login in less than 10 seconds
-- Works on web and mobile
-- Fails gracefully if not a club member
+- Invalid projects fail before redirect
+- Unapproved redirect URIs are rejected
+- Unauthorized server access returns a safe error
+- Callback codes are short-lived and one-time use
 
 ---
 
-#### F2. API Key Authentication for Projects
+#### F2. API Key Authentication For Projects
 
-**What**: Each MicroClub project gets a unique API key to communicate with MCDI
+**What**: Every project receives an API key and uses it for backend-to-backend requests.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a project developer, I want a secure API key for my project, so I can make authenticated requests to MCDI.
+- API keys use a `prefix.secret` format
+- Only the secret hash is stored in the database
+- API keys can be regenerated
+- API keys can be revoked or restored by admins
+- API key lookups are cached in Redis for fast repeated access
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Key can be regenerated
-- Different projects have different permission levels
+- Full API keys are returned once at creation or regeneration time
+- Revoked keys stop authorizing project requests
+- API keys are scoped to the owning project
 
-**Success Criteria**:
+---
 
-- API key works immediately after generation
-- Revoked key stops working within 1 minute
-- Keys are never exposed in logs or error messages
+#### Additional Implemented Auth Capability: Admin Discord Login
+
+This was not called out explicitly in the original MVP document, but it is part of the current implementation.
+
+**Implemented Capabilities**:
+
+- Admin login is handled through Discord OAuth
+- MCDI verifies that the user belongs to the configured main guild
+- MCDI verifies the user holds the `Executive` role
+- A bearer session token and `admin_session` cookie are issued after successful login
 
 ---
 
@@ -83,251 +113,228 @@ MCDI is a centralized backend service that connects all MicroClub applications t
 
 #### F4. Member Data Access
 
-**What**: Projects can get information about club members
+**What**: Projects can retrieve member information for a specific managed Discord server.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a project developer, I want to fetch member information (name, avatar, roles), so I can display it in my app.
+- Fetch a single member by Discord ID in a server
+- Search members by username, global name, or display name
+- Filter by role, active status, and club-member status
+- Paginate large member lists
+- Retrieve the resolved permission set of a specific member in a server
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Get specific member by Discord ID
-- Search members by name
-- Filter members by role or department
-- Get member's avatar, username, join date, roles and pretty much all infos.
-- Paginated results for large lists
-
-**Success Criteria**:
-
-- Can fetch member info in < 200ms
-- Search works with partial names
-- Returns up-to-date information
+- All member reads are scoped to project/server access
+- Missing scope or missing access returns `403`
+- Input is validated through DTOs and rejected if malformed
 
 ---
 
 #### F5. Member Synchronization Using Discord.js
 
-**What**: Automatically keep member data updated from Discord server
+**What**: MCDI keeps member data aligned with Discord.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a system admin, I want member data to stay synchronized with Discord, so apps always show current information.
+- Startup sync across active servers
+- Manual queued full syncs through admin APIs
+- Real-time updates for member join, leave, profile changes, and role changes
+- Inactive membership marking for members missing from a fresh sync
+- Sync logs and granular change records
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Import all members from Discord initially
-- Detect when new members join
-- Detect when members leave
-- Detect when member roles change
-- Detect when member profile updates (username, avatar)
-- Manual trigger for full re-sync
-
-**Success Criteria**:
-
-- New members appear in database within 5 minutes
-- Role changes reflected within 5 minutes
-- Can handle 1000+ members without issues
+- Sync runs independently per server
+- Member and permission caches are invalidated after relevant changes
+- Failures are recorded in sync logs instead of silently discarded
 
 ---
 
-### Feature Category: Permissions & Roles
+### Feature Category: Permissions And Roles
 
 #### F6. Role-Based Permissions
 
-**What**: Control what members can do based on their Discord roles
+**What**: MCDI resolves permissions from synchronized Discord roles.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a project developer, I want to check if a member has permission to perform an action, so I can enforce access control.
+- Permission lookup from stored role-permission mappings
+- Role synchronization from Discord bitfields
+- Support for inheritance rules that extend permissions from a source role
+- Per-server permission resolution
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Check if member has specific permission (e.g., "can_create_events")
-- Hierarchical roles (Executive > Lead > Section > Department > Member)
-- Higher roles inherit lower role permissions
-- Custom permissions beyond Discord roles
-
-**Success Criteria**:
-
-- Permission check responds in < 100ms
-- Permissions update when Discord roles change
-- Easy to define new permissions
+- Permission results are cached in memory for short periods
+- Cache invalidates on sync or role membership changes
 
 ---
 
-#### F7. Permission (ServerSide) Checking API
+#### F7. Permission Checking API
 
-**What**: Simple API to verify if a user has specific permission
+**What**: Projects can ask whether a member has one or more permissions in a server.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a project developer, I want to ask "Does this user have permission X?", so I can allow or deny their action.
+- Check one permission
+- Check many permissions with `ALL`
+- Check many permissions with `ANY`
+- Fetch the full resolved permission set for a member
+- Restrict permission checks to projects with the correct scope
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Check single permission: "Does user123 have 'events.create'?"
-- Check multiple permissions: "Does user have ALL of [perm1, perm2]?"
-- Check any permission: "Does user have ANY of [perm1, perm2]?"
-- Get all permissions for a user
-- Cache results for performance
-
-**Success Criteria**:
-
-- API responds with yes/no quickly
-- Works for any permission string
-- Results are accurate and up-to-date
+- Permission checks are project-scoped and server-scoped
+- Disabled servers are blocked globally before these checks run
 
 ---
 
 ### Feature Category: Server Management
 
-#### F8. Server Registration & Configuration
+#### F8. Server Registration And Configuration
 
-**What**: System Admin can register and configure multiple Discord servers for MCDI to manage
+**What**: Admins can register and manage Discord servers under MCDI.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a System Admin, I want to add our club's Discord servers (main and competitions) to MCDI, so I can manage members across all our servers from one place.
+- Register a server by guild ID
+- List servers with filters
+- Update server settings and metadata
+- Mark one server as the main server
+- Enable or disable a server
+- Delete a server and its associated data
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Register a new Discord server by providing the bot invite or guild ID
-- Mark one server as the "main" club server
-- Categorize servers by type (main, competition, event, other)
-- Enable/disable servers without deleting data
-- Configure server-specific settings (sync frequency, default permissions)
-- View server health status (bot connected, last sync time)
-
-**Success Criteria**:
-
-- Server appears in MCDI within 1 minute of bot joining
-- Only one server can be marked as "main" at any time
-- Disabling a server immediately blocks all API access to it
-- Server settings can be updated without re-syncing
+- Disabled servers are excluded from project-facing reads
+- Server registration can also happen automatically when the bot joins a guild
 
 ---
 
 #### F9. Multi-Server Member View
 
-**What**: View a member's presence and roles across all managed servers
+**What**: Admins can inspect member participation across all managed servers.
 
-**User Story**:
-
-> As a System Admin member, I want to see which servers a person is in and what roles they have in each, so I can understand their involvement across all club activities.
-
-**Key Capabilities**:
+**Implemented Capabilities**:
 
 - View all servers a member belongs to
-- See roles assigned in each server
-- See join date for each server
-- Identify if member is a "club member" (in main server) vs "participant" (only in event servers)
-- Filter members by "club members only" or "all participants"
-- Export cross-server member report
+- View roles per server
+- Paginate a cross-server member list
+- Export cross-server member data as CSV or JSON
 
-**Success Criteria**:
+**Acceptance Notes**:
 
-- Cross-server view loads in < 500ms
-- Accurately reflects current server membership
-- Clearly distinguishes club members from external participants
+- Cross-server views are admin-only
+- Export supports reporting and operational review
 
 ---
 
 #### F10. Server-Scoped Permissions
 
-**What**: Define and check permissions that apply within a specific server context
+**What**: MCDI applies access control in the context of a specific Discord server.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a project developer, I want to check if a user has permission to perform an action in a specific server, so I can enforce server-appropriate access control.
+- Project access is defined per project/server pair
+- Scopes are stored per project/server mapping
+- Operations are stored per project/server mapping
+- Permission resolution runs inside a server context
+- Inheritance rules can target all servers or selected servers
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Check permission for a user in a specific server
-- Same user can have different permissions in different servers
-- Global permissions (apply to all servers) vs server-specific permissions
-- Permission inheritance: main server roles can optionally grant permissions in other servers
-- Example: "Lead" in main server automatically gets "Organizer" permissions in competition servers
-
-**Success Criteria**:
-
-- Permission check specifies server context
-- Same user correctly returns different permissions per server
-- Global permissions work across all servers
-- Inheritance rules are configurable
+- A project can be authorized for one server and denied for another
+- The same member can resolve to different permissions across servers
 
 ---
 
 #### F11. Server Synchronization
 
-**What**: Keep server data (members, roles, channels) synchronized with Discord
+**What**: MCDI keeps managed servers synchronized with Discord.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a system admin, I want each server's data to stay synchronized with Discord, so apps always show accurate information for that server.
+- Queued full syncs with heartbeat tracking
+- Startup sync scheduling for active servers
+- Real-time listeners for guild, role, member, and user events
+- Sync status endpoints
+- Sync log endpoints
+- Per-change detail tracking
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Full sync on bot startup for each server
-- Real-time sync via Discord gateway events per server
-- Manual trigger for full re-sync of a specific server
-- View sync status and last sync time per server
-- Sync logs showing what changed
-- Handle bot being added/removed from servers
-
-**Success Criteria**:
-
-- Each server syncs independently
-- New server members appear within 5 minutes
-- Sync errors don't affect other servers
-- Can sync 5+ servers without performance issues
+- Sync conflict prevention avoids duplicate active syncs on the same server
+- Queue draining continues automatically after startup
 
 ---
 
-#### F12. Server Access Control for Projects
+#### F12. Server Access Control For Projects
 
-**What**: Control which servers each project can access
+**What**: Admins define which projects may access which servers and what they may do there.
 
-**User Story**:
+**Implemented Capabilities**:
 
-> As a System Admin, I want to grant specific projects access to specific servers, so the Events app only sees the main server while the Hackathon app can see both main and hackathon servers.
+- Grant access to a project for a server
+- Update operations and scopes on an existing mapping
+- Revoke access
+- List servers by project
+- List projects by server
+- View the full access matrix
+- View audit history for access changes
 
-**Key Capabilities**:
+**Acceptance Notes**:
 
-- Grant a project access to one or more servers
-- Specify allowed operations per server (read, send messages, manage webhooks)
-- Revoke server access from a project
-- View which projects have access to which servers
-- Audit log of access grants/revocations
-
-**Success Criteria**:
-
-- Project can only access servers it's been granted
-- API returns 403 for unauthorized server access
-- Access changes take effect within 1 minute
-- Easy to view project-server access matrix
+- Access changes invalidate related caches
+- Audit entries record `GRANT`, `UPDATE`, and `REVOKE`
 
 ---
 
-#### F13. Server Statistics & Dashboard
+#### F13. Server Statistics And Dashboard
 
-**What**: View statistics and health for each managed server
+**What**: Admins need visibility into server health and usage.
 
-**User Story**:
+**Current Status**: Partial
 
-> As a System Admin, I want to see statistics for each server, so I can track participation and identify issues.
+**Implemented Today**:
 
-**Key Capabilities**:
+- Latest sync status per server
+- Sync status across all active servers
+- Sync log history
+- Sync change details
+- Cross-server member export
 
-- Member count per server
-- Members by role breakdown per server
-- New members in last 30 days per server
-- Active vs inactive members
-- Cross-server statistics (members in multiple servers)
-- Server health (bot status, sync status, errors)
+**Still Missing For Full Completion**:
 
-**Success Criteria**:
+- aggregate server statistics endpoints
+- member growth charts
+- role distribution summaries
+- a dedicated admin dashboard UI
 
-- Statistics update daily
-- Can compare statistics across servers
-- Health issues surfaced prominently
-- Data exportable for reporting
+---
+
+## 4. Additional Implemented Requirements Since The Original MVP Draft
+
+The codebase now includes several capabilities that were not clearly represented in the original MVP document:
+
+- admin Discord OAuth with Executive-role enforcement
+- redirect URI allowlisting per project
+- per-project server scopes (`read_members`, `check_permissions`)
+- project-server access audit history
+- sync queue heartbeat and lease behavior
+- granular sync change records
+- Swagger/OpenAPI documentation generated from controllers and DTOs
+
+---
+
+## 5. Explicitly Out Of Scope For The Current Release
+
+These features are not yet implemented in the current backend and should not be treated as shipped requirements:
+
+- project-facing Discord message sending APIs
+- webhook creation and execution APIs
+- channel listing and history APIs
+- project usage analytics dashboard
+- refresh-token-based member session renewal
+- SDK packages for external frameworks
+
