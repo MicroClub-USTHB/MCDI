@@ -13,6 +13,7 @@ import { UpdateRedirectUriDto } from './dto/update-redirect-uri.dto';
 import {
   DEFAULT_PROJECT_SERVER_OPERATIONS,
   ProjectServerOperation,
+  ProjectServerAccessState,
   ProjectsRepository,
   ProjectRow,
   ListProjectsFilters,
@@ -21,6 +22,8 @@ import {
   ListAccessMatrixFilters,
   ListAuditFilters,
 } from './projects.repository';
+import { ProjectAuthCacheService } from './project-auth-cache.service';
+import { ProjectAccessCacheService } from './project-access-cache.service';
 
 export interface CreateProjectResult {
   /** Returned ONCE — never stored in plaintext, never returned again */
@@ -30,7 +33,11 @@ export interface CreateProjectResult {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly projectsRepository: ProjectsRepository) {}
+  constructor(
+    private readonly projectsRepository: ProjectsRepository,
+    private readonly projectAuthCache: ProjectAuthCacheService,
+    private readonly projectAccessCache: ProjectAccessCacheService,
+  ) {}
 
   async create(dto: CreateProjectDto): Promise<CreateProjectResult> {
     let serverAccessConfig = dto.serverAccess ?? [];
@@ -134,22 +141,26 @@ export class ProjectsService {
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
 
+    await this.invalidateProjectCaches(project.id);
     return project;
   }
 
   async revokeKey(id: string): Promise<void> {
     await this.findOne(id); // throws 404 if not found
     await this.projectsRepository.setActive(id, false);
+    await this.invalidateProjectCaches(id);
   }
 
   async restoreKey(id: string): Promise<void> {
     await this.findOne(id); // throws 404 if not found
     await this.projectsRepository.setActive(id, true);
+    await this.invalidateProjectCaches(id);
   }
 
   async delete(id: string): Promise<void> {
     const deleted = await this.projectsRepository.delete(id);
     if (!deleted) throw new NotFoundException(`Project ${id} not found`);
+    await this.invalidateProjectCaches(id);
   }
 
   // ── Admin-only operations ─────────────────────────────────────────────
@@ -166,6 +177,7 @@ export class ProjectsService {
     );
     if (!project)
       throw new NotFoundException(`Project with ID ${id} not found`);
+    await this.invalidateProjectCaches(project.id);
     return {
       projectId: project.id,
       apiKey: fullKey,
@@ -251,6 +263,8 @@ export class ProjectsService {
       changedAt: now,
     });
 
+    await this.invalidateProjectServerAccess(params.projectId, params.serverId);
+
     return saved;
   }
 
@@ -282,6 +296,8 @@ export class ProjectsService {
       changedAt: new Date(),
     });
 
+    await this.invalidateProjectServerAccess(params.projectId, params.serverId);
+
     return {
       revoked: true,
       projectId: params.projectId,
@@ -294,11 +310,46 @@ export class ProjectsService {
     serverId: string,
     operation: ProjectServerOperation,
   ): Promise<boolean> {
-    return this.projectsRepository.isOperationAllowed(
+    const accessState = await this.resolveProjectServerAccessState(
       projectId,
       serverId,
-      operation,
     );
+
+    return Boolean(
+      accessState?.serverIsActive && accessState.operations?.[operation],
+    );
+  }
+
+  async assertProjectServerRequestAccess(params: {
+    projectId: string;
+    serverId: string;
+    operation: ProjectServerOperation;
+    requiredScope?: string;
+  }): Promise<void> {
+    const accessState = await this.resolveProjectServerAccessState(
+      params.projectId,
+      params.serverId,
+    );
+
+    if (!accessState || !accessState.serverIsActive) {
+      throw new ForbiddenException('Server not found or inactive');
+    }
+
+    if (!accessState.operations?.[params.operation]) {
+      throw new ForbiddenException(
+        `Project is not allowed to perform ${params.operation} on server ${params.serverId}`,
+      );
+    }
+
+    if (
+      params.requiredScope &&
+      (!Array.isArray(accessState.scopes) ||
+        !accessState.scopes.includes(params.requiredScope))
+    ) {
+      throw new ForbiddenException(
+        `Insufficient scope: '${params.requiredScope}' is required`,
+      );
+    }
   }
 
   async assertProjectAccessOperation(
@@ -306,17 +357,11 @@ export class ProjectsService {
     serverId: string,
     operation: ProjectServerOperation,
   ): Promise<void> {
-    const allowed = await this.canProjectAccessOperation(
+    await this.assertProjectServerRequestAccess({
       projectId,
       serverId,
       operation,
-    );
-
-    if (!allowed) {
-      throw new ForbiddenException(
-        `Project is not allowed to perform ${operation} on server ${serverId}`,
-      );
-    }
+    });
   }
 
   async listServersByProject(
@@ -340,5 +385,53 @@ export class ProjectsService {
   async listAudit(filters: ListAuditFilters = {}) {
     const safeLimit = Math.min(Math.max(filters.limit ?? 100, 1), 500);
     return this.projectsRepository.listAudit({ ...filters, limit: safeLimit });
+  }
+
+  private async resolveProjectServerAccessState(
+    projectId: string,
+    serverId: string,
+  ): Promise<ProjectServerAccessState | null> {
+    const cached = await this.projectAccessCache.get(projectId, serverId);
+    if (cached) {
+      return {
+        serverId: cached.serverId,
+        serverIsActive: true,
+        operations: cached.operations,
+        scopes: cached.scopes,
+      };
+    }
+
+    const dbState = await this.projectsRepository.findProjectServerAccessState(
+      projectId,
+      serverId,
+    );
+
+    if (dbState?.serverIsActive && dbState.operations) {
+      await this.projectAccessCache.set({
+        projectId,
+        serverId,
+        operations: dbState.operations,
+        scopes: dbState.scopes ?? [],
+      });
+    }
+
+    return dbState;
+  }
+
+  private async invalidateProjectServerAccess(
+    projectId: string,
+    serverId: string,
+  ): Promise<void> {
+    await Promise.all([
+      this.projectAccessCache.invalidateProject(projectId),
+      this.projectAccessCache.invalidateServer(serverId),
+    ]);
+  }
+
+  private async invalidateProjectCaches(projectId: string): Promise<void> {
+    await Promise.all([
+      this.projectAuthCache.invalidateProject(projectId),
+      this.projectAccessCache.invalidateProject(projectId),
+    ]);
   }
 }

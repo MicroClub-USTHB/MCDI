@@ -41,6 +41,11 @@ export class SyncService implements OnApplicationBootstrap, OnModuleDestroy {
   ) {}
 
   onApplicationBootstrap(): void {
+    if (process.env.NODE_ENV === 'test') {
+      this.logger.log('Skipping sync queue bootstrap in test environment');
+      return;
+    }
+
     if (this.queuePollTimer) return;
 
     this.queuePollTimer = setInterval(() => {

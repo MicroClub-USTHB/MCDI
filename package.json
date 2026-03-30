@@ -34,8 +34,9 @@
     "docker:restart": "docker-compose restart api",
     "docker:db:push": "docker-compose exec api npm run db:push",
     "docker:db:seed": "docker-compose exec api npm run db:seed",
-    "docker:db:studio": "docker exec mcdi-api-1 sh -c \"pkill -f drizzle-kit 2>/dev/null; sleep 1; nohup npx drizzle-kit studio --host 0.0.0.0 > /tmp/drizzle-studio.log 2>&1 &\" && echo 'Drizzle Studio starting at https://local.drizzle.studio (check logs: npm run docker:db:studio:logs)'",
-    "docker:db:studio:logs": "docker exec mcdi-api-1 tail -f /tmp/drizzle-studio.log"
+    "docker:db:studio": "docker exec mcdi-api-1 sh -lc \"nohup npx drizzle-kit studio --host 0.0.0.0 --port 4983 > /tmp/drizzle-studio.log 2>&1 < /dev/null &\" && sleep 2 && docker exec mcdi-api-1 sh -lc \"tail -n 20 /tmp/drizzle-studio.log\" && echo 'Drizzle Studio URL: https://local.drizzle.studio?host=localhost&port=4983'",
+    "docker:db:studio:logs": "docker exec mcdi-api-1 sh -lc \"tail -f /tmp/drizzle-studio.log\"",
+    "docker:db:studio:stop": "docker exec mcdi-api-1 sh -lc \"pkill -f 'drizzle-kit studio --host 0.0.0.0 --port 4983' 2>/dev/null || true\""
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -53,6 +54,7 @@
     "drizzle-orm": "^0.45.1",
     "ejs": "^4.0.1",
     "pg": "^8.18.0",
+    "redis": "^4.7.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1"

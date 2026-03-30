@@ -33,6 +33,7 @@ import { hash } from 'bcryptjs';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
+import { hashSessionToken } from '../src/common/utils/session-token.util';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -42,6 +43,21 @@ const describeIf = DB_URL ? describe : describe.skip;
 describeIf('/api/auth (e2e)', () => {
   let app: INestApplication;
   let db: TestDb;
+
+  const seedProjectSessionContext = async (name = 'E2E Auth Project') => {
+    const adminCtx = await seedAdminContext(db);
+    const project = await seedTestProject(db, adminCtx.serverId, { name });
+
+    await db
+      .update(sessions)
+      .set({
+        projectId: project.id,
+        serverId: adminCtx.serverId,
+      })
+      .where(eq(sessions.token, hashSessionToken(adminCtx.bearerToken)));
+
+    return { ...adminCtx, project };
+  };
 
   beforeAll(async () => {
     enableNock();
@@ -150,35 +166,46 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/validate', () => {
     it('returns 401 for unknown token', async () => {
+      const { project } = await seedProjectSessionContext('E2E Validate Unknown');
+
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: 'does-not-exist-token-abc' })
         .expect(401);
     });
 
     it('returns 401 for expired token', async () => {
-      const { memberId } = await seedAdminContext(db);
+      const { memberId, serverId, project } = await seedProjectSessionContext(
+        'E2E Validate Expired',
+      );
 
       // Insert an already-expired session directly
       const expiredToken = 'expired-session-token-000';
       await db.insert(sessions).values({
         id: crypto.randomUUID(),
         memberId,
-        token: expiredToken,
+        projectId: project.id,
+        serverId,
+        token: hashSessionToken(expiredToken),
         expiresAt: new Date(Date.now() - 60_000), // 1 minute ago
       });
 
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: expiredToken })
         .expect(401);
     });
 
     it('returns 200 with member info for valid token', async () => {
-      const { bearerToken } = await seedAdminContext(db);
+      const { bearerToken, project } = await seedProjectSessionContext(
+        'E2E Validate Valid',
+      );
 
       const res = await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(200);
 
@@ -192,8 +219,11 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 400 when token field is missing', async () => {
+      const { project } = await seedProjectSessionContext('E2E Validate Missing');
+
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({})
         .expect(400);
     });
@@ -203,8 +233,11 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/logout', () => {
     it('returns success even for non-existent token (idempotent)', async () => {
+      const { project } = await seedProjectSessionContext('E2E Logout Ghost');
+
       const res = await request(app.getHttpServer())
         .post('/api/auth/logout')
+        .set('x-api-key', project.apiKey)
         .send({ token: 'ghost-token-aabbcc' })
         .expect(200);
 
@@ -212,17 +245,21 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('invalidates a valid existing token', async () => {
-      const { bearerToken } = await seedAdminContext(db);
+      const { bearerToken, project } = await seedProjectSessionContext(
+        'E2E Logout Valid',
+      );
 
       // Confirm it is valid first
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(200);
 
       // Logout
       const logoutRes = await request(app.getHttpServer())
         .post('/api/auth/logout')
+        .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(200);
 
@@ -231,6 +268,7 @@ describeIf('/api/auth (e2e)', () => {
       // Now token should be invalid
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(401);
     });
@@ -240,16 +278,20 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/logout-all', () => {
     it('invalidates all sessions for a member', async () => {
-      const { bearerToken, memberId } = await seedAdminContext(db);
+      const { bearerToken, memberId, project } = await seedProjectSessionContext(
+        'E2E Logout All',
+      );
 
       await request(app.getHttpServer())
         .post('/api/auth/logout-all')
+        .set('x-api-key', project.apiKey)
         .send({ memberId })
         .expect(200);
 
       // Original token should no longer be valid
       await request(app.getHttpServer())
         .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(401);
     });
@@ -265,7 +307,7 @@ describeIf('/api/auth (e2e)', () => {
       await db.insert(sessions).values({
         id: crypto.randomUUID(),
         memberId,
-        token: 'stale-token-cleanup-test',
+        token: hashSessionToken('stale-token-cleanup-test'),
         expiresAt: new Date(Date.now() - 1000),
       });
 
@@ -518,7 +560,7 @@ describeIf('/api/auth (e2e)', () => {
       await db.insert(sessions).values({
         id: crypto.randomUUID(),
         memberId: adminMemberId,
-        token: expiredToken,
+        token: hashSessionToken(expiredToken),
         expiresAt: new Date(Date.now() - 60_000),
       });
 
@@ -597,7 +639,7 @@ describeIf('/api/auth (e2e)', () => {
       await db.insert(sessions).values({
         id: crypto.randomUUID(),
         memberId: adminMemberId,
-        token: expiredToken,
+        token: hashSessionToken(expiredToken),
         expiresAt: new Date(Date.now() - 60_000),
       });
 

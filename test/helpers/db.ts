@@ -13,6 +13,7 @@ import { Pool } from 'pg';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../src/database/entities';
 import { createHash, randomBytes } from 'crypto';
+import { hashSessionToken } from '../../src/common/utils/session-token.util';
 
 export type TestDb = NodePgDatabase<typeof schema>;
 
@@ -129,7 +130,7 @@ export async function seedAdminContext(db: TestDb): Promise<AdminContext> {
   await db.insert(schema.sessions).values({
     id: crypto.randomUUID(),
     memberId,
-    token,
+    token: hashSessionToken(token),
     expiresAt: new Date(Date.now() + 86_400_000), // +1 day
   });
 
