@@ -64,6 +64,13 @@ export class AdminAuthService {
     return { url };
   }
 
+  async hasValidAdminState(stateToken: string): Promise<boolean> {
+    const state = await this.adminOAuthStateRepository.findValidState(
+      stateToken,
+    );
+    return Boolean(state);
+  }
+
   /**
    * Handle the Discord callback for the system admin flow.
    *

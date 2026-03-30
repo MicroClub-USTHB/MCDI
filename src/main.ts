@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 
@@ -56,7 +56,12 @@ async function bootstrap() {
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(new PostgresExceptionFilter(httpAdapter));
 
-  app.setGlobalPrefix(apiPrefix);
+  app.setGlobalPrefix(apiPrefix, {
+    exclude: [
+      { path: 'admin', method: RequestMethod.GET },
+      { path: 'admin/login', method: RequestMethod.GET },
+    ],
+  });
   app.useStaticAssets(join(__dirname, 'public'));
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
@@ -111,9 +116,9 @@ async function bootstrap() {
       'api-key',
     )
     .addServer(
-      // BASE_URL must NOT include the apiPrefix — it is appended automatically
-      // so RESTler resolves paths correctly (e.g. http://api:3000/api/members)
-      `${process.env.BASE_URL || `http://localhost:${port}`}/${apiPrefix}`,
+      // The server URL should be the root ONLY. 
+      // NestJS paths include the apiPrefix already.
+      process.env.BASE_URL || `http://localhost:${port}`,
       'API Server',
     )
     .build();
@@ -144,7 +149,7 @@ async function bootstrap() {
     customCss: '.swagger-ui .topbar { display: none }',
   });
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   console.log(
     `Application is running on: http://localhost:${port}/${apiPrefix}`,
   );

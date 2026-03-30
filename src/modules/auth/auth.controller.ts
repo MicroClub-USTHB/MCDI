@@ -211,6 +211,40 @@ export class AuthController {
     @Query('state') state: string,
     @Res() res: Response,
   ) {
+    if (await this.adminAuthService.hasValidAdminState(state)) {
+      const adminFrontendUrl =
+        this.configService.get<string>('discord.adminFrontendUrl') ||
+        '/admin';
+      const isProduction =
+        this.configService.get<string>('app.nodeEnv') === 'production';
+
+      try {
+        const result = await this.adminAuthService.handleAdminDiscordCallback(
+          code,
+          state,
+        );
+
+        res.cookie('admin_session', result.token, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: isProduction,
+          maxAge: 24 * 60 * 60 * 1000,
+          path: '/',
+        });
+
+        return res.redirect(adminFrontendUrl);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Authentication failed';
+        const url = new URL(
+          adminFrontendUrl,
+          this.configService.get<string>('app.baseUrl'),
+        );
+        url.searchParams.set('error', message);
+        return res.redirect(url.toString());
+      }
+    }
+
     const result = await this.authService.handleDiscordCallback(code, state);
     return res.redirect(result.url);
   }
@@ -408,8 +442,15 @@ export class AuthController {
       example: { url: 'https://discord.com/api/oauth2/authorize?...' },
     },
   })
-  async adminDiscordLogin() {
-    return this.adminAuthService.buildAdminDiscordLoginUrl();
+  async adminDiscordLogin(@Req() req: Request, @Res() res: Response) {
+    const result = await this.adminAuthService.buildAdminDiscordLoginUrl();
+    const accept = req.headers.accept || '';
+
+    if (accept.includes('text/html')) {
+      return res.redirect(result.url);
+    }
+
+    return res.json(result);
   }
 
   @Get('admin/discord/callback')

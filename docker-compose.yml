@@ -1,17 +1,20 @@
 
 services:
   api:
-    
     build:
       context: .                  # Look for files in the current directory
       dockerfile: Dockerfile.dev   # Use our specific development blueprint
+    env_file:
+      - .env
     ports:
       - '3000:3000'
       - '4983:4983'  # Drizzle Studio
 
-  
     environment:
       - NODE_ENV=development
+      - BASE_URL=http://localhost:3000
+      - ADMIN_FRONTEND_URL=http://localhost:3000/admin
+      - DISCORD_ADMIN_CALLBACK_URL=http://localhost:3000/api/auth/discord/callback
       - DATABASE_URL=postgresql://myuser:mypassword@database:5432/mcdi
 
     depends_on:

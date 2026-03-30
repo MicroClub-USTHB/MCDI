@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCDI Admin</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f9f9f9;
+      --border: #e5e5e5;
+      --border-strong: #1a1a1a;
+      --text: #0a0a0a;
+      --muted: #6b6b6b;
+      --subtle: #c0c0c0;
+      --inverse-bg: #0a0a0a;
+      --inverse-text: #ffffff;
+      --success-bg: #f0fdf4;
+      --success-border: #bbf7d0;
+      --success-text: #14532d;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --danger-text: #7f1d1d;
+      --info-bg: #f8f8f8;
+      --info-border: #e5e5e5;
+      --info-text: #1a1a1a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .page {
+      width: min(960px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 48px 0 80px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 48px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-slot {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .header-text h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .header-text p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .card-header {
+      margin-bottom: 16px;
+    }
+
+    .card-header h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .card-header p {
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-top: 4px;
+    }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── Forms ── */
+    form {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    input[type="text"],
+    input[type="url"],
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 0.875rem;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--border-strong);
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    .field-hint {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Checkboxes */
+    .checkbox-group {
+      display: grid;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .checkbox-group label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-weight: 400;
+      cursor: pointer;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      margin-top: 1px;
+      accent-color: var(--text);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .checkbox-label-text {
+      display: grid;
+      gap: 1px;
+    }
+
+    .checkbox-label-text strong {
+      font-size: 0.82rem;
+      font-weight: 500;
+    }
+
+    .checkbox-label-text span {
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+
+    /* ── Buttons ── */
+    .btn,
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover,
+    button:hover {
+      opacity: 0.85;
+    }
+
+    .btn-primary,
+    button.primary {
+      background: var(--inverse-bg);
+      color: var(--inverse-text);
+    }
+
+    .btn-secondary,
+    button.secondary {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    /* ── Status boxes ── */
+    .status-box,
+    .result-box,
+    .error-box {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .status-box {
+      background: var(--info-bg);
+      border-color: var(--info-border);
+      color: var(--info-text);
+    }
+
+    .result-box {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.78rem;
+    }
+
+    .error-box {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── Utilities ── */
+    .hidden {
+      display: none !important;
+    }
+
+    code {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.78rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+
+    @media (max-width: 720px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .page {
+        padding-top: 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-slot">
+        <img src="/logo.svg" alt="MCDI logo" onerror="this.style.display='none'">
+      </div>
+      <div class="header-text">
+        <h1>MCDI Admin</h1>
+        <p>Project & API key management</p>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="stack">
+
+        <!-- Auth card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="badge">Authentication</div>
+            <h2>Admin Access</h2>
+            <p>Sign in with Discord to manage projects and API keys.</p>
+          </div>
+
+          <% if (error) { %>
+            <div class="error-box"><%= error %></div>
+          <% } %>
+
+          <div id="auth-status" class="status-box">
+            <% if (hasSessionToken) { %>
+              Verifying session...
+            <% } else { %>
+              You are not signed in.
+            <% } %>
+          </div>
+
+          <div id="auth-actions" class="actions">
+            <a class="btn btn-primary" href="<%= loginUrl %>">Login with Discord</a>
+            <a class="btn btn-secondary" href="<%= docsUrl %>">API docs</a>
+          </div>
+        </section>
+
+        <!-- Create project card -->
+        <section id="workspace" class="card hidden">
+          <div class="card-header">
+            <div class="badge">Projects</div>
+            <h2>Create a new project</h2>
+            <p>The API key is shown only once after creation. Copy and store it securely.</p>
+          </div>
+
+          <form id="create-project-form">
+            <label>
+              Project name <span style="color:var(--muted);font-weight:400">(required)</span>
+              <input type="text" name="name" placeholder="e.g. MicroClub Website" required>
+            </label>
+
+            <label>
+              Description
+              <textarea name="description" placeholder="Optional description"></textarea>
+            </label>
+
+            <label>
+              Allowed redirect URI
+              <input type="url" name="redirectUri" placeholder="https://your-app.com/auth/callback">
+              <span class="field-hint">Used for OAuth callback validation.</span>
+            </label>
+
+            <hr class="divider">
+
+            <div>
+              <div style="font-size:0.82rem;font-weight:500;margin-bottom:8px;">Scopes</div>
+              <span class="field-hint" style="display:block;margin-bottom:10px;">
+                Select the permissions this project should be granted. If none are selected, all available scopes are granted by default.
+              </span>
+              <div class="checkbox-group">
+                <label>
+                  <input type="checkbox" name="scopes" value="read_members">
+                  <div class="checkbox-label-text">
+                    <strong>read_members</strong>
+                    <span>Read member profiles and membership data.</span>
+                  </div>
+                </label>
+                <label>
+                  <input type="checkbox" name="scopes" value="check_permissions">
+                  <div class="checkbox-label-text">
+                    <strong>check_permissions</strong>
+                    <span>Verify role-based permissions for a member.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <button class="primary" type="submit">Create project</button>
+          </form>
+
+          <div id="create-project-status" class="status-box hidden"></div>
+          <div id="create-project-result" class="result-box hidden"></div>
+          <div id="create-project-error" class="error-box hidden"></div>
+        </section>
+
+      </div>
+
+      <div class="stack">
+
+        <!-- Rotate key card -->
+        <section id="rotate-card" class="card hidden">
+          <div class="card-header">
+            <div class="badge">API Keys</div>
+            <h2>Rotate an API key</h2>
+            <p>Use this when an existing key is lost or compromised. The old key is immediately invalidated.</p>
+          </div>
+
+          <form id="rotate-key-form">
+            <label>
+              Project ID
+              <input type="text" name="projectId" placeholder="UUID" required>
+            </label>
+            <button class="primary" type="submit">Rotate key</button>
+          </form>
+
+          <div id="rotate-key-status" class="status-box hidden"></div>
+          <div id="rotate-key-result" class="result-box hidden"></div>
+          <div id="rotate-key-error" class="error-box hidden"></div>
+        </section>
+
+        <!-- Info card -->
+        <section class="card">
+          <div class="card-header">
+            <div class="badge">Resources</div>
+            <h2>Quick links</h2>
+          </div>
+          <div class="actions" style="margin-top:0">
+            <a class="btn btn-secondary" href="<%= docsUrl %>">Swagger docs</a>
+          </div>
+          <hr class="divider">
+          <p style="font-size:0.8rem;color:var(--muted);line-height:1.6">
+            Project endpoint: <code><%= createProjectUrl %></code><br>
+            Key rotation: <code><%= regenerateApiKeyBaseUrl %>/:id/regenerate-api-key</code>
+          </p>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const adminMeUrl = <%- JSON.stringify(adminMeUrl) %>;
+    const createProjectUrl = <%- JSON.stringify(createProjectUrl) %>;
+    const regenerateApiKeyBaseUrl = <%- JSON.stringify(regenerateApiKeyBaseUrl) %>;
+    const updateRedirectUriBaseUrl = <%- JSON.stringify(updateRedirectUriBaseUrl) %>;
+    const hasSessionToken = <%- JSON.stringify(hasSessionToken) %>;
+
+    const authStatus = document.getElementById('auth-status');
+    const authActions = document.getElementById('auth-actions');
+    const workspace = document.getElementById('workspace');
+    const rotateCard = document.getElementById('rotate-card');
+
+    function setMessage(el, value) {
+      el.textContent = value;
+      el.classList.remove('hidden');
+    }
+
+    function hide(el) {
+      el.classList.add('hidden');
+      el.textContent = '';
+    }
+
+    function formatApiKeyResult(payload) {
+      const lines = [];
+      if (payload.project && payload.project.id) lines.push(`Project ID:   ${payload.project.id}`);
+      else if (payload.projectId) lines.push(`Project ID:   ${payload.projectId}`);
+      if (payload.project && payload.project.name) lines.push(`Project name: ${payload.project.name}`);
+      if (payload.apiKeyPrefix) lines.push(`Key prefix:   ${payload.apiKeyPrefix}`);
+      if (payload.apiKeyCreatedAt) lines.push(`Created at:   ${payload.apiKeyCreatedAt}`);
+      if (payload.apiKey) lines.push(`\nAPI key (copy now — shown once):\n${payload.apiKey}`);
+      return lines.join('\n');
+    }
+
+    async function loadAdminProfile() {
+      if (!hasSessionToken) {
+        authStatus.textContent = 'You are not signed in.';
+        return;
+      }
+
+      try {
+        const res = await fetch(adminMeUrl, {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!res.ok) throw new Error('Session missing or expired. Please sign in again.');
+
+        const profile = await res.json();
+        const name = profile.displayName || profile.globalName || profile.username || profile.id;
+        authStatus.textContent = `Signed in as ${name}.`;
+        workspace.classList.remove('hidden');
+        rotateCard.classList.remove('hidden');
+        authActions.innerHTML = '<a class="btn btn-secondary" href="<%= docsUrl %>">API docs</a>';
+      } catch (err) {
+        authStatus.textContent = err.message || 'Session missing or expired.';
+      }
+    }
+
+    document.getElementById('create-project-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      const statusEl = document.getElementById('create-project-status');
+      const resultEl = document.getElementById('create-project-result');
+      const errorEl = document.getElementById('create-project-error');
+
+      hide(resultEl);
+      hide(errorEl);
+      setMessage(statusEl, 'Creating project...');
+
+      try {
+        const selectedScopes = Array.from(form.querySelectorAll('input[name="scopes"]:checked')).map(cb => cb.value);
+
+        const payload = {
+          name: String(formData.get('name') || '').trim(),
+          description: String(formData.get('description') || '').trim() || undefined,
+        };
+
+        // Attach scopes as serverAccess if any were selected
+        if (selectedScopes.length > 0) {
+          payload.serverAccess = [{ scopes: selectedScopes }];
+        }
+
+        const createRes = await fetch(createProjectUrl, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const createBody = await createRes.json().catch(() => ({}));
+
+        if (!createRes.ok) throw new Error(createBody.message || 'Failed to create project.');
+
+        const redirectUri = String(formData.get('redirectUri') || '').trim();
+        if (redirectUri && createBody.project && createBody.project.id) {
+          const redirectRes = await fetch(`${updateRedirectUriBaseUrl}/${createBody.project.id}/redirect-uri`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ redirectUri }),
+          });
+
+          const redirectBody = await redirectRes.json().catch(() => ({}));
+          if (!redirectRes.ok) throw new Error(redirectBody.message || 'Project created, but redirect URI update failed.');
+        }
+
+        hide(statusEl);
+        setMessage(resultEl, formatApiKeyResult(createBody));
+        form.reset();
+      } catch (err) {
+        hide(statusEl);
+        setMessage(errorEl, err.message || 'Failed to create project.');
+      }
+    });
+
+    document.getElementById('rotate-key-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      const projectId = String(formData.get('projectId') || '').trim();
+      const statusEl = document.getElementById('rotate-key-status');
+      const resultEl = document.getElementById('rotate-key-result');
+      const errorEl = document.getElementById('rotate-key-error');
+
+      hide(resultEl);
+      hide(errorEl);
+      setMessage(statusEl, 'Rotating API key...');
+
+      try {
+        const res = await fetch(`${regenerateApiKeyBaseUrl}/${projectId}/regenerate-api-key`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.message || 'Failed to rotate API key.');
+
+        hide(statusEl);
+        setMessage(resultEl, formatApiKeyResult(body));
+        form.reset();
+      } catch (err) {
+        hide(statusEl);
+        setMessage(errorEl, err.message || 'Failed to rotate API key.');
+      }
+    });
+
+    loadAdminProfile();
+  </script>
+</body>
+
+</html>
