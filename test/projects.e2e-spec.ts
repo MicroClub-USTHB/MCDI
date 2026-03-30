@@ -16,6 +16,7 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
+import { servers } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -72,6 +73,16 @@ describeIf('/api/admin/projects (e2e)', () => {
 
     it('creates a project with specific server accesses and returns the API key once', async () => {
       const server1 = adminCtx.serverId;
+      const server2 = '987654321012345678';
+
+      await db.insert(servers).values({
+        id: server2,
+        name: 'E2E Secondary Server',
+        type: 'competition',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
 
       const res = await request(app.getHttpServer())
         .post(BASE)
@@ -84,7 +95,7 @@ describeIf('/api/admin/projects (e2e)', () => {
               scopes: ['read_members'],
             },
             {
-              serverId: '9876543210',
+              serverId: server2,
               scopes: ['read_members', 'check_permissions'],
             },
           ],
@@ -106,13 +117,20 @@ describeIf('/api/admin/projects (e2e)', () => {
         .set('Authorization', auth())
         .expect(200);
 
-      // Access list should only include the server that was already in db, fake one shouldn't be added implicitly due to lookup failure but it wouldn't fail the create
-      // Let's just check if it properly saved read_members scope
       const server1Access = accessRes.body.find(
         (a: any) => a.serverId === server1,
       );
       expect(server1Access).toBeDefined();
       expect(server1Access.scopes).toEqual(['read_members']);
+
+      const server2Access = accessRes.body.find(
+        (a: any) => a.serverId === server2,
+      );
+      expect(server2Access).toBeDefined();
+      expect(server2Access.scopes).toEqual([
+        'read_members',
+        'check_permissions',
+      ]);
     });
 
     it('returns 400 when name is missing', async () => {

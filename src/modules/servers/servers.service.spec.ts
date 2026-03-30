@@ -3,6 +3,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ServersService } from './servers.service';
 import { ServersRepository } from './servers.repository';
 import { DiscordService } from '../discord/discord.service';
+import { ProjectAccessCacheService } from '../projects/project-access-cache.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,10 @@ const mockDiscordService = {
   hasGuildConnection: jest.fn(),
   getGuildById: jest.fn(),
   getClient: jest.fn(),
+};
+
+const mockProjectAccessCache = {
+  invalidateServer: jest.fn(),
 };
 
 const fakeServer = (overrides = {}) => ({
@@ -48,12 +53,17 @@ describe('ServersService', () => {
       isReady: () => false,
       guilds: { cache: { has: () => false } },
     });
+    mockProjectAccessCache.invalidateServer.mockResolvedValue(undefined);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ServersService,
         { provide: ServersRepository, useValue: mockServersRepo },
         { provide: DiscordService, useValue: mockDiscordService },
+        {
+          provide: ProjectAccessCacheService,
+          useValue: mockProjectAccessCache,
+        },
       ],
     }).compile();
     service = module.get(ServersService);
@@ -79,6 +89,9 @@ describe('ServersService', () => {
       });
       expect(result).toEqual(server);
       expect(mockServersRepo.upsertServer).toHaveBeenCalled();
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
     });
 
     it('calls clearMainServer when isMain is true', async () => {
@@ -137,6 +150,9 @@ describe('ServersService', () => {
 
       const result = await service.updateServer('guild-1', { name: 'Updated' });
       expect(result.name).toBe('Updated');
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
     });
 
     it('throws NotFoundException when server does not exist', async () => {
@@ -166,6 +182,9 @@ describe('ServersService', () => {
       const result = await service.deleteServer('guild-1');
       expect(result.message).toContain('deleted');
       expect(mockServersRepo.deleteServerCascade).toHaveBeenCalledWith(
+        'guild-1',
+      );
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
         'guild-1',
       );
     });
@@ -204,6 +223,9 @@ describe('ServersService', () => {
       expect(result.isActive).toBe(false);
       const callArgs = mockServersRepo.updateById.mock.calls[0][1];
       expect(callArgs.isActive).toBe(false);
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
     });
 
     it('throws NotFoundException when server does not exist', async () => {
@@ -235,6 +257,9 @@ describe('ServersService', () => {
       const callArgs = mockServersRepo.updateById.mock.calls[0][1];
       expect(callArgs.isActive).toBe(true);
       expect(callArgs.disabledReason).toBeNull();
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
     });
 
     it('throws NotFoundException when server does not exist', async () => {

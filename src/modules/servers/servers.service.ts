@@ -11,6 +11,7 @@ import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
 import { ServersRepository, ListServersFilters } from './servers.repository';
 import { DisableServerDto } from './dto/disable-server.dto';
+import { ProjectAccessCacheService } from '../projects/project-access-cache.service';
 
 @Injectable()
 export class ServersService {
@@ -26,6 +27,7 @@ export class ServersService {
   constructor(
     private readonly serversRepository: ServersRepository,
     private readonly discordService: DiscordService,
+    private readonly projectAccessCache: ProjectAccessCacheService,
   ) {}
 
   async registerServer(dto: CreateServerDto) {
@@ -52,7 +54,9 @@ export class ServersService {
         await this.serversRepository.clearMainServer(now);
       }
 
-      return this.serversRepository.upsertServer(serverData);
+      const server = await this.serversRepository.upsertServer(serverData);
+      await this.projectAccessCache.invalidateServer(server.id);
+      return server;
     } catch (error) {
       this.logger.error(
         `registerServer failed for guildId=${dto.guildId}`,
@@ -102,6 +106,7 @@ export class ServersService {
     }
 
     const row = await this.serversRepository.updateById(serverId, patch);
+    await this.projectAccessCache.invalidateServer(serverId);
     return row;
   }
 
@@ -119,6 +124,7 @@ export class ServersService {
     }
 
     await this.serversRepository.deleteServerCascade(serverId);
+    await this.projectAccessCache.invalidateServer(serverId);
     return { message: 'Server deleted successfully', serverId };
   }
 
@@ -134,6 +140,7 @@ export class ServersService {
       disabledReason: dto.disabledReason ?? null,
       updatedAt: new Date(),
     });
+    await this.projectAccessCache.invalidateServer(serverId);
     return row;
   }
 
@@ -145,6 +152,7 @@ export class ServersService {
     });
 
     if (!row) throw new NotFoundException('Server not found');
+    await this.projectAccessCache.invalidateServer(serverId);
     return row;
   }
 

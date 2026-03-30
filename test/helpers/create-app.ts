@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
+import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
 
 /**
@@ -19,6 +20,8 @@ export async function createTestApp(): Promise<INestApplication> {
     .compile();
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
+
+  app.use(cookieParser());
 
   // Global validation — same config as production
   app.useGlobalPipes(

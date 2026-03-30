@@ -68,6 +68,13 @@ async function bootstrap() {
   app.setViewEngine('ejs');
 
   // Swagger Configuration
+  let swaggerServerUrl =
+    process.env.BASE_URL || `http://localhost:${port}`;
+  swaggerServerUrl = swaggerServerUrl.replace(/\/+$/, '');
+  if (swaggerServerUrl.endsWith(`/${apiPrefix}`)) {
+    swaggerServerUrl = swaggerServerUrl.slice(0, -(`/${apiPrefix}`.length));
+  }
+
   const config = new DocumentBuilder()
     .setTitle('MCDI API')
     .setDescription(
