@@ -4,10 +4,10 @@ import { projects } from '../entities/project.entity';
 
 /** Generates a fake but structurally valid API key pair for seeding. */
 function fakeApiKeyPair() {
-  const prefixId = randomBytes(4).toString('hex');       // 8 hex chars
-  const secret   = randomBytes(32).toString('hex');      // 64 hex chars
-  const prefix   = `mcdi_pk_live_${prefixId}`;
-  const hash     = createHash('sha256').update(secret).digest('hex');
+  const prefixId = randomBytes(4).toString('hex'); // 8 hex chars
+  const secret = randomBytes(32).toString('hex'); // 64 hex chars
+  const prefix = `mcdi_pk_live_${prefixId}`;
+  const hash = createHash('sha256').update(secret).digest('hex');
   return { prefix, hash };
 }
 
@@ -23,6 +23,11 @@ export const createProjectFactory = (
     apiKeyHash: hash,
     apiKeyPrefix: prefix,
     apiKeyCreatedAt: new Date(),
+    webhookUrl: faker.internet.url(),
+    isInternal: false,
+    redirectUri: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     isActive: true,
     ...overrides,
   };

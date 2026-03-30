@@ -4,12 +4,14 @@ import {
   InternalServerErrorException,
   Logger,
   HttpException,
+  ConflictException,
 } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
-import { ServersRepository } from './servers.repository';
+import { ServersRepository, ListServersFilters } from './servers.repository';
 import { DisableServerDto } from './dto/disable-server.dto';
+import { ProjectAccessCacheService } from '../projects/project-access-cache.service';
 
 @Injectable()
 export class ServersService {
@@ -25,57 +27,59 @@ export class ServersService {
   constructor(
     private readonly serversRepository: ServersRepository,
     private readonly discordService: DiscordService,
+    private readonly projectAccessCache: ProjectAccessCacheService,
   ) {}
 
   async registerServer(dto: CreateServerDto) {
     try {
+      const now = new Date();
+      const guild = await this.discordService.getGuildById(dto.guildId);
 
-    const now = new Date();
-    const guild = await this.discordService.getGuildById(dto.guildId);
+      const serverData = {
+        id: dto.guildId,
+        name: dto.name || guild?.name || this.DEFAULTS.name,
+        icon: dto.icon ?? guild?.iconURL() ?? null,
+        type: dto.type || this.DEFAULTS.type,
+        isMain: dto.isMain ?? this.DEFAULTS.isMain,
+        isActive: dto.isActive ?? this.DEFAULTS.isActive,
+        syncFrequencyHours:
+          dto.syncFrequencyHours ?? this.DEFAULTS.syncFrequencyHours,
+        defaultPermissionPolicy:
+          dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
+        disabledReason: dto.disabledReason ?? null,
+        updatedAt: now,
+      };
 
-    const serverData = {
-      id: dto.guildId,
-      name: dto.name || guild?.name || this.DEFAULTS.name,
-      icon: dto.icon ?? guild?.iconURL() ?? null,
-      type: dto.type || this.DEFAULTS.type,
-      isMain: dto.isMain ?? this.DEFAULTS.isMain,
-      isActive: dto.isActive ?? this.DEFAULTS.isActive,
-      syncFrequencyHours:
-        dto.syncFrequencyHours ?? this.DEFAULTS.syncFrequencyHours,
-      defaultPermissionPolicy:
-        dto.defaultPermissionPolicy || this.DEFAULTS.defaultPermissionPolicy,
-      disabledReason: dto.disabledReason ?? null,
-      updatedAt: now,
-    };
+      if (dto.isMain) {
+        await this.serversRepository.clearMainServer(now);
+      }
 
-    if (dto.isMain) {
-      await this.serversRepository.clearMainServer(now);
-    }
-
-    return this.serversRepository.upsertServer(serverData);
+      const server = await this.serversRepository.upsertServer(serverData);
+      await this.projectAccessCache.invalidateServer(server.id);
+      return server;
     } catch (error) {
-    this.logger.error(
-      `registerServer failed for guildId=${dto.guildId}`,
-      error instanceof Error ? error.stack : String(error),
-    );
-    if (error instanceof HttpException) throw error;
-    throw new InternalServerErrorException('Failed to register server');
-  }
+      this.logger.error(
+        `registerServer failed for guildId=${dto.guildId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException('Failed to register server');
+    }
   }
 
-  async listServers() {
-    const rows = await this.serversRepository.listServersWithLastSync();
-
-    const client = this.discordService.getClient();
-    const clientReady = client.isReady();
+  async listServers(filters?: ListServersFilters) {
+    const rows = await this.serversRepository.listServersWithLastSync(filters);
 
     return rows.map((row) => ({
       ...row,
-      botConnected: clientReady && client.guilds.cache.has(row.id),
+      botConnected: this.discordService.hasGuildConnection(row.id),
     }));
   }
 
   async updateServer(serverId: string, dto: UpdateServerDto) {
+    const existing = await this.serversRepository.findById(serverId);
+    if (!existing) throw new NotFoundException('Server not found');
+
     const now = new Date();
     const patch: Record<string, unknown> = { updatedAt: now };
 
@@ -93,11 +97,16 @@ export class ServersService {
       await this.serversRepository.clearMainServer(now);
       patch.isMain = true;
     } else if (dto.isMain === false) {
+      if (existing.isMain) {
+        throw new ConflictException(
+          'Main server cannot be unset without assigning another main server',
+        );
+      }
       patch.isMain = false;
     }
 
     const row = await this.serversRepository.updateById(serverId, patch);
-    if (!row) throw new NotFoundException('Server not found');
+    await this.projectAccessCache.invalidateServer(serverId);
     return row;
   }
 
@@ -110,21 +119,30 @@ export class ServersService {
   async deleteServer(serverId: string) {
     const existing = await this.serversRepository.findById(serverId);
     if (!existing) throw new NotFoundException('Server not found');
+    if (existing.isMain) {
+      throw new ConflictException('Main server cannot be deleted');
+    }
 
     await this.serversRepository.deleteServerCascade(serverId);
+    await this.projectAccessCache.invalidateServer(serverId);
     return { message: 'Server deleted successfully', serverId };
   }
 
   async disableServer(serverId: string, dto: DisableServerDto) {
-  const row = await this.serversRepository.updateById(serverId, {
-    isActive: false,
-    disabledReason: dto.disabledReason ?? null,
-    updatedAt: new Date(),
-  });
+    const existing = await this.serversRepository.findById(serverId);
+    if (!existing) throw new NotFoundException('Server not found');
+    if (existing.isMain) {
+      throw new ConflictException('Main server cannot be disabled');
+    }
 
-  if (!row) throw new NotFoundException('Server not found');
-  return row;
-}
+    const row = await this.serversRepository.updateById(serverId, {
+      isActive: false,
+      disabledReason: dto.disabledReason ?? null,
+      updatedAt: new Date(),
+    });
+    await this.projectAccessCache.invalidateServer(serverId);
+    return row;
+  }
 
   async enableServer(serverId: string) {
     const row = await this.serversRepository.updateById(serverId, {
@@ -134,9 +152,9 @@ export class ServersService {
     });
 
     if (!row) throw new NotFoundException('Server not found');
-      return row;
-    }
+    await this.projectAccessCache.invalidateServer(serverId);
+    return row;
+  }
 
   private readonly logger = new Logger(ServersService.name);
-
 }

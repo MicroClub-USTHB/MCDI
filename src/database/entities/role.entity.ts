@@ -5,7 +5,9 @@ import {
   integer,
   boolean,
   index,
+  bigint,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { servers } from './server.entity';
 
 export const roles = pgTable(
@@ -21,6 +23,11 @@ export const roles = pgTable(
     position: integer('position').default(0),
     managed: boolean('managed').default(false),
     mentionable: boolean('mentionable').default(false),
+    permissionsBits: bigint('permissions_bits', { mode: 'bigint' }).default(
+      sql`0`,
+    ),
+    hierarchyLevel: integer('hierarchy_level'),
+    isGlobal: boolean('is_global').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

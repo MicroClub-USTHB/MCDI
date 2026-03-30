@@ -14,9 +14,7 @@ export const servers = pgTable('servers', {
   isMain: boolean('is_main').default(false).notNull(),
   type: varchar('type', { length: 50 }).default('other').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
-  syncFrequencyHours: integer('sync_frequency_hours')
-    .default(1)
-    .notNull(),
+  syncFrequencyHours: integer('sync_frequency_hours').default(1).notNull(),
   // Fallback permission behavior when no explicit rule exists
   defaultPermissionPolicy: varchar('default_permission_policy', {
     length: 50,

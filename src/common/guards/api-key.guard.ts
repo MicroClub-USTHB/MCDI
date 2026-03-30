@@ -3,31 +3,44 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
-  ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
 import { DRIZZLE } from '../../database/database.module';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
+import { Reflector } from '@nestjs/core';
+import { ProjectsService } from '../../modules/projects/projects.service';
+import { ProjectAuthCacheService } from '../../modules/projects/project-auth-cache.service';
+import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
+import type { ProjectServerOperation } from '../../modules/projects/projects.repository';
 import { verifyApiKey } from '../utils/api-key.util';
 import { extractApiKey } from '../utils/auth.util';
-import { validateScope } from '../utils/scope.util';
 import { SCOPE_KEY } from '../decorators/require-scope.decorator';
+
+type ProjectRow = typeof schema.projects.$inferSelect;
+
+interface RequestWithProject extends Request {
+  project?: ProjectRow;
+}
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
+  private readonly logger = new Logger(ApiKeyGuard.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
+    private readonly projectsService: ProjectsService,
+    private readonly projectAuthCache: ProjectAuthCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const apiKey = this.extractApiKey(request);
+    const request = context.switchToHttp().getRequest<RequestWithProject>();
+    const apiKey = extractApiKey(request);
 
     if (!apiKey) {
       throw new UnauthorizedException('API key is required');
@@ -39,36 +52,58 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
-    // Fire-and-forget: update apiKeyLastUsedAt without blocking the request
-    void this.db
-      .update(schema.projects)
-      .set({ apiKeyLastUsedAt: new Date() })
-      .where(eq(schema.projects.id, project.id));
+    await this.touchApiKeyLastUsed(project.id);
 
-    // Check required scope if set on the route via @RequireScope()
-    const requiredScope = this.reflector.get<string>(SCOPE_KEY, context.getHandler());
-    if (requiredScope) {
-      await validateScope(this.db, project.id, requiredScope);
-    }
+    // Check required scope — needs serverId since scopes are per project-server
+    const requiredScope = this.reflector.get<string>(
+      SCOPE_KEY,
+      context.getHandler(),
+    );
 
     // Checking if project has access to the requested server
-    const serverId = request.params.serverId;
-    if (serverId) {
-      await this.validateServerAccess(project.id, serverId);
+    const serverId = this.extractServerId(request);
+
+    // If a scope is required, a serverId must be present (scopes are per-server)
+    if (requiredScope) {
+      if (!serverId) {
+        throw new BadRequestException(
+          'Server ID is required when scope validation is needed',
+        );
+      }
     }
+
+    if (!serverId) {
+      request.project = project;
+      return true;
+    }
+
+    if (!/^\d{17,20}$/.test(serverId)) {
+      throw new BadRequestException('Invalid server ID format');
+    }
+
+    const requiredOperation =
+      this.reflector.getAllAndOverride<ProjectServerOperation>(
+        PROJECT_OPERATION_KEY,
+        [context.getHandler(), context.getClass()],
+      ) ?? 'READ';
+
+    await this.projectsService.assertProjectServerRequestAccess({
+      projectId: project.id,
+      serverId,
+      operation: requiredOperation,
+      requiredScope: requiredScope ?? undefined,
+    });
 
     request.project = project;
 
     return true;
   }
 
-  private extractApiKey(request: Request): string | null {
-    return extractApiKey(request);
-  }
-
-  private async validateApiKey(
-    apiKey: string,
-  ): Promise<typeof schema.projects.$inferSelect | null> {
+  private async validateApiKey(apiKey: string): Promise<ProjectRow | null> {
+    const cachedProject = await this.projectAuthCache.get(apiKey);
+    if (cachedProject) {
+      return cachedProject;
+    }
 
     const dotIndex = apiKey.indexOf('.');
     if (dotIndex === -1) return null;
@@ -95,55 +130,36 @@ export class ApiKeyGuard implements CanActivate {
 
     // Constant-time hash comparison — prevents timing attacks
     const isValid = verifyApiKey(secret, project.apiKeyHash);
-    return isValid ? project : null;
+    if (!isValid) {
+      return null;
+    }
+
+    await this.projectAuthCache.set(apiKey, project);
+    return project;
   }
 
-  private async validateServerAccess(
-    projectId: string,
-    serverId: string,
-  ): Promise<void> {
-    // Validating the server ID format
-    if (!/^\d{17,20}$/.test(serverId)) {
-      throw new BadRequestException('Invalid server ID format');
+  private async touchApiKeyLastUsed(projectId: string): Promise<void> {
+    const shouldRefresh =
+      await this.projectAuthCache.shouldRefreshLastUsed(projectId);
+
+    if (!shouldRefresh) {
+      return;
     }
 
-    // Checking if server exists and is active
-    const [server] = await this.db
-      .select()
-      .from(schema.servers)
-      .where(
-        and(eq(schema.servers.id, serverId), eq(schema.servers.isActive, true)),
-      )
-      .limit(1);
-
-    if (!server) {
-      throw new ForbiddenException('Server not found or inactive');
-    }
-
-    // Checking if project has access to this server
-    const [access] = await this.db
-      .select()
-      .from(schema.projectServers)
-      .where(
-        and(
-          eq(schema.projectServers.projectId, projectId),
-          eq(schema.projectServers.serverId, serverId),
-        ),
-      )
-      .limit(1);
-
-    if (!access) {
-      throw new ForbiddenException(
-        'Project does not have access to this server',
+    Promise.resolve(
+      this.db
+        .update(schema.projects)
+        .set({ apiKeyLastUsedAt: new Date() })
+        .where(eq(schema.projects.id, projectId)),
+    ).catch((err: unknown) => {
+      this.logger.warn(
+        `Failed to update apiKeyLastUsedAt for project ${projectId}: ${String(err)}`,
       );
-    }
+    });
+  }
 
-    // Checking if read operation is allowed
-    const operations = access.operations as { read?: boolean };
-    if (!operations?.read) {
-      throw new ForbiddenException(
-        'Project does not have read permission for this server',
-      );
-    }
+  private extractServerId(request: RequestWithProject): string | null {
+    const serverId = request.params['serverId'] ?? request.query['serverId'];
+    return typeof serverId === 'string' ? serverId : null;
   }
 }

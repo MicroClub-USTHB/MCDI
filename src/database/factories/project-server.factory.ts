@@ -8,7 +8,12 @@ export const createProjectServerFactory = (
   return {
     projectId: projectId,
     serverId: serverId,
-    operations: { read: true, write: false, admin: false },
+    operations: {
+      READ: true,
+      SEND_MESSAGES: false,
+      MANAGE_WEBHOOKS: false,
+    },
+    scopes: [],
     ...overrides,
   };
 };

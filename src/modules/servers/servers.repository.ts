@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, sql, SQL } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
+  permissions,
   projectServers,
   rolePermissions,
   roles,
@@ -11,12 +12,39 @@ import {
   servers,
 } from '../../database/entities';
 
+export interface ListServersFilters {
+  isActive?: boolean;
+  isMain?: boolean;
+  type?: string;
+  name?: string;
+}
+
 @Injectable()
 export class ServersRepository {
   constructor(
     @Inject(databaseModule.DRIZZLE)
     private readonly db: databaseModule.DrizzleDB,
   ) {}
+
+  /** Get the main Discord server (isMain = true) */
+  async findMain() {
+    const rows = await this.db
+      .select()
+      .from(servers)
+      .where(eq(servers.isMain, true))
+      .limit(1);
+    return rows[0] || null;
+  }
+
+  /** Find a server by its name */
+  async findByName(name: string) {
+    const rows = await this.db
+      .select()
+      .from(servers)
+      .where(eq(servers.name, name))
+      .limit(1);
+    return rows[0] || null;
+  }
 
   async clearMainServer(now: Date) {
     await this.db
@@ -38,7 +66,7 @@ export class ServersRepository {
     return row;
   }
 
-  async listServersWithLastSync() {
+  async listServersWithLastSync(filters?: ListServersFilters) {
     const lastSyncSub = this.db
       .select({
         serverId: serverSyncLogs.serverId,
@@ -48,7 +76,16 @@ export class ServersRepository {
       .groupBy(serverSyncLogs.serverId)
       .as('last_sync');
 
-    return this.db
+    const conditions: SQL[] = [];
+    if (filters?.isActive !== undefined)
+      conditions.push(eq(servers.isActive, filters.isActive));
+    if (filters?.isMain !== undefined)
+      conditions.push(eq(servers.isMain, filters.isMain));
+    if (filters?.type) conditions.push(eq(servers.type, filters.type));
+    if (filters?.name)
+      conditions.push(ilike(servers.name, `%${filters.name}%`));
+
+    const query = this.db
       .select({
         id: servers.id,
         name: servers.name,
@@ -64,6 +101,8 @@ export class ServersRepository {
       })
       .from(servers)
       .leftJoin(lastSyncSub, eq(servers.id, lastSyncSub.serverId));
+
+    return conditions.length > 0 ? query.where(and(...conditions)) : query;
   }
 
   async findById(serverId: string) {
@@ -90,44 +129,43 @@ export class ServersRepository {
   }
 
   async deleteServerCascade(serverId: string) {
-    const roleRows = await this.db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(eq(roles.serverId, serverId));
+    await this.db.transaction(async (tx) => {
+      const roleRows = await tx
+        .select({ id: roles.id })
+        .from(roles)
+        .where(eq(roles.serverId, serverId));
 
-    const roleIds = roleRows.map((r) => r.id);
+      const roleIds = roleRows.map((r) => r.id);
 
-    if (roleIds.length > 0) {
-      await this.db
-        .delete(rolePermissions)
-        .where(inArray(rolePermissions.roleId, roleIds));
+      if (roleIds.length > 0) {
+        await tx
+          .delete(rolePermissions)
+          .where(inArray(rolePermissions.roleId, roleIds));
 
-      await this.db
-        .delete(serverMemberRoles)
-        .where(inArray(serverMemberRoles.roleId, roleIds));
-    }
+        await tx
+          .delete(serverMemberRoles)
+          .where(inArray(serverMemberRoles.roleId, roleIds));
+      }
 
-    await this.db
-      .delete(projectServers)
-      .where(eq(projectServers.serverId, serverId));
-    await this.db
-      .delete(serverSyncLogs)
-      .where(eq(serverSyncLogs.serverId, serverId));
-    await this.db
-      .delete(serverMembers)
-      .where(eq(serverMembers.serverId, serverId));
-    await this.db.delete(roles).where(eq(roles.serverId, serverId));
-    await this.db.delete(servers).where(eq(servers.id, serverId));
+      await tx.delete(projectServers).where(eq(projectServers.serverId, serverId));
+      await tx.delete(serverSyncLogs).where(eq(serverSyncLogs.serverId, serverId));
+      await tx.delete(serverMembers).where(eq(serverMembers.serverId, serverId));
+      await tx.delete(roles).where(eq(roles.serverId, serverId));
+      await tx.delete(servers).where(eq(servers.id, serverId));
+    });
   }
 
   // role sync
   async upsertRole(
-    roleData: typeof roles.$inferInsert,
+    roleData: Omit<typeof roles.$inferInsert, 'permissionsBits'> & {
+      permissionsBits?: bigint;
+    },
   ): Promise<typeof roles.$inferSelect> {
     const [row] = await this.db
       .insert(roles)
       .values({
         ...roleData,
+        permissionsBits: roleData.permissionsBits ?? 0n,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -139,6 +177,7 @@ export class ServersRepository {
           position: roleData.position,
           managed: roleData.managed,
           mentionable: roleData.mentionable,
+          permissionsBits: roleData.permissionsBits ?? 0n,
           updatedAt: new Date(),
         },
       })
@@ -146,7 +185,50 @@ export class ServersRepository {
     return row;
   }
 
+  /**
+   * Resolves a Discord role's permission bitfield against the permissions table
+   * and upserts the matching rows into role_permissions.
+   * This replaces the full set for the given role so stale entries are removed.
+   */
+  async syncRolePermissions(
+    roleId: string,
+    permissionsBits: bigint,
+  ): Promise<void> {
+    // Load all known permissions
+    const allPermissions = await this.db
+      .select({ id: permissions.id, bitfield: permissions.bitfield })
+      .from(permissions);
+
+    // Which permissions does this role actually have?
+    const matchingPermIds = allPermissions
+      .filter(
+        (p) => p.bitfield !== null && (permissionsBits & p.bitfield) !== 0n,
+      )
+      .map((p) => p.id);
+
+    await this.db.transaction(async (tx) => {
+      // Remove all existing permission links for this role
+      await tx
+        .delete(rolePermissions)
+        .where(eq(rolePermissions.roleId, roleId));
+
+      // Insert fresh set (skip insert if no permissions matched)
+      if (matchingPermIds.length > 0) {
+        await tx
+          .insert(rolePermissions)
+          .values(
+            matchingPermIds.map((permissionId) => ({ roleId, permissionId })),
+          )
+          .onConflictDoNothing();
+      }
+    });
+  }
+
   async deleteRole(roleId: string): Promise<void> {
     await this.db.delete(roles).where(eq(roles.id, roleId));
+  }
+
+  async findAllActive(): Promise<(typeof servers.$inferSelect)[]> {
+    return this.db.select().from(servers).where(eq(servers.isActive, true));
   }
 }

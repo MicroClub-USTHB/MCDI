@@ -9,10 +9,15 @@ import {
 } from '@nestjs/common';
 import {
   ApiTags,
-  ApiBearerAuth,
   ApiOperation,
-  ApiResponse,
   ApiParam,
+  ApiQuery,
+  ApiSecurity,
+  ApiOkResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
   getSchemaPath,
   ApiExtraModels,
 } from '@nestjs/swagger';
@@ -24,6 +29,8 @@ import {
   MemberResponseDto,
   MemberSearchResponseDto,
 } from './dto/member-response.dto';
+import { RequireProjectOperation } from '../../common/decorators/require-project-operation.decorator';
+import { PermissionsService } from '../permissions/permissions.service';
 
 interface PaginationMeta {
   page: number;
@@ -34,20 +41,25 @@ interface PaginationMeta {
   hasPrev: boolean;
 }
 
-@ApiTags('members')
-@ApiBearerAuth('api-key')
+@ApiTags('Members')
+@ApiSecurity('api-key')
 @ApiExtraModels(MemberSearchResponseDto)
+@RequireProjectOperation('READ')
 @Controller('servers/:serverId/members')
 @UseGuards(ApiKeyGuard)
 export class MemberController {
-  constructor(private readonly memberService: MemberService) {}
+  constructor(
+    private readonly memberService: MemberService,
+    private readonly permissionsService: PermissionsService,
+  ) {}
 
   @Get(':discordId')
   @RequireScope('read_members')
   @ApiOperation({
     summary: 'Get a single member by Discord ID',
     description:
-      'Returns detailed profile of a member including all roles in the specified server',
+      'Returns detailed profile of a member including all roles in the specified server. ' +
+      'Requires the `read_members` scope granted for this specific server.',
   })
   @ApiParam({
     name: 'serverId',
@@ -59,18 +71,14 @@ export class MemberController {
     description: 'Discord user ID',
     example: '876543210987654321',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Member found',
-    type: MemberResponseDto,
+  @ApiOkResponse({ description: 'Member found.', type: MemberResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({
+    description:
+      'Project does not have access to this server, or missing `read_members` scope for this server.',
   })
-  @ApiResponse({ status: 400, description: 'Invalid Discord ID format' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
-  @ApiResponse({
-    status: 403,
-    description: 'Project does not have access to this server',
-  })
-  @ApiResponse({ status: 404, description: 'Member not found in this server' })
+  @ApiNotFoundResponse({ description: 'Member not found in this server.' })
   async getMember(
     @Param('serverId') serverId: string,
     @Param('discordId') discordId: string,
@@ -83,16 +91,59 @@ export class MemberController {
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'Search members',
-    description: 'Search members by name, filter by role, with pagination.',
+    description:
+      'Search and filter members in a server with pagination. ' +
+      'Requires the `read_members` scope granted for this specific server.',
   })
   @ApiParam({
     name: 'serverId',
     description: 'Discord server ID',
     example: '123456789012345678',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'Paginated list of matching members',
+  @ApiQuery({
+    name: 'query',
+    required: false,
+    type: String,
+    description: 'Partial match on username, global name, or display name',
+    example: 'john',
+  })
+  @ApiQuery({
+    name: 'roleId',
+    required: false,
+    type: String,
+    description: 'Filter by Discord role snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (min 1)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (1–100)',
+    example: 20,
+  })
+  @ApiQuery({
+    name: 'isClubMember',
+    required: false,
+    type: Boolean,
+    description: 'Filter by club membership status',
+    example: true,
+  })
+  @ApiQuery({
+    name: 'isActive',
+    required: false,
+    type: Boolean,
+    description: 'Filter by active server membership status',
+    example: true,
+  })
+  @ApiOkResponse({
+    description: 'Paginated list of matching members.',
     schema: {
       type: 'object',
       properties: {
@@ -114,16 +165,68 @@ export class MemberController {
       },
     },
   })
-  @ApiResponse({ status: 400, description: 'Invalid query parameters' })
-  @ApiResponse({ status: 401, description: 'Missing or invalid API key' })
-  @ApiResponse({
-    status: 403,
-    description: 'Project does not have access to this server',
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({
+    description:
+      'Project does not have access to this server, or missing `read_members` scope for this server.',
   })
   async searchMembers(
     @Param('serverId') serverId: string,
     @Query() queryDto: GetMembersQueryDto,
   ): Promise<{ data: MemberSearchResponseDto[]; pagination: PaginationMeta }> {
     return await this.memberService.searchMembers(serverId, queryDto);
+  }
+
+  @Get(':discordId/permissions')
+  @RequireScope('read_members')
+  @ApiOperation({
+    summary: 'Get all effective permissions of a member in a server',
+    description:
+      'Requires the `read_members` scope granted for this specific server.',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord server ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'discordId',
+    description: 'Discord user ID',
+    example: '876543210987654321',
+  })
+  @ApiOkResponse({
+    description: 'Effective permissions returned.',
+    schema: {
+      type: 'object',
+      properties: {
+        discordId: { type: 'string' },
+        serverId: { type: 'string' },
+        permissions: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['SYSTEM_ADMIN', 'READ_MEMBERS'],
+        },
+        sources: {
+          type: 'object',
+          properties: {
+            global: { type: 'array', items: { type: 'string' } },
+            server: { type: 'array', items: { type: 'string' } },
+            inherited: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Invalid Discord ID format.' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiForbiddenResponse({
+    description: 'Project does not have access to this server.',
+  })
+  async getMemberPermissions(
+    @Param('serverId') serverId: string,
+    @Param('discordId') discordId: string,
+  ) {
+    return this.permissionsService.getMemberPermissions(serverId, discordId);
   }
 }

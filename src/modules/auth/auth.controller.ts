@@ -1,0 +1,511 @@
+import {
+  Controller,
+  Get,
+  Query,
+  Post,
+  Body,
+  Res,
+  Req,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  UnauthorizedException,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiExcludeEndpoint,
+} from '@nestjs/swagger';
+import type { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { AuthService } from './auth.service';
+import { AdminAuthService } from './services/admin-auth.service';
+import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { buildErrorPage } from './utils';
+import { extractSessionToken } from '../../common/utils/auth.util';
+import {
+  ValidateSessionDto,
+  LogoutDto,
+  LogoutAllDto,
+  ValidateSessionResponseDto,
+  SuccessResponseDto,
+  AuthorizeQueryDto,
+  AdminLoginResponseDto,
+  AdminMeResponseDto,
+  ExchangeCodeDto,
+  TokenResponseDto,
+} from './dto';
+
+type RequestWithProject = Request & { project?: { id: string } };
+
+@ApiTags('Authentication')
+@Controller('auth')
+export class AuthController {
+  private readonly apiPrefix: string;
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly adminAuthService: AdminAuthService,
+    private readonly configService: ConfigService,
+  ) {
+    this.apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
+  }
+
+  // ─── Authorization request ─────────────────────────────
+  // Platform redirects user here with query params. MCDI validates, stores
+  // the request in DB, sets a cookie, and redirects to Discord OAuth.
+
+  @Get('authorize')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'Initiate authorization request',
+    description:
+      'Standard OAuth-style authorization endpoint. The platform redirects the user here ' +
+      'with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters.\n\n' +
+      'MCDI validates the params, creates a short-lived auth request in the DB, ' +
+      'sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Discord OAuth authorization page.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid or missing query parameters.',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Project inactive, redirect URI not allowed, or server not accessible.',
+  })
+  async authorize(@Query() dto: AuthorizeQueryDto, @Res() res: Response) {
+    const result = await this.authService.authorize(
+      dto.client_id,
+      dto.redirect_uri,
+      dto.server_id,
+      dto.state,
+    );
+
+    if (!result.ok) {
+      // If redirect_uri was validated, redirect the error back to the client
+      if (result.redirectUri) {
+        const url = new URL(result.redirectUri);
+        url.searchParams.set('error', result.error);
+        url.searchParams.set('error_description', result.description);
+        url.searchParams.set('state', result.state);
+        return res.redirect(url.toString());
+      }
+      // Can't trust redirect_uri — return JSON to the browser
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: 400,
+        error: result.error,
+        message: result.description,
+      });
+    }
+
+    res.cookie('mcdi_auth_req', result.requestId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.configService.get<string>('app.nodeEnv') === 'production',
+      maxAge: 10 * 60 * 1000,
+    });
+
+    return res.redirect(`/${this.apiPrefix}/auth/discord`);
+  }
+
+  // ─── Start Discord OAuth ──────────────────────────────
+  // Reads the auth request from the cookie and redirects to Discord.
+
+  @Get('discord')
+  @ApiOperation({
+    summary: 'Redirect to Discord OAuth',
+    description:
+      'Reads the auth request ID from the httpOnly `mcdi_auth_req` cookie ' +
+      'set by GET /auth/authorize. Resolves the request, marks it as used, ' +
+      'and redirects to Discord OAuth.',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Discord OAuth authorization page.',
+  })
+  async startDiscordAuth(@Req() req: Request, @Res() res: Response) {
+    const requestId: string | undefined = (
+      req.cookies as Record<string, string>
+    )?.mcdi_auth_req;
+
+    if (!requestId) {
+      // No cookie — no way to know where to redirect
+      const { html } = buildErrorPage(
+        'missing_context',
+        'Authorization session not found. Please start from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
+    }
+
+    // Atomic consume: marks as used and returns the row in one query.
+    // If two requests race, only one gets the row back.
+    const authRequest = await this.authService.consumeAuthRequest(requestId);
+    res.clearCookie('mcdi_auth_req');
+
+    if (!authRequest) {
+      // Consume failed — look up the original request for redirect info
+      const original = await this.authService.findAuthRequestById(requestId);
+      if (original) {
+        const url = new URL(original.redirectUri);
+        url.searchParams.set('error', 'invalid_request');
+        url.searchParams.set(
+          'error_description',
+          'Authorization request has expired or was already used',
+        );
+        url.searchParams.set('state', original.state);
+        return res.redirect(url.toString());
+      }
+      const { html } = buildErrorPage(
+        'invalid_request',
+        'Authorization request has expired or was already used. Please try again from the platform login page.',
+      );
+      return res.status(HttpStatus.BAD_REQUEST).type('html').send(html);
+    }
+
+    const result = await this.authService.buildDiscordLoginUrl(
+      authRequest.clientId,
+      authRequest.serverId,
+      authRequest.redirectUri,
+      authRequest.state,
+    );
+
+    return res.redirect(result.url);
+  }
+
+  // ─── Discord callback ───────────────────────────────────
+  // Discord redirects here after user authenticates.
+  // MCDI processes everything and redirects back to the platform with a callback code.
+
+  @Get('discord/callback')
+  @ApiExcludeEndpoint()
+  @ApiOperation({
+    summary: 'Discord OAuth callback (internal)',
+    description:
+      'Discord redirects here after user authorization. This endpoint is not called directly by platforms.\n\n' +
+      'MCDI processes the callback:\n' +
+      '1. Exchanges the Discord code for an access token\n' +
+      '2. Fetches user profile & email\n' +
+      '3. Upserts member in the database\n' +
+      '4. Verifies Discord server membership\n' +
+      '5. Checks project role requirements\n' +
+      '6. Issues a short-lived callback code (120s TTL)\n' +
+      "7. Redirects to the platform's redirect_uri with ?code=...&state=...\n\n" +
+      'On error, redirects with ?error=...&error_description=...',
+  })
+  async discordCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    if (await this.adminAuthService.hasValidAdminState(state)) {
+      const adminFrontendUrl =
+        this.configService.get<string>('discord.adminFrontendUrl') ||
+        '/admin';
+      const isProduction =
+        this.configService.get<string>('app.nodeEnv') === 'production';
+
+      try {
+        const result = await this.adminAuthService.handleAdminDiscordCallback(
+          code,
+          state,
+        );
+
+        res.cookie('admin_session', result.token, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: isProduction,
+          maxAge: 24 * 60 * 60 * 1000,
+          path: '/',
+        });
+
+        return res.redirect(adminFrontendUrl);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Authentication failed';
+        const url = new URL(
+          adminFrontendUrl,
+          this.configService.get<string>('app.baseUrl'),
+        );
+        url.searchParams.set('error', message);
+        return res.redirect(url.toString());
+      }
+    }
+
+    const result = await this.authService.handleDiscordCallback(code, state);
+    return res.redirect(result.url);
+  }
+
+  // ─── Exchange callback code ──────────────────────────────
+  // Platforms call this to exchange a one-time callback code (from the redirect)
+  // for a long-lived session token. Requires a valid X-API-Key.
+
+  @Post('token')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @ApiBearerAuth('api-key')
+  @ApiOperation({
+    summary: 'Exchange callback code for session token (backend-to-backend)',
+    description:
+      'External platforms call this from their backend to exchange the short-lived ' +
+      '`code` received in the redirect for a final, long-lived session token.\n\n' +
+      'Requires a valid `X-API-Key` header. The code must belong to the project ' +
+      'associated with the API key.',
+  })
+  @ApiBody({ type: ExchangeCodeDto })
+  @ApiOkResponse({
+    description: 'Exchange successful — returns a long-lived session token.',
+    type: TokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid or expired callback code, or project mismatch.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many exchange requests — retry after a short delay.',
+  })
+  async exchangeCode(
+    @Body() dto: ExchangeCodeDto,
+    @Req() req: any,
+  ): Promise<TokenResponseDto> {
+    if (dto.clientId !== req.project?.id) {
+      throw new UnauthorizedException(
+        'Client ID mismatch: API Key does not belong to the requested project',
+      );
+    }
+
+    return this.authService.exchangeCodeForToken(
+      dto.clientId,
+      dto.code,
+      dto.redirectUri,
+    );
+  }
+
+  // ─── Validate session ────────────────────────────────────
+  // Platforms call this anytime to verify a token is valid and get current member + roles.
+  // Requires a valid X-API-Key — sessions are scoped to the calling project.
+
+  @Post('validate')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @ApiBearerAuth('api-key')
+  @ApiOperation({
+    summary: 'Validate session token (project-scoped)',
+    description:
+      'External platforms call this to validate a session token and retrieve ' +
+      'current member information + their roles. Roles are fetched live from the DB ' +
+      'so they always reflect the latest state.\n\n' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are resolved — tokens from other projects are treated as invalid.',
+  })
+  @ApiBody({ type: ValidateSessionDto })
+  @ApiOkResponse({
+    description: 'Session valid — member + roles.',
+    type: ValidateSessionResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired session token.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty token).',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many validation requests — retry after a short delay.',
+  })
+  async validateSession(
+    @Body() dto: ValidateSessionDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.validateSession(dto.token, req.project!.id);
+  }
+
+  // ─── Logout ──────────────────────────────────────────────
+  // Requires a valid X-API-Key — only sessions belonging to the calling project are deleted.
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('api-key')
+  @ApiOperation({
+    summary: 'Invalidate session token (project-scoped)',
+    description:
+      'External platforms call this when their user logs out to invalidate the MCDI session token.\n\n' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are deleted — tokens from other projects are ignored.',
+  })
+  @ApiBody({ type: LogoutDto })
+  @ApiOkResponse({
+    description: 'Logout successful.',
+    type: SuccessResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty token).',
+  })
+  async logout(
+    @Body() dto: LogoutDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.logout(dto.token, req.project!.id);
+  }
+
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ApiKeyGuard)
+  @ApiBearerAuth('api-key')
+  @ApiOperation({
+    summary: 'Invalidate all sessions for a member (project-scoped)',
+    description:
+      'Invalidates all session tokens for a member within the calling project. ' +
+      'Requires a valid `X-API-Key` header. Only sessions belonging to the calling ' +
+      'project are affected.',
+  })
+  @ApiBody({ type: LogoutAllDto })
+  @ApiOkResponse({
+    description: 'All sessions invalidated.',
+    type: SuccessResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty memberId).',
+  })
+  async logoutAll(
+    @Body() dto: LogoutAllDto,
+    @Req() req: RequestWithProject,
+  ) {
+    return this.authService.logoutAll(dto.memberId, req.project!.id);
+  }
+
+  // ─── System Admin Login (Discord OAuth2 only) ──────────────
+  //
+  // GET  /auth/admin/discord          → initiate Discord OAuth
+  // GET  /auth/admin/discord/callback → handle Discord callback,
+  //                                     set httpOnly cookie, redirect to frontend
+  // GET  /auth/admin/me               → return current admin profile
+
+  // ─── System Admin — Me ────────────────────────────────────────────────
+
+  @Get('admin/me')
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Get current system admin profile',
+    description:
+      'Returns the profile of the authenticated system admin based on their Bearer session token ' +
+      'or the `admin_session` httpOnly cookie set after Discord OAuth2 login. ' +
+      'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
+  })
+  @ApiOkResponse({
+    description: 'Authenticated admin profile.',
+    type: AdminMeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Valid session but the member is not an Executive.',
+  })
+  async adminMe(@Req() req: Request) {
+    const token = extractSessionToken(req)!;
+    return this.adminAuthService.getMe(token);
+  }
+
+  // ─── POST /auth/admin/set-password has been removed.
+  // Admin access is gated solely on the Discord "Executive" role.
+
+  // ─── System Admin Discord OAuth2 Login ─────────────────────────
+
+  @Get('admin/discord')
+  @ApiOperation({
+    summary: 'Initiate system admin Discord OAuth2 login',
+    description:
+      'Returns a Discord authorization URL. ' +
+      'The admin opens the URL, authenticates with Discord, ' +
+      'and is redirected to the admin callback endpoint.',
+  })
+  @ApiOkResponse({
+    description: 'Discord authorization URL.',
+    schema: {
+      example: { url: 'https://discord.com/api/oauth2/authorize?...' },
+    },
+  })
+  async adminDiscordLogin(@Req() req: Request, @Res() res: Response) {
+    const result = await this.adminAuthService.buildAdminDiscordLoginUrl();
+    const accept = req.headers.accept || '';
+
+    if (accept.includes('text/html')) {
+      return res.redirect(result.url);
+    }
+
+    return res.json(result);
+  }
+
+  @Get('admin/discord/callback')
+  @ApiExcludeEndpoint()
+  async adminDiscordCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const adminFrontendUrl =
+      this.configService.get<string>('discord.adminFrontendUrl') ||
+      '/admin';
+    const isProduction =
+      this.configService.get<string>('app.nodeEnv') === 'production';
+
+    try {
+      const result = await this.adminAuthService.handleAdminDiscordCallback(
+        code,
+        state,
+      );
+
+      // Set an httpOnly session cookie so the admin frontend does not need to
+      // store the token in JS-accessible storage.
+      res.cookie('admin_session', result.token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isProduction,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        path: '/',
+      });
+
+      return res.redirect(adminFrontendUrl);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Authentication failed';
+      const url = new URL(adminFrontendUrl, this.configService.get<string>('app.baseUrl'));
+      url.searchParams.set('error', message);
+      return res.redirect(url.toString());
+    }
+  }
+
+  // ─── Maintenance ─────────────────────────────────────────
+
+  @Post('cleanup')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cleanup expired sessions (maintenance)',
+    description:
+      'Removes expired sessions. Should be called by a scheduled job.',
+  })
+  @ApiOkResponse({
+    description: 'Cleanup completed.',
+    type: SuccessResponseDto,
+  })
+  async cleanupExpired() {
+    return this.authService.cleanupExpired();
+  }
+}

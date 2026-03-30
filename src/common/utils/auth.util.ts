@@ -1,8 +1,9 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Request } from 'express';
 import * as schema from '../../database/entities';
+import { getSessionTokenCandidates } from './session-token.util';
 
 /**
  * Extracts the Bearer token from the Authorization header.
@@ -17,6 +18,20 @@ export function extractBearerToken(request: Request): string | null {
     return authHeader.substring(7);
   }
   return null;
+}
+
+/**
+ * Extracts a session token for admin routes.
+ * Checks in order:
+ *   1. Authorization: Bearer <token>   (e.g. Swagger / curl usage)
+ *   2. admin_session httpOnly cookie   (set by the Discord OAuth2 callback)
+ */
+export function extractSessionToken(request: Request): string | null {
+  return (
+    extractBearerToken(request) ||
+    (request.cookies as Record<string, string>)?.admin_session ||
+    null
+  );
 }
 
 /**
@@ -51,7 +66,7 @@ export async function validateSession(
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
-    .where(eq(schema.sessions.token, token))
+    .where(inArray(schema.sessions.token, getSessionTokenCandidates(token)))
     .limit(1);
 
   if (!session) {

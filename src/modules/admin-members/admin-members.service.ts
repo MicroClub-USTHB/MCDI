@@ -186,30 +186,38 @@ export class AdminMembersService {
   async getExportData(
     filter: 'club' | 'all',
   ): Promise<Record<string, unknown>[]> {
-    // Re-use the list query with a very high limit
-    const result = await this.getCrossServerList({
-      filter,
-      page: 1,
-      limit: 100_000,
-    });
-
-    // Flatten for CSV
     const rows: Record<string, unknown>[] = [];
-    for (const item of result.data) {
-      for (const srv of item.servers) {
-        rows.push({
-          discord_id: item.memberId,
-          username: item.username,
-          global_name: item.globalName ?? '',
-          is_club_member: item.isClubMember,
-          server_id: srv.serverId,
-          server_name: srv.serverName,
-          is_main_server: srv.isMainServer,
-          joined_at: srv.joinedAt ?? '',
-          roles: srv.roleNames.join('; '),
-        });
+    const limit = 1000;
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const result = await this.getCrossServerList({
+        filter,
+        page,
+        limit,
+      });
+
+      for (const item of result.data) {
+        for (const srv of item.servers) {
+          rows.push({
+            discord_id: item.memberId,
+            username: item.username,
+            global_name: item.globalName ?? '',
+            is_club_member: item.isClubMember,
+            server_id: srv.serverId,
+            server_name: srv.serverName,
+            is_main_server: srv.isMainServer,
+            joined_at: srv.joinedAt ?? '',
+            roles: srv.roleNames.join('; '),
+          });
+        }
       }
+
+      hasMore = page < result.totalPages;
+      page++;
     }
+
     return rows;
   }
 }

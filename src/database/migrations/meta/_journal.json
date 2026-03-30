@@ -22,6 +22,69 @@
       "when": 1771596724723,
       "tag": "0002_gray_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772290531146,
+      "tag": "0003_special_overlord",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772292121509,
+      "tag": "0004_normal_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772492482093,
+      "tag": "0005_curved_goblin_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772852146603,
+      "tag": "0006_furry_union_jack",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1772853260609,
+      "tag": "0007_sudden_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772854304134,
+      "tag": "0008_careless_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772857486819,
+      "tag": "0009_dashing_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773796557411,
+      "tag": "0010_funny_ink",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1774176474859,
+      "tag": "0011_clammy_human_robot",
+      "breakpoints": true
     }
   ]
 }

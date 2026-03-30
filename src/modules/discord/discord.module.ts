@@ -1,19 +1,19 @@
 import {
-  Inject,
+  Logger,
   Module,
   OnModuleDestroy,
   OnModuleInit,
   Provider,
 } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { DiscordService } from './discord.service';
 import Discord from 'discord.js';
 import { DISCORD_CLIENT } from './discord.constants';
 
 const DiscordProvider: Provider = {
   provide: DISCORD_CLIENT,
-  useFactory: async (configService: ConfigService) => {
-    const client = new Discord.Client({
+  useFactory: () =>
+    new Discord.Client({
       intents: [
         Discord.GatewayIntentBits.Guilds,
         Discord.GatewayIntentBits.GuildMembers,
@@ -25,22 +25,7 @@ const DiscordProvider: Provider = {
         Discord.GatewayIntentBits.GuildMessages,
         Discord.GatewayIntentBits.MessageContent,
       ],
-    });
-
-    const TOKEN = configService.get<string>('discord.token');
-
-    try {
-      await client.login(TOKEN);
-    } catch (err) {
-      console.warn(
-        '[DiscordModule] Failed to login with Discord token:',
-        (err as Error).message,
-        '— Discord features will be unavailable.',
-      );
-    }
-    return client;
-  },
-  inject: [ConfigService],
+    }),
 };
 
 @Module({
@@ -49,21 +34,27 @@ const DiscordProvider: Provider = {
   exports: [DISCORD_CLIENT, DiscordService],
 })
 export class DiscordModule implements OnModuleInit, OnModuleDestroy {
-  constructor(
-    @Inject(DISCORD_CLIENT) private readonly client: Discord.Client,
-  ) {}
+  private readonly logger = new Logger(DiscordModule.name);
+
+  constructor(private readonly discordService: DiscordService) {}
 
   onModuleInit() {
-    console.log('DiscordModule initialized');
-    console.log('Discord client logged in as:', this.client.user?.tag);
+    if (process.env.NODE_ENV === 'test') {
+      this.logger.log('Skipping Discord bot connection in test environment');
+      return;
+    }
+
+    this.logger.log('DiscordModule initialized');
+    this.discordService.onBotReady(() => {
+      this.logger.log(
+        `Discord client logged in as: ${this.discordService.getClient().user?.tag}`,
+      );
+    });
+    this.discordService.startBotConnection();
   }
 
   async onModuleDestroy() {
-    console.log('Destroying Discord client');
-    try {
-      await this.client.destroy();
-    } catch {
-      // ignore errors on shutdown
-    }
+    this.logger.log('Destroying Discord client');
+    await this.discordService.destroyBotConnection();
   }
 }

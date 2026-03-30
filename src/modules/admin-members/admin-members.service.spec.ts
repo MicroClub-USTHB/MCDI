@@ -138,4 +138,38 @@ describe('AdminMembersService', () => {
       expect(result.totalPages).toBe(1);
     });
   });
+
+  // ── getExportData ─────────────────────────────────────────────────────
+
+  describe('getExportData', () => {
+    beforeEach(() => {
+      repository.countMembers.mockResolvedValue(1);
+      repository.findMembersPaginated.mockResolvedValue([
+        { id: '123', username: 'alice', globalName: null, avatar: null },
+      ]);
+      repository.findMembershipsByMemberIds.mockResolvedValue([
+        {
+          memberId: '123',
+          serverId: 's1',
+          joinedAt: new Date('2025-01-01'),
+          serverName: 'Main',
+          isMainServer: true,
+        },
+      ]);
+      repository.findRoleNamesByMemberIds.mockResolvedValue([]);
+    });
+
+    it('flattens cross-server list into rows for CSV export (filter=club)', async () => {
+      const rows = await service.getExportData('club');
+      expect(Array.isArray(rows)).toBe(true);
+      expect(rows[0]).toHaveProperty('discord_id', '123');
+      expect(rows[0]).toHaveProperty('server_name', 'Main');
+    });
+
+    it('flattens cross-server list into rows for CSV export (filter=all)', async () => {
+      const rows = await service.getExportData('all');
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveProperty('username', 'alice');
+    });
+  });
 });

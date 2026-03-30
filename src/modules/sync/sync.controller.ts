@@ -8,47 +8,97 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiConflictResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
-  ApiResponse,
+  ApiParam,
   ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { SyncService } from './sync.service';
 import { TriggerSyncDto } from './dto/trigger-sync.dto';
 import { SyncStatusDto } from './dto/sync-status.dto';
-import { SystemAdminGuard } from '../auth/guards/system-admin.guard';
+import { SyncLogsQueryDto } from './dto/sync-logs-query.dto';
+import { SyncLogsResponseDto } from './dto/sync-log.dto';
+import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
+import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
-@ApiTags('Admin Sync')
-@ApiBearerAuth()
+@ApiTags('Sync')
+@ApiBearerAuth('session-token')
 @UseGuards(SystemAdminGuard)
-@Controller('admin/sync/members')
+@Controller('admin/sync')
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
+  // ─── Trigger Sync ──────────────────────────────────────────────
+
   @Post('full')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Trigger a full manual re-sync for a server' })
-  @ApiResponse({
-    status: 202,
-    description: 'Sync started',
-    schema: { example: { syncId: 42 } },
+  @ApiOperation({
+    summary: 'Trigger a full sync',
+    description:
+      'Queues a manual sync for one or more servers. ' +
+      'Use `target` to limit the sync to MEMBERS, ROLES, or ALL (default). ' +
+      'Omit `serverIds` to sync all active servers.',
   })
-  @ApiResponse({ status: 404, description: 'Server not found' })
-  @ApiResponse({ status: 409, description: 'Sync already in progress' })
-  async triggerFullSync(
-    @Body() dto: TriggerSyncDto,
-  ): Promise<{ syncId: number }> {
-    return this.syncService.triggerFullSync(dto.serverId);
+  @ApiBody({ type: TriggerSyncDto })
+  @ApiAcceptedResponse({
+    description: 'Sync queued.',
+    schema: {
+      example: {
+        results: [
+          {
+            serverId: '123456789012345678',
+            syncId: 42,
+          },
+        ],
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Server not found.' })
+  @ApiConflictResponse({
+    description: 'Sync already queued or in progress.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  async triggerFullSync(@Body() dto: TriggerSyncDto) {
+    const serversToSync: string[] =
+      dto.serverIds && dto.serverIds.length > 0 ? dto.serverIds : [];
+
+    return this.syncService.triggerMultipleSyncs(serversToSync, dto.target);
   }
 
+  // ─── Sync Status ───────────────────────────────────────────────
+
   @Get('status')
-  @ApiOperation({ summary: 'Get the latest sync status for a server' })
-  @ApiQuery({ name: 'serverId', required: true, type: String })
-  @ApiResponse({ status: 200, type: SyncStatusDto })
-  @ApiResponse({ status: 404, description: 'No sync logs found' })
+  @ApiOperation({ summary: 'Get the latest sync status for a specific server' })
+  @ApiQuery({
+    name: 'serverId',
+    required: true,
+    type: String,
+    example: '123456789012345678',
+  })
+  @ApiOkResponse({
+    description: 'Sync status retrieved successfully.',
+    type: SyncStatusDto,
+  })
+  @ApiNotFoundResponse({ description: 'No sync logs found for this server.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid serverId format.' })
   async getSyncStatus(
     @Query('serverId') serverId: string,
   ): Promise<SyncStatusDto> {
@@ -57,5 +107,85 @@ export class SyncController {
       throw new NotFoundException('No sync logs found for this server');
     }
     return status;
+  }
+
+  @Get('status/all')
+  @ApiOperation({
+    summary: 'Get latest sync status for all active servers',
+    description:
+      'Returns the most recent sync result for every active server managed by MCDI.',
+  })
+  @ApiOkResponse({
+    description: 'All server sync statuses retrieved.',
+    type: [SyncStatusDto],
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid parameter.' })
+  async getAllServersSyncStatus(): Promise<SyncStatusDto[]> {
+    return this.syncService.getAllServersSyncStatus();
+  }
+
+  // ─── Sync Logs ─────────────────────────────────────────────────
+
+  @Get('logs')
+  @ApiOperation({
+    summary: 'Get paginated sync logs for a server',
+    description:
+      'Returns a paginated list of all sync operations run against a specific server.',
+  })
+  @ApiQuery({
+    name: 'serverId',
+    required: true,
+    type: String,
+    example: '123456789012345678',
+  })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
+  @ApiOkResponse({
+    description: 'Sync logs retrieved successfully.',
+    type: SyncLogsResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid serverId, limit, or offset.' })
+  async getSyncLogs(
+    @Query() query: SyncLogsQueryDto,
+  ): Promise<SyncLogsResponseDto> {
+    return this.syncService.getSyncLogs(
+      query.serverId,
+      query.limit,
+      query.offset,
+    );
+  }
+
+  // ─── Sync Change Details ───────────────────────────────────
+
+  @Get('logs/:syncLogId/changes')
+  @ApiOperation({
+    summary: 'Get granular change details for a specific sync log',
+    description:
+      'Returns a paginated list of individual entity-level changes ' +
+      '(member added/removed, role updated, etc.) recorded during a sync operation.',
+  })
+  @ApiParam({ name: 'syncLogId', type: Number, example: 42 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 100 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
+  @ApiOkResponse({
+    description: 'Sync change details retrieved successfully.',
+    type: SyncChangeDetailsResponseDto,
+  })
+  @ApiNotFoundResponse({ description: 'Sync log not found.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({
+    description: 'Invalid syncLogId, limit, or offset.',
+  })
+  async getSyncChangeDetails(
+    @Param('syncLogId', ParseIntPipe) syncLogId: number,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ): Promise<SyncChangeDetailsResponseDto> {
+    return this.syncService.getSyncChangeDetails(syncLogId, limit, offset);
   }
 }

@@ -1,10 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
-import { eq, and } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 
-/** Discord role names that grant admin access to MCDI */
-export const ADMIN_ROLES = ['Executive', 'Lead'] as const;
+/** Discord role name that grants admin access to MCDI */
+export const ADMIN_ROLES = ['Executive'] as const;
 
 /**
  * Checks whether a member holds a Lead or Executive role in the main server.
@@ -15,16 +15,11 @@ export async function isAdminMember(
   db: NodePgDatabase<typeof schema>,
   memberId: string,
 ): Promise<boolean> {
-  // 1. Find the active main server
+  // 1. Find the configured main server
   const [mainServer] = await db
     .select({ id: schema.servers.id })
     .from(schema.servers)
-    .where(
-      and(
-        eq(schema.servers.isMain, true),
-        eq(schema.servers.isActive, true),
-      ),
-    )
+    .where(eq(schema.servers.isMain, true))
     .limit(1);
 
   if (!mainServer) {

@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { ServersService } from './servers.service';
 import { Guild } from 'discord.js';
@@ -6,7 +11,7 @@ import { Guild } from 'discord.js';
 @Injectable()
 export class ServersListener implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ServersListener.name);
-  private boundHandler?: (guild: Guild) => void;
+  private boundHandler?: (guild: Guild) => Promise<void>;
 
   constructor(
     private readonly discordService: DiscordService,
@@ -33,12 +38,14 @@ export class ServersListener implements OnModuleInit, OnModuleDestroy {
       }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     client.on('guildCreate', this.boundHandler);
   }
 
   onModuleDestroy() {
     const client = this.discordService.getClient();
     if (this.boundHandler) {
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       client.off('guildCreate', this.boundHandler);
     }
   }

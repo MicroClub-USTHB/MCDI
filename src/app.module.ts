@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
+
 import { DiscordModule } from './modules/discord/discord.module';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
@@ -13,9 +14,11 @@ import { AdminMembersModule } from './modules/admin-members/admin-members.module
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
+import { MethodNotAllowedMiddleware } from './common/middleware/method-not-allowed.middleware';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
     ConfigModule,
     DatabaseModule,
     DiscordModule,
@@ -29,11 +32,14 @@ import { SyncModule } from './modules/sync/sync.module';
   ],
   controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_GUARD,
       useClass: ServerActiveGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(MethodNotAllowedMiddleware).forRoutes('*');
+  }
+}
