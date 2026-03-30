@@ -3,8 +3,8 @@ import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 
-/** Discord role names that grant admin access to MCDI */
-export const ADMIN_ROLES = ['Executive', 'Lead'] as const;
+/** Discord role name that grants admin access to MCDI */
+export const ADMIN_ROLES = ['Executive'] as const;
 
 /**
  * Checks whether a member holds a Lead or Executive role in the main server.

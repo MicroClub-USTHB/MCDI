@@ -21,6 +21,20 @@ export function extractBearerToken(request: Request): string | null {
 }
 
 /**
+ * Extracts a session token for admin routes.
+ * Checks in order:
+ *   1. Authorization: Bearer <token>   (e.g. Swagger / curl usage)
+ *   2. admin_session httpOnly cookie   (set by the Discord OAuth2 callback)
+ */
+export function extractSessionToken(request: Request): string | null {
+  return (
+    extractBearerToken(request) ||
+    (request.cookies as Record<string, string>)?.admin_session ||
+    null
+  );
+}
+
+/**
  * Extracts an API key from the request.
  * Checks in order:
  *   1. Authorization: Bearer <key>

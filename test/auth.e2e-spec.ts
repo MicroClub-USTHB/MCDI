@@ -573,10 +573,10 @@ describeIf('/api/auth (e2e)', () => {
 
   // ─── GET /api/auth/admin/discord ─────────────────────────────
 
-  describe('GET /api/auth/admin/discord', () => {
+  describe('GET /auth/admin/discord', () => {
     it('returns a Discord authorization URL', async () => {
       const res = await request(app.getHttpServer())
-        .get('/api/auth/admin/discord')
+        .get('/auth/admin/discord')
         .expect(200);
 
       expect(res.body).toMatchObject({

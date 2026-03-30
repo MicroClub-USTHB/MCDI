@@ -1,26 +1,4 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class AdminPasswordLoginDto {
-  @ApiProperty({
-    description: 'Discord username of the system admin',
-    example: 'johndoe',
-    minLength: 1,
-  })
-  @IsString()
-  @IsNotEmpty()
-  username: string;
-
-  @ApiProperty({
-    description: 'Admin password (min 6 characters)',
-    example: 'supersecret',
-    minLength: 6,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(6)
-  password: string;
-}
 
 export class AdminLoginMemberDto {
   @ApiProperty({

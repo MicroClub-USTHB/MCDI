@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -10,18 +9,20 @@ import { SessionRepository } from '../repositories/session.repository';
 import { MemberRepository } from '../repositories/member.repository';
 import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.repository';
 import { randomBytes } from 'crypto';
-import { compare, hash } from 'bcryptjs';
 import { buildDiscordOAuthUrl } from '../utils';
 import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
+import { DiscordService } from '../../discord/discord.service';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
+const EXECUTIVE_ROLE = 'Executive';
 
 @Injectable()
 export class AdminAuthService {
   private readonly logger = new Logger(AdminAuthService.name);
   private readonly discordClientId: string;
   private readonly discordAdminRedirectUri: string;
+  private readonly mainGuildId: string;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -30,62 +31,13 @@ export class AdminAuthService {
     private readonly configService: ConfigService,
     private readonly discordIdentityService: DiscordIdentityService,
     private readonly sessionIssuanceService: SessionIssuanceService,
+    private readonly discordService: DiscordService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordAdminRedirectUri = this.configService.get<string>(
       'discord.adminRedirectUri',
     )!;
-  }
-
-  /**
-   *  1. Look up member by username
-   *  2. Verify the bcryptjs password hash
-   *  3. Confirm `isSystemAdmin = true`
-   *  4. Issue a 24-hour session token
-   */
-  async adminPasswordLogin(username: string, password: string) {
-    const member = await this.memberRepository.findByUsername(username);
-
-    if (!member || !member.passwordHash) {
-      // Constant-time guard: run a dummy compare to prevent timing attacks
-      await compare(
-        password,
-        '$2b$10$invalidhashpaddingtostoptiming000000000000000000000000000',
-      );
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const passwordValid = await compare(password, member.passwordHash);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!member.isSystemAdmin) {
-      throw new ForbiddenException(
-        'Member does not have system admin privileges',
-      );
-    }
-
-    const { token, expiresAt } = await this.sessionIssuanceService.issueSession(
-      {
-        memberId: member.id,
-        ttlSeconds: ADMIN_SESSION_TTL_SEC,
-      },
-    );
-
-    return {
-      token,
-      expiresAt,
-      member: {
-        id: member.id,
-        username: member.username,
-        globalName: member.globalName,
-        displayName: member.displayName,
-        avatar: member.avatar,
-        email: member.email,
-        isSystemAdmin: member.isSystemAdmin,
-      },
-    };
+    this.mainGuildId = this.configService.get<string>('discord.mainGuildId')!;
   }
 
   // ─── System Admin Discord OAuth2 Login ───────────────────
@@ -112,20 +64,28 @@ export class AdminAuthService {
     return { url };
   }
 
+  async hasValidAdminState(stateToken: string): Promise<boolean> {
+    const state = await this.adminOAuthStateRepository.findValidState(
+      stateToken,
+    );
+    return Boolean(state);
+  }
+
   /**
    * Handle the Discord callback for the system admin flow.
    *
    * Flow:
    *  1. Validate & consume the admin state token
    *  2. Exchange the Discord code for an access token (using admin redirect URI)
-   *  3. Fetch the Discord profile
-   *  4. Upsert the member record
-   *  5. Verify `isSystemAdmin = true`
-   *  6. Issue a 24-hour session token
-   *  7. Return token + member info
+   *  3. Fetch the Discord profile & upsert the member
+   *  4. Verify the user is a member of the main MCDI guild
+   *  5. Verify the user holds the "Executive" role in the main guild
+   *  6. Sync roles into the DB
+   *  7. Issue a 24-hour session token
+   *  8. Return token + member info
    */
   async handleAdminDiscordCallback(discordCode: string, stateToken: string) {
-    // 1. Validate state
+    // 1. Validate & consume state token
     const stateData =
       await this.adminOAuthStateRepository.consumeValid(stateToken);
 
@@ -135,6 +95,7 @@ export class AdminAuthService {
       );
     }
 
+    // 2. Exchange Discord code for access token
     const accessToken =
       await this.discordIdentityService.exchangeCodeForAccessToken(
         discordCode,
@@ -146,6 +107,7 @@ export class AdminAuthService {
       throw new UnauthorizedException('Failed to authenticate with Discord');
     }
 
+    // 3. Fetch Discord profile & upsert member
     const identity =
       await this.discordIdentityService.resolveIdentityFromAccessToken(
         accessToken,
@@ -155,15 +117,55 @@ export class AdminAuthService {
       throw new UnauthorizedException('Failed to fetch Discord profile');
     }
 
-    const { member } = identity;
+    const { profile, member } = identity;
 
-    // 5. Check isSystemAdmin
-    if (!member.isSystemAdmin) {
+    // 4. Verify main guild membership
+    if (!this.mainGuildId) {
+      this.logger.error('MC_GUILD_ID is not configured — admin login blocked');
       throw new ForbiddenException(
-        'Member does not have system admin privileges',
+        'Server configuration error: main guild not set',
       );
     }
 
+    const guildMember = await this.discordService.fetchOAuthGuildMember(
+      this.mainGuildId,
+      accessToken,
+    );
+
+    if (!guildMember.ok) {
+      this.logger.warn(
+        `Admin login rejected: user ${profile.id} is not in the main guild (status ${guildMember.status})`,
+      );
+      throw new ForbiddenException(
+        'You must be a member of the main MCDI Discord server to access the admin panel',
+      );
+    }
+
+    // 5. Resolve role names & verify Executive role
+    const guildRoles = await this.discordService.fetchGuildRolesForMember(
+      this.mainGuildId,
+      guildMember.roleIds,
+    );
+
+    const hasExecutiveRole = guildRoles.some((r) => r.name === EXECUTIVE_ROLE);
+
+    if (!hasExecutiveRole) {
+      this.logger.warn(
+        `Admin login rejected: user ${profile.id} lacks the "${EXECUTIVE_ROLE}" role`,
+      );
+      throw new ForbiddenException(
+        `Only members with the "${EXECUTIVE_ROLE}" role can access the admin panel`,
+      );
+    }
+
+    // 6. Sync roles into the DB so guard checks work correctly
+    await this.memberRepository.syncMemberServerData(
+      member.id,
+      this.mainGuildId,
+      guildRoles,
+    );
+
+    // 7. Issue a 24-hour session token
     const { token, expiresAt } = await this.sessionIssuanceService.issueSession(
       {
         memberId: member.id,
@@ -213,47 +215,5 @@ export class AdminAuthService {
       isSystemAdmin: member.isSystemAdmin,
       sessionExpiresAt: session.expiresAt,
     };
-  }
-
-  // ─── POST /auth/admin/set-password ───────────────────────────────────
-
-  /**
-   * Let a system admin set or change their own password.
-   *
-   * - If `passwordHash` is already set in DB → `currentPassword` is required and must match.
-   * - On first call (no password yet) → `currentPassword` is optional.
-   */
-  async setPassword(
-    token: string,
-    currentPassword: string | undefined,
-    newPassword: string,
-  ) {
-    const session = await this.sessionRepository.findValidByToken(token);
-    if (!session) {
-      throw new UnauthorizedException('Invalid or expired session');
-    }
-
-    const member = await this.memberRepository.findById(session.memberId);
-    if (!member) {
-      throw new UnauthorizedException('Member not found');
-    }
-
-    // Require current password only when one is already set
-    if (member.passwordHash) {
-      if (!currentPassword) {
-        throw new BadRequestException(
-          'currentPassword is required when changing an existing password',
-        );
-      }
-      const valid = await compare(currentPassword, member.passwordHash);
-      if (!valid) {
-        throw new UnauthorizedException('Current password is incorrect');
-      }
-    }
-
-    const newHash = await hash(newPassword, 10);
-    await this.memberRepository.setPasswordHash(session.memberId, newHash);
-
-    return { message: 'Password updated successfully' };
   }
 }

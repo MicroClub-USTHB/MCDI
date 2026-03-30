@@ -31,6 +31,6 @@ import { ServersModule } from '../servers/servers.module';
     CallbackCodeRepository,
     SystemAdminGuard,
   ],
-  exports: [AuthService],
+  exports: [AuthService, AdminAuthService],
 })
 export class AuthModule {}
