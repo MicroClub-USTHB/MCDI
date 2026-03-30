@@ -1,166 +1,428 @@
-# MCDI - Database Architecture (MVP)
+# MCDI - Current Database Architecture
 
-> This document describes the MVP database design.
-> For MVP features, see `specefication_document_mvp.md`.
-> For later phases + System Architecture, see `specefication_document_last_version.md`.
+> This document describes the database shape used by the current backend implementation.
+> For current product requirements, see `specefication_document_mvp.md`.
+> For future-phase planning and architecture direction, see `specefication_document_last_version.md`.
 
 ---
 
-## Database Design
+## 1. Overview
 
-### Overview
+MCDI uses PostgreSQL as the primary source of truth for:
 
-The MCDI database is optimized for the MVP features with a focus on member synchronization, permission management, and multi-server support. The design uses a relational model with normalized tables to ensure data integrity while supporting high-performance queries for member and permission data.
+- projects and API keys
+- Discord servers and synchronized members
+- roles, permissions, and inheritance rules
+- project/server access mappings
+- OAuth flow state and callback exchange
+- sessions
+- sync logs and per-change diagnostics
 
-![Database Architecture](https://i.postimg.cc/QtPmLmNB/2026-02-02-21-47-49.png)
+The schema in the repository has evolved beyond the original MVP notes. This document reflects the active structure used by the current codebase.
 
-### Core Tables
+---
 
-#### 4.1 Servers Table (`servers`)
+## 2. Schema Overview
 
-Manages all Discord servers (guilds) connected to MCDI.
+```mermaid
+erDiagram
+  PROJECTS ||--o{ PROJECT_SERVERS : "granted to"
+  SERVERS ||--o{ PROJECT_SERVERS : "exposed through"
+  PROJECTS ||--o{ PROJECT_SERVER_ACCESS_AUDIT : "audited by"
+  SERVERS ||--o{ PROJECT_SERVER_ACCESS_AUDIT : "audited by"
 
-- **Columns**:
-  - `id` (UUID, PK)
-  - `discord_guild_id` (VARCHAR, UK)
-  - `name` (VARCHAR)
-  - `type` (VARCHAR, DEFAULT 'competition')
-  - `is_main` (BOOLEAN, DEFAULT false)
-  - `is_active` (BOOLEAN, DEFAULT true)
-  - `settings` (JSONB, DEFAULT {})
-  - `synced_at` (TIMESTAMPTZ)
-  - `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-- **Relationships**:
-  - Has many `server_members` (1:M)
-  - Has many `server_sync_logs` (1:M)
-  - Has many `roles` (1:M)
-  - Has many `permissions` (1:M)
+  SERVERS ||--o{ ROLES : "contains"
+  MEMBERS ||--o{ SERVER_MEMBERS : "joins"
+  SERVERS ||--o{ SERVER_MEMBERS : "has"
+  MEMBERS ||--o{ SERVER_MEMBER_ROLES : "holds"
+  ROLES ||--o{ SERVER_MEMBER_ROLES : "assigned as"
 
-#### 4.2 Projects Table (`projects`)
+  ROLES ||--o{ ROLE_PERMISSIONS : "maps to"
+  PERMISSIONS ||--o{ ROLE_PERMISSIONS : "granted by"
+  ROLES ||--o| ROLE_INHERITANCE_RULES : "source role"
+  ROLE_INHERITANCE_RULES ||--o{ ROLE_INHERITANCE_RULE_TARGETS : "targets"
+  SERVERS ||--o{ ROLE_INHERITANCE_RULE_TARGETS : "target server"
 
-Stores all MicroClub projects that integrate with MCDI.
+  PROJECTS ||--o{ AUTH_REQUESTS : "initiates"
+  PROJECTS ||--o{ OAUTH_STATES : "authorizes"
+  PROJECTS ||--o{ CALLBACK_CODES : "issues for"
+  MEMBERS ||--o{ CALLBACK_CODES : "issued to"
+  MEMBERS ||--o{ SESSIONS : "owns"
+  PROJECTS ||--o{ SESSIONS : "scoped to"
 
-- **Columns**:
-  - `id` (UUID, PK)
-  - `name` (VARCHAR)
-  - `slug` (VARCHAR, UK)
-  - `api_key_hash` (VARCHAR, UK)
-  - `api_key_prefix` (VARCHAR)
-  - `is_active` (BOOLEAN, DEFAULT true)
-  - `api_key_created_at` (TIMESTAMPTZ, DEFAULT NOW())
-  - `api_key_last_used_at` (TIMESTAMPTZ)
-  - `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-- **Relationships**:
-  - Linked to many `project_servers` (1:M)
+  SERVERS ||--o{ SERVER_SYNC_LOGS : "records"
+  SERVER_SYNC_LOGS ||--o{ SYNC_CHANGE_DETAILS : "contains"
+```
 
-#### 4.3 Members Table (`members`)
+---
 
-Stores core member information synchronized from Discord.
+## 3. Core Table Groups
 
-- **Columns**:
-  - `id` (UUID, PK)
-  - `discord_id` (VARCHAR, UK)
-  - `username` (VARCHAR)
-  - `display_name` (VARCHAR)
-  - `avatar_link` (VARCHAR)
-  - `is_club_member` (BOOLEAN, DEFAULT false)
-  - `global_name` (VARCHAR)
-  - `last_seen_at` (TIMESTAMPTZ)
-  - `synced_at` (TIMESTAMPTZ)
-  - `created_at` (TIMESTAMPTZ, DEFAULT NOW())
-- **Relationships**:
-  - Joins many `server_members` (1:M)
-  - Authenticates many `sessions` (1:M)
+### 3.1 Project And Access Tables
 
-#### 4.4 Permissions Table (`permissions`)
+#### `projects`
 
-Defines all permission keys used in the system.
+Stores every integrated MicroClub project.
 
-- **Columns**:
-  - `id` (UUID, PK)
-  - `server_id` (UUID, FK, NULL=global)
-  - `key` (VARCHAR)
-  - `name` (VARCHAR)
-- **Relationships**:
-  - Assigned to many `role_permissions` (1:M)
+Key columns:
 
-#### 4.5 Roles Table (`roles`)
+- `id` (UUID PK)
+- `name`
+- `description`
+- `api_key_hash`
+- `api_key_prefix`
+- `api_key_created_at`
+- `api_key_last_used_at`
+- `redirect_uri`
+- `is_internal`
+- `webhook_url`
+- `is_active`
 
-Stores Discord roles and their hierarchy.
+Notes:
 
-- **Columns**:
-  - `id` (UUID, PK)
-  - `server_id` (UUID, FK)
-  - `discord_role_id` (VARCHAR)
-  - `name` (VARCHAR)
-  - `hierarchy_level` (INTEGER, DEFAULT 0)
-- **Relationships**:
-  - Contains many `role_permissions` (1:M)
-  - Grants many `server_member_roles` (1:M)
+- API key secrets are not stored in plaintext
+- the current flow uses `projects` directly instead of a separate live API-key table
 
-### Critical Relationships
+#### `project_servers`
 
-#### 4.6 Multi-Server Member Management
+Defines which projects can access which servers.
 
-- **`server_members`**: Tracks membership in specific servers
-  - `server_id` (FK to `servers`)
-  - `member_id` (FK to `members`)
-  - `nickname` (VARCHAR)
-  - `joined_at` (TIMESTAMPTZ)
-  - `is_active` (BOOLEAN, DEFAULT true)
-- **`server_member_roles`**: Assigns roles to members in specific servers
-  - `server_member_id` (FK to `server_members`)
-  - `role_id` (FK to `roles`)
+Key columns:
 
-#### 4.7 Permission Management
+- `project_id`
+- `server_id`
+- `operations` JSONB
+- `scopes` JSONB
+- `created_at`
+- `updated_at`
 
-- **`role_permissions`**: Maps roles to permissions
-  - `role_id` (FK to `roles`)
-  - `permission_id` (FK to `permissions`)
-- **`project_servers`**: Defines project access to servers
-  - `project_id` (FK to `projects`)
-  - `server_id` (FK to `servers`)
-  - `operations` (JSONB, DEFAULT {'read': true})
+Current operations model:
 
-#### 4.8 Synchronization & Sessions
+- `READ`
+- `SEND_MESSAGES`
+- `MANAGE_WEBHOOKS`
 
-- **`server_sync_logs`**: Tracks synchronization status
-  - `server_id` (FK to `servers`)
-  - `sync_type` (VARCHAR: 'full', 'incremental', 'manual')
-  - `status` (VARCHAR: 'success', 'failed', 'in_progress')
-  - `members_synced` (INTEGER, DEFAULT 0)
-  - `roles_synced` (INTEGER, DEFAULT 0)
-  - `started_at` (TIMESTAMPTZ)
-  - `completed_at` (TIMESTAMPTZ)
-- **`sessions`**: Manages user sessions
-  - `member_id` (FK to `members`)
-  - `access_token_hash` (VARCHAR)
-  - `expires_at` (TIMESTAMPTZ)
-  - `ip_address` (INET)
-  - `user_agent` (VARCHAR)
+Current scopes in active use:
 
-### Key Design Principles
+- `read_members`
+- `check_permissions`
 
-1. **Multi-Server Support**:
-   - All member and role data is server-scoped (via `server_id` foreign keys)
-   - Global permissions supported via `server_id = NULL` in permissions table
+#### `project_server_access_audit`
 
-2. **Synchronization Tracking**:
-   - `server_sync_logs` captures sync history for debugging and monitoring
-   - `synced_at` timestamps in core tables enable real-time freshness checks
+Records project/server access changes.
 
-3. **Permission Inheritance**:
-   - Hierarchical roles implemented via `hierarchy_level` in roles table
-   - Role-permission mapping supports inheritance through role hierarchy
+Key columns:
 
-4. **Scalability Considerations**:
-   - All critical tables include `created_at` and `synced_at` for time-based operations
-   - JSONB fields used for flexible configuration (e.g., `settings`, `operations`)
-   - UUID primary keys ensure distributed system compatibility
+- `project_id`
+- `server_id`
+- `action` (`GRANT`, `UPDATE`, `REVOKE`)
+- `operations_before`
+- `operations_after`
+- `changed_by`
+- `changed_at`
 
-5. **Security Features**:
-   - API keys stored as hash+prefix (never stored in plaintext)
-   - Session tokens encrypted at rest with expiration tracking
-   - All sensitive operations (e.g., role changes) logged in audit tables
+---
 
-This database design supports all MVP features while providing the foundation for Version 2 and 3 capabilities. The normalized structure ensures data integrity, while strategic denormalization (e.g., in `members` table) optimizes for read performance on critical paths.
+### 3.2 Server, Member, Role, And Permission Tables
+
+#### `servers`
+
+Stores managed Discord guilds.
+
+Key columns:
+
+- `id` (Discord guild ID, PK)
+- `name`
+- `icon`
+- `is_main`
+- `type`
+- `is_active`
+- `sync_frequency_hours`
+- `default_permission_policy`
+- `disabled_reason`
+- `synced_at`
+
+#### `members`
+
+Stores normalized Discord user identity.
+
+Key columns:
+
+- `id` (Discord user ID, PK)
+- `username`
+- `global_name`
+- `display_name`
+- `avatar`
+- `email`
+- `is_club_member`
+- `is_system_admin`
+- `password_hash`
+- `joined_at`
+- `synced_at`
+
+Notes:
+
+- `password_hash` exists in schema but is not the primary current admin auth path
+- admin access is currently driven by Discord OAuth plus Executive-role verification
+
+#### `server_members`
+
+Represents membership of a member inside a specific server.
+
+Key columns:
+
+- `server_id`
+- `member_id`
+- `joined_at`
+- `is_active`
+- `last_synced_at`
+
+#### `roles`
+
+Stores synchronized Discord roles.
+
+Key columns:
+
+- `id` (Discord role ID, PK)
+- `server_id`
+- `name`
+- `color`
+- `position`
+- `permissions_bits`
+- `hierarchy_level`
+- `is_global`
+
+#### `server_member_roles`
+
+Join table mapping members to roles.
+
+Key columns:
+
+- `member_id`
+- `role_id`
+
+#### `permissions`
+
+Stores logical permission keys.
+
+Key columns:
+
+- `id`
+- `key`
+- `description`
+- `bitfield`
+
+#### `role_permissions`
+
+Join table mapping roles to permissions.
+
+Key columns:
+
+- `role_id`
+- `permission_id`
+
+#### `role_inheritance_rules`
+
+Defines permission inheritance from a source role.
+
+Key columns:
+
+- `id`
+- `source_role_id`
+- `target_scope`
+- `enabled`
+
+#### `role_inheritance_rule_targets`
+
+Specifies which servers are targeted when inheritance is not global.
+
+Key columns:
+
+- `rule_id`
+- `target_server_id`
+
+---
+
+### 3.3 OAuth, Callback, And Session Tables
+
+#### `auth_requests`
+
+Tracks the initial validated login request before Discord redirect.
+
+Key columns:
+
+- `request_id`
+- `client_id`
+- `redirect_uri`
+- `server_id`
+- `state`
+- `expires_at`
+- `used`
+
+#### `oauth_states`
+
+Stores MCDI-generated Discord OAuth states for project login.
+
+Key columns:
+
+- `id`
+- `state`
+- `project_id`
+- `server_id`
+- `redirect_uri`
+- `client_state`
+- `used`
+- `expires_at`
+
+#### `admin_oauth_states`
+
+Stores state values for admin Discord login.
+
+Key columns:
+
+- `id`
+- `state`
+- `used`
+- `expires_at`
+
+#### `callback_codes`
+
+Stores one-time callback code metadata used before session issuance.
+
+Key columns:
+
+- `id`
+- `code_hash`
+- `client_id`
+- `redirect_uri`
+- `member_id`
+- `server_id`
+- `expires_at`
+- `used`
+
+Notes:
+
+- callback codes are hashed before storage
+- plaintext callback codes are never persisted
+
+#### `sessions`
+
+Stores active member sessions.
+
+Key columns:
+
+- `id`
+- `member_id`
+- `project_id`
+- `server_id`
+- `token`
+- `expires_at`
+- `created_at`
+
+Notes:
+
+- sessions are scoped to a project when issued from the project login flow
+- admin sessions are also represented here, but with different authorization behavior at the API layer
+
+---
+
+### 3.4 Synchronization Tables
+
+#### `server_sync_logs`
+
+Stores the lifecycle of each sync run.
+
+Key columns:
+
+- `id`
+- `server_id`
+- `status`
+- `sync_type`
+- `target`
+- `members_synced`
+- `roles_synced`
+- `message`
+- `started_at`
+- `heartbeat_at`
+- `finished_at`
+
+#### `sync_change_details`
+
+Stores granular entity-level changes produced during sync.
+
+Key columns:
+
+- `id`
+- `sync_log_id`
+- `server_id`
+- `entity_type`
+- `entity_id`
+- `action`
+- `description`
+- `details`
+- `created_at`
+
+---
+
+## 4. Legacy Or Transitional Tables
+
+The repository also contains some schema elements from earlier designs:
+
+- `oauth_clients`
+- `project_scopes`
+
+The currently active code paths primarily use:
+
+- `projects`
+- `project_servers`
+- `auth_requests`
+- `oauth_states`
+- `callback_codes`
+- `sessions`
+
+These older tables should be treated as transitional unless future code paths rely on them again.
+
+---
+
+## 5. Key Design Decisions In The Current Schema
+
+### Project Access Is Explicit
+
+Project access is not inferred from a global role alone. It is explicitly modeled through `project_servers` so each project/server pair can carry:
+
+- operations
+- scopes
+- audit history
+
+### Identity Is Split From Membership
+
+`members` stores user identity, while `server_members` stores participation in a given guild. This keeps multi-server support clean.
+
+### Permissions Are Resolved From Persisted Role Data
+
+Discord roles are synchronized into local tables, then permissions are resolved from those stored records. This allows:
+
+- fast repeated checks
+- server-scoped role evaluation
+- inheritance rules without live Discord reads on every request
+
+### OAuth Flow Uses Short-Lived State And Callback Layers
+
+The login pipeline uses:
+
+1. `auth_requests` for validated incoming login requests
+2. `oauth_states` for Discord redirect state
+3. `callback_codes` for one-time backend exchange
+4. `sessions` for the final application session
+
+This design keeps the browser-facing flow separate from backend token issuance.
+
+### Sync Is Observable
+
+The schema records both:
+
+- the sync run itself in `server_sync_logs`
+- individual changes in `sync_change_details`
+
+This is important for troubleshooting and operational review.
+
