@@ -22,25 +22,13 @@ describe('SystemAdminGuard', () => {
   let guard: SystemAdminGuard;
   // We set up a DB that drives multiple sequential select().from().where().limit() calls
   // 1st call  → sessions table (validateSession)
-  // 2nd call  → members table  (isSystemAdmin fast-path)
-  // 3rd call  → servers table  (find main server)
-  // 4th call  → server_members table
-  // 5th call  → server_member_roles + roles join (get role names)
-
   const buildMockDb = (
     sessionRows: any[],
-    isAdminRows: any[],
     serverRows: any[],
     memberRows: any[],
     roleRows: any[],
   ) => {
-    const allResults = [
-      sessionRows,
-      isAdminRows,
-      serverRows,
-      memberRows,
-      roleRows,
-    ];
+    const allResults = [sessionRows, serverRows, memberRows, roleRows];
     let callIdx = 0;
     const nextResult = () => allResults[callIdx++] ?? [];
 
@@ -70,7 +58,7 @@ describe('SystemAdminGuard', () => {
   }
 
   it('throws UnauthorizedException when Authorization header is missing', async () => {
-    const db = buildMockDb([], [], [], [], []);
+    const db = buildMockDb([], [], [], []);
     guard = await buildGuard(db);
     const ctx = makeContext(undefined);
     await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
@@ -79,7 +67,6 @@ describe('SystemAdminGuard', () => {
   it('throws UnauthorizedException when session is invalid (not found)', async () => {
     const db = buildMockDb(
       [], // session not found
-      [],
       [],
       [],
       [],
@@ -97,7 +84,6 @@ describe('SystemAdminGuard', () => {
       [],
       [],
       [],
-      [],
     );
     guard = await buildGuard(db);
     await expect(
@@ -109,7 +95,6 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
-      [{ isSystemAdmin: false }], // not a system admin
       [], // no main server
       [],
       [],
@@ -124,7 +109,6 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
-      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [], // member not in server
       [],
@@ -139,7 +123,6 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
-      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Member' }],
@@ -154,7 +137,6 @@ describe('SystemAdminGuard', () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
-      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Executive' }],
@@ -164,17 +146,17 @@ describe('SystemAdminGuard', () => {
     expect(result).toBe(true);
   });
 
-  it('returns true for a valid admin with Lead role', async () => {
+  it('throws ForbiddenException for a valid member with only Lead role', async () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
-      [{ isSystemAdmin: false }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
       [{ name: 'Lead' }],
     );
     guard = await buildGuard(db);
-    const result = await guard.canActivate(makeContext('Bearer valid-token'));
-    expect(result).toBe(true);
+    await expect(
+      guard.canActivate(makeContext('Bearer valid-token')),
+    ).rejects.toThrow(ForbiddenException);
   });
 });

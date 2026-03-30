@@ -6,8 +6,11 @@ import { AppModule } from './../src/app.module';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
+  const originalNodeEnv = process.env.NODE_ENV;
 
   beforeEach(async () => {
+    process.env.NODE_ENV = 'test';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -18,6 +21,7 @@ describe('AppController (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+    process.env.NODE_ENV = originalNodeEnv;
   });
 
   it('/ (GET)', () => {

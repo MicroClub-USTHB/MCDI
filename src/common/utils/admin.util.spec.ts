@@ -74,13 +74,13 @@ describe('isAdminMember', () => {
     expect(result).toBe(true);
   });
 
-  it('returns true when member holds the Lead role', async () => {
+  it('returns false when member holds only the Lead role', async () => {
     const db = buildSequentialMockDb([
       [{ id: 'guild-1' }],
       [{ memberId: MEMBER_ID }],
       [{ name: 'Lead' }, { name: 'Member' }],
     ]);
     const result = await isAdminMember(db, MEMBER_ID);
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 });

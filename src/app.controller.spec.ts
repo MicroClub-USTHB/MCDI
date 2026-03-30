@@ -33,7 +33,7 @@ describe('AppController', () => {
   describe('admin', () => {
     it('renders the admin landing page with the expected endpoints', () => {
       const render = jest.fn();
-      const req = { cookies: { admin_session: 'test-token' } };
+      const req = { headers: {}, cookies: { admin_session: 'test-token' } };
 
       appController.renderAdmin(req as any, { render } as any);
 

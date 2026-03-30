@@ -22,11 +22,10 @@ const mockAuthService = {
 };
 
 const mockAdminAuthService = {
-  adminPasswordLogin: jest.fn(),
   buildAdminDiscordLoginUrl: jest.fn(),
+  hasValidAdminState: jest.fn(),
   handleAdminDiscordCallback: jest.fn(),
   getMe: jest.fn(),
-  setPassword: jest.fn(),
 };
 
 const mockRes = () => ({
@@ -43,6 +42,8 @@ describe('AuthController', () => {
   let controller: AuthController;
 
   beforeEach(async () => {
+    mockAdminAuthService.hasValidAdminState.mockResolvedValue(false);
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
@@ -253,6 +254,27 @@ describe('AuthController', () => {
     );
   });
 
+  it('discordCallback handles admin login states via AdminAuthService', async () => {
+    mockAdminAuthService.hasValidAdminState.mockResolvedValue(true);
+    mockAdminAuthService.handleAdminDiscordCallback.mockResolvedValue({
+      token: 'admin-token',
+    });
+    const res = mockRes();
+
+    await controller.discordCallback('code123', 'admin-state', res as any);
+
+    expect(mockAdminAuthService.handleAdminDiscordCallback).toHaveBeenCalledWith(
+      'code123',
+      'admin-state',
+    );
+    expect(res.cookie).toHaveBeenCalledWith(
+      'admin_session',
+      'admin-token',
+      expect.objectContaining({ httpOnly: true, sameSite: 'lax' }),
+    );
+    expect(res.redirect).toHaveBeenCalledWith('development');
+  });
+
   // ── validateSession ────────────────────────────────────────────────
 
   it('validateSession delegates to authService', async () => {
@@ -342,36 +364,4 @@ describe('AuthController', () => {
     });
   });
 
-  // ── adminSetPassword ────────────────────────────────────────────────
-
-  describe('adminSetPassword', () => {
-    it('delegates with no currentPassword when setting for the first time', async () => {
-      mockAdminAuthService.setPassword.mockResolvedValue({
-        message: 'Password updated successfully',
-      });
-      const req = { headers: { authorization: 'Bearer test-token' } };
-      const dto = { newPassword: 'newSecure!1' };
-      const result = await controller.adminSetPassword(req as any, dto as any);
-      expect(mockAdminAuthService.setPassword).toHaveBeenCalledWith(
-        'test-token',
-        undefined,
-        'newSecure!1',
-      );
-      expect(result).toEqual({ message: 'Password updated successfully' });
-    });
-
-    it('delegates with currentPassword when changing existing password', async () => {
-      mockAdminAuthService.setPassword.mockResolvedValue({
-        message: 'Password updated successfully',
-      });
-      const req = { headers: { authorization: 'Bearer test-token' } };
-      const dto = { currentPassword: 'oldPass!1', newPassword: 'newSecure!1' };
-      await controller.adminSetPassword(req as any, dto as any);
-      expect(mockAdminAuthService.setPassword).toHaveBeenCalledWith(
-        'test-token',
-        'oldPass!1',
-        'newSecure!1',
-      );
-    });
-  });
 });

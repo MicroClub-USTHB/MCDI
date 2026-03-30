@@ -11,6 +11,8 @@ import { AppModule } from '../../src/app.module';
  * Mirrors the setup in `src/main.ts` (global prefix, validation pipe, views).
  */
 export async function createTestApp(): Promise<INestApplication> {
+  process.env.NODE_ENV = 'test';
+
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })

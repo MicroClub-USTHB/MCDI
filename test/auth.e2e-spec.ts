@@ -29,7 +29,6 @@ import {
   callbackCodes,
   roles,
 } from '../src/database/entities';
-import { hash } from 'bcryptjs';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
@@ -455,128 +454,12 @@ describeIf('/api/auth (e2e)', () => {
     });
   });
 
-  // ─── POST /api/auth/admin/login ───────────────────────────────
-
-  describe('POST /api/auth/admin/login', () => {
-    const TEST_PASSWORD = 'admin-test-password-1234';
-    let adminMemberId: string;
-
-    beforeEach(async () => {
-      // Seed a member with isSystemAdmin=true and a hashed password
-      adminMemberId = '800000000000000099';
-      const passwordHash = await hash(TEST_PASSWORD, 10);
-
-      await db.insert(members).values({
-        id: adminMemberId,
-        username: 'sysadmin_e2e',
-        globalName: 'E2E System Admin',
-        displayName: 'E2E System Admin',
-        avatar: null,
-        isClubMember: false,
-        isSystemAdmin: true,
-        passwordHash,
-        joinedAt: new Date(),
-        syncedAt: new Date(),
-      });
-    });
-
-    it('returns a Bearer token for valid credentials', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_e2e', password: TEST_PASSWORD })
-        .expect(200);
-
-      expect(res.body).toMatchObject({
-        token: expect.any(String),
-        expiresAt: expect.any(String),
-        member: {
-          id: adminMemberId,
-          username: 'sysadmin_e2e',
-        },
-      });
-    });
-
-    it('returns 401 for a wrong password', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_e2e', password: 'wrong-password' })
-        .expect(401);
-    });
-
-    it('returns 401 for an unknown username', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'ghost_user_xyz', password: TEST_PASSWORD })
-        .expect(401);
-    });
-
-    it('returns 403 when member exists but is not a system admin', async () => {
-      const passwordHash = await hash(TEST_PASSWORD, 10);
-
-      await db.insert(members).values({
-        id: '800000000000000088',
-        username: 'non_admin_user',
-        globalName: null,
-        displayName: null,
-        avatar: null,
-        isClubMember: true,
-        isSystemAdmin: false,
-        passwordHash,
-        joinedAt: new Date(),
-        syncedAt: new Date(),
-      });
-
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'non_admin_user', password: TEST_PASSWORD })
-        .expect(403);
-    });
-
-    it('returns 400 when required fields are missing', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_e2e' })
-        .expect(400);
-    });
-
-    it('the returned token is valid for SystemAdminGuard-protected routes', async () => {
-      const loginRes = await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_e2e', password: TEST_PASSWORD })
-        .expect(200);
-
-      const token = loginRes.body.token as string;
-
-      // Use the token to access a protected admin route
-      await request(app.getHttpServer())
-        .get('/api/servers')
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200);
-    });
-
-    it('token expires — expired token must be rejected', async () => {
-      // Manually insert an already-expired system-admin session
-      const expiredToken = 'expired-admin-token-e2e';
-      await db.insert(sessions).values({
-        id: crypto.randomUUID(),
-        memberId: adminMemberId,
-        token: hashSessionToken(expiredToken),
-        expiresAt: new Date(Date.now() - 60_000),
-      });
-
-      await request(app.getHttpServer())
-        .get('/api/servers')
-        .set('Authorization', `Bearer ${expiredToken}`)
-        .expect(401);
-    });
-  });
-
   // ─── GET /api/auth/admin/discord ─────────────────────────────
 
-  describe('GET /auth/admin/discord', () => {
+  describe('GET /api/auth/admin/discord', () => {
     it('returns a Discord authorization URL', async () => {
       const res = await request(app.getHttpServer())
-        .get('/auth/admin/discord')
+        .get('/api/auth/admin/discord')
         .expect(200);
 
       expect(res.body).toMatchObject({
@@ -588,33 +471,13 @@ describeIf('/api/auth (e2e)', () => {
   // ─── GET /api/auth/admin/me ───────────────────────────────────
 
   describe('GET /api/auth/admin/me', () => {
-    const TEST_PASSWORD = 'admin-me-test-1234';
     let adminMemberId: string;
     let sessionToken: string;
 
     beforeEach(async () => {
-      adminMemberId = '800000000000000088';
-      const passwordHash = await hash(TEST_PASSWORD, 10);
-
-      await db.insert(members).values({
-        id: adminMemberId,
-        username: 'sysadmin_me_e2e',
-        globalName: 'E2E Me Admin',
-        displayName: 'E2E Me Admin',
-        avatar: null,
-        isClubMember: false,
-        isSystemAdmin: true,
-        passwordHash,
-        joinedAt: new Date(),
-        syncedAt: new Date(),
-      });
-
-      // Obtain a real session token by logging in
-      const loginRes = await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_me_e2e', password: TEST_PASSWORD })
-        .expect(200);
-      sessionToken = loginRes.body.token as string;
+      const adminCtx = await seedAdminContext(db);
+      adminMemberId = adminCtx.memberId;
+      sessionToken = adminCtx.bearerToken;
     });
 
     it('returns the admin profile for a valid session token', async () => {
@@ -625,8 +488,8 @@ describeIf('/api/auth (e2e)', () => {
 
       expect(res.body).toMatchObject({
         id: adminMemberId,
-        username: 'sysadmin_me_e2e',
-        isSystemAdmin: true,
+        username: 'testadmin',
+        isSystemAdmin: false,
       });
     });
 
@@ -646,96 +509,6 @@ describeIf('/api/auth (e2e)', () => {
       await request(app.getHttpServer())
         .get('/api/auth/admin/me')
         .set('Authorization', `Bearer ${expiredToken}`)
-        .expect(401);
-    });
-  });
-
-  // ─── POST /api/auth/admin/set-password ───────────────────────
-
-  describe('POST /api/auth/admin/set-password', () => {
-    const INITIAL_PASSWORD = 'initial-pass-1234';
-    let adminMemberId: string;
-    let sessionToken: string;
-
-    beforeEach(async () => {
-      adminMemberId = '800000000000000077';
-      const passwordHash = await hash(INITIAL_PASSWORD, 10);
-
-      await db.insert(members).values({
-        id: adminMemberId,
-        username: 'sysadmin_setpw_e2e',
-        globalName: 'E2E SetPw Admin',
-        displayName: 'E2E SetPw Admin',
-        avatar: null,
-        isClubMember: false,
-        isSystemAdmin: true,
-        passwordHash,
-        joinedAt: new Date(),
-        syncedAt: new Date(),
-      });
-
-      const loginRes = await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_setpw_e2e', password: INITIAL_PASSWORD })
-        .expect(200);
-      sessionToken = loginRes.body.token as string;
-    });
-
-    it('changes the password when currentPassword is correct', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/auth/admin/set-password')
-        .set('Authorization', `Bearer ${sessionToken}`)
-        .send({
-          currentPassword: INITIAL_PASSWORD,
-          newPassword: 'newSecure!99',
-        })
-        .expect(200);
-
-      expect(res.body).toMatchObject({
-        message: 'Password updated successfully',
-      });
-
-      // Verify the new password works for login
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/login')
-        .send({ username: 'sysadmin_setpw_e2e', password: 'newSecure!99' })
-        .expect(200);
-    });
-
-    it('returns 401 when currentPassword is wrong', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/set-password')
-        .set('Authorization', `Bearer ${sessionToken}`)
-        .send({
-          currentPassword: 'wrong-password',
-          newPassword: 'newSecure!99',
-        })
-        .expect(401);
-    });
-
-    it('returns 400 when currentPassword is missing but password already set', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/set-password')
-        .set('Authorization', `Bearer ${sessionToken}`)
-        .send({ newPassword: 'newSecure!99' })
-        .expect(400);
-    });
-
-    it('returns 400 when newPassword is missing', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/set-password')
-        .set('Authorization', `Bearer ${sessionToken}`)
-        .send({ currentPassword: INITIAL_PASSWORD })
-        .expect(400);
-    });
-
-    it('returns 401 when no token is provided', async () => {
-      await request(app.getHttpServer())
-        .post('/api/auth/admin/set-password')
-        .send({
-          currentPassword: INITIAL_PASSWORD,
-          newPassword: 'newSecure!99',
-        })
         .expect(401);
     });
   });

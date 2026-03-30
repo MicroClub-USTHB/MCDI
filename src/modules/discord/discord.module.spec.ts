@@ -10,6 +10,8 @@ describe('DiscordModule', () => {
   });
 
   it('skips bot connection on module init in test environment', async () => {
+    process.env.NODE_ENV = 'test';
+
     const mockDiscordService = {
       startBotConnection: jest.fn(),
       onBotReady: jest.fn(),
