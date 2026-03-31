@@ -35,12 +35,13 @@ function buildSequentialMockDb(results: unknown[][]): any {
 
 describe('isAdminMember', () => {
   const MEMBER_ID = 'member-123';
+  const EXECUTIVE_ROLE_ID = 'role-exec';
 
   it('throws ForbiddenException when no main server is configured', async () => {
     const db = buildSequentialMockDb([
       [], // no main server found
     ]);
-    await expect(isAdminMember(db, MEMBER_ID)).rejects.toThrow(
+    await expect(isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID)).rejects.toThrow(
       ForbiddenException,
     );
   });
@@ -50,7 +51,7 @@ describe('isAdminMember', () => {
       [{ id: 'guild-1' }], // main server found
       [], // member not in server
     ]);
-    const result = await isAdminMember(db, MEMBER_ID);
+    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
     expect(result).toBe(false);
   });
 
@@ -58,9 +59,9 @@ describe('isAdminMember', () => {
     const db = buildSequentialMockDb([
       [{ id: 'guild-1' }], // main server
       [{ memberId: MEMBER_ID }], // membership confirmed
-      [{ name: 'Member' }, { name: 'Guest' }], // roles — none are Lead/Executive
+      [{ roleId: 'role-member' }, { roleId: 'role-guest' }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID);
+    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
     expect(result).toBe(false);
   });
 
@@ -68,9 +69,9 @@ describe('isAdminMember', () => {
     const db = buildSequentialMockDb([
       [{ id: 'guild-1' }],
       [{ memberId: MEMBER_ID }],
-      [{ name: 'Executive' }],
+      [{ roleId: EXECUTIVE_ROLE_ID }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID);
+    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
     expect(result).toBe(true);
   });
 
@@ -78,9 +79,9 @@ describe('isAdminMember', () => {
     const db = buildSequentialMockDb([
       [{ id: 'guild-1' }],
       [{ memberId: MEMBER_ID }],
-      [{ name: 'Lead' }, { name: 'Member' }],
+      [{ roleId: 'role-lead' }, { roleId: 'role-member' }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID);
+    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
     expect(result).toBe(false);
   });
 });

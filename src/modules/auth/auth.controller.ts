@@ -416,7 +416,7 @@ export class AuthController {
     description: 'Missing, invalid, or expired session token.',
   })
   @ApiForbiddenResponse({
-    description: 'Valid session but the member is not an Executive.',
+    description: 'Valid session but the member lacks the configured admin role.',
   })
   async adminMe(@Req() req: Request) {
     const token = extractSessionToken(req)!;
@@ -424,7 +424,7 @@ export class AuthController {
   }
 
   // ─── POST /auth/admin/set-password has been removed.
-  // Admin access is gated solely on the Discord "Executive" role.
+  // Admin access is gated solely on the configured Discord admin role ID.
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
 

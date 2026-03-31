@@ -33,7 +33,7 @@ Every MicroClub app used to solve the same problem independently — Discord log
 | **OAuth** | Project-scoped browser flows with CSRF state, validated `client_id` and `redirect_uri` |
 | **API Keys** | Hash-only storage, one-time secret reveal, per-project scopes |
 | **Sessions** | Short-lived callback codes exchanged for long-lived project session tokens |
-| **Admin Access** | Discord OAuth gated to `Executive`-role members of the main guild |
+| **Admin Access** | Discord OAuth gated by a configured admin role ID in the main guild |
 | **Members** | Fetch by ID, search within a server, resolve effective permissions |
 | **Permissions** | Single and batch checks (`ALL` / `ANY`), inheritance across servers |
 | **Multi-server** | Register guilds, set a main server, enable/disable, inspect sync health |
@@ -92,6 +92,7 @@ npm run test:e2e     # end-to-end tests
 | `DISCORD_CALLBACK_URL` | OAuth callback for project member login |
 | `DISCORD_ADMIN_CALLBACK_URL` | OAuth callback for admin login |
 | `MC_GUILD_ID` | Main MicroClub guild for admin access verification |
+| `MC_EXECUTIVE_ROLE_ID` | Discord role ID that grants admin access in the main guild |
 | `ADMIN_FRONTEND_URL` | Redirect target after successful admin login |
 
 ### Common Optional Settings
@@ -126,7 +127,7 @@ Projects authenticate with an `X-API-Key` header. Keys are stored as hashes only
 
 ### Admins → MCDI
 
-Admins log in via Discord OAuth and receive a bearer session token. Access is restricted to members who hold the `Executive` role in the configured main guild.
+Admins log in via Discord OAuth and receive a bearer session token. Access is restricted to members who hold the configured admin role ID in the configured main guild.
 
 ---
 

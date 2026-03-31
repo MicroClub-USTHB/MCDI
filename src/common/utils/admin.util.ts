@@ -3,18 +3,20 @@ import { and, eq } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 
-/** Discord role name that grants admin access to MCDI */
-export const ADMIN_ROLES = ['Executive'] as const;
-
 /**
- * Checks whether a member holds a Lead or Executive role in the main server.
+ * Checks whether a member holds the configured admin role ID in the main server.
  * Throws 403 if no main server is configured.
- * Returns false if the member is not in the main server or lacks an admin role.
+ * Returns false if the member is not in the main server or lacks the admin role.
  */
 export async function isAdminMember(
   db: NodePgDatabase<typeof schema>,
   memberId: string,
+  executiveRoleId: string,
 ): Promise<boolean> {
+  if (!executiveRoleId) {
+    throw new ForbiddenException('No executive role configured');
+  }
+
   // 1. Find the configured main server
   const [mainServer] = await db
     .select({ id: schema.servers.id })
@@ -40,9 +42,9 @@ export async function isAdminMember(
 
   if (!membership) return false;
 
-  // 3. Get the member's role names in the main server
+  // 3. Get the member's role IDs in the main server
   const memberRoles = await db
-    .select({ name: schema.roles.name })
+    .select({ roleId: schema.roles.id })
     .from(schema.serverMemberRoles)
     .innerJoin(
       schema.roles,
@@ -53,7 +55,6 @@ export async function isAdminMember(
     )
     .where(eq(schema.serverMemberRoles.memberId, memberId));
 
-  // 4. Check for Lead or Executive
-  const roleNames = memberRoles.map((r) => r.name);
-  return ADMIN_ROLES.some((adminRole) => roleNames.includes(adminRole));
+  // 4. Check for the configured admin role ID
+  return memberRoles.some((role) => role.roleId === executiveRoleId);
 }

@@ -163,7 +163,7 @@ Key columns:
 Notes:
 
 - `password_hash` exists in schema but is not the primary current admin auth path
-- admin access is currently driven by Discord OAuth plus Executive-role verification
+- admin access is currently driven by Discord OAuth plus configured admin-role-ID verification
 
 #### `server_members`
 
@@ -425,4 +425,3 @@ The schema records both:
 - individual changes in `sync_change_details`
 
 This is important for troubleshooting and operational review.
-

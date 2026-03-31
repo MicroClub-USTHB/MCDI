@@ -12,6 +12,7 @@ import { AppModule } from '../../src/app.module';
  */
 export async function createTestApp(): Promise<INestApplication> {
   process.env.NODE_ENV = 'test';
+  process.env.MC_EXECUTIVE_ROLE_ID = '700000000000000001';
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],

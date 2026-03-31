@@ -6,6 +6,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { SystemAdminGuard } from './system-admin.guard';
 import { DRIZZLE } from '../../database/database.module';
+import { ConfigService } from '@nestjs/config';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,18 @@ describe('SystemAdminGuard', () => {
 
   async function buildGuard(db: any) {
     const module = await Test.createTestingModule({
-      providers: [SystemAdminGuard, { provide: DRIZZLE, useValue: db }],
+      providers: [
+        SystemAdminGuard,
+        { provide: DRIZZLE, useValue: db },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) =>
+              key === 'discord.executiveRoleId' ? 'role-exec' : null,
+            ),
+          },
+        },
+      ],
     }).compile();
     return module.get(SystemAdminGuard);
   }
@@ -125,7 +137,7 @@ describe('SystemAdminGuard', () => {
       [{ memberId: 'u1', expiresAt: future }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
-      [{ name: 'Member' }],
+      [{ roleId: 'role-member' }],
     );
     guard = await buildGuard(db);
     await expect(
@@ -139,7 +151,7 @@ describe('SystemAdminGuard', () => {
       [{ memberId: 'u1', expiresAt: future }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
-      [{ name: 'Executive' }],
+      [{ roleId: 'role-exec' }],
     );
     guard = await buildGuard(db);
     const result = await guard.canActivate(makeContext('Bearer valid-token'));
@@ -152,7 +164,7 @@ describe('SystemAdminGuard', () => {
       [{ memberId: 'u1', expiresAt: future }],
       [{ id: 'guild-1' }],
       [{ memberId: 'u1' }],
-      [{ name: 'Lead' }],
+      [{ roleId: 'role-lead' }],
     );
     guard = await buildGuard(db);
     await expect(
