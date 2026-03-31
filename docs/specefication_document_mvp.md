@@ -104,7 +104,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 - Admin login is handled through Discord OAuth
 - MCDI verifies that the user belongs to the configured main guild
-- MCDI verifies the user holds the `Executive` role
+- MCDI verifies the user holds the configured admin role ID
 - A bearer session token and `admin_session` cookie are issued after successful login
 
 ---
@@ -317,7 +317,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 The codebase now includes several capabilities that were not clearly represented in the original MVP document:
 
-- admin Discord OAuth with Executive-role enforcement
+- admin Discord OAuth with admin-role-ID enforcement
 - redirect URI allowlisting per project
 - per-project server scopes (`read_members`, `check_permissions`)
 - project-server access audit history
@@ -337,4 +337,3 @@ These features are not yet implemented in the current backend and should not be 
 - project usage analytics dashboard
 - refresh-token-based member session renewal
 - SDK packages for external frameworks
-

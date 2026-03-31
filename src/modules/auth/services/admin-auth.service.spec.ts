@@ -38,6 +38,7 @@ describe('AdminAuthService', () => {
         if (key === 'discord.adminRedirectUri')
           return 'http://localhost/api/auth/discord/callback';
         if (key === 'discord.mainGuildId') return 'guild-1';
+        if (key === 'discord.executiveRoleId') return 'role-exec';
         return null;
       }),
     };
@@ -206,9 +207,10 @@ describe('AdminAuthService', () => {
     });
 
     it('throws Forbidden if the member lacks the Executive role', async () => {
-      discordService.fetchGuildRolesForMember.mockResolvedValue([
-        { id: 'role-lead', name: 'Lead' },
-      ] as any);
+      discordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        roleIds: ['role-lead'],
+      } as any);
 
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),

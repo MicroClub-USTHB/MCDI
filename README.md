@@ -45,7 +45,20 @@ There are two practical ways to run MCDI locally.
 cp .env.example .env
 ```
 
-2. Fill in the Discord-related variables in `.env`:
+| Area | Capabilities |
+|---|---|
+| **OAuth** | Project-scoped browser flows with CSRF state, validated `client_id` and `redirect_uri` |
+| **API Keys** | Hash-only storage, one-time secret reveal, per-project scopes |
+| **Sessions** | Short-lived callback codes exchanged for long-lived project session tokens |
+| **Admin Access** | Discord OAuth gated by a configured admin role ID in the main guild |
+| **Members** | Fetch by ID, search within a server, resolve effective permissions |
+| **Permissions** | Single and batch checks (`ALL` / `ANY`), inheritance across servers |
+| **Multi-server** | Register guilds, set a main server, enable/disable, inspect sync health |
+| **Access Matrix** | Grant scopes per project/server pair with full audit history |
+| **Sync** | Startup sync, manual queued syncs, live Discord gateway events |
+| **Observability** | Sync logs, change history, Swagger UI, strict DTO validation |
+
+---
 
 ```env
 DISCORD_CLIENT_ID=
@@ -105,8 +118,9 @@ MCDI is configured through environment variables loaded from `.env`.
 | `DISCORD_TOKEN` | Discord bot token used for guild sync and role inspection |
 | `DISCORD_CALLBACK_URL` | OAuth callback for project member login |
 | `DISCORD_ADMIN_CALLBACK_URL` | OAuth callback for admin login |
-| `MC_GUILD_ID` | Main MicroClub guild used to verify admin access |
-| `ADMIN_FRONTEND_URL` | URL to redirect admins to after successful login |
+| `MC_GUILD_ID` | Main MicroClub guild for admin access verification |
+| `MC_EXECUTIVE_ROLE_ID` | Discord role ID that grants admin access in the main guild |
+| `ADMIN_FRONTEND_URL` | Redirect target after successful admin login |
 
 ### Common Optional Settings
 
@@ -150,7 +164,7 @@ Typical flow:
 
 Admins authenticate through Discord OAuth and receive a bearer session.
 
-Admin access is currently restricted to members who:
+Admins log in via Discord OAuth and receive a bearer session token. Access is restricted to members who hold the configured admin role ID in the configured main guild.
 
 - are in the configured main guild
 - hold the `Executive` role in that guild
@@ -159,74 +173,32 @@ Admin access is currently restricted to members who:
 
 ### System Overview
 
-```mermaid
-flowchart LR
-  A["MicroClub Project"] -->|"OAuth redirect / X-API-Key"| B["MCDI API"]
-  U["Admin Frontend"] -->|"Discord admin login"| B
-  B --> C["Auth Module"]
-  B --> D["Members Module"]
-  B --> E["Permissions Module"]
-  B --> F["Projects Module"]
-  B --> G["Servers Module"]
-  B --> H["Sync Module"]
-  C --> I["PostgreSQL"]
-  D --> I
-  E --> I
-  F --> I
-  G --> I
-  H --> I
-  F --> J["Redis Cache"]
-  E --> J
-  H --> K["Discord Gateway + REST API"]
-  C --> K
-  G --> K
-```
+<p align="center">
+  <img src="./docs/assets/system-overview-graph.svg" alt="System Overview Graph" width="100%" />
+</p>
 
 ### Project Login Flow
 
-```mermaid
-sequenceDiagram
-  participant User
-  participant Project
-  participant MCDI
-  participant Discord
+<p align="center">
+  <img src="./docs/assets/login-flow-graph.svg" alt="Login Flow Graph" width="100%" />
+</p>
 
-  User->>Project: Click "Login with Discord"
-  Project->>MCDI: Start login flow
-  MCDI->>MCDI: Validate project, redirect URI, server access
-  MCDI->>User: Redirect to Discord
-  User->>Discord: Authorize
-  Discord->>MCDI: Callback with code + state
-  MCDI->>Discord: Exchange code, fetch identity, verify guild membership
-  MCDI->>Project: Redirect with one-time callback code
-  Project->>MCDI: Exchange callback code
-  MCDI->>Project: Session token + member context
-```
+### Discord Sync Lifecycle
 
-### Sync Lifecycle
+<p align="center">
+  <img src="./docs/assets/sync-lifecycle-graph.svg" alt="Sync Lifecycle Graph" width="100%" />
+</p>
 
-```mermaid
-flowchart TD
-  A["Discord bot ready"] --> B["Queue startup sync for active servers"]
-  B --> C["Sync worker drains queue"]
-  C --> D["Sync server metadata"]
-  D --> E["Sync roles and role permissions"]
-  E --> F["Sync members and memberships"]
-  F --> G["Write sync log + granular changes"]
-  G --> H["Invalidate permission caches"]
-  I["Discord gateway events"] --> J["Member / role / guild listeners"]
-  J --> K["Apply incremental updates in real time"]
-  K --> H
-```
+### Design Decisions
 
-### Design Notes
+- **Modules**: `auth`, `members`, `permissions`, `projects`, `servers`, `sync`, `admin-members` — each owns its domain.
+- **PostgreSQL** is the source of truth for projects, sessions, members, roles, access mappings, and sync logs.
+- **Redis** handles short-lived project auth and access caching, reducing Discord API round-trips.
+- **In-memory permission cache** makes repeated permission checks fast within a process lifetime.
+- **Validation-first**: all DTOs are validated globally; non-whitelisted fields are rejected.
+- **Swagger** is generated directly from NestJS controllers and DTOs — always in sync with the actual API.
 
-- The API is modular, centered around `auth`, `members`, `permissions`, `projects`, `servers`, `sync`, and `admin-members`.
-- PostgreSQL is the source of truth for projects, sessions, members, roles, access mappings, and sync logs.
-- Redis is used for short-lived project auth and access caching.
-- Permission results are cached in memory for fast repeated checks.
-- Validation is enforced globally with DTO validation and non-whitelisted fields rejected.
-- Swagger is generated from the actual NestJS controllers and DTOs.
+---
 
 ## Deployment
 
@@ -302,4 +274,4 @@ Contributions are welcome. If you are working inside the club workflow, align ch
 
 This project is currently **UNLICENSED** and intended for internal MicroClub use unless stated otherwise.
 
-Copyright (c) 2026 MicroClub
+Copyright © 2026 MicroClub — Dev Department, USTHB, Algiers.

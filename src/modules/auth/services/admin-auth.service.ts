@@ -15,7 +15,6 @@ import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
-const EXECUTIVE_ROLE = 'Executive';
 
 @Injectable()
 export class AdminAuthService {
@@ -23,6 +22,7 @@ export class AdminAuthService {
   private readonly discordClientId: string;
   private readonly discordAdminRedirectUri: string;
   private readonly mainGuildId: string;
+  private readonly executiveRoleId: string;
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -38,6 +38,9 @@ export class AdminAuthService {
       'discord.adminRedirectUri',
     )!;
     this.mainGuildId = this.configService.get<string>('discord.mainGuildId')!;
+    this.executiveRoleId = this.configService.get<string>(
+      'discord.executiveRoleId',
+    )!;
   }
 
   // ─── System Admin Discord OAuth2 Login ───────────────────
@@ -79,7 +82,7 @@ export class AdminAuthService {
    *  2. Exchange the Discord code for an access token (using admin redirect URI)
    *  3. Fetch the Discord profile & upsert the member
    *  4. Verify the user is a member of the main MCDI guild
-   *  5. Verify the user holds the "Executive" role in the main guild
+   *  5. Verify the user holds the configured admin role ID in the main guild
    *  6. Sync roles into the DB
    *  7. Issue a 24-hour session token
    *  8. Return token + member info
@@ -127,6 +130,15 @@ export class AdminAuthService {
       );
     }
 
+    if (!this.executiveRoleId) {
+      this.logger.error(
+        'MC_EXECUTIVE_ROLE_ID is not configured — admin login blocked',
+      );
+      throw new ForbiddenException(
+        'Server configuration error: executive role not set',
+      );
+    }
+
     const guildMember = await this.discordService.fetchOAuthGuildMember(
       this.mainGuildId,
       accessToken,
@@ -141,22 +153,20 @@ export class AdminAuthService {
       );
     }
 
-    // 5. Resolve role names & verify Executive role
+    // 5. Verify the configured admin role by Discord role ID
+    if (!guildMember.roleIds.includes(this.executiveRoleId)) {
+      this.logger.warn(
+        `Admin login rejected: user ${profile.id} lacks admin role ID ${this.executiveRoleId}`,
+      );
+      throw new ForbiddenException(
+        'Only members with the configured admin role can access the admin panel',
+      );
+    }
+
     const guildRoles = await this.discordService.fetchGuildRolesForMember(
       this.mainGuildId,
       guildMember.roleIds,
     );
-
-    const hasExecutiveRole = guildRoles.some((r) => r.name === EXECUTIVE_ROLE);
-
-    if (!hasExecutiveRole) {
-      this.logger.warn(
-        `Admin login rejected: user ${profile.id} lacks the "${EXECUTIVE_ROLE}" role`,
-      );
-      throw new ForbiddenException(
-        `Only members with the "${EXECUTIVE_ROLE}" role can access the admin panel`,
-      );
-    }
 
     // 6. Sync roles into the DB so guard checks work correctly
     await this.memberRepository.syncMemberServerData(
