@@ -37,6 +37,7 @@ export class SystemAdminGuard implements CanActivate {
 
     // 1. Validate session — must exist and not be expired
     const memberId = await validateSession(this.db, token);
+    (request as any).memberId = memberId;
 
     // 2. Sole access criterion: configured admin Discord role ID in the main server
     const isAdmin = await isAdminMember(
