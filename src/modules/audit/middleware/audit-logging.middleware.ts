@@ -14,39 +14,112 @@ interface RouteAction {
 
 const ROUTE_MAP: [RegExp, string, RouteAction][] = [
   // Auth
-  [/^\/admin\/auth\/login/, 'POST', { actionType: 'auth', action: 'login', entityType: 'session' }],
-  [/^\/admin\/auth\/logout/, 'POST', { actionType: 'auth', action: 'logout', entityType: 'session' }],
+  [
+    /^\/admin\/auth\/login/,
+    'POST',
+    { actionType: 'auth', action: 'login', entityType: 'session' },
+  ],
+  [
+    /^\/admin\/auth\/logout/,
+    'POST',
+    { actionType: 'auth', action: 'logout', entityType: 'session' },
+  ],
 
   // Projects
-  [/^\/admin\/projects$/, 'POST', { actionType: 'project', action: 'created', entityType: 'project' }],
-  [/^\/admin\/projects\/[^/]+$/, 'PATCH', { actionType: 'project', action: 'updated', entityType: 'project' }],
-  [/^\/admin\/projects\/[^/]+$/, 'DELETE', { actionType: 'project', action: 'deleted', entityType: 'project' }],
-  [/^\/admin\/projects\/[^/]+\/regenerate-api-key/, 'POST', { actionType: 'project', action: 'key_regenerated', entityType: 'project' }],
-  [/^\/admin\/projects\/[^/]+\/key/, 'DELETE', { actionType: 'project', action: 'key_revoked', entityType: 'project' }],
-  [/^\/admin\/projects\/[^/]+\/restore-key/, 'POST', { actionType: 'project', action: 'key_generated', entityType: 'project' }],
+  [
+    /^\/admin\/projects$/,
+    'POST',
+    { actionType: 'project', action: 'created', entityType: 'project' },
+  ],
+  [
+    /^\/admin\/projects\/[^/]+$/,
+    'PATCH',
+    { actionType: 'project', action: 'updated', entityType: 'project' },
+  ],
+  [
+    /^\/admin\/projects\/[^/]+$/,
+    'DELETE',
+    { actionType: 'project', action: 'deleted', entityType: 'project' },
+  ],
+  [
+    /^\/admin\/projects\/[^/]+\/regenerate-api-key/,
+    'POST',
+    { actionType: 'project', action: 'key_regenerated', entityType: 'project' },
+  ],
+  [
+    /^\/admin\/projects\/[^/]+\/key/,
+    'DELETE',
+    { actionType: 'project', action: 'key_revoked', entityType: 'project' },
+  ],
+  [
+    /^\/admin\/projects\/[^/]+\/restore-key/,
+    'POST',
+    { actionType: 'project', action: 'key_generated', entityType: 'project' },
+  ],
 
   // Servers
-  [/^\/admin\/servers$/, 'POST', { actionType: 'server', action: 'registered', entityType: 'server' }],
-  [/^\/admin\/servers\/[^/]+$/, 'PATCH', { actionType: 'server', action: 'updated', entityType: 'server' }],
-  [/^\/admin\/servers\/[^/]+$/, 'DELETE', { actionType: 'server', action: 'deleted', entityType: 'server' }],
-  [/^\/admin\/servers\/[^/]+\/enable/, 'POST', { actionType: 'server', action: 'enabled', entityType: 'server' }],
-  [/^\/admin\/servers\/[^/]+\/disable/, 'POST', { actionType: 'server', action: 'disabled', entityType: 'server' }],
+  [
+    /^\/admin\/servers$/,
+    'POST',
+    { actionType: 'server', action: 'registered', entityType: 'server' },
+  ],
+  [
+    /^\/admin\/servers\/[^/]+$/,
+    'PATCH',
+    { actionType: 'server', action: 'updated', entityType: 'server' },
+  ],
+  [
+    /^\/admin\/servers\/[^/]+$/,
+    'DELETE',
+    { actionType: 'server', action: 'deleted', entityType: 'server' },
+  ],
+  [
+    /^\/admin\/servers\/[^/]+\/enable/,
+    'POST',
+    { actionType: 'server', action: 'enabled', entityType: 'server' },
+  ],
+  [
+    /^\/admin\/servers\/[^/]+\/disable/,
+    'POST',
+    { actionType: 'server', action: 'disabled', entityType: 'server' },
+  ],
 
   // Sync
-  [/^\/admin\/sync/, 'POST', { actionType: 'sync', action: 'triggered', entityType: 'sync' }],
+  [
+    /^\/admin\/sync/,
+    'POST',
+    { actionType: 'sync', action: 'triggered', entityType: 'sync' },
+  ],
 
   // Members
-  [/^\/admin\/members\/export/, 'GET', { actionType: 'member', action: 'exported', entityType: 'member' }],
+  [
+    /^\/admin\/members\/export/,
+    'GET',
+    { actionType: 'member', action: 'exported', entityType: 'member' },
+  ],
 
   // Permissions / Roles
-  [/^\/admin\/permissions/, 'POST', { actionType: 'permission', action: 'permission_added', entityType: 'permission' }],
-  [/^\/admin\/permissions/, 'DELETE', { actionType: 'permission', action: 'permission_removed', entityType: 'permission' }],
+  [
+    /^\/admin\/permissions/,
+    'POST',
+    {
+      actionType: 'permission',
+      action: 'permission_added',
+      entityType: 'permission',
+    },
+  ],
+  [
+    /^\/admin\/permissions/,
+    'DELETE',
+    {
+      actionType: 'permission',
+      action: 'permission_removed',
+      entityType: 'permission',
+    },
+  ],
 ];
 
-function resolveRouteAction(
-  path: string,
-  method: string,
-): RouteAction | null {
+function resolveRouteAction(path: string, method: string): RouteAction | null {
   for (const [pattern, httpMethod, routeAction] of ROUTE_MAP) {
     if (method === httpMethod && pattern.test(path)) {
       return routeAction;
@@ -112,7 +185,7 @@ export class AuditLoggingMiddleware implements NestMiddleware {
         return;
       }
 
-      const memberId: string | undefined = (req as any).memberId;
+      const memberId = (req as Request & { memberId?: string }).memberId;
 
       const entry: InsertAuditLog = {
         actorId: memberId ?? null,
@@ -132,7 +205,7 @@ export class AuditLoggingMiddleware implements NestMiddleware {
         severity: 'info',
       };
 
-      this.auditRepository.insert(entry).catch((err) => {
+      this.auditRepository.insert(entry).catch((err: Error) => {
         this.logger.warn(`Failed to write audit log: ${err.message}`);
       });
 

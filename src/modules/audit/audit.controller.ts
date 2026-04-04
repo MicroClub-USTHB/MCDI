@@ -38,17 +38,52 @@ export class AuditController {
     summary: 'Get audit logs',
     description: 'Query audit logs with filtering and pagination.',
   })
-  @ApiQuery({ name: 'dateFrom', required: false, description: 'Start date (ISO 8601)' })
-  @ApiQuery({ name: 'dateTo', required: false, description: 'End date (ISO 8601)' })
-  @ApiQuery({ name: 'actorId', required: false, description: 'Filter by admin member ID' })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'actorId',
+    required: false,
+    description: 'Filter by admin member ID',
+  })
   @ApiQuery({
     name: 'actionType',
     required: false,
-    enum: ['auth', 'project', 'server', 'role', 'webhook', 'member', 'sync', 'permission'],
+    enum: [
+      'auth',
+      'project',
+      'server',
+      'role',
+      'webhook',
+      'member',
+      'sync',
+      'permission',
+    ],
   })
-  @ApiQuery({ name: 'severity', required: false, enum: ['info', 'warning', 'error'] })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max results (1-500, default 50)' })
-  @ApiQuery({ name: 'offset', required: false, type: Number, description: 'Pagination offset' })
+  @ApiQuery({
+    name: 'severity',
+    required: false,
+    enum: ['info', 'warning', 'error'],
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (1-500, default 50)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Pagination offset',
+  })
   @ApiOkResponse({
     description: 'Audit logs retrieved.',
     schema: {
@@ -84,7 +119,8 @@ export class AuditController {
   @Get('logs/export')
   @ApiOperation({
     summary: 'Export audit logs as CSV',
-    description: 'Download audit logs as a CSV file. Supports the same filters as GET /logs.',
+    description:
+      'Download audit logs as a CSV file. Supports the same filters as GET /logs.',
   })
   @ApiOkResponse({ description: 'CSV file download.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
@@ -142,7 +178,8 @@ export class MonitoringController {
   @Get('usage')
   @ApiOperation({
     summary: 'API usage statistics',
-    description: 'Returns request counts aggregated by period, project, and endpoint.',
+    description:
+      'Returns request counts aggregated by period, project, and endpoint.',
   })
   @ApiQuery({
     name: 'period',
@@ -150,17 +187,31 @@ export class MonitoringController {
     enum: ['7d', '30d', '90d'],
     description: 'Time period (default 30d)',
   })
-  @ApiQuery({ name: 'projectId', required: false, description: 'Filter by project ID' })
+  @ApiQuery({
+    name: 'projectId',
+    required: false,
+    description: 'Filter by project ID',
+  })
   @ApiOkResponse({
     description: 'Usage statistics retrieved.',
     schema: {
       example: {
         totalRequests: 1500,
         byProject: [
-          { projectId: 'uuid', projectName: 'My Project', requests: 500, errors: 10 },
+          {
+            projectId: 'uuid',
+            projectName: 'My Project',
+            requests: 500,
+            errors: 10,
+          },
         ],
         byEndpoint: [
-          { endpoint: '/admin/projects', method: 'GET', count: 200, avgResponseTime: 15 },
+          {
+            endpoint: '/admin/projects',
+            method: 'GET',
+            count: 200,
+            avgResponseTime: 15,
+          },
         ],
         errors: { total: 25, byType: { '4xx': 20, '5xx': 5 } },
       },

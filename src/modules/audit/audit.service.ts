@@ -85,8 +85,8 @@ export class AuditService {
     );
   }
 
-  async logAction(entry: InsertAuditLog): Promise<void> {
-    this.auditRepository.insert(entry).catch((err) => {
+  logAction(entry: InsertAuditLog): void {
+    this.auditRepository.insert(entry).catch((err: Error) => {
       this.logger.warn(`Failed to write audit log: ${err.message}`);
     });
   }
@@ -94,11 +94,9 @@ export class AuditService {
   // ── Health Check ──────────────────────────────────────────────────────
 
   async getHealthStatus() {
-    const [dbHealth, redisHealth, discordHealth] = await Promise.all([
-      this.checkDatabase(),
-      this.checkRedis(),
-      this.checkDiscord(),
-    ]);
+    const dbHealth = await this.checkDatabase();
+    const redisHealth = this.checkRedis();
+    const discordHealth = this.checkDiscord();
 
     return {
       api: {
@@ -119,17 +117,18 @@ export class AuditService {
         'SELECT count(*) AS connections FROM pg_stat_activity WHERE datname = current_database()',
       );
       const queryTime = Date.now() - start;
+      const row = result.rows[0] as { connections: string } | undefined;
       return {
         status: 'connected' as const,
         queryTime,
-        connections: parseInt(result.rows[0]?.connections ?? '0', 10),
+        connections: parseInt(row?.connections ?? '0', 10),
       };
     } catch {
       return { status: 'disconnected' as const, queryTime: -1, connections: 0 };
     }
   }
 
-  private async checkRedis() {
+  private checkRedis() {
     if (!this.redisService.isAvailable) {
       return {
         status: 'disconnected' as const,
@@ -144,7 +143,7 @@ export class AuditService {
     };
   }
 
-  private async checkDiscord() {
+  private checkDiscord() {
     if (!this.discordService.isBotReady()) {
       return {
         status: 'disconnected' as const,
@@ -240,20 +239,12 @@ export class AuditService {
 
     const ops: Promise<unknown>[] = [
       this.redisService.hIncrBy(`${prefix}:total`, 'count', 1),
-      this.redisService.hIncrBy(
-        `${prefix}:endpoints`,
-        `${method}:${path}`,
-        1,
-      ),
+      this.redisService.hIncrBy(`${prefix}:endpoints`, `${method}:${path}`, 1),
     ];
 
     if (statusCode >= 400) {
       ops.push(
-        this.redisService.hIncrBy(
-          `${prefix}:errors`,
-          String(statusCode),
-          1,
-        ),
+        this.redisService.hIncrBy(`${prefix}:errors`, String(statusCode), 1),
       );
     }
 
@@ -279,12 +270,12 @@ export class AuditService {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   async cleanupOldLogs(): Promise<number> {
-    const cutoff = new Date(
-      Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000,
-    );
+    const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const deleted = await this.auditRepository.deleteOlderThan(cutoff);
     if (deleted > 0) {
-      this.logger.log(`Audit log cleanup: removed ${deleted} entries older than ${RETENTION_DAYS} days`);
+      this.logger.log(
+        `Audit log cleanup: removed ${deleted} entries older than ${RETENTION_DAYS} days`,
+      );
     }
     return deleted;
   }
@@ -292,7 +283,7 @@ export class AuditService {
   startCleanupSchedule(): void {
     if (this.cleanupTimer) return;
     this.cleanupTimer = setInterval(() => {
-      this.cleanupOldLogs().catch((err) => {
+      this.cleanupOldLogs().catch((err: Error) => {
         this.logger.warn(`Audit cleanup failed: ${err.message}`);
       });
     }, CLEANUP_INTERVAL_MS);

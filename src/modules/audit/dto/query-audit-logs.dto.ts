@@ -24,12 +24,18 @@ const ACTION_TYPES = [
 const SEVERITIES = ['info', 'warning', 'error'] as const;
 
 export class QueryAuditLogsDto {
-  @ApiPropertyOptional({ description: 'Start date (ISO 8601)', example: '2026-03-01T00:00:00Z' })
+  @ApiPropertyOptional({
+    description: 'Start date (ISO 8601)',
+    example: '2026-03-01T00:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   dateFrom?: string;
 
-  @ApiPropertyOptional({ description: 'End date (ISO 8601)', example: '2026-04-01T00:00:00Z' })
+  @ApiPropertyOptional({
+    description: 'End date (ISO 8601)',
+    example: '2026-04-01T00:00:00Z',
+  })
   @IsOptional()
   @IsDateString()
   dateTo?: string;

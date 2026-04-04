@@ -35,11 +35,11 @@ export class SystemAdminGuard implements CanActivate {
       throw new UnauthorizedException('Session token is required');
     }
 
-    // 1. Validate session — must exist and not be expired
+    // Validate session — must exist and not be expired
     const memberId = await validateSession(this.db, token);
-    (request as any).memberId = memberId;
+    (request as Request & { memberId: string }).memberId = memberId;
 
-    // 2. Sole access criterion: configured admin Discord role ID in the main server
+    // Sole access criterion: configured admin Discord role ID in the main server
     const isAdmin = await isAdminMember(
       this.db,
       memberId,
