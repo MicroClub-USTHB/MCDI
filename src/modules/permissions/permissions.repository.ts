@@ -520,4 +520,93 @@ export class PermissionsRepository {
       ),
     );
   }
+
+  async getRoleWithServer(roleId: string): Promise<{
+    id: string;
+    serverId: string;
+    name: string;
+    isGlobal: boolean;
+    hierarchyLevel: number | null;
+  } | null> {
+    const [row] = await this.db
+      .select({
+        id: roles.id,
+        serverId: roles.serverId,
+        name: roles.name,
+        isGlobal: roles.isGlobal,
+        hierarchyLevel: roles.hierarchyLevel,
+      })
+      .from(roles)
+      .where(eq(roles.id, roleId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  async getPermissionsByRole(
+    roleId: string,
+  ): Promise<{ id: number; key: string; description: string | null }[]> {
+    const rows = await this.db
+      .select({
+        id: permissions.id,
+        key: permissions.key,
+        description: permissions.description,
+      })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(eq(rolePermissions.roleId, roleId));
+
+    return rows;
+  }
+
+  async addPermissionsToRole(
+    roleId: string,
+    permissionIds: number[],
+  ): Promise<void> {
+    if (!permissionIds.length) return;
+
+    await this.db
+      .insert(rolePermissions)
+      .values(permissionIds.map((permissionId) => ({ roleId, permissionId })))
+      .onConflictDoNothing();
+  }
+
+  async removePermissionFromRole(
+    roleId: string,
+    permissionId: number,
+  ): Promise<void> {
+    await this.db
+      .delete(rolePermissions)
+      .where(
+        and(
+          eq(rolePermissions.roleId, roleId),
+          eq(rolePermissions.permissionId, permissionId),
+        ),
+      );
+  }
+
+  async getMembersByRole(roleId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ memberId: serverMemberRoles.memberId })
+      .from(serverMemberRoles)
+      .where(eq(serverMemberRoles.roleId, roleId));
+
+    return rows.map((r) => r.memberId);
+  }
+
+  async getMinHierarchyLevelInServer(serverId: string): Promise<number | null> {
+    const [row] = await this.db
+      .select({ minLevel: roles.hierarchyLevel })
+      .from(roles)
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      )
+      .orderBy(roles.hierarchyLevel)
+      .limit(1);
+
+    return row?.minLevel ?? null;
+  }
 }
