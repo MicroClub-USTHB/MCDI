@@ -1,11 +1,22 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { CheckPermissionDto } from './dto/check-permission.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
+import { AssignPermissionsDto } from './dto/assign-permissions.dto';
+import { ImpactPreviewDto } from './dto/impact-preview.dto';
 import {
   ListInheritanceRulesFilters,
   PermissionsRepository,
 } from './permissions.repository';
 import { PermissionCacheService } from './permission-cache.service';
+import {
+  RolePermissionsResponseDto,
+  PermissionItemDto,
+} from './dto/role-permissions-response.dto';
+import { ImpactPreviewResponseDto } from './dto/impact-preview-response.dto';
 
 @Injectable()
 export class PermissionsService {
@@ -314,5 +325,204 @@ export class PermissionsService {
 
     const matched = normalized.filter((p) => allPerms.includes(p));
     return { allowed: matched.length > 0, matched };
+  }
+
+  async getRolePermissions(
+    serverId: string,
+    roleId: string,
+  ): Promise<RolePermissionsResponseDto> {
+    const normalizedServerId = serverId?.trim();
+    const normalizedRoleId = roleId?.trim();
+
+    if (!normalizedServerId || !normalizedRoleId) {
+      throw new BadRequestException('serverId and roleId are required');
+    }
+
+    const role =
+      await this.permissionsRepository.getRoleWithServer(normalizedRoleId);
+    if (!role) {
+      throw new BadRequestException('Role not found');
+    }
+
+    if (role.serverId !== normalizedServerId) {
+      throw new BadRequestException(
+        'Role does not belong to the specified server',
+      );
+    }
+
+    const permissions =
+      await this.permissionsRepository.getPermissionsByRole(normalizedRoleId);
+
+    return this.mapToRolePermissionsResponse(role, permissions);
+  }
+
+  async assignPermissionsToRole(
+    serverId: string,
+    roleId: string,
+    dto: AssignPermissionsDto,
+  ): Promise<RolePermissionsResponseDto> {
+    const normalizedServerId = serverId?.trim();
+    const normalizedRoleId = roleId?.trim();
+
+    if (!normalizedServerId || !normalizedRoleId) {
+      throw new BadRequestException('serverId and roleId are required');
+    }
+
+    if (!dto.permissionIds.length) {
+      throw new BadRequestException('permissionIds cannot be empty');
+    }
+
+    const role =
+      await this.permissionsRepository.getRoleWithServer(normalizedRoleId);
+    if (!role) {
+      throw new BadRequestException('Role not found');
+    }
+
+    if (role.serverId !== normalizedServerId) {
+      throw new BadRequestException(
+        'Role does not belong to the specified server',
+      );
+    }
+
+    const validPermissionIds =
+      await this.permissionsRepository.findExistingPermissionIds(
+        dto.permissionIds,
+      );
+
+    const invalidIds = dto.permissionIds.filter(
+      (id) => !validPermissionIds.includes(id),
+    );
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `Permission IDs not found: ${invalidIds.join(', ')}`,
+      );
+    }
+
+    await this.permissionsRepository.addPermissionsToRole(
+      normalizedRoleId,
+      dto.permissionIds,
+    );
+
+    this.permissionCache.invalidateServer(normalizedServerId);
+
+    const permissions =
+      await this.permissionsRepository.getPermissionsByRole(normalizedRoleId);
+
+    return this.mapToRolePermissionsResponse(role, permissions);
+  }
+
+  async removePermissionFromRole(
+    serverId: string,
+    roleId: string,
+    permissionId: number,
+  ): Promise<void> {
+    const normalizedServerId = serverId?.trim();
+    const normalizedRoleId = roleId?.trim();
+
+    if (!normalizedServerId || !normalizedRoleId) {
+      throw new BadRequestException('serverId and roleId are required');
+    }
+
+    const role =
+      await this.permissionsRepository.getRoleWithServer(normalizedRoleId);
+    if (!role) {
+      throw new BadRequestException('Role not found');
+    }
+
+    if (role.serverId !== normalizedServerId) {
+      throw new BadRequestException(
+        'Role does not belong to the specified server',
+      );
+    }
+
+    this.assertExecutiveRoleProtection(
+      role,
+      await this.permissionsRepository.getMinHierarchyLevelInServer(
+        normalizedServerId,
+      ),
+    );
+
+    await this.permissionsRepository.removePermissionFromRole(
+      normalizedRoleId,
+      permissionId,
+    );
+
+    this.permissionCache.invalidateServer(normalizedServerId);
+  }
+
+  async previewImpact(
+    serverId: string,
+    roleId: string,
+    dto: ImpactPreviewDto,
+  ): Promise<ImpactPreviewResponseDto> {
+    const normalizedServerId = serverId?.trim();
+    const normalizedRoleId = roleId?.trim();
+
+    if (!normalizedServerId || !normalizedRoleId) {
+      throw new BadRequestException('serverId and roleId are required');
+    }
+
+    const role =
+      await this.permissionsRepository.getRoleWithServer(normalizedRoleId);
+    if (!role) {
+      throw new BadRequestException('Role not found');
+    }
+
+    if (role.serverId !== normalizedServerId) {
+      throw new BadRequestException(
+        'Role does not belong to the specified server',
+      );
+    }
+
+    const memberIds =
+      await this.permissionsRepository.getMembersByRole(normalizedRoleId);
+
+    return {
+      affectedMembers: memberIds.length,
+      memberIds,
+      roleHolders: memberIds.length,
+    };
+  }
+
+  private assertExecutiveRoleProtection(
+    role: {
+      isGlobal: boolean;
+      hierarchyLevel: number | null;
+    },
+    minHierarchyLevel: number | null,
+  ): void {
+    if (role.isGlobal) {
+      throw new ForbiddenException(
+        'Cannot modify permissions of a global role',
+      );
+    }
+
+    if (
+      role.hierarchyLevel !== null &&
+      minHierarchyLevel !== null &&
+      role.hierarchyLevel === minHierarchyLevel
+    ) {
+      throw new ForbiddenException(
+        'Cannot modify permissions of the highest-ranking role in the server',
+      );
+    }
+  }
+
+  private mapToRolePermissionsResponse(
+    role: { id: string; name: string; serverId: string },
+    permissions: { id: number; key: string; description: string | null }[],
+  ): RolePermissionsResponseDto {
+    const response = new RolePermissionsResponseDto();
+    response.roleId = role.id;
+    response.roleName = role.name;
+    response.serverId = role.serverId;
+    response.permissions = permissions.map((p) => {
+      const item = new PermissionItemDto();
+      item.id = p.id;
+      item.key = p.key;
+      item.description = p.description ?? undefined;
+      return item;
+    });
+    return response;
   }
 }

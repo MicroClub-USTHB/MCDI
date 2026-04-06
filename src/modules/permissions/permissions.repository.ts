@@ -609,4 +609,15 @@ export class PermissionsRepository {
 
     return row?.minLevel ?? null;
   }
+
+  async findExistingPermissionIds(permissionIds: number[]): Promise<number[]> {
+    if (!permissionIds.length) return [];
+
+    const rows = await this.db
+      .select({ id: permissions.id })
+      .from(permissions)
+      .where(inArray(permissions.id, permissionIds));
+
+    return rows.map((r) => r.id);
+  }
 }
