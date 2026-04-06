@@ -12,6 +12,10 @@ const mockPermissionsService = {
   getMemberPermissions: jest.fn(),
   upsertInheritanceRule: jest.fn(),
   listInheritanceRules: jest.fn(),
+  getRolePermissions: jest.fn(),
+  assignPermissionsToRole: jest.fn(),
+  removePermissionFromRole: jest.fn(),
+  previewImpact: jest.fn(),
 };
 
 describe('PermissionsController', () => {
@@ -108,5 +112,59 @@ describe('PermissionsController', () => {
     mockPermissionsService.listInheritanceRules.mockResolvedValue([]);
     await controller.listInheritanceRules({} as any);
     expect(mockPermissionsService.listInheritanceRules).toHaveBeenCalled();
+  });
+
+  it('getRolePermissions delegates to service', async () => {
+    mockPermissionsService.getRolePermissions.mockResolvedValue({
+      roleId: 'r1',
+      permissions: [],
+    });
+    const result = await controller.getRolePermissions('s1', 'r1');
+    expect(mockPermissionsService.getRolePermissions).toHaveBeenCalledWith(
+      's1',
+      'r1',
+    );
+    expect(result.roleId).toBe('r1');
+  });
+
+  it('assignPermissionsToRole delegates to service', async () => {
+    mockPermissionsService.assignPermissionsToRole.mockResolvedValue({
+      roleId: 'r1',
+      permissions: [],
+    });
+    const dto = { permissionIds: [1, 2] } as any;
+    const result = await controller.assignPermissionsToRole('s1', 'r1', dto);
+    expect(mockPermissionsService.assignPermissionsToRole).toHaveBeenCalledWith(
+      's1',
+      'r1',
+      dto,
+    );
+    expect(result.roleId).toBe('r1');
+  });
+
+  it('removePermissionFromRole delegates to service', async () => {
+    mockPermissionsService.removePermissionFromRole.mockResolvedValue(
+      undefined,
+    );
+    await controller.removePermissionFromRole('s1', 'r1', '5');
+    expect(
+      mockPermissionsService.removePermissionFromRole,
+    ).toHaveBeenCalledWith('s1', 'r1', 5);
+  });
+
+  it('previewImpact delegates to service', async () => {
+    mockPermissionsService.previewImpact.mockResolvedValue({
+      affectedMembers: 3,
+      memberIds: ['m1', 'm2', 'm3'],
+      roleHolders: 3,
+    });
+    const dto = { permissionIds: [1], action: 'add' } as any;
+    const result = await controller.previewImpact('s1', 'r1', dto);
+    expect(mockPermissionsService.previewImpact).toHaveBeenCalledWith(
+      's1',
+      'r1',
+      dto,
+    );
+    expect(result.affectedMembers).toBe(3);
   });
 });
