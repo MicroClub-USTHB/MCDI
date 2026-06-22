@@ -26,6 +26,7 @@ export * from './project-server-access-audit.entity';
 export * from './sync-change-detail.entity';
 export * from './auth-request.entity';
 export * from './admin-oauth-state.entity';
+export * from './audit-log.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');

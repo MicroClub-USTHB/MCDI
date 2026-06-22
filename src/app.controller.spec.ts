@@ -48,10 +48,10 @@ describe('AppController', () => {
       );
     });
 
-    it('redirects to the admin auth initiation endpoint', async () => {
+    it('redirects to the admin auth initiation endpoint', () => {
       const redirect = jest.fn();
 
-      await appController.adminLogin({ redirect } as any);
+      appController.adminLogin({ redirect } as any);
 
       expect(redirect).toHaveBeenCalledWith('/api/auth/admin/discord');
     });

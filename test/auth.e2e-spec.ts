@@ -23,12 +23,7 @@ import {
   mockDiscordGuildMember,
   mockDiscordGuildRoles,
 } from './helpers/discord-mock';
-import {
-  members,
-  sessions,
-  callbackCodes,
-  roles,
-} from '../src/database/entities';
+import { sessions, callbackCodes, roles } from '../src/database/entities';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
@@ -165,7 +160,9 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/validate', () => {
     it('returns 401 for unknown token', async () => {
-      const { project } = await seedProjectSessionContext('E2E Validate Unknown');
+      const { project } = await seedProjectSessionContext(
+        'E2E Validate Unknown',
+      );
 
       await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -198,9 +195,8 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 200 with member info for valid token', async () => {
-      const { bearerToken, project } = await seedProjectSessionContext(
-        'E2E Validate Valid',
-      );
+      const { bearerToken, project } =
+        await seedProjectSessionContext('E2E Validate Valid');
 
       const res = await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -218,7 +214,9 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 400 when token field is missing', async () => {
-      const { project } = await seedProjectSessionContext('E2E Validate Missing');
+      const { project } = await seedProjectSessionContext(
+        'E2E Validate Missing',
+      );
 
       await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -244,9 +242,8 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('invalidates a valid existing token', async () => {
-      const { bearerToken, project } = await seedProjectSessionContext(
-        'E2E Logout Valid',
-      );
+      const { bearerToken, project } =
+        await seedProjectSessionContext('E2E Logout Valid');
 
       // Confirm it is valid first
       await request(app.getHttpServer())
@@ -277,9 +274,8 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/logout-all', () => {
     it('invalidates all sessions for a member', async () => {
-      const { bearerToken, memberId, project } = await seedProjectSessionContext(
-        'E2E Logout All',
-      );
+      const { bearerToken, memberId, project } =
+        await seedProjectSessionContext('E2E Logout All');
 
       await request(app.getHttpServer())
         .post('/api/auth/logout-all')
