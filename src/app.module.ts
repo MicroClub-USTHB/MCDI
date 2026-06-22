@@ -15,6 +15,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { StatsModule } from './modules/stats/stats.module';
 import { MethodNotAllowedMiddleware } from './common/middleware/method-not-allowed.middleware';
 import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging.middleware';
 
@@ -32,6 +33,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     SyncModule,
     AdminMembersModule,
     AuditModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [
