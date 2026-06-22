@@ -12,6 +12,18 @@ const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const RETENTION_DAYS = 90;
 const MAX_EXPORT_ROWS = 10_000;
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Collapse id-bearing path segments (Discord snowflakes, UUIDs) to ":id" so the
+// per-endpoint usage hash stays bounded instead of growing one field per id.
+function normalizePath(path: string): string {
+  return path
+    .split('/')
+    .map((seg) => (/^\d{5,}$/.test(seg) || UUID_RE.test(seg) ? ':id' : seg))
+    .join('/');
+}
+
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -236,10 +248,11 @@ export class AuditService {
     const dateKey = new Date().toISOString().slice(0, 10);
     const prefix = `mcdi:usage:daily:${dateKey}`;
     const ttl = (RETENTION_DAYS + 1) * 24 * 60 * 60;
+    const endpointKey = `${method}:${normalizePath(path)}`;
 
     const ops: Promise<unknown>[] = [
       this.redisService.hIncrBy(`${prefix}:total`, 'count', 1),
-      this.redisService.hIncrBy(`${prefix}:endpoints`, `${method}:${path}`, 1),
+      this.redisService.hIncrBy(`${prefix}:endpoints`, endpointKey, 1),
     ];
 
     if (statusCode >= 400) {

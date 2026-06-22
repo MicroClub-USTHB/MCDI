@@ -31,10 +31,9 @@ export const auditLogs = pgTable(
   'audit_logs',
   {
     id: serial('id').primaryKey(),
-    actorId: varchar('actor_id', { length: 255 }).references(
-      () => members.id,
-      { onDelete: 'set null' },
-    ),
+    actorId: varchar('actor_id', { length: 255 }).references(() => members.id, {
+      onDelete: 'set null',
+    }),
     actorName: varchar('actor_name', { length: 255 }),
     actionType: auditActionTypeEnum('action_type').notNull(),
     action: varchar('action', { length: 100 }).notNull(),

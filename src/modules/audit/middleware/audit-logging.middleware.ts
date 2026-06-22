@@ -153,7 +153,6 @@ export class AuditLoggingMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction): void {
     const startTime = Date.now();
-    next();
 
     res.on('finish', () => {
       // Skip GET requests for audit logs (read-only, no state change)
@@ -213,5 +212,7 @@ export class AuditLoggingMiddleware implements NestMiddleware {
         .recordUsage(method, path, res.statusCode)
         .catch(() => {});
     });
+
+    next();
   }
 }
