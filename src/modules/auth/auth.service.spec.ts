@@ -644,6 +644,7 @@ describe('AuthService', () => {
       mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
       mockSessionIssuanceService.issueSession.mockResolvedValue({
         token: 'new-issued-token',
+        refreshToken: 'new-refresh-token',
         expiresAt: new Date(),
         session: { id: 'sess-1' },
       });
@@ -654,9 +655,11 @@ describe('AuthService', () => {
         'p1',
         'good-code',
         'http://redir',
+        { userAgent: 'jest-agent', ipAddress: '1.2.3.4' },
       );
 
       expect(result.token).toBeDefined();
+      expect(result.refreshToken).toBe('new-refresh-token');
       expect(result.member).toEqual(memberData);
       expect(result.roles).toEqual(rolesData);
 
@@ -673,6 +676,8 @@ describe('AuthService', () => {
           ttlSeconds: 2592000,
           projectId: 'p1',
           serverId: 's1',
+          clientUserAgent: 'jest-agent',
+          clientIpAddress: '1.2.3.4',
         },
         expect.anything(),
       );

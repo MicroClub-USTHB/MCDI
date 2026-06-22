@@ -231,6 +231,8 @@ describe('AdminAuthService', () => {
       expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
         memberId: 'discord123',
         ttlSeconds: 24 * 60 * 60,
+        clientUserAgent: null,
+        clientIpAddress: null,
       });
     });
   });

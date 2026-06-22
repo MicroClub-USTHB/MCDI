@@ -13,6 +13,7 @@ import { buildDiscordOAuthUrl } from '../utils';
 import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
+import type { ClientInfo } from '../../../common/utils/client-info.util';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
 
@@ -68,9 +69,8 @@ export class AdminAuthService {
   }
 
   async hasValidAdminState(stateToken: string): Promise<boolean> {
-    const state = await this.adminOAuthStateRepository.findValidState(
-      stateToken,
-    );
+    const state =
+      await this.adminOAuthStateRepository.findValidState(stateToken);
     return Boolean(state);
   }
 
@@ -87,7 +87,11 @@ export class AdminAuthService {
    *  7. Issue a 24-hour session token
    *  8. Return token + member info
    */
-  async handleAdminDiscordCallback(discordCode: string, stateToken: string) {
+  async handleAdminDiscordCallback(
+    discordCode: string,
+    stateToken: string,
+    clientInfo?: ClientInfo,
+  ) {
     // 1. Validate & consume state token
     const stateData =
       await this.adminOAuthStateRepository.consumeValid(stateToken);
@@ -180,6 +184,8 @@ export class AdminAuthService {
       {
         memberId: member.id,
         ttlSeconds: ADMIN_SESSION_TTL_SEC,
+        clientUserAgent: clientInfo?.userAgent ?? null,
+        clientIpAddress: clientInfo?.ipAddress ?? null,
       },
     );
 
