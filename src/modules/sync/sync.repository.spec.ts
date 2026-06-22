@@ -45,7 +45,7 @@ function buildDb(finalValue: unknown = []) {
     update: jest.fn().mockImplementation(makeChain),
     delete: jest.fn().mockImplementation(makeChain),
   };
-  db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
+  db.transaction = jest.fn().mockImplementation((callback) => callback(db));
   return db;
 }
 
@@ -184,7 +184,7 @@ describe('SyncRepository', () => {
         chain.returning = jest.fn().mockResolvedValue([claimed]);
         return chain;
       });
-      db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
+      db.transaction = jest.fn().mockImplementation((callback) => callback(db));
 
       const repo = await buildRepo(db);
       const result = await repo.claimNextRunnableLog(
@@ -207,7 +207,7 @@ describe('SyncRepository', () => {
         chain.returning = jest.fn().mockResolvedValue([]);
         return chain;
       });
-      db.transaction = jest.fn().mockImplementation(async (callback) => callback(db));
+      db.transaction = jest.fn().mockImplementation((callback) => callback(db));
 
       const repo = await buildRepo(db);
       const result = await repo.claimNextRunnableLog(new Date());

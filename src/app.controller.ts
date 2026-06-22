@@ -36,7 +36,7 @@ export class AppController {
   }
 
   @Get('admin/login')
-  async adminLogin(@Res() res: Response) {
+  adminLogin(@Res() res: Response) {
     const apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
     return res.redirect(`/${apiPrefix}/auth/admin/discord`);
   }

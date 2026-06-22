@@ -35,7 +35,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
     if (this.client.isOpen || this.connectPromise) {
       return;
     }
@@ -60,14 +60,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!this.client.isReady) {
-      this.client.disconnect();
+      void this.client.disconnect();
       return;
     }
 
     try {
       await this.client.quit();
     } catch {
-      this.client.disconnect();
+      void this.client.disconnect();
     }
   }
 

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException } from '@nestjs/common';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -263,10 +263,9 @@ describe('AuthController', () => {
 
     await controller.discordCallback('code123', 'admin-state', res as any);
 
-    expect(mockAdminAuthService.handleAdminDiscordCallback).toHaveBeenCalledWith(
-      'code123',
-      'admin-state',
-    );
+    expect(
+      mockAdminAuthService.handleAdminDiscordCallback,
+    ).toHaveBeenCalledWith('code123', 'admin-state');
     expect(res.cookie).toHaveBeenCalledWith(
       'admin_session',
       'admin-token',
@@ -300,7 +299,10 @@ describe('AuthController', () => {
     it('throws UnauthorizedException when clientId mismatch', async () => {
       const req = { project: { id: 'p1' } };
       await expect(
-        controller.exchangeCode({ clientId: 'p2', code: 'c1', redirectUri: 'r1' }, req as any),
+        controller.exchangeCode(
+          { clientId: 'p2', code: 'c1', redirectUri: 'r1' },
+          req as any,
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -363,5 +365,4 @@ describe('AuthController', () => {
       expect(result).toMatchObject({ id: 'u1', isSystemAdmin: true });
     });
   });
-
 });

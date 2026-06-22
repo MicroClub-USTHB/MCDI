@@ -41,7 +41,6 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   AuthorizeQueryDto,
-  AdminLoginResponseDto,
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
@@ -213,8 +212,7 @@ export class AuthController {
   ) {
     if (await this.adminAuthService.hasValidAdminState(state)) {
       const adminFrontendUrl =
-        this.configService.get<string>('discord.adminFrontendUrl') ||
-        '/admin';
+        this.configService.get<string>('discord.adminFrontendUrl') || '/admin';
       const isProduction =
         this.configService.get<string>('app.nodeEnv') === 'production';
 
@@ -281,7 +279,7 @@ export class AuthController {
   })
   async exchangeCode(
     @Body() dto: ExchangeCodeDto,
-    @Req() req: any,
+    @Req() req: { project?: { id?: string } },
   ): Promise<TokenResponseDto> {
     if (dto.clientId !== req.project?.id) {
       throw new UnauthorizedException(
@@ -356,10 +354,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty token).',
   })
-  async logout(
-    @Body() dto: LogoutDto,
-    @Req() req: RequestWithProject,
-  ) {
+  async logout(@Body() dto: LogoutDto, @Req() req: RequestWithProject) {
     return this.authService.logout(dto.token, req.project!.id);
   }
 
@@ -382,10 +377,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty memberId).',
   })
-  async logoutAll(
-    @Body() dto: LogoutAllDto,
-    @Req() req: RequestWithProject,
-  ) {
+  async logoutAll(@Body() dto: LogoutAllDto, @Req() req: RequestWithProject) {
     return this.authService.logoutAll(dto.memberId, req.project!.id);
   }
 
@@ -416,7 +408,8 @@ export class AuthController {
     description: 'Missing, invalid, or expired session token.',
   })
   @ApiForbiddenResponse({
-    description: 'Valid session but the member lacks the configured admin role.',
+    description:
+      'Valid session but the member lacks the configured admin role.',
   })
   async adminMe(@Req() req: Request) {
     const token = extractSessionToken(req)!;
@@ -461,8 +454,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const adminFrontendUrl =
-      this.configService.get<string>('discord.adminFrontendUrl') ||
-      '/admin';
+      this.configService.get<string>('discord.adminFrontendUrl') || '/admin';
     const isProduction =
       this.configService.get<string>('app.nodeEnv') === 'production';
 
@@ -486,7 +478,10 @@ export class AuthController {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Authentication failed';
-      const url = new URL(adminFrontendUrl, this.configService.get<string>('app.baseUrl'));
+      const url = new URL(
+        adminFrontendUrl,
+        this.configService.get<string>('app.baseUrl'),
+      );
       url.searchParams.set('error', message);
       return res.redirect(url.toString());
     }

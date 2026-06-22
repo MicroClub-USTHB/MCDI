@@ -29,7 +29,7 @@ const mockCreateClient = createClient as jest.MockedFunction<
 
 function makeAsyncIterable(values: string[]) {
   return {
-    async *[Symbol.asyncIterator]() {
+    *[Symbol.asyncIterator]() {
       for (const value of values) {
         yield value;
       }
@@ -41,13 +41,15 @@ function makeClient(): MockRedisClient {
   const handlers = new Map<string, (...args: unknown[]) => void>();
 
   const client: MockRedisClient = {
-    connect: jest.fn().mockImplementation(async () => {
+    connect: jest.fn().mockImplementation(() => {
       client.isOpen = true;
       client.isReady = true;
+      return Promise.resolve();
     }),
-    quit: jest.fn().mockImplementation(async () => {
+    quit: jest.fn().mockImplementation(() => {
       client.isOpen = false;
       client.isReady = false;
+      return Promise.resolve();
     }),
     disconnect: jest.fn(),
     get: jest.fn(),
@@ -135,7 +137,7 @@ describe('RedisService', () => {
   it('connects on module init and quits on module destroy', async () => {
     const { service, client } = await buildService();
 
-    await service.onModuleInit();
+    service.onModuleInit();
     expect(client.connect).toHaveBeenCalledTimes(1);
 
     await service.onModuleDestroy();
