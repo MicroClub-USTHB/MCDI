@@ -37,4 +37,19 @@ describe('extractClientInfo', () => {
       userAgent: null,
     });
   });
+
+  it('drops a forwarded IP that would overflow the column', () => {
+    const req = makeReq({
+      headers: { 'x-forwarded-for': 'x'.repeat(60) },
+      ip: '10.0.0.9',
+    });
+
+    expect(extractClientInfo(req).ipAddress).toBeNull();
+  });
+
+  it('caps an oversized user agent', () => {
+    const req = makeReq({ headers: { 'user-agent': 'a'.repeat(1000) } });
+
+    expect(extractClientInfo(req).userAgent).toHaveLength(512);
+  });
 });
