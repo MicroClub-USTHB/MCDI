@@ -117,12 +117,19 @@ export class AuthController {
   @Get('authorize')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
-    summary: 'Initiate authorization request',
+    summary: 'Initiate authorization request (legacy / force re-auth)',
     description:
-      'Standard OAuth-style authorization endpoint. The platform redirects the user here ' +
-      'with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters.\n\n' +
-      'MCDI validates the params, creates a short-lived auth request in the DB, ' +
-      'sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.',
+      'Always bounces through Discord OAuth, even if the browser already ' +
+      'holds a valid `mcdi_sso` cookie. Use this when you need fresh ' +
+      'Discord consent (step-up auth, admin operations) or to keep a ' +
+      'pre-SSO integration unchanged. For the default login button, prefer ' +
+      '`GET /auth/sso/authorize` — it skips the Discord screen for ' +
+      'returning users.\n\n' +
+      'The platform redirects the user here with `client_id`, ' +
+      '`redirect_uri`, `server_id`, and `state` as query parameters. MCDI ' +
+      'validates the params, creates a short-lived auth request in the DB, ' +
+      'sets an httpOnly cookie with the request ID, and redirects to ' +
+      'Discord OAuth.',
   })
   @ApiResponse({
     status: 302,
@@ -444,6 +451,7 @@ export class AuthController {
   // GET  /auth/sso/sessions   → list project sessions under this SSO cookie
 
   @Get('sso/session')
+  @ApiTags('Authentication (SSO)')
   @ApiOperation({
     summary: 'Get current SSO session status',
     description:
@@ -480,15 +488,19 @@ export class AuthController {
   }
 
   @Get('sso/authorize')
+  @ApiTags('Authentication (SSO)')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
-    summary: 'SSO-aware authorize',
+    summary: 'Initiate authorization request (SSO-aware — recommended)',
     description:
-      'Same query contract as GET /auth/authorize. If the caller has a ' +
-      'valid `mcdi_sso` cookie, the Discord OAuth bounce is skipped and ' +
-      "the browser is redirected straight to the platform's redirect_uri " +
-      'with `?code=...&state=...`. Otherwise this falls back to the ' +
-      'existing /auth/authorize flow (Discord OAuth).',
+      'Recommended default for new "Login with MicroClub" buttons. Same ' +
+      'query contract as `GET /auth/authorize`. If the caller has a valid ' +
+      '`mcdi_sso` cookie, the Discord OAuth bounce is skipped and the ' +
+      "browser is redirected straight to the platform's redirect_uri with " +
+      '`?code=...&state=...`. Otherwise this falls back to the existing ' +
+      '`/auth/authorize` flow (Discord OAuth).\n\n' +
+      'Use `GET /auth/authorize` instead when you need to force a fresh ' +
+      'Discord consent.',
   })
   @ApiResponse({
     status: 302,
@@ -547,6 +559,7 @@ export class AuthController {
   }
 
   @Post('sso/logout')
+  @ApiTags('Authentication (SSO)')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Destroy the global SSO session (log out everywhere)',
@@ -570,6 +583,7 @@ export class AuthController {
   }
 
   @Get('sso/sessions')
+  @ApiTags('Authentication (SSO)')
   @ApiOperation({
     summary: 'List active project sessions under the current SSO session',
     description:
