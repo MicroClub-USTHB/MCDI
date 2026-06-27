@@ -407,7 +407,8 @@ export class AuthController {
 
   @Post('token/refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SessionGuard)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
   @ApiBearerAuth('session-token')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
@@ -429,6 +430,10 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty refresh token).',
   })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many refresh requests - retry after a short delay.',
+  })
   async refreshToken(
     @Body() dto: RefreshTokenDto,
     @Req() req: RequestWithSession,
@@ -440,7 +445,8 @@ export class AuthController {
   }
 
   @Get('sessions')
-  @UseGuards(SessionGuard)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'List active sessions for the current member',
@@ -456,6 +462,10 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Missing, invalid, or expired session token.',
   })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
+  })
   async listSessions(
     @Req() req: RequestWithSession,
   ): Promise<SessionListResponseDto> {
@@ -464,7 +474,8 @@ export class AuthController {
 
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SessionGuard)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Revoke a specific session',
@@ -479,6 +490,10 @@ export class AuthController {
   })
   @ApiNotFoundResponse({
     description: 'Session not found for the current member.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
   })
   async revokeSession(
     @Param('sessionId') sessionId: string,
