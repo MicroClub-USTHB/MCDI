@@ -150,15 +150,24 @@ MCDI uses two different authentication models depending on who is calling it.
 
 Projects authenticate with `X-API-Key`.
 
-Typical flow:
+There are **two entry points** to start a user login. They share the same callback, the same token exchange, and the same session API — they only differ in whether MCDI checks the global SSO cookie before bouncing to Discord:
+
+| Entry point | Behavior | When to use |
+|---|---|---|
+| `GET /api/auth/sso/authorize` | SSO-aware: skips Discord if the browser already has a valid `mcdi_sso` cookie. | Default "Login with MicroClub" button. Returning users get instant logins across every MCDI project. |
+| `GET /api/auth/authorize` | Legacy: always bounces through Discord. | Step-up / "force re-auth" — admin actions, sensitive changes — or unchanged behavior for pre-SSO integrations. |
+
+Typical flow (both entry points):
 
 1. The frontend redirects the user to MCDI
 2. MCDI validates the project, redirect URI, and server access
-3. The user authenticates with Discord
+3. The user authenticates with Discord (or skips it if SSO-aware and the cookie is valid)
 4. MCDI verifies guild membership and project access rules
 5. MCDI redirects back to the project with a one-time `code`
 6. The project backend exchanges the code for a session token
 7. The project validates sessions when needed
+
+See [docs/auth-integration.md](docs/auth-integration.md) for the full integrator guide with code samples, sequence diagrams, and the SSO-only browser endpoints (`/sso/session`, `/sso/sessions`, `/sso/logout`).
 
 ### 2. Admin To MCDI
 
