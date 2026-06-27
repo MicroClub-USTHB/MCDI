@@ -5,8 +5,10 @@ import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { SessionGuard } from '../../common/guards/session.guard';
 
 const mockAuthService = {
   authorize: jest.fn(),
@@ -26,6 +28,12 @@ const mockAdminAuthService = {
   hasValidAdminState: jest.fn(),
   handleAdminDiscordCallback: jest.fn(),
   getMe: jest.fn(),
+};
+
+const mockSessionLifecycleService = {
+  refresh: jest.fn(),
+  listActiveSessions: jest.fn(),
+  revokeSession: jest.fn(),
 };
 
 const mockRes = () => ({
@@ -50,6 +58,10 @@ describe('AuthController', () => {
         { provide: AuthService, useValue: mockAuthService },
         { provide: AdminAuthService, useValue: mockAdminAuthService },
         {
+          provide: SessionLifecycleService,
+          useValue: mockSessionLifecycleService,
+        },
+        {
           provide: ConfigService,
           useValue: {
             get: (key: string) =>
@@ -63,6 +75,8 @@ describe('AuthController', () => {
       .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SystemAdminGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SessionGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(AuthController);
@@ -237,7 +251,12 @@ describe('AuthController', () => {
       url: 'http://localhost/callback?code=abc123&state=csrf',
     });
     const res = { redirect: jest.fn() };
-    await controller.discordCallback('code123', 'state456', res as any);
+    await controller.discordCallback(
+      'code123',
+      'state456',
+      { headers: {} } as any,
+      res as any,
+    );
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost/callback?code=abc123&state=csrf',
     );
@@ -248,7 +267,12 @@ describe('AuthController', () => {
       url: 'http://localhost/callback?error=invalid_state',
     });
     const res = { redirect: jest.fn() };
-    await controller.discordCallback('code123', 'bad-state', res as any);
+    await controller.discordCallback(
+      'code123',
+      'bad-state',
+      { headers: {} } as any,
+      res as any,
+    );
     expect(res.redirect).toHaveBeenCalledWith(
       'http://localhost/callback?error=invalid_state',
     );
@@ -261,11 +285,19 @@ describe('AuthController', () => {
     });
     const res = mockRes();
 
-    await controller.discordCallback('code123', 'admin-state', res as any);
+    await controller.discordCallback(
+      'code123',
+      'admin-state',
+      { headers: {} } as any,
+      res as any,
+    );
 
     expect(
       mockAdminAuthService.handleAdminDiscordCallback,
-    ).toHaveBeenCalledWith('code123', 'admin-state');
+    ).toHaveBeenCalledWith('code123', 'admin-state', {
+      ipAddress: null,
+      userAgent: null,
+    });
     expect(res.cookie).toHaveBeenCalledWith(
       'admin_session',
       'admin-token',
@@ -310,12 +342,13 @@ describe('AuthController', () => {
       const expiresAt = new Date();
       const mockResult = {
         token: 'new-tok',
+        refreshToken: 'new-refresh',
         expiresAt,
         member: { id: 'u1' },
         roles: [],
       };
       mockAuthService.exchangeCodeForToken.mockResolvedValue(mockResult);
-      const req = { project: { id: 'p1' } };
+      const req = { project: { id: 'p1' }, headers: {} };
       const result = await controller.exchangeCode(
         { clientId: 'p1', code: 'c1', redirectUri: 'r1' },
         req as any,
@@ -324,6 +357,7 @@ describe('AuthController', () => {
         'p1',
         'c1',
         'r1',
+        { ipAddress: null, userAgent: null },
       );
       expect(result).toEqual(mockResult);
     });
@@ -345,6 +379,54 @@ describe('AuthController', () => {
     const req = { project: { id: 'proj-1' } };
     await controller.logoutAll({ memberId: 'u1' }, req as any);
     expect(mockAuthService.logoutAll).toHaveBeenCalledWith('u1', 'proj-1');
+  });
+
+  // ── session lifecycle ───────────────────────────────────────────────
+
+  it('refreshToken delegates to sessionLifecycleService with the bearer token', async () => {
+    const rotated = {
+      accessToken: 'new-access',
+      expiresAt: new Date(),
+      refreshToken: 'new-refresh',
+    };
+    mockSessionLifecycleService.refresh.mockResolvedValue(rotated);
+    const req = { sessionToken: 'current-access', memberId: 'u1' };
+
+    const result = await controller.refreshToken(
+      { refreshToken: 'current-refresh' },
+      req as any,
+    );
+
+    expect(mockSessionLifecycleService.refresh).toHaveBeenCalledWith(
+      'current-access',
+      'current-refresh',
+    );
+    expect(result).toEqual(rotated);
+  });
+
+  it('listSessions delegates to sessionLifecycleService for the current member', async () => {
+    const payload = { sessions: [] };
+    mockSessionLifecycleService.listActiveSessions.mockResolvedValue(payload);
+    const req = { memberId: 'u1', sessionToken: 't' };
+
+    const result = await controller.listSessions(req as any);
+
+    expect(mockSessionLifecycleService.listActiveSessions).toHaveBeenCalledWith(
+      'u1',
+    );
+    expect(result).toEqual(payload);
+  });
+
+  it('revokeSession delegates to sessionLifecycleService scoped to the member', async () => {
+    mockSessionLifecycleService.revokeSession.mockResolvedValue(undefined);
+    const req = { memberId: 'u1', sessionToken: 't' };
+
+    await controller.revokeSession('sess-9', req as any);
+
+    expect(mockSessionLifecycleService.revokeSession).toHaveBeenCalledWith(
+      'u1',
+      'sess-9',
+    );
   });
 
   it('cleanupExpired delegates to authService', async () => {

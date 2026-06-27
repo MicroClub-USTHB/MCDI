@@ -1,27 +1,33 @@
 import { Injectable, Inject } from '@nestjs/common';
 
-import { eq, and, lt, gt } from 'drizzle-orm';
+import { eq, and, lt, gt, desc } from 'drizzle-orm';
 
 import { DRIZZLE } from '../../../database/database.module';
 import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
 import { hashSessionToken } from '../../../common/utils/session-token.util';
+import { hashRefreshToken } from '../../../common/utils/refresh-token.util';
 
 export interface CreateSessionDto {
   memberId: string;
   projectId?: string;
   serverId?: string;
   token: string;
+  refreshToken?: string;
+  clientUserAgent?: string | null;
+  clientIpAddress?: string | null;
+  expiresAt: Date;
+}
+
+export interface RotateSessionDto {
+  token: string;
+  refreshToken: string;
   expiresAt: Date;
 }
 
 @Injectable()
 export class SessionRepository {
   constructor(@Inject(DRIZZLE) private db: DrizzleDB) {}
-
-
-
-
 
   async findById(id: string) {
     const sessions = await this.db
@@ -109,11 +115,66 @@ export class SessionRepository {
         projectId: data.projectId,
         serverId: data.serverId,
         token: hashedToken,
+        refreshTokenHash: data.refreshToken
+          ? hashRefreshToken(data.refreshToken)
+          : undefined,
+        clientUserAgent: data.clientUserAgent,
+        clientIpAddress: data.clientIpAddress,
         expiresAt: data.expiresAt,
       })
       .returning();
 
     return sessions[0];
+  }
+
+  async findActiveByMemberId(memberId: string, tx: DrizzleDB = this.db) {
+    const now = new Date();
+    return tx
+      .select({
+        id: schema.sessions.id,
+        projectId: schema.sessions.projectId,
+        serverId: schema.sessions.serverId,
+        clientUserAgent: schema.sessions.clientUserAgent,
+        clientIpAddress: schema.sessions.clientIpAddress,
+        createdAt: schema.sessions.createdAt,
+        expiresAt: schema.sessions.expiresAt,
+      })
+      .from(schema.sessions)
+      .where(
+        and(
+          eq(schema.sessions.memberId, memberId),
+          gt(schema.sessions.expiresAt, now),
+        ),
+      )
+      .orderBy(desc(schema.sessions.createdAt))
+      .limit(100);
+  }
+
+  async rotate(
+    sessionId: string,
+    data: RotateSessionDto,
+    expectedRefreshTokenHash: string,
+    tx: DrizzleDB = this.db,
+  ) {
+    // Compare-and-swap on the current refresh hash so two concurrent refreshes
+    // can't both win: the first rotation replaces the hash, the second matches
+    // no row. Keeps refresh-token rotation atomic and the old token single-use.
+    const sessions = await tx
+      .update(schema.sessions)
+      .set({
+        token: hashSessionToken(data.token),
+        refreshTokenHash: hashRefreshToken(data.refreshToken),
+        expiresAt: data.expiresAt,
+      })
+      .where(
+        and(
+          eq(schema.sessions.id, sessionId),
+          eq(schema.sessions.refreshTokenHash, expectedRefreshTokenHash),
+        ),
+      )
+      .returning();
+
+    return sessions[0] || null;
   }
 
   async deleteById(id: string) {
@@ -159,9 +220,7 @@ export class SessionRepository {
 
   async deleteExpired(tx: DrizzleDB = this.db) {
     const now = new Date();
-    await tx
-      .delete(schema.sessions)
-      .where(lt(schema.sessions.expiresAt, now));
+    await tx.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now));
   }
 
   async updateExpiration(

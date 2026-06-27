@@ -12,6 +12,7 @@ import {
   closeTestDb,
   getTestDb,
   seedAdminContext,
+  seedMemberWithRole,
   seedTestProject,
   TestDb,
 } from './helpers/db';
@@ -28,6 +29,7 @@ import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
 import { hashSessionToken } from '../src/common/utils/session-token.util';
+import { hashRefreshToken } from '../src/common/utils/refresh-token.util';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -289,6 +291,209 @@ describeIf('/api/auth (e2e)', () => {
         .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(401);
+    });
+  });
+
+  // ─── GET /api/auth/sessions ───────────────────────────────────
+
+  describe('GET /api/auth/sessions', () => {
+    it('returns 401 without a session token', async () => {
+      await request(app.getHttpServer()).get('/api/auth/sessions').expect(401);
+    });
+
+    it('lists the active sessions for the current member, hiding token material', async () => {
+      const { bearerToken, memberId } = await seedAdminContext(db);
+
+      // A second session for the same member, carrying client metadata
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId,
+        token: hashSessionToken('second-session-token'),
+        clientUserAgent: 'e2e-agent',
+        clientIpAddress: '203.0.113.7',
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body.sessions)).toBe(true);
+      expect(res.body.sessions.length).toBeGreaterThanOrEqual(2);
+
+      for (const s of res.body.sessions) {
+        expect(s).not.toHaveProperty('token');
+        expect(s).not.toHaveProperty('refreshTokenHash');
+      }
+
+      const withMeta = res.body.sessions.find(
+        (s: { clientInfo: unknown }) => s.clientInfo !== null,
+      );
+      expect(withMeta.clientInfo).toEqual({
+        userAgent: 'e2e-agent',
+        ipAddress: '203.0.113.7',
+      });
+    });
+  });
+
+  // ─── DELETE /api/auth/sessions/:sessionId ─────────────────────
+
+  describe('DELETE /api/auth/sessions/:sessionId', () => {
+    it("revokes one of the member's own sessions and leaves the caller session intact", async () => {
+      const { bearerToken, memberId } = await seedAdminContext(db);
+
+      const targetId = crypto.randomUUID();
+      await db.insert(sessions).values({
+        id: targetId,
+        memberId,
+        token: hashSessionToken('revoke-me-token'),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${targetId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(204);
+
+      const remaining = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, targetId));
+      expect(remaining).toHaveLength(0);
+
+      // The caller's own session still works
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+    });
+
+    it('revokes the caller current session immediately', async () => {
+      const { bearerToken } = await seedAdminContext(db);
+
+      const listed = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+      const ownId = listed.body.sessions[0].id;
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${ownId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(204);
+
+      // The revoked token is rejected on the next request
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(401);
+    });
+
+    it("returns 404 when revoking another member's session", async () => {
+      const { bearerToken } = await seedAdminContext(db);
+      const other = await seedMemberWithRole(db, '900000000000000001', {
+        username: 'othermember',
+      });
+
+      const otherSessionId = crypto.randomUUID();
+      await db.insert(sessions).values({
+        id: otherSessionId,
+        memberId: other.id,
+        token: hashSessionToken('other-member-token'),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${otherSessionId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(404);
+
+      const still = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, otherSessionId));
+      expect(still).toHaveLength(1);
+    });
+  });
+
+  // ─── POST /api/auth/token/refresh ─────────────────────────────
+
+  describe('POST /api/auth/token/refresh', () => {
+    const seedRefreshableSession = async (
+      rawAccess: string,
+      rawRefresh: string,
+    ) => {
+      const { memberId } = await seedAdminContext(db);
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId,
+        token: hashSessionToken(rawAccess),
+        refreshTokenHash: hashRefreshToken(rawRefresh),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+    };
+
+    it('rotates both tokens and invalidates the old pair', async () => {
+      const rawAccess = 'refresh-flow-access-token';
+      const rawRefresh = 'refresh-flow-refresh-token';
+      await seedRefreshableSession(rawAccess, rawRefresh);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .send({ refreshToken: rawRefresh })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(res.body.accessToken).not.toBe(rawAccess);
+      expect(res.body.refreshToken).not.toBe(rawRefresh);
+
+      // Old access token is dead, the new one works
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${res.body.accessToken}`)
+        .expect(200);
+
+      // The old refresh token cannot be replayed against the rotated session
+      await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${res.body.accessToken}`)
+        .send({ refreshToken: rawRefresh })
+        .expect(401);
+    });
+
+    it('returns 401 when the refresh token does not match the session', async () => {
+      const rawAccess = 'mismatch-access-token';
+      await seedRefreshableSession(rawAccess, 'the-real-refresh');
+
+      await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .send({ refreshToken: 'a-wrong-refresh' })
+        .expect(401);
+    });
+
+    it('lets only one of two concurrent refreshes succeed (atomic rotation)', async () => {
+      const rawAccess = 'concurrent-access-token';
+      const rawRefresh = 'concurrent-refresh-token';
+      await seedRefreshableSession(rawAccess, rawRefresh);
+
+      const fire = () =>
+        request(app.getHttpServer())
+          .post('/api/auth/token/refresh')
+          .set('Authorization', `Bearer ${rawAccess}`)
+          .send({ refreshToken: rawRefresh });
+
+      const [a, b] = await Promise.all([fire(), fire()]);
+
+      // Exactly one rotation wins; the loser is rejected, never a double-spend.
+      expect([a.status, b.status].sort()).toEqual([200, 401]);
     });
   });
 

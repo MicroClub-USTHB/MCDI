@@ -3,6 +3,8 @@ import {
   Get,
   Query,
   Post,
+  Delete,
+  Param,
   Body,
   Res,
   Req,
@@ -19,6 +21,8 @@ import {
   ApiOperation,
   ApiResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBadRequestResponse,
@@ -30,10 +34,16 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import {
+  SessionGuard,
+  RequestWithSession,
+} from '../../common/guards/session.guard';
 import { buildErrorPage } from './utils';
 import { extractSessionToken } from '../../common/utils/auth.util';
+import { extractClientInfo } from '../../common/utils/client-info.util';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -44,6 +54,9 @@ import {
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
+  RefreshTokenDto,
+  RefreshTokenResponseDto,
+  SessionListResponseDto,
 } from './dto';
 
 type RequestWithProject = Request & { project?: { id: string } };
@@ -56,6 +69,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly adminAuthService: AdminAuthService,
+    private readonly sessionLifecycleService: SessionLifecycleService,
     private readonly configService: ConfigService,
   ) {
     this.apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
@@ -208,6 +222,7 @@ export class AuthController {
   async discordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     if (await this.adminAuthService.hasValidAdminState(state)) {
@@ -220,6 +235,7 @@ export class AuthController {
         const result = await this.adminAuthService.handleAdminDiscordCallback(
           code,
           state,
+          extractClientInfo(req),
         );
 
         res.cookie('admin_session', result.token, {
@@ -279,7 +295,7 @@ export class AuthController {
   })
   async exchangeCode(
     @Body() dto: ExchangeCodeDto,
-    @Req() req: { project?: { id?: string } },
+    @Req() req: RequestWithProject,
   ): Promise<TokenResponseDto> {
     if (dto.clientId !== req.project?.id) {
       throw new UnauthorizedException(
@@ -287,10 +303,14 @@ export class AuthController {
       );
     }
 
+    // Backend-to-backend exchange: this captures the calling platform's
+    // transport info (its server IP / HTTP client), not the end user's device,
+    // unless the platform forwards the real client via X-Forwarded-For.
     return this.authService.exchangeCodeForToken(
       dto.clientId,
       dto.code,
       dto.redirectUri,
+      extractClientInfo(req),
     );
   }
 
@@ -381,6 +401,107 @@ export class AuthController {
     return this.authService.logoutAll(dto.memberId, req.project!.id);
   }
 
+  // ─── Session lifecycle (member session token) ─────────────
+  // Authenticated by the member's own session token (Bearer or admin_session
+  // cookie) via SessionGuard, not project-scoped X-API-Key.
+
+  @Post('token/refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'Refresh an active session token',
+    description:
+      'Rotates an active session. The caller presents the still-valid session ' +
+      'token (as a Bearer token) plus its matching refresh token in the body. ' +
+      'A new access token and a new refresh token are issued and the expiry is ' +
+      'extended — the previous pair is invalidated immediately.',
+  })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({
+    description: 'Session refreshed — new access and refresh tokens.',
+    type: RefreshTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid/expired session token or refresh token.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty refresh token).',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many refresh requests - retry after a short delay.',
+  })
+  async refreshToken(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: RequestWithSession,
+  ): Promise<RefreshTokenResponseDto> {
+    return this.sessionLifecycleService.refresh(
+      req.sessionToken,
+      dto.refreshToken,
+    );
+  }
+
+  @Get('sessions')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'List active sessions for the current member',
+    description:
+      "Returns the authenticated member's non-expired sessions, including the " +
+      'client metadata captured when each session was created. Token material ' +
+      'is never returned.',
+  })
+  @ApiOkResponse({
+    description: 'Active sessions for the current member.',
+    type: SessionListResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
+  })
+  async listSessions(
+    @Req() req: RequestWithSession,
+  ): Promise<SessionListResponseDto> {
+    return this.sessionLifecycleService.listActiveSessions(req.memberId);
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Revoke a specific session',
+    description:
+      "Immediately revokes one of the current member's sessions. The next " +
+      'request using that token will fail. A session that does not exist or ' +
+      'belongs to another member is reported as not found.',
+  })
+  @ApiNoContentResponse({ description: 'Session revoked.' })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found for the current member.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
+  })
+  async revokeSession(
+    @Param('sessionId') sessionId: string,
+    @Req() req: RequestWithSession,
+  ): Promise<void> {
+    await this.sessionLifecycleService.revokeSession(req.memberId, sessionId);
+  }
+
   // ─── System Admin Login (Discord OAuth2 only) ──────────────
   //
   // GET  /auth/admin/discord          → initiate Discord OAuth
@@ -451,6 +572,7 @@ export class AuthController {
   async adminDiscordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const adminFrontendUrl =
@@ -462,6 +584,7 @@ export class AuthController {
       const result = await this.adminAuthService.handleAdminDiscordCallback(
         code,
         state,
+        extractClientInfo(req),
       );
 
       // Set an httpOnly session cookie so the admin frontend does not need to
