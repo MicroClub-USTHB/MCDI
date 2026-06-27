@@ -4,10 +4,7 @@ import { and, desc, eq, gt } from 'drizzle-orm';
 import { DRIZZLE } from '../../../database/database.module';
 import type { DrizzleDB } from '../../../database/database.module';
 import * as schema from '../../../database/entities';
-import {
-  generateSsoToken,
-  hashSsoToken,
-} from '../../../common/utils/sso-token.util';
+import { generateSsoToken } from '../../../common/utils/sso-token.util';
 import { MemberRepository } from '../repositories/member.repository';
 import { SessionRepository } from '../repositories/session.repository';
 import { SsoSessionRepository } from '../repositories/sso-session.repository';

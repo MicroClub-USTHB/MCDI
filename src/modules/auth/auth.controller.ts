@@ -19,6 +19,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBadRequestResponse,
@@ -30,10 +31,15 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SsoService } from './services/sso.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { buildErrorPage } from './utils';
 import { extractSessionToken } from '../../common/utils/auth.util';
+import {
+  buildSsoClearCookieOptions,
+  buildSsoCookieOptions,
+} from '../../common/utils/sso-cookie.util';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -44,6 +50,9 @@ import {
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
+  SsoSessionStatusDto,
+  SsoSessionUnauthenticatedDto,
+  SsoProjectSessionListDto,
 } from './dto';
 
 type RequestWithProject = Request & { project?: { id: string } };
@@ -52,13 +61,53 @@ type RequestWithProject = Request & { project?: { id: string } };
 @Controller('auth')
 export class AuthController {
   private readonly apiPrefix: string;
+  private readonly ssoCookieName: string;
+  private readonly ssoCookieDomain: string | undefined;
+  private readonly ssoTtlSec: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly adminAuthService: AdminAuthService,
+    private readonly ssoService: SsoService,
     private readonly configService: ConfigService,
   ) {
     this.apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
+    this.ssoCookieName =
+      this.configService.get<string>('app.ssoCookieName') || 'mcdi_sso';
+    this.ssoCookieDomain = this.configService.get<string | undefined>(
+      'app.ssoCookieDomain',
+    );
+    this.ssoTtlSec = this.configService.get<number>('app.ssoTtlSec')!;
+  }
+
+  private get isProduction(): boolean {
+    return this.configService.get<string>('app.nodeEnv') === 'production';
+  }
+
+  private setSsoCookie(res: Response, token: string): void {
+    res.cookie(
+      this.ssoCookieName,
+      token,
+      buildSsoCookieOptions({
+        name: this.ssoCookieName,
+        domain: this.ssoCookieDomain,
+        ttlSec: this.ssoTtlSec,
+        isProduction: this.isProduction,
+      }),
+    );
+  }
+
+  private clearSsoCookie(res: Response): void {
+    res.clearCookie(
+      this.ssoCookieName,
+      buildSsoClearCookieOptions({ domain: this.ssoCookieDomain }),
+    );
+  }
+
+  private readSsoCookie(req: Request): string | undefined {
+    return (req.cookies as Record<string, string> | undefined)?.[
+      this.ssoCookieName
+    ];
   }
 
   // ─── Authorization request ─────────────────────────────
@@ -244,6 +293,12 @@ export class AuthController {
     }
 
     const result = await this.authService.handleDiscordCallback(code, state);
+    // On a successful member login, mint a global SSO session so subsequent
+    // project logins can skip the Discord bounce.
+    if ('memberId' in result && result.memberId) {
+      const { token } = await this.ssoService.issueSession(result.memberId);
+      this.setSsoCookie(res, token);
+    }
     return res.redirect(result.url);
   }
 
@@ -379,6 +434,162 @@ export class AuthController {
   })
   async logoutAll(@Body() dto: LogoutAllDto, @Req() req: RequestWithProject) {
     return this.authService.logoutAll(dto.memberId, req.project!.id);
+  }
+
+  // ─── SSO (global browser session, cookie-based) ──────────────
+  //
+  // GET  /auth/sso/session    → who is logged in via the mcdi_sso cookie?
+  // GET  /auth/sso/authorize  → SSO-aware authorize; skips Discord when valid
+  // POST /auth/sso/logout     → destroy SSO + every project session
+  // GET  /auth/sso/sessions   → list project sessions under this SSO cookie
+
+  @Get('sso/session')
+  @ApiOperation({
+    summary: 'Get current SSO session status',
+    description:
+      'Reads the `mcdi_sso` httpOnly cookie set after Discord login and ' +
+      'returns the authenticated member. Returns 401 with ' +
+      '`{ authenticated: false }` when the cookie is missing or expired.',
+  })
+  @ApiOkResponse({ type: SsoSessionStatusDto })
+  @ApiUnauthorizedResponse({ type: SsoSessionUnauthenticatedDto })
+  async ssoSession(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(token);
+
+    if (!resolved) {
+      // Stale or missing cookie — clear it and report unauthenticated.
+      if (token) this.clearSsoCookie(res);
+      res.status(HttpStatus.UNAUTHORIZED);
+      return { authenticated: false };
+    }
+
+    return {
+      authenticated: true,
+      member: {
+        id: resolved.member.id,
+        discordId: resolved.member.id,
+        username: resolved.member.username,
+        avatar: resolved.member.avatar,
+      },
+      expiresAt: resolved.ssoSession.expiresAt,
+    };
+  }
+
+  @Get('sso/authorize')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'SSO-aware authorize',
+    description:
+      'Same query contract as GET /auth/authorize. If the caller has a ' +
+      'valid `mcdi_sso` cookie, the Discord OAuth bounce is skipped and ' +
+      "the browser is redirected straight to the platform's redirect_uri " +
+      'with `?code=...&state=...`. Otherwise this falls back to the ' +
+      'existing /auth/authorize flow (Discord OAuth).',
+  })
+  @ApiResponse({
+    status: 302,
+    description:
+      'Redirects either to Discord OAuth (no SSO yet) or back to the ' +
+      'platform with a fresh callback code (SSO hit).',
+  })
+  async ssoAuthorize(
+    @Query() dto: AuthorizeQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const ssoToken = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(ssoToken);
+
+    if (resolved) {
+      const roleIds = await this.ssoService.getMemberRoleIdsInServer(
+        resolved.member.id,
+        dto.server_id,
+      );
+
+      const result = await this.authService.authorizeWithSso(
+        resolved.member.id,
+        dto.client_id,
+        dto.redirect_uri,
+        dto.server_id,
+        dto.state,
+        roleIds,
+      );
+
+      if (result.ok) {
+        return res.redirect(result.url);
+      }
+
+      // SSO is valid but the project / server / role check failed. Bubble
+      // the error back to the platform if we trust the redirect_uri.
+      if (result.redirectUri) {
+        const url = new URL(result.redirectUri);
+        url.searchParams.set('error', result.error);
+        url.searchParams.set('error_description', result.description);
+        url.searchParams.set('state', result.state);
+        return res.redirect(url.toString());
+      }
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: 400,
+        error: result.error,
+        message: result.description,
+      });
+    }
+
+    // No SSO yet — clear any stale cookie and fall through to the existing
+    // /auth/authorize flow (Discord OAuth bounce). Keeps the SSO endpoint
+    // a drop-in replacement.
+    if (ssoToken) this.clearSsoCookie(res);
+    return this.authorize(dto, res);
+  }
+
+  @Post('sso/logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Destroy the global SSO session (log out everywhere)',
+    description:
+      'Reads the `mcdi_sso` httpOnly cookie, destroys the SSO session, ' +
+      'cascades to every project session for the same member, and clears ' +
+      'the cookie. Idempotent — succeeds even if the cookie is missing.',
+  })
+  @ApiNoContentResponse({
+    description: 'SSO session destroyed and cookie cleared.',
+  })
+  async ssoLogout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    const token = this.readSsoCookie(req);
+    if (token) {
+      await this.ssoService.logout(token);
+    }
+    this.clearSsoCookie(res);
+  }
+
+  @Get('sso/sessions')
+  @ApiOperation({
+    summary: 'List active project sessions under the current SSO session',
+    description:
+      'Returns one entry per active (non-expired) project session for the ' +
+      'member identified by the `mcdi_sso` cookie. Token material is never ' +
+      'returned. Returns 401 when the SSO cookie is missing or expired.',
+  })
+  @ApiOkResponse({ type: SsoProjectSessionListDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or expired SSO cookie.',
+  })
+  async ssoListSessions(
+    @Req() req: Request,
+  ): Promise<SsoProjectSessionListDto> {
+    const token = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(token);
+    if (!resolved) {
+      throw new UnauthorizedException('Invalid or expired SSO session');
+    }
+    return this.ssoService.listProjectSessions(resolved.member.id);
   }
 
   // ─── System Admin Login (Discord OAuth2 only) ──────────────

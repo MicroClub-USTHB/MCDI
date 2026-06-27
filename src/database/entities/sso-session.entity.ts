@@ -1,11 +1,4 @@
-import { sql } from 'drizzle-orm';
-import {
-  index,
-  pgTable,
-  timestamp,
-  uuid,
-  varchar,
-} from 'drizzle-orm/pg-core';
+import { index, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { members } from './member.entity';
 
 /**

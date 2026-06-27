@@ -240,13 +240,106 @@ export class AuthService {
     );
     if (!accessResult.ok) return accessResult.redirect;
 
-    return this.issueCallbackCode(
+    const redirect = await this.issueCallbackCode(
       projectId,
       redirectUri,
       member.id,
       serverId,
       clientState,
     );
+    // The controller uses memberId to issue an SSO cookie alongside the
+    // callback-code redirect, so the next project login can skip Discord.
+    return { ...redirect, memberId: member.id };
+  }
+
+  /**
+   * SSO-aware authorize: the caller already has a valid global SSO session
+   * (`mcdi_sso` cookie → memberId), so we skip the Discord OAuth bounce and
+   * jump straight to the project-access checks + callback-code issuance.
+   *
+   * Reuses the same validations as `authorize()` for the project/redirect/
+   * server tuple, plus a role check against the member's already-synced
+   * Discord roles in that server.
+   */
+  async authorizeWithSso(
+    memberId: string,
+    clientId: string,
+    redirectUri: string,
+    serverId: string,
+    clientState: string,
+    memberRoleIds: string[],
+  ): Promise<
+    | { ok: true; url: string }
+    | {
+        ok: false;
+        error: string;
+        description: string;
+        redirectUri?: string;
+        state: string;
+      }
+  > {
+    const project = await this.projectsRepository.findOne(clientId);
+    if (!project || !project.isActive) {
+      return {
+        ok: false,
+        error: 'invalid_client',
+        description: 'Unknown or inactive client_id',
+        state: clientState,
+      };
+    }
+
+    const isAllowed = await this.projectsRepository.isRedirectUriAllowed(
+      project.id,
+      redirectUri,
+    );
+    if (!isAllowed) {
+      return {
+        ok: false,
+        error: 'invalid_redirect_uri',
+        description: 'Redirect URI not allowed for this project',
+        state: clientState,
+      };
+    }
+
+    const hasAccess = await this.projectsRepository.hasServerAccess(
+      project.id,
+      serverId,
+    );
+    if (!hasAccess) {
+      return {
+        ok: false,
+        error: 'access_denied',
+        description: 'Project does not have access to this server',
+        redirectUri,
+        state: clientState,
+      };
+    }
+
+    const accessResult = await this.checkProjectRoleAccess(
+      project.id,
+      memberRoleIds,
+      redirectUri,
+      clientState,
+    );
+    if (!accessResult.ok) {
+      return {
+        ok: false,
+        error: 'insufficient_roles',
+        description:
+          'You do not have the required roles to access this platform',
+        redirectUri,
+        state: clientState,
+      };
+    }
+
+    const { url } = await this.issueCallbackCode(
+      project.id,
+      redirectUri,
+      memberId,
+      serverId,
+      clientState,
+    );
+    return { ok: true, url };
   }
 
   // ─── Validate & consume state token ─────────────────────
