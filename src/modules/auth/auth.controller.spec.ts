@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SsoService } from './services/sso.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 
@@ -28,6 +29,14 @@ const mockAdminAuthService = {
   getMe: jest.fn(),
 };
 
+const mockSsoService = {
+  issueSession: jest.fn(),
+  resolveSession: jest.fn(),
+  logout: jest.fn(),
+  listProjectSessions: jest.fn(),
+  getMemberRoleIdsInServer: jest.fn(),
+};
+
 const mockRes = () => ({
   redirect: jest.fn(),
   cookie: jest.fn(),
@@ -49,11 +58,17 @@ describe('AuthController', () => {
       providers: [
         { provide: AuthService, useValue: mockAuthService },
         { provide: AdminAuthService, useValue: mockAdminAuthService },
+        { provide: SsoService, useValue: mockSsoService },
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string) =>
-              key === 'app.apiPrefix' ? 'api' : 'development',
+            get: (key: string) => {
+              if (key === 'app.apiPrefix') return 'api';
+              if (key === 'app.ssoCookieName') return 'mcdi_sso';
+              if (key === 'app.ssoCookieDomain') return undefined;
+              if (key === 'app.ssoTtlSec') return 60;
+              return 'development';
+            },
           },
         },
       ],
