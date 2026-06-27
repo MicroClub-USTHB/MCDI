@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import type { DrizzleDB } from '../../../database/database.module';
+import { generateRefreshToken } from '../../../common/utils/refresh-token.util';
 import { SessionRepository } from '../repositories/session.repository';
 
 interface IssueSessionInput {
@@ -8,6 +9,8 @@ interface IssueSessionInput {
   ttlSeconds: number;
   projectId?: string;
   serverId?: string;
+  clientUserAgent?: string | null;
+  clientIpAddress?: string | null;
 }
 
 @Injectable()
@@ -16,6 +19,7 @@ export class SessionIssuanceService {
 
   async issueSession(data: IssueSessionInput, tx?: DrizzleDB) {
     const token = randomBytes(48).toString('hex');
+    const refreshToken = generateRefreshToken();
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + data.ttlSeconds);
 
@@ -25,6 +29,9 @@ export class SessionIssuanceService {
         projectId: data.projectId,
         serverId: data.serverId,
         token,
+        refreshToken,
+        clientUserAgent: data.clientUserAgent,
+        clientIpAddress: data.clientIpAddress,
         expiresAt,
       },
       tx,
@@ -32,6 +39,7 @@ export class SessionIssuanceService {
 
     return {
       token,
+      refreshToken,
       expiresAt,
       session,
     };

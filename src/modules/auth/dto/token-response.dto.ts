@@ -98,6 +98,13 @@ export class TokenResponseDto {
   expiresAt: Date;
 
   @ApiProperty({
+    description:
+      'Refresh token used to rotate this session via POST /auth/token/refresh',
+    example: 'r1e2f3r4e5s6h7t8o9k0e1n2...',
+  })
+  refreshToken: string;
+
+  @ApiProperty({
     description: 'Basic profile information for the authenticated member',
     type: AuthMemberProfileDto,
   })

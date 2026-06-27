@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { SessionRepository } from './session.repository';
 import { DRIZZLE } from '../../../database/database.module';
 import { hashSessionToken } from '../../../common/utils/session-token.util';
+import { hashRefreshToken } from '../../../common/utils/refresh-token.util';
 
 function buildDb(finalValue: unknown = []) {
   function makeChain(): any {
@@ -156,6 +157,82 @@ describe('SessionRepository', () => {
         token: hashSessionToken('tok-plain'),
         expiresAt: session.expiresAt,
       });
+    });
+
+    it('hashes the refresh token and stores client metadata', async () => {
+      const session = fakeSession();
+      const db = buildDb([session]);
+      const repo = await buildRepo(db);
+
+      await repo.create({
+        memberId: 'mem-1',
+        token: 'tok-plain',
+        refreshToken: 'refresh-plain',
+        clientUserAgent: 'jest-agent',
+        clientIpAddress: '1.2.3.4',
+        expiresAt: session.expiresAt,
+      });
+
+      const insertChain = db.insert.mock.results[0].value;
+      expect(insertChain.values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: hashSessionToken('tok-plain'),
+          refreshTokenHash: hashRefreshToken('refresh-plain'),
+          clientUserAgent: 'jest-agent',
+          clientIpAddress: '1.2.3.4',
+        }),
+      );
+    });
+  });
+
+  describe('findActiveByMemberId', () => {
+    it('returns the member active sessions', async () => {
+      const rows = [{ id: 's1' }, { id: 's2' }];
+      const db = buildDb(rows);
+      const repo = await buildRepo(db);
+      expect(await repo.findActiveByMemberId('mem-1')).toEqual(rows);
+    });
+  });
+
+  describe('rotate', () => {
+    it('hashes the new token and refresh token and returns the row', async () => {
+      const session = fakeSession();
+      const db = buildDb([session]);
+      const repo = await buildRepo(db);
+      const expiresAt = new Date(Date.now() + 10_000);
+
+      const result = await repo.rotate(
+        'sess-uuid-1',
+        {
+          token: 'new-tok',
+          refreshToken: 'new-refresh',
+          expiresAt,
+        },
+        hashRefreshToken('old-refresh'),
+      );
+
+      expect(result).toEqual(session);
+      const updateChain = db.update.mock.results[0].value;
+      expect(updateChain.set).toHaveBeenCalledWith({
+        token: hashSessionToken('new-tok'),
+        refreshTokenHash: hashRefreshToken('new-refresh'),
+        expiresAt,
+      });
+    });
+
+    it('returns null when the compare-and-swap matches no row (already rotated)', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.rotate(
+        'ghost',
+        {
+          token: 't',
+          refreshToken: 'r',
+          expiresAt: new Date(),
+        },
+        'stale-expected-hash',
+      );
+      expect(result).toBeNull();
     });
   });
 

@@ -20,6 +20,7 @@ import type { DrizzleDB } from '../../database/database.module';
 import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 import { DiscordIdentityService } from './services/discord-identity.service';
 import { SessionIssuanceService } from './services/session-issuance.service';
+import type { ClientInfo } from '../../common/utils/client-info.util';
 
 @Injectable()
 export class AuthService {
@@ -576,6 +577,7 @@ export class AuthService {
     clientId: string,
     code: string,
     redirectUri: string,
+    clientInfo?: ClientInfo,
   ) {
     const codeHash = createHash('sha256').update(code).digest('hex');
 
@@ -593,13 +595,15 @@ export class AuthService {
         );
       }
 
-      const { token, expiresAt } =
+      const { token, refreshToken, expiresAt } =
         await this.sessionIssuanceService.issueSession(
           {
             memberId: callbackCode.memberId,
             ttlSeconds: this.sessionTtlSec,
             projectId: callbackCode.clientId,
             serverId: callbackCode.serverId,
+            clientUserAgent: clientInfo?.userAgent ?? null,
+            clientIpAddress: clientInfo?.ipAddress ?? null,
           },
           tx,
         );
@@ -619,6 +623,7 @@ export class AuthService {
 
       return {
         token,
+        refreshToken,
         expiresAt,
         member,
         roles,

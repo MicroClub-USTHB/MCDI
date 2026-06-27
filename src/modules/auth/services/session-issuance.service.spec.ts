@@ -39,9 +39,7 @@ describe('SessionIssuanceService', () => {
     expect(result.expiresAt.getTime()).toBeGreaterThanOrEqual(
       before + 3_599_000,
     );
-    expect(result.expiresAt.getTime()).toBeLessThanOrEqual(
-      after + 3_601_000,
-    );
+    expect(result.expiresAt.getTime()).toBeLessThanOrEqual(after + 3_601_000);
     expect(mockSessionRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         memberId: 'member-1',
@@ -49,6 +47,28 @@ describe('SessionIssuanceService', () => {
         serverId: 'srv-1',
         token: result.token,
         expiresAt: result.expiresAt,
+      }),
+      undefined,
+    );
+  });
+
+  it('generates a refresh token and persists client metadata', async () => {
+    mockSessionRepository.create.mockResolvedValue({ id: 'sess-3' });
+
+    const result = await service.issueSession({
+      memberId: 'member-3',
+      ttlSeconds: 60,
+      clientUserAgent: 'jest-agent',
+      clientIpAddress: '1.2.3.4',
+    });
+
+    expect(result.refreshToken).toMatch(/^[0-9a-f]{96}$/);
+    expect(mockSessionRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        token: result.token,
+        refreshToken: result.refreshToken,
+        clientUserAgent: 'jest-agent',
+        clientIpAddress: '1.2.3.4',
       }),
       undefined,
     );
