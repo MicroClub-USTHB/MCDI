@@ -12,6 +12,8 @@ const mockRepo = {
   hasServerPermission: jest.fn(),
   hasHierarchyPermission: jest.fn(),
   hasInheritedPermission: jest.fn(),
+  hasPermissionAnySource: jest.fn(),
+  hasPermissionExcludingRole: jest.fn(),
   listGlobalPermissionNames: jest.fn(),
   listServerPermissionNames: jest.fn(),
   listHierarchyPermissionNames: jest.fn(),
@@ -630,6 +632,14 @@ describe('PermissionsService', () => {
   // ── previewImpact ─────────────────────────────────────────────────────
 
   describe('previewImpact', () => {
+    const roleData = {
+      id: 'role-1',
+      serverId: 'guild-1',
+      name: 'Member',
+      isGlobal: false,
+      hierarchyLevel: 3,
+    };
+
     it('throws BadRequestException when serverId is empty', async () => {
       await expect(
         service.previewImpact('', 'role-1', {
@@ -649,38 +659,102 @@ describe('PermissionsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('returns accurate member count and IDs', async () => {
-      mockRepo.getRoleWithServer.mockResolvedValue({
-        id: 'role-1',
-        serverId: 'guild-1',
-        name: 'Admin',
-        isGlobal: false,
-        hierarchyLevel: 2,
-      });
-      mockRepo.getMembersByRole.mockResolvedValue([
-        'member-1',
-        'member-2',
-        'member-3',
+    it('filters out permission IDs already on the role for action add', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
       ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1']);
 
       const result = await service.previewImpact('guild-1', 'role-1', {
         permissionIds: [1],
         action: 'add',
       });
 
-      expect(result.affectedMembers).toBe(3);
-      expect(result.memberIds).toEqual(['member-1', 'member-2', 'member-3']);
+      // perm 1 is already on the role, so nothing to add → 0 affected
+      expect(result.affectedMembers).toBe(0);
+      expect(result.memberIds).toEqual([]);
+      expect(result.roleHolders).toBe(1);
+    });
+
+    it('filters out permission IDs not on the role for action remove', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
+      ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1']);
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [2],
+        action: 'remove',
+      });
+
+      // perm 2 is NOT on the role, so nothing to remove → 0 affected
+      expect(result.affectedMembers).toBe(0);
+      expect(result.memberIds).toEqual([]);
+      expect(result.roleHolders).toBe(1);
+    });
+
+    it('returns affected members who would gain permissions on add', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([]);
+      mockRepo.getMembersByRole.mockResolvedValue([
+        'member-1',
+        'member-2',
+        'member-3',
+      ]);
+
+      // member-1 already has perm 1, member-2 and member-3 don't
+      mockRepo.hasPermissionAnySource.mockImplementation(
+        async (memberId: string) => {
+          if (memberId === 'member-1') return true;
+          return false;
+        },
+      );
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'add',
+      });
+
+      expect(result.affectedMembers).toBe(2);
+      expect(result.memberIds).toEqual(['member-2', 'member-3']);
       expect(result.roleHolders).toBe(3);
     });
 
-    it('returns zero counts when no members hold the role', async () => {
-      mockRepo.getRoleWithServer.mockResolvedValue({
-        id: 'role-1',
-        serverId: 'guild-1',
-        name: 'Empty',
-        isGlobal: false,
-        hierarchyLevel: 5,
+    it('returns affected members who would lose permissions on remove', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
+      ]);
+      mockRepo.getMembersByRole.mockResolvedValue([
+        'member-1',
+        'member-2',
+      ]);
+
+      // member-1 has perm 1 only through this role
+      // member-2 has perm 1 through another source too
+      mockRepo.hasPermissionAnySource.mockResolvedValue(true);
+      mockRepo.hasPermissionExcludingRole.mockImplementation(
+        async (_mid: string, _sid: string, _pid: number, _rid: string) => {
+          if (_mid === 'member-2') return true;
+          return false;
+        },
+      );
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'remove',
       });
+
+      expect(result.affectedMembers).toBe(1);
+      expect(result.memberIds).toEqual(['member-1']);
+      expect(result.roleHolders).toBe(2);
+    });
+
+    it('returns zero counts when no members hold the role', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([]);
       mockRepo.getMembersByRole.mockResolvedValue([]);
 
       const result = await service.previewImpact('guild-1', 'role-1', {

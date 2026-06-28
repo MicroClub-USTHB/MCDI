@@ -474,12 +474,74 @@ export class PermissionsService {
       );
     }
 
+    const currentRolePerms =
+      await this.permissionsRepository.getPermissionsByRole(normalizedRoleId);
+    const currentPermIds = new Set(currentRolePerms.map((p) => p.id));
+
+    const relevantIds =
+      dto.action === 'add'
+        ? dto.permissionIds.filter((id) => !currentPermIds.has(id))
+        : dto.permissionIds.filter((id) => currentPermIds.has(id));
+
     const memberIds =
       await this.permissionsRepository.getMembersByRole(normalizedRoleId);
 
+    if (relevantIds.length === 0 || memberIds.length === 0) {
+      return {
+        affectedMembers: 0,
+        memberIds: [],
+        roleHolders: memberIds.length,
+      };
+    }
+
+    const affectedMemberIds: string[] = [];
+
+    for (const memberId of memberIds) {
+      let isAffected = false;
+
+      for (const permId of relevantIds) {
+        if (dto.action === 'add') {
+          const hasAny =
+            await this.permissionsRepository.hasPermissionAnySource(
+              memberId,
+              normalizedServerId,
+              permId,
+            );
+          if (!hasAny) {
+            isAffected = true;
+            break;
+          }
+        } else {
+          const hasAny =
+            await this.permissionsRepository.hasPermissionAnySource(
+              memberId,
+              normalizedServerId,
+              permId,
+            );
+          if (hasAny) {
+            const hasOther =
+              await this.permissionsRepository.hasPermissionExcludingRole(
+                memberId,
+                normalizedServerId,
+                permId,
+                normalizedRoleId,
+              );
+            if (!hasOther) {
+              isAffected = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isAffected) {
+        affectedMemberIds.push(memberId);
+      }
+    }
+
     return {
-      affectedMembers: memberIds.length,
-      memberIds,
+      affectedMembers: affectedMemberIds.length,
+      memberIds: affectedMemberIds,
       roleHolders: memberIds.length,
     };
   }

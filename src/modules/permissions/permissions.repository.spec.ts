@@ -404,4 +404,58 @@ describe('PermissionsRepository', () => {
       expect(result).toEqual([]);
     });
   });
+
+  // ── hasPermissionAnySource ───────────────────────────────────────────
+
+  describe('hasPermissionAnySource', () => {
+    it('returns true when at least one source grants the permission', async () => {
+      const db = buildDb([{ roleId: 'role-1' }]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionAnySource(
+        'member-1',
+        'guild-1',
+        5,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no source grants the permission', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionAnySource(
+        'member-1',
+        'guild-1',
+        5,
+      );
+      expect(result).toBe(false);
+    });
+  });
+
+  // ── hasPermissionExcludingRole ───────────────────────────────────────
+
+  describe('hasPermissionExcludingRole', () => {
+    it('returns true when a source other than the excluded role grants the permission', async () => {
+      const db = buildDb([{ roleId: 'other-role' }]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionExcludingRole(
+        'member-1',
+        'guild-1',
+        5,
+        'excluded-role',
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when only the excluded role would grant the permission', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionExcludingRole(
+        'member-1',
+        'guild-1',
+        5,
+        'excluded-role',
+      );
+      expect(result).toBe(false);
+    });
+  });
 });
