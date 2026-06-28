@@ -24,11 +24,17 @@ import {
   mockDiscordGuildMember,
   mockDiscordGuildRoles,
 } from './helpers/discord-mock';
-import { sessions, callbackCodes, roles } from '../src/database/entities';
+import {
+  sessions,
+  callbackCodes,
+  roles,
+  ssoSessions,
+} from '../src/database/entities';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
 import { hashSessionToken } from '../src/common/utils/session-token.util';
+import { hashSsoToken } from '../src/common/utils/sso-token.util';
 import { hashRefreshToken } from '../src/common/utils/refresh-token.util';
 
 const DB_URL = process.env.DATABASE_URL;
@@ -665,6 +671,216 @@ describeIf('/api/auth (e2e)', () => {
 
       expect(res.body).toMatchObject({
         url: expect.stringContaining('discord.com'),
+      });
+    });
+  });
+
+  // ─── SSO endpoints ────────────────────────────────────────────
+
+  describe('/api/auth/sso/*', () => {
+    const seedSsoSession = async (memberId: string, rawToken: string) => {
+      await db.insert(ssoSessions).values({
+        memberId,
+        tokenHash: hashSsoToken(rawToken),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+    };
+
+    describe('GET /api/auth/sso/session', () => {
+      it('returns 401 + { authenticated: false } when the cookie is missing', async () => {
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .expect(401);
+        expect(res.body).toEqual({ authenticated: false });
+      });
+
+      it('returns the authenticated member when the SSO cookie is valid', async () => {
+        const { memberId } = await seedAdminContext(db);
+        const rawToken = 'sso-status-token';
+        await seedSsoSession(memberId, rawToken);
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(200);
+
+        expect(res.body).toMatchObject({
+          authenticated: true,
+          member: {
+            id: memberId,
+            discordId: memberId,
+            username: 'testadmin',
+          },
+        });
+        expect(typeof res.body.expiresAt).toBe('string');
+      });
+
+      it('clears a stale cookie and reports unauthenticated', async () => {
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', ['mcdi_sso=stale-token'])
+          .expect(401);
+
+        const setCookie = (res.headers['set-cookie'] as unknown as string[])
+          ?.join(';')
+          .toLowerCase();
+        expect(setCookie).toContain('mcdi_sso=');
+        expect(setCookie).toContain('expires=');
+      });
+    });
+
+    describe('GET /api/auth/sso/authorize', () => {
+      it('with a valid SSO cookie, skips Discord and redirects straight to the platform with a code', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Cross-Project',
+        });
+        const rawToken = 'sso-cross-token';
+        await seedSsoSession(memberId, rawToken);
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/authorize')
+          .query({
+            client_id: project.id,
+            redirect_uri: 'http://localhost:4000/callback',
+            server_id: serverId,
+            state: 'csrf-sso',
+          })
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(302);
+
+        // Lands directly on the platform's redirect_uri carrying ?code=&state=,
+        // never bouncing through Discord.
+        const location = res.headers.location;
+        expect(location).toContain('http://localhost:4000/callback');
+        expect(location).toMatch(/[?&]code=/);
+        expect(location).toContain('state=csrf-sso');
+        expect(location).not.toContain('discord.com');
+      });
+
+      it('falls back to the Discord-OAuth flow when no SSO cookie is present', async () => {
+        const { serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Fallback',
+        });
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/authorize')
+          .query({
+            client_id: project.id,
+            redirect_uri: 'http://localhost:4000/callback',
+            server_id: serverId,
+            state: 'csrf-fallback',
+          })
+          .expect(302);
+
+        // Same handoff as the existing /auth/authorize flow.
+        expect(res.headers.location).toBe('/api/auth/discord');
+        const cookie = (res.headers['set-cookie'] as unknown as string[]).find(
+          (c) => c.startsWith('mcdi_auth_req='),
+        );
+        expect(cookie).toBeDefined();
+      });
+    });
+
+    describe('GET /api/auth/sso/sessions', () => {
+      it('lists active project sessions under the SSO cookie, hiding tokens', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO List Project',
+        });
+        const rawToken = 'sso-list-token';
+        await seedSsoSession(memberId, rawToken);
+
+        await db.insert(sessions).values({
+          id: crypto.randomUUID(),
+          memberId,
+          projectId: project.id,
+          serverId,
+          token: hashSessionToken('project-session-token'),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        });
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/sessions')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(200);
+
+        expect(Array.isArray(res.body.sessions)).toBe(true);
+        const match = res.body.sessions.find(
+          (s: { projectId: string }) => s.projectId === project.id,
+        );
+        expect(match).toMatchObject({
+          projectId: project.id,
+          projectName: 'SSO List Project',
+          serverId,
+        });
+        for (const s of res.body.sessions) {
+          expect(s).not.toHaveProperty('token');
+          expect(s).not.toHaveProperty('tokenHash');
+        }
+      });
+
+      it('returns 401 without an SSO cookie', async () => {
+        await request(app.getHttpServer())
+          .get('/api/auth/sso/sessions')
+          .expect(401);
+      });
+    });
+
+    describe('POST /api/auth/sso/logout', () => {
+      it('cascades: destroys SSO + every project session and clears the cookie', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Logout Project',
+        });
+        const rawToken = 'sso-logout-token';
+        await seedSsoSession(memberId, rawToken);
+
+        await db.insert(sessions).values({
+          id: crypto.randomUUID(),
+          memberId,
+          projectId: project.id,
+          serverId,
+          token: hashSessionToken('project-token-to-be-killed'),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        });
+
+        const res = await request(app.getHttpServer())
+          .post('/api/auth/sso/logout')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(204);
+
+        const setCookie = (res.headers['set-cookie'] as unknown as string[])
+          ?.join(';')
+          .toLowerCase();
+        expect(setCookie).toContain('mcdi_sso=');
+
+        // SSO row is gone
+        const remainingSso = await db
+          .select()
+          .from(ssoSessions)
+          .where(eq(ssoSessions.tokenHash, hashSsoToken(rawToken)));
+        expect(remainingSso).toHaveLength(0);
+
+        // Project sessions for this member are gone too
+        const remainingSessions = await db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.memberId, memberId));
+        expect(remainingSessions).toHaveLength(0);
+
+        // The SSO endpoint now rejects the same cookie
+        await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(401);
+      });
+
+      it('is idempotent — succeeds with no cookie', async () => {
+        await request(app.getHttpServer())
+          .post('/api/auth/sso/logout')
+          .expect(204);
       });
     });
   });

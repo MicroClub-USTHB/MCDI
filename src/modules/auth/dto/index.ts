@@ -6,5 +6,6 @@ export * from './admin-login.dto';
 export * from './set-password.dto';
 export * from './exchange-code.dto';
 export * from './token-response.dto';
+export * from './sso.dto';
 export * from './refresh-token.dto';
 export * from './session-list.dto';

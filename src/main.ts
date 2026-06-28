@@ -84,7 +84,23 @@ async function bootstrap() {
         'Scopes and operations are granted per project–server pair by a system administrator.',
     )
     .setVersion('1.0')
-    .addTag('Authentication', 'Discord OAuth login flow and session management')
+    .addTag(
+      'Authentication',
+      'Project-scoped login (`/auth/authorize`), backend-to-backend session ' +
+        'API (`/auth/token`, `/auth/validate`, `/auth/logout`, ' +
+        '`/auth/token/refresh`), and system-admin Discord OAuth ' +
+        '(`/auth/admin/*`). Use `/auth/authorize` when you need to force a ' +
+        'fresh Discord consent (step-up auth) or to stay on the pre-SSO ' +
+        'flow.',
+    )
+    .addTag(
+      'Authentication (SSO)',
+      'SSO-aware entry point (`/auth/sso/authorize`) and the cookie-backed ' +
+        'browser endpoints (`/auth/sso/session`, `/auth/sso/sessions`, ' +
+        '`/auth/sso/logout`). After a member logs in once via Discord, ' +
+        'every subsequent project login on the same browser skips the ' +
+        'Discord screen. Recommended default for new integrations.',
+    )
     .addTag('Members', 'Member lookups and cross-server views')
     .addTag(
       'Permissions',
