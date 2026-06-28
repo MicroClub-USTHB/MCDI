@@ -226,10 +226,7 @@ export class PermissionsService {
     }
 
     // ── Cache hit ────────────────────────────────────────────────────────
-    const cached = await this.permissionCache.get(
-      memberId,
-      normalizedServerId,
-    );
+    const cached = await this.permissionCache.get(memberId, normalizedServerId);
     if (cached) {
       return {
         discordId: memberId,
@@ -406,7 +403,7 @@ export class PermissionsService {
       dto.permissionIds,
     );
 
-    this.permissionCache.invalidateServer(normalizedServerId);
+    await this.permissionCache.invalidateServer(normalizedServerId);
 
     const permissions =
       await this.permissionsRepository.getPermissionsByRole(normalizedRoleId);
@@ -450,7 +447,7 @@ export class PermissionsService {
       permissionId,
     );
 
-    this.permissionCache.invalidateServer(normalizedServerId);
+    await this.permissionCache.invalidateServer(normalizedServerId);
   }
 
   async previewImpact(

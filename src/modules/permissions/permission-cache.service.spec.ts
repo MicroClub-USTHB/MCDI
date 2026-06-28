@@ -79,13 +79,19 @@ describe('PermissionCacheService', () => {
     it('stores different entries per member/server combination', async () => {
       const svc = await buildService();
 
-      mockRedisService.getJson.mockImplementation(
-        async (key: string) => {
-          if (key.includes('mem-1:srv-1')) return { permissions: ['A'], sources: { global: [], server: [], hierarchy: [], inherited: [] } };
-          if (key.includes('mem-2:srv-1')) return { permissions: ['B'], sources: { global: [], server: [], hierarchy: [], inherited: [] } };
-          return null;
-        },
-      );
+      mockRedisService.getJson.mockImplementation((key: string) => {
+        if (key.includes('mem-1:srv-1'))
+          return {
+            permissions: ['A'],
+            sources: { global: [], server: [], hierarchy: [], inherited: [] },
+          };
+        if (key.includes('mem-2:srv-1'))
+          return {
+            permissions: ['B'],
+            sources: { global: [], server: [], hierarchy: [], inherited: [] },
+          };
+        return null;
+      });
 
       await svc.set('mem-1', 'srv-1', fakeEntry());
       await svc.set('mem-2', 'srv-1', fakeEntry());

@@ -128,9 +128,7 @@ export class PermissionCacheService {
 
   /** Full cache flush */
   async clear(): Promise<void> {
-    const keys = await this.redisService.scanKeys(
-      `${this.namespace()}:*`,
-    );
+    const keys = await this.redisService.scanKeys(`${this.namespace()}:*`);
     await this.redisService.delete(...keys);
     if (keys.length > 0) {
       this.logger.debug(`Cache: flushed all ${keys.length} entries`);

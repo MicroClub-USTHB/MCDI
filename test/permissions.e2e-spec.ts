@@ -625,5 +625,132 @@ describeIf('/api/permissions (e2e)', () => {
 
       expect(afterCount).toBe(beforeCount);
     });
+
+    it('returns 0 affected when member already has the permission via another role (add)', async () => {
+      // Create a permission
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_ADD_ALREADY_HAVE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      // Create a second role, assign the perm to it, assign role to admin
+      const otherRoleId = '700000000000000077';
+      await db.insert(schema.roles).values({
+        id: otherRoleId,
+        serverId: adminCtx.serverId,
+        name: 'OtherRole',
+        color: 0x00ff00,
+        hoist: false,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 10,
+      });
+      await db.insert(rolePermissions).values({
+        roleId: otherRoleId,
+        permissionId: perm[0].id,
+      });
+      await db.insert(schema.serverMemberRoles).values({
+        memberId: adminCtx.memberId,
+        roleId: otherRoleId,
+      });
+
+      // Preview adding the same permission to adminCtx.roleId
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'add' })
+        .expect(200);
+
+      // Admin already has the perm via otherRole, so no impact
+      expect(res.body).toMatchObject({
+        affectedMembers: 0,
+        roleHolders: 1,
+        memberIds: [],
+      });
+    });
+
+    it('returns affected members who would lose permission on remove', async () => {
+      // Create a permission and assign it directly to adminCtx.roleId
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_REMOVE_LOSE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      await db.insert(rolePermissions).values({
+        roleId: adminCtx.roleId,
+        permissionId: perm[0].id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'remove' })
+        .expect(200);
+
+      // Admin has the perm only through this role — would lose it
+      expect(res.body).toMatchObject({
+        affectedMembers: 1,
+        roleHolders: 1,
+        memberIds: [adminCtx.memberId],
+      });
+    });
+
+    it('returns 0 affected when member has permission via another role too (remove)', async () => {
+      // Create a permission
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_REMOVE_STILL_HAVE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      // Assign to adminCtx.roleId
+      await db.insert(rolePermissions).values({
+        roleId: adminCtx.roleId,
+        permissionId: perm[0].id,
+      });
+
+      // Create a second role with the same perm and assign to admin
+      const otherRoleId = '700000000000000078';
+      await db.insert(schema.roles).values({
+        id: otherRoleId,
+        serverId: adminCtx.serverId,
+        name: 'FallbackRole',
+        color: 0x0000ff,
+        hoist: false,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 10,
+      });
+      await db.insert(rolePermissions).values({
+        roleId: otherRoleId,
+        permissionId: perm[0].id,
+      });
+      await db.insert(schema.serverMemberRoles).values({
+        memberId: adminCtx.memberId,
+        roleId: otherRoleId,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'remove' })
+        .expect(200);
+
+      // Admin has the perm via otherRole too — no impact
+      expect(res.body).toMatchObject({
+        affectedMembers: 0,
+        roleHolders: 1,
+        memberIds: [],
+      });
+    });
   });
 });

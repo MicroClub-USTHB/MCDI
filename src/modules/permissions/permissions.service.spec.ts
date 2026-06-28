@@ -705,12 +705,10 @@ describe('PermissionsService', () => {
       ]);
 
       // member-1 already has perm 1, member-2 and member-3 don't
-      mockRepo.hasPermissionAnySource.mockImplementation(
-        async (memberId: string) => {
-          if (memberId === 'member-1') return true;
-          return false;
-        },
-      );
+      mockRepo.hasPermissionAnySource.mockImplementation((memberId: string) => {
+        if (memberId === 'member-1') return true;
+        return false;
+      });
 
       const result = await service.previewImpact('guild-1', 'role-1', {
         permissionIds: [1],
@@ -727,16 +725,13 @@ describe('PermissionsService', () => {
       mockRepo.getPermissionsByRole.mockResolvedValue([
         { id: 1, key: 'READ', description: null },
       ]);
-      mockRepo.getMembersByRole.mockResolvedValue([
-        'member-1',
-        'member-2',
-      ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1', 'member-2']);
 
       // member-1 has perm 1 only through this role
       // member-2 has perm 1 through another source too
       mockRepo.hasPermissionAnySource.mockResolvedValue(true);
       mockRepo.hasPermissionExcludingRole.mockImplementation(
-        async (_mid: string, _sid: string, _pid: number, _rid: string) => {
+        (_mid: string, _sid: string, _pid: number, _rid: string) => {
           if (_mid === 'member-2') return true;
           return false;
         },
