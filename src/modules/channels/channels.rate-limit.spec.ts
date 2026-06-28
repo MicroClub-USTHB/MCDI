@@ -1,50 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  INestApplication,
-  ValidationPipe,
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { Reflector } from '@nestjs/core';
 import request from 'supertest';
 import { ChannelsController } from './channels.controller';
 import { ChannelsService } from './channels.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ChannelAccessGuard } from './guards/channel-access.guard';
-
-@Injectable()
-class MockRateLimiter implements CanActivate {
-  private counts = new Map<string, number>();
-  private readonly limit = 5;
-
-  reset(): void {
-    this.counts.clear();
-  }
-
-  canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest();
-    const key = `${req.method}:${req.path}`;
-
-    const count = this.counts.get(key) ?? 0;
-    this.counts.set(key, count + 1);
-
-    if (count >= this.limit) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: 'RATE_LIMITED: Rate limit exceeded, retry after 60 seconds',
-          error: 'Too Many Requests',
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    return true;
-  }
-}
+import { ProjectThrottlerGuard } from './guards/project-throttler.guard';
 
 describe('Channels Rate Limiting', () => {
   let app: INestApplication;
@@ -64,22 +27,17 @@ describe('Channels Rate Limiting', () => {
     canActivate: jest.fn().mockResolvedValue(true),
   };
 
-  let rateLimiter: MockRateLimiter;
-
   beforeAll(async () => {
-    rateLimiter = new MockRateLimiter();
-
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 5 }])],
       controllers: [ChannelsController],
       providers: [
         {
           provide: ChannelsService,
           useValue: mockService,
         },
-        {
-          provide: APP_GUARD,
-          useValue: rateLimiter,
-        },
+        ProjectThrottlerGuard,
+        Reflector,
       ],
     })
       .overrideGuard(ApiKeyGuard)
@@ -105,7 +63,6 @@ describe('Channels Rate Limiting', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    rateLimiter.reset();
     mockService.sendMessage.mockResolvedValue({
       id: 'msg-1',
       channelId: 'ch-1',
@@ -113,7 +70,6 @@ describe('Channels Rate Limiting', () => {
       timestamp: '2025-01-15T14:30:00.000Z',
       author: { id: 'bot-1', username: 'TestBot' },
     });
-
   });
 
   it('should return 429 after 6th message send request', async () => {
@@ -131,6 +87,4 @@ describe('Channels Rate Limiting', () => {
       .send({ content: 'Rate limited message' })
       .expect(429);
   });
-
-
 });

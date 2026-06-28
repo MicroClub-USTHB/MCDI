@@ -5,10 +5,10 @@ import { ChannelsController } from './channels.controller';
 import { ChannelsService } from './channels.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ChannelAccessGuard } from './guards/channel-access.guard';
+import { ProjectThrottlerGuard } from './guards/project-throttler.guard';
 
 describe('ChannelsController (integration)', () => {
   let app: INestApplication;
-  let mockChannelsService: jest.Mocked<ChannelsService>;
 
   const mockService = {
     listChannels: jest.fn(),
@@ -22,6 +22,10 @@ describe('ChannelsController (integration)', () => {
   };
 
   const mockChannelAccessGuard = {
+    canActivate: jest.fn().mockResolvedValue(true),
+  };
+
+  const mockProjectThrottlerGuard = {
     canActivate: jest.fn().mockResolvedValue(true),
   };
 
@@ -39,11 +43,17 @@ describe('ChannelsController (integration)', () => {
       .useValue(mockApiKeyGuard)
       .overrideGuard(ChannelAccessGuard)
       .useValue(mockChannelAccessGuard)
+      .overrideGuard(ProjectThrottlerGuard)
+      .useValue(mockProjectThrottlerGuard)
       .compile();
 
     app = module.createNestApplication();
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
   });
@@ -186,6 +196,12 @@ describe('ChannelsController (integration)', () => {
     });
 
     it('should return 400 when content is empty and no embeds provided', async () => {
+      mockService.sendMessage.mockRejectedValue(
+        new (require('@nestjs/common').BadRequestException)(
+          'INVALID_CONTENT: Either content or embeds must be provided',
+        ),
+      );
+
       await request(app.getHttpServer())
         .post('/servers/123/channels/ch-1/messages')
         .set('X-API-Key', 'test-key')

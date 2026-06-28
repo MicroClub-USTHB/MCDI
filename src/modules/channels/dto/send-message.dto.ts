@@ -4,22 +4,22 @@ import {
   IsOptional,
   IsString,
   MaxLength,
-  ValidateIf,
   ValidateNested,
   ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { EmbedDto } from './embed.dto';
 import { AllowedMentionsDto } from './allowed-mentions.dto';
 
 export class SendMessageDto {
   @ApiPropertyOptional({
-    description: 'Message content (max 2000 chars)',
+    description:
+      'Message content (max 2000 chars, optional if embeds provided)',
     maxLength: 2000,
     example: 'Hello from MCDI!',
   })
-  @ValidateIf((o: SendMessageDto) => !o.embeds?.length)
+  @IsOptional()
   @IsString()
   @MaxLength(2000)
   content?: string;

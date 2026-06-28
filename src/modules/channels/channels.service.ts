@@ -1,11 +1,15 @@
 import {
   Injectable,
+  BadRequestException,
   NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { DiscordService } from '../discord/discord.service';
 import { SendMessageDto } from './dto/send-message.dto';
-import { ListChannelsQueryDto, ChannelTypeFilter } from './dto/list-channels-query.dto';
+import {
+  ListChannelsQueryDto,
+  ChannelTypeFilter,
+} from './dto/list-channels-query.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { EmbedDto } from './dto/embed.dto';
 import Discord, { ChannelType } from 'discord.js';
@@ -27,6 +31,12 @@ export class ChannelsService {
     timestamp: string;
     author: { id: string; username: string };
   }> {
+    if (!dto.content?.length && !dto.embeds?.length) {
+      throw new BadRequestException(
+        'INVALID_CONTENT: Either content or embeds must be provided',
+      );
+    }
+
     const options: Discord.MessageCreateOptions = {};
 
     if (dto.content) {
@@ -121,21 +131,23 @@ export class ChannelsService {
       throw new NotFoundException('Server not found or bot not connected');
     }
 
-    const filteredChannels = channels.filter((ch): ch is Discord.NonThreadGuildBasedChannel => {
-      if (!ch) return false;
-      if (ch.isDMBased()) return false;
+    const channelEntries = [...channels.values()].filter(
+      (ch): ch is Discord.NonThreadGuildBasedChannel => {
+        if (!ch) return false;
+        if (ch.isDMBased()) return false;
 
-      if (query.type && query.type !== ChannelTypeFilter.ALL) {
-        const typeStr = this.channelTypeToString(ch.type);
-        if (typeStr !== query.type) return false;
-      }
+        if (query.type && query.type !== ChannelTypeFilter.ALL) {
+          const typeStr = this.channelTypeToString(ch.type);
+          if (typeStr !== (query.type as string)) return false;
+        }
 
-      if (query.categoryId && ch.parentId !== query.categoryId) {
-        return false;
-      }
+        if (query.categoryId && ch.parentId !== query.categoryId) {
+          return false;
+        }
 
-      return true;
-    });
+        return true;
+      },
+    );
 
     const categories: {
       id: string;
@@ -149,7 +161,7 @@ export class ChannelsService {
       { id: string; name: string; position: number; children: string[] }
     >();
 
-    const channelList = filteredChannels.map((ch) => {
+    const channelList = channelEntries.map((ch) => {
       const isCategory = ch.type === ChannelType.GuildCategory;
 
       if (isCategory) {
@@ -177,7 +189,7 @@ export class ChannelsService {
       };
     });
 
-    for (const ch of filteredChannels) {
+    for (const ch of channelEntries) {
       if (ch.parentId && categoryMap.has(ch.parentId)) {
         categoryMap.get(ch.parentId)!.children.push(ch.id);
       }
@@ -203,7 +215,8 @@ export class ChannelsService {
       parentId: 'parentId' in channel ? (channel.parentId ?? null) : null,
       topic: 'topic' in channel ? (channel.topic ?? null) : null,
       nsfw: 'nsfw' in channel ? channel.nsfw : false,
-      lastMessageId: 'lastMessageId' in channel ? (channel.lastMessageId ?? null) : null,
+      lastMessageId:
+        'lastMessageId' in channel ? (channel.lastMessageId ?? null) : null,
       createdAt: channel.createdAt?.toISOString() ?? new Date().toISOString(),
     };
   }
@@ -256,7 +269,7 @@ export class ChannelsService {
           description: e.description ?? null,
           url: e.url ?? null,
           color: e.color ?? null,
-          type: e.type,
+          type: String(e.type),
         })),
         attachments: msg.attachments.map((a) => ({
           id: a.id,
@@ -265,8 +278,14 @@ export class ChannelsService {
           size: a.size,
         })),
         mentions: [
-          ...msg.mentions.users.map((u) => ({ id: u.id, name: u.username })),
-          ...msg.mentions.roles.map((r) => ({ id: r.id, name: r.name })),
+          ...[...msg.mentions.users.values()].map((u) => ({
+            id: u.id,
+            name: u.username,
+          })),
+          ...[...msg.mentions.roles.values()].map((r) => ({
+            id: r.id,
+            name: r.name,
+          })),
         ],
       })),
       hasMore,

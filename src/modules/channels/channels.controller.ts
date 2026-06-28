@@ -6,6 +6,8 @@ import {
   Query,
   Body,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -26,19 +28,24 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { ChannelsService } from './channels.service';
 import { ChannelAccessGuard } from './guards/channel-access.guard';
+import { ProjectThrottlerGuard } from './guards/project-throttler.guard';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { RequireProjectOperation } from '../../common/decorators/require-project-operation.decorator';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ListChannelsQueryDto } from './dto/list-channels-query.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { SendMessageResponseDto } from './dto/message-response.dto';
-import { ChannelListResponseDto, ChannelDetailResponseDto } from './dto/channel-response.dto';
+import {
+  ChannelListResponseDto,
+  ChannelDetailResponseDto,
+} from './dto/channel-response.dto';
 import { GetMessagesResponseDto } from './dto/message-response.dto';
 
 @ApiTags('Channels')
 @ApiSecurity('api-key')
 @Controller('servers/:serverId/channels')
 @UseGuards(ApiKeyGuard)
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
 
@@ -75,7 +82,9 @@ export class ChannelsController {
   @ApiForbiddenResponse({
     description: 'Project does not have READ access to this server.',
   })
-  @ApiNotFoundResponse({ description: 'Server not found or bot not connected.' })
+  @ApiNotFoundResponse({
+    description: 'Server not found or bot not connected.',
+  })
   async listChannels(
     @Param('serverId') serverId: string,
     @Query() query: ListChannelsQueryDto,
@@ -121,7 +130,7 @@ export class ChannelsController {
 
   @Get(':channelId/messages')
   @RequireProjectOperation('READ')
-  @UseGuards(ChannelAccessGuard)
+  @UseGuards(ProjectThrottlerGuard, ChannelAccessGuard)
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({
     summary: 'Get recent messages from a channel',
@@ -191,7 +200,7 @@ export class ChannelsController {
 
   @Post(':channelId/messages')
   @RequireProjectOperation('SEND_MESSAGES')
-  @UseGuards(ChannelAccessGuard)
+  @UseGuards(ProjectThrottlerGuard, ChannelAccessGuard)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
