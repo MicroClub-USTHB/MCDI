@@ -1,7 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 class MessageAuthorDto {
-  @ApiProperty({ description: 'Discord user ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord user ID',
+    example: '123456789012345678',
+  })
   id: string;
 
   @ApiProperty({ description: 'Discord username', example: 'john_doe' })
@@ -55,7 +58,10 @@ class MentionDto {
 }
 
 export class MessageDto {
-  @ApiProperty({ description: 'Discord message ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord message ID',
+    example: '123456789012345678',
+  })
   id: string;
 
   @ApiProperty({ description: 'Message content', example: 'Hello!' })
@@ -89,10 +95,16 @@ export class GetMessagesResponseDto {
 }
 
 export class SendMessageResponseDto {
-  @ApiProperty({ description: 'Discord message ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord message ID',
+    example: '123456789012345678',
+  })
   id: string;
 
-  @ApiProperty({ description: 'Discord channel ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord channel ID',
+    example: '123456789012345678',
+  })
   channelId: string;
 
   @ApiProperty({ description: 'Message content', example: 'Hello!' })

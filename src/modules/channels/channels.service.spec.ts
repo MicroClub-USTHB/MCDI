@@ -27,7 +27,7 @@ describe('ChannelsService', () => {
     }).compile();
 
     service = module.get<ChannelsService>(ChannelsService);
-    discordService = module.get(DiscordService) as jest.Mocked<DiscordService>;
+    discordService = module.get(DiscordService);
   });
 
   afterEach(() => {
@@ -142,7 +142,10 @@ describe('ChannelsService', () => {
             color: 65280,
             image: { url: 'https://example.com/image.png' },
             thumbnail: { url: 'https://example.com/thumb.png' },
-            footer: { text: 'Footer', icon_url: 'https://example.com/favicon.ico' },
+            footer: {
+              text: 'Footer',
+              icon_url: 'https://example.com/favicon.ico',
+            },
             author: {
               name: 'Author',
               url: 'https://example.com',
@@ -333,9 +336,9 @@ describe('ChannelsService', () => {
     it('should throw NotFoundException when channel not found', async () => {
       mockDiscordService.getChannelById.mockResolvedValue(null);
 
-      await expect(
-        service.getChannel('server-123', 'ch-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getChannel('server-123', 'ch-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException for DM channels', async () => {
@@ -350,7 +353,11 @@ describe('ChannelsService', () => {
   });
 
   describe('getMessages', () => {
-    const buildMockMessage = (id: string, authorId: string, content: string) => ({
+    const buildMockMessage = (
+      id: string,
+      authorId: string,
+      content: string,
+    ) => ({
       id,
       content,
       author: { id: authorId, username: `user-${authorId}`, avatar: null },
@@ -366,7 +373,9 @@ describe('ChannelsService', () => {
         ['2', buildMockMessage('2', 'user-2', 'World')],
       ]);
 
-      mockDiscordService.getChannelMessages.mockResolvedValue(mockMessages as any);
+      mockDiscordService.getChannelMessages.mockResolvedValue(
+        mockMessages as any,
+      );
 
       const result = await service.getMessages('server-123', 'channel-123', {
         limit: 50,
@@ -400,14 +409,18 @@ describe('ChannelsService', () => {
         ['3', buildMockMessage('3', 'author-a', 'Also from A')],
       ]);
 
-      mockDiscordService.getChannelMessages.mockResolvedValue(mockMessages as any);
+      mockDiscordService.getChannelMessages.mockResolvedValue(
+        mockMessages as any,
+      );
 
       const result = await service.getMessages('server-123', 'channel-123', {
         authorId: 'author-a',
       });
 
       expect(result.messages).toHaveLength(2);
-      expect(result.messages.every((m) => m.author.id === 'author-a')).toBe(true);
+      expect(result.messages.every((m) => m.author.id === 'author-a')).toBe(
+        true,
+      );
     });
 
     it('should pass before/after pagination to Discord service', async () => {

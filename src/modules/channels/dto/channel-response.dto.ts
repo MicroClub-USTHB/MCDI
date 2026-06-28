@@ -6,7 +6,10 @@ class ChannelPermissionOverwritesDto {
 }
 
 export class ChannelResponseDto {
-  @ApiProperty({ description: 'Discord channel ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord channel ID',
+    example: '123456789012345678',
+  })
   id: string;
 
   @ApiProperty({ description: 'Channel name', example: 'general' })
@@ -29,7 +32,11 @@ export class ChannelResponseDto {
   })
   parentId: string | null;
 
-  @ApiProperty({ description: 'Channel topic', nullable: true, example: 'Discussion' })
+  @ApiProperty({
+    description: 'Channel topic',
+    nullable: true,
+    example: 'Discussion',
+  })
   topic: string | null;
 
   @ApiProperty({ description: 'Whether the channel is NSFW', example: false })
@@ -82,7 +89,10 @@ export class ChannelListResponseDto {
 }
 
 export class ChannelDetailResponseDto {
-  @ApiProperty({ description: 'Discord channel ID', example: '123456789012345678' })
+  @ApiProperty({
+    description: 'Discord channel ID',
+    example: '123456789012345678',
+  })
   id: string;
 
   @ApiProperty({ description: 'Channel name', example: 'general' })
@@ -101,7 +111,11 @@ export class ChannelDetailResponseDto {
   })
   parentId: string | null;
 
-  @ApiProperty({ description: 'Channel topic', nullable: true, example: 'Discussion' })
+  @ApiProperty({
+    description: 'Channel topic',
+    nullable: true,
+    example: 'Discussion',
+  })
   topic: string | null;
 
   @ApiProperty({ description: 'Whether the channel is NSFW', example: false })

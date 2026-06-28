@@ -1,9 +1,4 @@
-import {
-  IsArray,
-  IsOptional,
-  IsString,
-  ArrayMaxSize,
-} from 'class-validator';
+import { IsArray, IsOptional, IsString, ArrayMaxSize } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AllowedMentionsDto {

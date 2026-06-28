@@ -27,15 +27,21 @@ export class ChannelAccessGuard implements CanActivate {
     const channel = await this.discordService.getChannelById(channelId);
 
     if (!channel) {
-      throw new NotFoundException('CHANNEL_NOT_FOUND: Channel does not exist or bot lacks access');
+      throw new NotFoundException(
+        'CHANNEL_NOT_FOUND: Channel does not exist or bot lacks access',
+      );
     }
 
     if (channel.isDMBased()) {
-      throw new ForbiddenException('CHANNEL_NOT_FOUND: Cannot access DM channels');
+      throw new ForbiddenException(
+        'CHANNEL_NOT_FOUND: Cannot access DM channels',
+      );
     }
 
     if (channel.guildId !== serverId) {
-      throw new NotFoundException('CHANNEL_NOT_FOUND: Channel does not exist in this server');
+      throw new NotFoundException(
+        'CHANNEL_NOT_FOUND: Channel does not exist in this server',
+      );
     }
 
     return true;

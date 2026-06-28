@@ -63,16 +63,17 @@ async function bootstrap() {
     ],
   });
   app.useStaticAssets(join(__dirname, 'public'));
-  app.useStaticAssets(join(__dirname, 'views', 'assets'), { prefix: '/assets' });
+  app.useStaticAssets(join(__dirname, 'views', 'assets'), {
+    prefix: '/assets',
+  });
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
 
   // Swagger Configuration
-  let swaggerServerUrl =
-    process.env.BASE_URL || `http://localhost:${port}`;
+  let swaggerServerUrl = process.env.BASE_URL || `http://localhost:${port}`;
   swaggerServerUrl = swaggerServerUrl.replace(/\/+$/, '');
   if (swaggerServerUrl.endsWith(`/${apiPrefix}`)) {
-    swaggerServerUrl = swaggerServerUrl.slice(0, -(`/${apiPrefix}`.length));
+    swaggerServerUrl = swaggerServerUrl.slice(0, -`/${apiPrefix}`.length);
   }
 
   const config = new DocumentBuilder()
@@ -144,7 +145,7 @@ async function bootstrap() {
       'api-key',
     )
     .addServer(
-      // The server URL should be the root ONLY. 
+      // The server URL should be the root ONLY.
       // NestJS paths include the apiPrefix already.
       process.env.BASE_URL || `http://localhost:${port}`,
       'API Server',
