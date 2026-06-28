@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../../common/redis/redis.service';
+
+const INDEX_TTL_BUFFER_MS = 60_000;
 
 /** Cached resolved permission set for a (memberId, serverId) pair */
-interface CacheEntry {
+export interface CachedPermissions {
   permissions: string[];
   sources: {
     global: string[];
@@ -10,103 +13,135 @@ interface CacheEntry {
     hierarchy: string[];
     inherited: string[];
   };
-  expiresAt: number;
 }
 
 /**
- * In-memory TTL cache for resolved permission sets.
+ * Redis-backed TTL cache for resolved permission sets.
  *
- * Cache key: `${memberId}:${serverId}`
- * TTL: 5 minutes (configurable via PERMISSION_CACHE_TTL_MS)
+ * Cache key:     {keyPrefix}:perm-cache:entry:{memberId}:{serverId}
+ * Member index:  {keyPrefix}:perm-cache:idx:member:{memberId}
+ * Server index:  {keyPrefix}:perm-cache:idx:server:{serverId}
+ * TTL: 5 minutes (configurable via app.permissionCacheTtlMs)
  *
  * Invalidation:
  *  - `invalidateMember(memberId)` — call when a member's roles change
  *  - `invalidateServer(serverId)` — call when a sync run completes or any role in a server changes
  *  - `clear()` — full flush
+ *
+ * Gracefully falls back to DB path when Redis is unavailable.
  */
 @Injectable()
 export class PermissionCacheService {
   private readonly logger = new Logger(PermissionCacheService.name);
-  private readonly store = new Map<string, CacheEntry>();
   private readonly ttlMs: number;
+  private readonly keyPrefix: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
+  ) {
     this.ttlMs =
       this.configService.get<number>('app.permissionCacheTtlMs') ||
       5 * 60 * 1000;
+    this.keyPrefix =
+      this.configService.get<string>('redis.keyPrefix') || 'mcdi';
   }
 
-  private key(memberId: string, serverId: string): string {
-    return `${memberId}:${serverId}`;
+  private namespace(): string {
+    return `${this.keyPrefix}:perm-cache`;
   }
 
-  get(
+  private entryKey(memberId: string, serverId: string): string {
+    return `${this.namespace()}:entry:${memberId}:${serverId}`;
+  }
+
+  private memberIndexKey(memberId: string): string {
+    return `${this.namespace()}:idx:member:${memberId}`;
+  }
+
+  private serverIndexKey(serverId: string): string {
+    return `${this.namespace()}:idx:server:${serverId}`;
+  }
+
+  private indexTtlSeconds(): number {
+    return Math.ceil((this.ttlMs + INDEX_TTL_BUFFER_MS) / 1000);
+  }
+
+  async get(
     memberId: string,
     serverId: string,
-  ): { permissions: string[]; sources: CacheEntry['sources'] } | null {
-    const entry = this.store.get(this.key(memberId, serverId));
-    if (!entry) return null;
-    if (Date.now() > entry.expiresAt) {
-      this.store.delete(this.key(memberId, serverId));
-      return null;
-    }
-    return { permissions: entry.permissions, sources: entry.sources };
+  ): Promise<CachedPermissions | null> {
+    return this.redisService.getJson<CachedPermissions>(
+      this.entryKey(memberId, serverId),
+    );
   }
 
-  set(
+  async set(
     memberId: string,
     serverId: string,
-    value: { permissions: string[]; sources: CacheEntry['sources'] },
-  ): void {
-    this.store.set(this.key(memberId, serverId), {
-      ...value,
-      expiresAt: Date.now() + this.ttlMs,
-    });
+    value: CachedPermissions,
+  ): Promise<void> {
+    const entryKey = this.entryKey(memberId, serverId);
+
+    await Promise.all([
+      this.redisService.setJson(entryKey, value, this.ttlMs),
+      this.redisService.sAdd(this.memberIndexKey(memberId), entryKey),
+      this.redisService.sAdd(this.serverIndexKey(serverId), entryKey),
+      this.redisService.expire(
+        this.memberIndexKey(memberId),
+        this.indexTtlSeconds(),
+      ),
+      this.redisService.expire(
+        this.serverIndexKey(serverId),
+        this.indexTtlSeconds(),
+      ),
+    ]);
   }
 
   /** Invalidate all cached entries for a specific member (across all servers) */
-  invalidateMember(memberId: string): void {
-    const prefix = `${memberId}:`;
-    let count = 0;
-    for (const k of this.store.keys()) {
-      if (k.startsWith(prefix)) {
-        this.store.delete(k);
-        count++;
-      }
-    }
-    if (count > 0) {
+  async invalidateMember(memberId: string): Promise<void> {
+    const indexKey = this.memberIndexKey(memberId);
+    const members = await this.redisService.sMembers(indexKey);
+
+    await this.redisService.delete(indexKey, ...members);
+
+    if (members.length > 0) {
       this.logger.debug(
-        `Cache: invalidated ${count} entr${count === 1 ? 'y' : 'ies'} for member ${memberId}`,
+        `Cache: invalidated ${members.length} entr${members.length === 1 ? 'y' : 'ies'} for member ${memberId}`,
       );
     }
   }
 
   /** Invalidate all cached entries for every member in a specific server */
-  invalidateServer(serverId: string): void {
-    const suffix = `:${serverId}`;
-    let count = 0;
-    for (const k of this.store.keys()) {
-      if (k.endsWith(suffix)) {
-        this.store.delete(k);
-        count++;
-      }
-    }
-    if (count > 0) {
+  async invalidateServer(serverId: string): Promise<void> {
+    const indexKey = this.serverIndexKey(serverId);
+    const members = await this.redisService.sMembers(indexKey);
+
+    await this.redisService.delete(indexKey, ...members);
+
+    if (members.length > 0) {
       this.logger.debug(
-        `Cache: invalidated ${count} entr${count === 1 ? 'ies' : 'ies'} for server ${serverId}`,
+        `Cache: invalidated ${members.length} entr${members.length === 1 ? 'y' : 'ies'} for server ${serverId}`,
       );
     }
   }
 
   /** Full cache flush */
-  clear(): void {
-    const size = this.store.size;
-    this.store.clear();
-    this.logger.debug(`Cache: flushed all ${size} entries`);
+  async clear(): Promise<void> {
+    const keys = await this.redisService.scanKeys(
+      `${this.namespace()}:*`,
+    );
+    await this.redisService.delete(...keys);
+    if (keys.length > 0) {
+      this.logger.debug(`Cache: flushed all ${keys.length} entries`);
+    }
   }
 
   /** Returns current cache size for diagnostics */
-  size(): number {
-    return this.store.size;
+  async size(): Promise<number> {
+    const keys = await this.redisService.scanKeys(
+      `${this.namespace()}:entry:*`,
+    );
+    return keys.length;
   }
 }

@@ -37,7 +37,7 @@ export class PermissionsService {
     }
 
     // ── Fast path: use cached permission set if available ──────────────
-    const cached = this.permissionCache.get(memberId, serverId);
+    const cached = await this.permissionCache.get(memberId, serverId);
     if (cached) {
       const allPerms = cached.permissions;
       // ADMINISTRATOR in any source = full access
@@ -226,7 +226,10 @@ export class PermissionsService {
     }
 
     // ── Cache hit ────────────────────────────────────────────────────────
-    const cached = this.permissionCache.get(memberId, normalizedServerId);
+    const cached = await this.permissionCache.get(
+      memberId,
+      normalizedServerId,
+    );
     if (cached) {
       return {
         discordId: memberId,
@@ -274,7 +277,7 @@ export class PermissionsService {
     };
 
     // Populate cache for future calls
-    this.permissionCache.set(memberId, normalizedServerId, {
+    await this.permissionCache.set(memberId, normalizedServerId, {
       permissions,
       sources: { global, server, hierarchy, inherited },
     });
