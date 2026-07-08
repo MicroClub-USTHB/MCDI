@@ -3,6 +3,8 @@ import {
   Get,
   Query,
   Post,
+  Delete,
+  Param,
   Body,
   Res,
   Req,
@@ -19,6 +21,8 @@ import {
   ApiOperation,
   ApiResponse,
   ApiOkResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
   ApiBadRequestResponse,
@@ -30,10 +34,21 @@ import type { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { SsoService } from './services/sso.service';
+import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import {
+  SessionGuard,
+  RequestWithSession,
+} from '../../common/guards/session.guard';
 import { buildErrorPage } from './utils';
 import { extractSessionToken } from '../../common/utils/auth.util';
+import { extractClientInfo } from '../../common/utils/client-info.util';
+import {
+  buildSsoClearCookieOptions,
+  buildSsoCookieOptions,
+} from '../../common/utils/sso-cookie.util';
 import {
   ValidateSessionDto,
   LogoutDto,
@@ -41,10 +56,15 @@ import {
   ValidateSessionResponseDto,
   SuccessResponseDto,
   AuthorizeQueryDto,
-  AdminLoginResponseDto,
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
+  SsoSessionStatusDto,
+  SsoSessionUnauthenticatedDto,
+  SsoProjectSessionListDto,
+  RefreshTokenDto,
+  RefreshTokenResponseDto,
+  SessionListResponseDto,
 } from './dto';
 
 type RequestWithProject = Request & { project?: { id: string } };
@@ -53,13 +73,54 @@ type RequestWithProject = Request & { project?: { id: string } };
 @Controller('auth')
 export class AuthController {
   private readonly apiPrefix: string;
+  private readonly ssoCookieName: string;
+  private readonly ssoCookieDomain: string | undefined;
+  private readonly ssoTtlSec: number;
 
   constructor(
     private readonly authService: AuthService,
     private readonly adminAuthService: AdminAuthService,
+    private readonly ssoService: SsoService,
+    private readonly sessionLifecycleService: SessionLifecycleService,
     private readonly configService: ConfigService,
   ) {
     this.apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
+    this.ssoCookieName =
+      this.configService.get<string>('app.ssoCookieName') || 'mcdi_sso';
+    this.ssoCookieDomain = this.configService.get<string | undefined>(
+      'app.ssoCookieDomain',
+    );
+    this.ssoTtlSec = this.configService.get<number>('app.ssoTtlSec')!;
+  }
+
+  private get isProduction(): boolean {
+    return this.configService.get<string>('app.nodeEnv') === 'production';
+  }
+
+  private setSsoCookie(res: Response, token: string): void {
+    res.cookie(
+      this.ssoCookieName,
+      token,
+      buildSsoCookieOptions({
+        name: this.ssoCookieName,
+        domain: this.ssoCookieDomain,
+        ttlSec: this.ssoTtlSec,
+        isProduction: this.isProduction,
+      }),
+    );
+  }
+
+  private clearSsoCookie(res: Response): void {
+    res.clearCookie(
+      this.ssoCookieName,
+      buildSsoClearCookieOptions({ domain: this.ssoCookieDomain }),
+    );
+  }
+
+  private readSsoCookie(req: Request): string | undefined {
+    return (req.cookies as Record<string, string> | undefined)?.[
+      this.ssoCookieName
+    ];
   }
 
   // ─── Authorization request ─────────────────────────────
@@ -69,12 +130,19 @@ export class AuthController {
   @Get('authorize')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
-    summary: 'Initiate authorization request',
+    summary: 'Initiate authorization request (legacy / force re-auth)',
     description:
-      'Standard OAuth-style authorization endpoint. The platform redirects the user here ' +
-      'with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters.\n\n' +
-      'MCDI validates the params, creates a short-lived auth request in the DB, ' +
-      'sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.',
+      'Always bounces through Discord OAuth, even if the browser already ' +
+      'holds a valid `mcdi_sso` cookie. Use this when you need fresh ' +
+      'Discord consent (step-up auth, admin operations) or to keep a ' +
+      'pre-SSO integration unchanged. For the default login button, prefer ' +
+      '`GET /auth/sso/authorize` — it skips the Discord screen for ' +
+      'returning users.\n\n' +
+      'The platform redirects the user here with `client_id`, ' +
+      '`redirect_uri`, `server_id`, and `state` as query parameters. MCDI ' +
+      'validates the params, creates a short-lived auth request in the DB, ' +
+      'sets an httpOnly cookie with the request ID, and redirects to ' +
+      'Discord OAuth.',
   })
   @ApiResponse({
     status: 302,
@@ -209,12 +277,12 @@ export class AuthController {
   async discordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     if (await this.adminAuthService.hasValidAdminState(state)) {
       const adminFrontendUrl =
-        this.configService.get<string>('discord.adminFrontendUrl') ||
-        '/admin';
+        this.configService.get<string>('discord.adminFrontendUrl') || '/admin';
       const isProduction =
         this.configService.get<string>('app.nodeEnv') === 'production';
 
@@ -222,6 +290,7 @@ export class AuthController {
         const result = await this.adminAuthService.handleAdminDiscordCallback(
           code,
           state,
+          extractClientInfo(req),
         );
 
         res.cookie('admin_session', result.token, {
@@ -246,6 +315,12 @@ export class AuthController {
     }
 
     const result = await this.authService.handleDiscordCallback(code, state);
+    // On a successful member login, mint a global SSO session so subsequent
+    // project logins can skip the Discord bounce.
+    if ('memberId' in result && result.memberId) {
+      const { token } = await this.ssoService.issueSession(result.memberId);
+      this.setSsoCookie(res, token);
+    }
     return res.redirect(result.url);
   }
 
@@ -281,7 +356,7 @@ export class AuthController {
   })
   async exchangeCode(
     @Body() dto: ExchangeCodeDto,
-    @Req() req: any,
+    @Req() req: RequestWithProject,
   ): Promise<TokenResponseDto> {
     if (dto.clientId !== req.project?.id) {
       throw new UnauthorizedException(
@@ -289,10 +364,14 @@ export class AuthController {
       );
     }
 
+    // Backend-to-backend exchange: this captures the calling platform's
+    // transport info (its server IP / HTTP client), not the end user's device,
+    // unless the platform forwards the real client via X-Forwarded-For.
     return this.authService.exchangeCodeForToken(
       dto.clientId,
       dto.code,
       dto.redirectUri,
+      extractClientInfo(req),
     );
   }
 
@@ -356,10 +435,7 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty token).',
   })
-  async logout(
-    @Body() dto: LogoutDto,
-    @Req() req: RequestWithProject,
-  ) {
+  async logout(@Body() dto: LogoutDto, @Req() req: RequestWithProject) {
     return this.authService.logout(dto.token, req.project!.id);
   }
 
@@ -382,11 +458,272 @@ export class AuthController {
   @ApiBadRequestResponse({
     description: 'Invalid request body (e.g. empty memberId).',
   })
-  async logoutAll(
-    @Body() dto: LogoutAllDto,
-    @Req() req: RequestWithProject,
-  ) {
+  async logoutAll(@Body() dto: LogoutAllDto, @Req() req: RequestWithProject) {
     return this.authService.logoutAll(dto.memberId, req.project!.id);
+  }
+
+  // ─── SSO (global browser session, cookie-based) ──────────────
+  //
+  // GET  /auth/sso/session    → who is logged in via the mcdi_sso cookie?
+  // GET  /auth/sso/authorize  → SSO-aware authorize; skips Discord when valid
+  // POST /auth/sso/logout     → destroy SSO + every project session
+  // GET  /auth/sso/sessions   → list project sessions under this SSO cookie
+
+  @Get('sso/session')
+  @ApiTags('Authentication (SSO)')
+  @ApiOperation({
+    summary: 'Get current SSO session status',
+    description:
+      'Reads the `mcdi_sso` httpOnly cookie set after Discord login and ' +
+      'returns the authenticated member. Returns 401 with ' +
+      '`{ authenticated: false }` when the cookie is missing or expired.',
+  })
+  @ApiOkResponse({ type: SsoSessionStatusDto })
+  @ApiUnauthorizedResponse({ type: SsoSessionUnauthenticatedDto })
+  async ssoSession(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(token);
+
+    if (!resolved) {
+      // Stale or missing cookie — clear it and report unauthenticated.
+      if (token) this.clearSsoCookie(res);
+      res.status(HttpStatus.UNAUTHORIZED);
+      return { authenticated: false };
+    }
+
+    return {
+      authenticated: true,
+      member: {
+        id: resolved.member.id,
+        discordId: resolved.member.id,
+        username: resolved.member.username,
+        avatar: resolved.member.avatar,
+      },
+      expiresAt: resolved.ssoSession.expiresAt,
+    };
+  }
+
+  @Get('sso/authorize')
+  @ApiTags('Authentication (SSO)')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'Initiate authorization request (SSO-aware — recommended)',
+    description:
+      'Recommended default for new "Login with MicroClub" buttons. Same ' +
+      'query contract as `GET /auth/authorize`. If the caller has a valid ' +
+      '`mcdi_sso` cookie, the Discord OAuth bounce is skipped and the ' +
+      "browser is redirected straight to the platform's redirect_uri with " +
+      '`?code=...&state=...`. Otherwise this falls back to the existing ' +
+      '`/auth/authorize` flow (Discord OAuth).\n\n' +
+      'Use `GET /auth/authorize` instead when you need to force a fresh ' +
+      'Discord consent.',
+  })
+  @ApiResponse({
+    status: 302,
+    description:
+      'Redirects either to Discord OAuth (no SSO yet) or back to the ' +
+      'platform with a fresh callback code (SSO hit).',
+  })
+  async ssoAuthorize(
+    @Query() dto: AuthorizeQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const ssoToken = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(ssoToken);
+
+    if (resolved) {
+      const roleIds = await this.ssoService.getMemberRoleIdsInServer(
+        resolved.member.id,
+        dto.server_id,
+      );
+
+      const result = await this.authService.authorizeWithSso(
+        resolved.member.id,
+        dto.client_id,
+        dto.redirect_uri,
+        dto.server_id,
+        dto.state,
+        roleIds,
+      );
+
+      if (result.ok) {
+        return res.redirect(result.url);
+      }
+
+      // SSO is valid but the project / server / role check failed. Bubble
+      // the error back to the platform if we trust the redirect_uri.
+      if (result.redirectUri) {
+        const url = new URL(result.redirectUri);
+        url.searchParams.set('error', result.error);
+        url.searchParams.set('error_description', result.description);
+        url.searchParams.set('state', result.state);
+        return res.redirect(url.toString());
+      }
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        statusCode: 400,
+        error: result.error,
+        message: result.description,
+      });
+    }
+
+    // No SSO yet — clear any stale cookie and fall through to the existing
+    // /auth/authorize flow (Discord OAuth bounce). Keeps the SSO endpoint
+    // a drop-in replacement.
+    if (ssoToken) this.clearSsoCookie(res);
+    return this.authorize(dto, res);
+  }
+
+  @Post('sso/logout')
+  @ApiTags('Authentication (SSO)')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Destroy the global SSO session (log out everywhere)',
+    description:
+      'Reads the `mcdi_sso` httpOnly cookie, destroys the SSO session, ' +
+      'cascades to every project session for the same member, and clears ' +
+      'the cookie. Idempotent — succeeds even if the cookie is missing.',
+  })
+  @ApiNoContentResponse({
+    description: 'SSO session destroyed and cookie cleared.',
+  })
+  async ssoLogout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    const token = this.readSsoCookie(req);
+    if (token) {
+      await this.ssoService.logout(token);
+    }
+    this.clearSsoCookie(res);
+  }
+
+  @Get('sso/sessions')
+  @ApiTags('Authentication (SSO)')
+  @ApiOperation({
+    summary: 'List active project sessions under the current SSO session',
+    description:
+      'Returns one entry per active (non-expired) project session for the ' +
+      'member identified by the `mcdi_sso` cookie. Token material is never ' +
+      'returned. Returns 401 when the SSO cookie is missing or expired.',
+  })
+  @ApiOkResponse({ type: SsoProjectSessionListDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or expired SSO cookie.',
+  })
+  async ssoListSessions(
+    @Req() req: Request,
+  ): Promise<SsoProjectSessionListDto> {
+    const token = this.readSsoCookie(req);
+    const resolved = await this.ssoService.resolveSession(token);
+    if (!resolved) {
+      throw new UnauthorizedException('Invalid or expired SSO session');
+    }
+    return this.ssoService.listProjectSessions(resolved.member.id);
+  }
+
+  // ─── Session lifecycle (member session token) ─────────────
+  // Authenticated by the member's own session token (Bearer or admin_session
+  // cookie) via SessionGuard, not project-scoped X-API-Key.
+
+  @Post('token/refresh')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  @ApiOperation({
+    summary: 'Refresh an active session token',
+    description:
+      'Rotates an active session. The caller presents the still-valid session ' +
+      'token (as a Bearer token) plus its matching refresh token in the body. ' +
+      'A new access token and a new refresh token are issued and the expiry is ' +
+      'extended — the previous pair is invalidated immediately.',
+  })
+  @ApiBody({ type: RefreshTokenDto })
+  @ApiOkResponse({
+    description: 'Session refreshed — new access and refresh tokens.',
+    type: RefreshTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid/expired session token or refresh token.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body (e.g. empty refresh token).',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many refresh requests - retry after a short delay.',
+  })
+  async refreshToken(
+    @Body() dto: RefreshTokenDto,
+    @Req() req: RequestWithSession,
+  ): Promise<RefreshTokenResponseDto> {
+    return this.sessionLifecycleService.refresh(
+      req.sessionToken,
+      dto.refreshToken,
+    );
+  }
+
+  @Get('sessions')
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'List active sessions for the current member',
+    description:
+      "Returns the authenticated member's non-expired sessions, including the " +
+      'client metadata captured when each session was created. Token material ' +
+      'is never returned.',
+  })
+  @ApiOkResponse({
+    description: 'Active sessions for the current member.',
+    type: SessionListResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
+  })
+  async listSessions(
+    @Req() req: RequestWithSession,
+  ): Promise<SessionListResponseDto> {
+    return this.sessionLifecycleService.listActiveSessions(req.memberId);
+  }
+
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @UseGuards(ThrottlerGuard, SessionGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Revoke a specific session',
+    description:
+      "Immediately revokes one of the current member's sessions. The next " +
+      'request using that token will fail. A session that does not exist or ' +
+      'belongs to another member is reported as not found.',
+  })
+  @ApiNoContentResponse({ description: 'Session revoked.' })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Session not found for the current member.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests - retry after a short delay.',
+  })
+  async revokeSession(
+    @Param('sessionId') sessionId: string,
+    @Req() req: RequestWithSession,
+  ): Promise<void> {
+    await this.sessionLifecycleService.revokeSession(req.memberId, sessionId);
   }
 
   // ─── System Admin Login (Discord OAuth2 only) ──────────────
@@ -416,7 +753,8 @@ export class AuthController {
     description: 'Missing, invalid, or expired session token.',
   })
   @ApiForbiddenResponse({
-    description: 'Valid session but the member lacks the configured admin role.',
+    description:
+      'Valid session but the member lacks the configured admin role.',
   })
   async adminMe(@Req() req: Request) {
     const token = extractSessionToken(req)!;
@@ -458,11 +796,11 @@ export class AuthController {
   async adminDiscordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const adminFrontendUrl =
-      this.configService.get<string>('discord.adminFrontendUrl') ||
-      '/admin';
+      this.configService.get<string>('discord.adminFrontendUrl') || '/admin';
     const isProduction =
       this.configService.get<string>('app.nodeEnv') === 'production';
 
@@ -470,6 +808,7 @@ export class AuthController {
       const result = await this.adminAuthService.handleAdminDiscordCallback(
         code,
         state,
+        extractClientInfo(req),
       );
 
       // Set an httpOnly session cookie so the admin frontend does not need to
@@ -486,7 +825,10 @@ export class AuthController {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Authentication failed';
-      const url = new URL(adminFrontendUrl, this.configService.get<string>('app.baseUrl'));
+      const url = new URL(
+        adminFrontendUrl,
+        this.configService.get<string>('app.baseUrl'),
+      );
       url.searchParams.set('error', message);
       return res.redirect(url.toString());
     }

@@ -12,6 +12,7 @@ import {
   closeTestDb,
   getTestDb,
   seedAdminContext,
+  seedMemberWithRole,
   seedTestProject,
   TestDb,
 } from './helpers/db';
@@ -24,15 +25,17 @@ import {
   mockDiscordGuildRoles,
 } from './helpers/discord-mock';
 import {
-  members,
   sessions,
   callbackCodes,
   roles,
+  ssoSessions,
 } from '../src/database/entities';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import nock from 'nock';
 import { hashSessionToken } from '../src/common/utils/session-token.util';
+import { hashSsoToken } from '../src/common/utils/sso-token.util';
+import { hashRefreshToken } from '../src/common/utils/refresh-token.util';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -165,7 +168,9 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/validate', () => {
     it('returns 401 for unknown token', async () => {
-      const { project } = await seedProjectSessionContext('E2E Validate Unknown');
+      const { project } = await seedProjectSessionContext(
+        'E2E Validate Unknown',
+      );
 
       await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -198,9 +203,8 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 200 with member info for valid token', async () => {
-      const { bearerToken, project } = await seedProjectSessionContext(
-        'E2E Validate Valid',
-      );
+      const { bearerToken, project } =
+        await seedProjectSessionContext('E2E Validate Valid');
 
       const res = await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -218,7 +222,9 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('returns 400 when token field is missing', async () => {
-      const { project } = await seedProjectSessionContext('E2E Validate Missing');
+      const { project } = await seedProjectSessionContext(
+        'E2E Validate Missing',
+      );
 
       await request(app.getHttpServer())
         .post('/api/auth/validate')
@@ -244,9 +250,8 @@ describeIf('/api/auth (e2e)', () => {
     });
 
     it('invalidates a valid existing token', async () => {
-      const { bearerToken, project } = await seedProjectSessionContext(
-        'E2E Logout Valid',
-      );
+      const { bearerToken, project } =
+        await seedProjectSessionContext('E2E Logout Valid');
 
       // Confirm it is valid first
       await request(app.getHttpServer())
@@ -277,9 +282,8 @@ describeIf('/api/auth (e2e)', () => {
 
   describe('POST /api/auth/logout-all', () => {
     it('invalidates all sessions for a member', async () => {
-      const { bearerToken, memberId, project } = await seedProjectSessionContext(
-        'E2E Logout All',
-      );
+      const { bearerToken, memberId, project } =
+        await seedProjectSessionContext('E2E Logout All');
 
       await request(app.getHttpServer())
         .post('/api/auth/logout-all')
@@ -293,6 +297,209 @@ describeIf('/api/auth (e2e)', () => {
         .set('x-api-key', project.apiKey)
         .send({ token: bearerToken })
         .expect(401);
+    });
+  });
+
+  // ─── GET /api/auth/sessions ───────────────────────────────────
+
+  describe('GET /api/auth/sessions', () => {
+    it('returns 401 without a session token', async () => {
+      await request(app.getHttpServer()).get('/api/auth/sessions').expect(401);
+    });
+
+    it('lists the active sessions for the current member, hiding token material', async () => {
+      const { bearerToken, memberId } = await seedAdminContext(db);
+
+      // A second session for the same member, carrying client metadata
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId,
+        token: hashSessionToken('second-session-token'),
+        clientUserAgent: 'e2e-agent',
+        clientIpAddress: '203.0.113.7',
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+
+      expect(Array.isArray(res.body.sessions)).toBe(true);
+      expect(res.body.sessions.length).toBeGreaterThanOrEqual(2);
+
+      for (const s of res.body.sessions) {
+        expect(s).not.toHaveProperty('token');
+        expect(s).not.toHaveProperty('refreshTokenHash');
+      }
+
+      const withMeta = res.body.sessions.find(
+        (s: { clientInfo: unknown }) => s.clientInfo !== null,
+      );
+      expect(withMeta.clientInfo).toEqual({
+        userAgent: 'e2e-agent',
+        ipAddress: '203.0.113.7',
+      });
+    });
+  });
+
+  // ─── DELETE /api/auth/sessions/:sessionId ─────────────────────
+
+  describe('DELETE /api/auth/sessions/:sessionId', () => {
+    it("revokes one of the member's own sessions and leaves the caller session intact", async () => {
+      const { bearerToken, memberId } = await seedAdminContext(db);
+
+      const targetId = crypto.randomUUID();
+      await db.insert(sessions).values({
+        id: targetId,
+        memberId,
+        token: hashSessionToken('revoke-me-token'),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${targetId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(204);
+
+      const remaining = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, targetId));
+      expect(remaining).toHaveLength(0);
+
+      // The caller's own session still works
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+    });
+
+    it('revokes the caller current session immediately', async () => {
+      const { bearerToken } = await seedAdminContext(db);
+
+      const listed = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(200);
+      const ownId = listed.body.sessions[0].id;
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${ownId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(204);
+
+      // The revoked token is rejected on the next request
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(401);
+    });
+
+    it("returns 404 when revoking another member's session", async () => {
+      const { bearerToken } = await seedAdminContext(db);
+      const other = await seedMemberWithRole(db, '900000000000000001', {
+        username: 'othermember',
+      });
+
+      const otherSessionId = crypto.randomUUID();
+      await db.insert(sessions).values({
+        id: otherSessionId,
+        memberId: other.id,
+        token: hashSessionToken('other-member-token'),
+        expiresAt: new Date(Date.now() + 86_400_000),
+      });
+
+      await request(app.getHttpServer())
+        .delete(`/api/auth/sessions/${otherSessionId}`)
+        .set('Authorization', `Bearer ${bearerToken}`)
+        .expect(404);
+
+      const still = await db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.id, otherSessionId));
+      expect(still).toHaveLength(1);
+    });
+  });
+
+  // ─── POST /api/auth/token/refresh ─────────────────────────────
+
+  describe('POST /api/auth/token/refresh', () => {
+    const seedRefreshableSession = async (
+      rawAccess: string,
+      rawRefresh: string,
+    ) => {
+      const { memberId } = await seedAdminContext(db);
+      await db.insert(sessions).values({
+        id: crypto.randomUUID(),
+        memberId,
+        token: hashSessionToken(rawAccess),
+        refreshTokenHash: hashRefreshToken(rawRefresh),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+    };
+
+    it('rotates both tokens and invalidates the old pair', async () => {
+      const rawAccess = 'refresh-flow-access-token';
+      const rawRefresh = 'refresh-flow-refresh-token';
+      await seedRefreshableSession(rawAccess, rawRefresh);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .send({ refreshToken: rawRefresh })
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.refreshToken).toBeDefined();
+      expect(res.body.accessToken).not.toBe(rawAccess);
+      expect(res.body.refreshToken).not.toBe(rawRefresh);
+
+      // Old access token is dead, the new one works
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${res.body.accessToken}`)
+        .expect(200);
+
+      // The old refresh token cannot be replayed against the rotated session
+      await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${res.body.accessToken}`)
+        .send({ refreshToken: rawRefresh })
+        .expect(401);
+    });
+
+    it('returns 401 when the refresh token does not match the session', async () => {
+      const rawAccess = 'mismatch-access-token';
+      await seedRefreshableSession(rawAccess, 'the-real-refresh');
+
+      await request(app.getHttpServer())
+        .post('/api/auth/token/refresh')
+        .set('Authorization', `Bearer ${rawAccess}`)
+        .send({ refreshToken: 'a-wrong-refresh' })
+        .expect(401);
+    });
+
+    it('lets only one of two concurrent refreshes succeed (atomic rotation)', async () => {
+      const rawAccess = 'concurrent-access-token';
+      const rawRefresh = 'concurrent-refresh-token';
+      await seedRefreshableSession(rawAccess, rawRefresh);
+
+      const fire = () =>
+        request(app.getHttpServer())
+          .post('/api/auth/token/refresh')
+          .set('Authorization', `Bearer ${rawAccess}`)
+          .send({ refreshToken: rawRefresh });
+
+      const [a, b] = await Promise.all([fire(), fire()]);
+
+      // Exactly one rotation wins; the loser is rejected, never a double-spend.
+      expect([a.status, b.status].sort()).toEqual([200, 401]);
     });
   });
 
@@ -464,6 +671,216 @@ describeIf('/api/auth (e2e)', () => {
 
       expect(res.body).toMatchObject({
         url: expect.stringContaining('discord.com'),
+      });
+    });
+  });
+
+  // ─── SSO endpoints ────────────────────────────────────────────
+
+  describe('/api/auth/sso/*', () => {
+    const seedSsoSession = async (memberId: string, rawToken: string) => {
+      await db.insert(ssoSessions).values({
+        memberId,
+        tokenHash: hashSsoToken(rawToken),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+    };
+
+    describe('GET /api/auth/sso/session', () => {
+      it('returns 401 + { authenticated: false } when the cookie is missing', async () => {
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .expect(401);
+        expect(res.body).toEqual({ authenticated: false });
+      });
+
+      it('returns the authenticated member when the SSO cookie is valid', async () => {
+        const { memberId } = await seedAdminContext(db);
+        const rawToken = 'sso-status-token';
+        await seedSsoSession(memberId, rawToken);
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(200);
+
+        expect(res.body).toMatchObject({
+          authenticated: true,
+          member: {
+            id: memberId,
+            discordId: memberId,
+            username: 'testadmin',
+          },
+        });
+        expect(typeof res.body.expiresAt).toBe('string');
+      });
+
+      it('clears a stale cookie and reports unauthenticated', async () => {
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', ['mcdi_sso=stale-token'])
+          .expect(401);
+
+        const setCookie = (res.headers['set-cookie'] as unknown as string[])
+          ?.join(';')
+          .toLowerCase();
+        expect(setCookie).toContain('mcdi_sso=');
+        expect(setCookie).toContain('expires=');
+      });
+    });
+
+    describe('GET /api/auth/sso/authorize', () => {
+      it('with a valid SSO cookie, skips Discord and redirects straight to the platform with a code', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Cross-Project',
+        });
+        const rawToken = 'sso-cross-token';
+        await seedSsoSession(memberId, rawToken);
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/authorize')
+          .query({
+            client_id: project.id,
+            redirect_uri: 'http://localhost:4000/callback',
+            server_id: serverId,
+            state: 'csrf-sso',
+          })
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(302);
+
+        // Lands directly on the platform's redirect_uri carrying ?code=&state=,
+        // never bouncing through Discord.
+        const location = res.headers.location;
+        expect(location).toContain('http://localhost:4000/callback');
+        expect(location).toMatch(/[?&]code=/);
+        expect(location).toContain('state=csrf-sso');
+        expect(location).not.toContain('discord.com');
+      });
+
+      it('falls back to the Discord-OAuth flow when no SSO cookie is present', async () => {
+        const { serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Fallback',
+        });
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/authorize')
+          .query({
+            client_id: project.id,
+            redirect_uri: 'http://localhost:4000/callback',
+            server_id: serverId,
+            state: 'csrf-fallback',
+          })
+          .expect(302);
+
+        // Same handoff as the existing /auth/authorize flow.
+        expect(res.headers.location).toBe('/api/auth/discord');
+        const cookie = (res.headers['set-cookie'] as unknown as string[]).find(
+          (c) => c.startsWith('mcdi_auth_req='),
+        );
+        expect(cookie).toBeDefined();
+      });
+    });
+
+    describe('GET /api/auth/sso/sessions', () => {
+      it('lists active project sessions under the SSO cookie, hiding tokens', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO List Project',
+        });
+        const rawToken = 'sso-list-token';
+        await seedSsoSession(memberId, rawToken);
+
+        await db.insert(sessions).values({
+          id: crypto.randomUUID(),
+          memberId,
+          projectId: project.id,
+          serverId,
+          token: hashSessionToken('project-session-token'),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        });
+
+        const res = await request(app.getHttpServer())
+          .get('/api/auth/sso/sessions')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(200);
+
+        expect(Array.isArray(res.body.sessions)).toBe(true);
+        const match = res.body.sessions.find(
+          (s: { projectId: string }) => s.projectId === project.id,
+        );
+        expect(match).toMatchObject({
+          projectId: project.id,
+          projectName: 'SSO List Project',
+          serverId,
+        });
+        for (const s of res.body.sessions) {
+          expect(s).not.toHaveProperty('token');
+          expect(s).not.toHaveProperty('tokenHash');
+        }
+      });
+
+      it('returns 401 without an SSO cookie', async () => {
+        await request(app.getHttpServer())
+          .get('/api/auth/sso/sessions')
+          .expect(401);
+      });
+    });
+
+    describe('POST /api/auth/sso/logout', () => {
+      it('cascades: destroys SSO + every project session and clears the cookie', async () => {
+        const { memberId, serverId } = await seedAdminContext(db);
+        const project = await seedTestProject(db, serverId, {
+          name: 'SSO Logout Project',
+        });
+        const rawToken = 'sso-logout-token';
+        await seedSsoSession(memberId, rawToken);
+
+        await db.insert(sessions).values({
+          id: crypto.randomUUID(),
+          memberId,
+          projectId: project.id,
+          serverId,
+          token: hashSessionToken('project-token-to-be-killed'),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        });
+
+        const res = await request(app.getHttpServer())
+          .post('/api/auth/sso/logout')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(204);
+
+        const setCookie = (res.headers['set-cookie'] as unknown as string[])
+          ?.join(';')
+          .toLowerCase();
+        expect(setCookie).toContain('mcdi_sso=');
+
+        // SSO row is gone
+        const remainingSso = await db
+          .select()
+          .from(ssoSessions)
+          .where(eq(ssoSessions.tokenHash, hashSsoToken(rawToken)));
+        expect(remainingSso).toHaveLength(0);
+
+        // Project sessions for this member are gone too
+        const remainingSessions = await db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.memberId, memberId));
+        expect(remainingSessions).toHaveLength(0);
+
+        // The SSO endpoint now rejects the same cookie
+        await request(app.getHttpServer())
+          .get('/api/auth/sso/session')
+          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .expect(401);
+      });
+
+      it('is idempotent — succeeds with no cookie', async () => {
+        await request(app.getHttpServer())
+          .post('/api/auth/sso/logout')
+          .expect(204);
       });
     });
   });

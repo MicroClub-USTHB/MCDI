@@ -77,8 +77,8 @@ describe('ApiKeyGuard', () => {
 
     const cacheStore = new Map<string, any>();
     mockProjectAuthCache = {
-      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
-      set: jest.fn(async (apiKey: string, project: any) => {
+      get: jest.fn((apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn((apiKey: string, project: any) => {
         cacheStore.set(apiKey, project);
       }),
       shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
@@ -160,8 +160,8 @@ describe('ApiKeyGuard', () => {
     };
     const cacheStore = new Map<string, any>();
     const authCache: any = {
-      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
-      set: jest.fn(async (apiKey: string, project: any) => {
+      get: jest.fn((apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn((apiKey: string, project: any) => {
         cacheStore.set(apiKey, project);
       }),
       shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
@@ -220,8 +220,8 @@ describe('ApiKeyGuard', () => {
     } as any;
     const cacheStore = new Map<string, any>();
     mockProjectAuthCache = {
-      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
-      set: jest.fn(async (apiKey: string, project: any) => {
+      get: jest.fn((apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn((apiKey: string, project: any) => {
         cacheStore.set(apiKey, project);
       }),
       shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
@@ -346,8 +346,8 @@ describe('ApiKeyGuard', () => {
 
     const cacheStore = new Map<string, any>();
     mockProjectAuthCache = {
-      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
-      set: jest.fn(async (apiKey: string, cachedProject: any) => {
+      get: jest.fn((apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn((apiKey: string, cachedProject: any) => {
         cacheStore.set(apiKey, cachedProject);
       }),
       shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
@@ -482,8 +482,8 @@ describe('ApiKeyGuard', () => {
     };
     const cacheStore = new Map<string, any>();
     const authCache: any = {
-      get: jest.fn(async (apiKey: string) => cacheStore.get(apiKey) ?? null),
-      set: jest.fn(async (apiKey: string, project: any) => {
+      get: jest.fn((apiKey: string) => cacheStore.get(apiKey) ?? null),
+      set: jest.fn((apiKey: string, project: any) => {
         cacheStore.set(apiKey, project);
       }),
       shouldRefreshLastUsed: jest.fn().mockResolvedValue(false),
