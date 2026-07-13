@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as schema from './entities';
 import { initialSeeder } from './seeders/initial.seeder';
 import { adminSeeder } from './seeders/admin.seeder';
-import { DRIZZLE, DrizzleDB } from './database.module';
+import { DRIZZLE, DrizzleDB } from './database.constants';
 
 @Injectable()
 export class DatabaseInitService implements OnModuleInit {
