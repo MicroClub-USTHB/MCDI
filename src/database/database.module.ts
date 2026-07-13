@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './entities';
+import { DatabaseInitService } from './database-init.service';
 
 export const DRIZZLE = 'DRIZZLE';
 export const DATABASE_POOL = 'DATABASE_POOL';
@@ -33,6 +34,7 @@ class DatabasePoolCleanupService implements OnModuleDestroy {
       useFactory: (pool: Pool) => drizzle(pool, { schema }),
     },
     DatabasePoolCleanupService,
+    DatabaseInitService,
   ],
   exports: [DRIZZLE, DATABASE_POOL],
 })
