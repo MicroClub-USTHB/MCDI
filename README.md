@@ -89,19 +89,21 @@ The compose stack starts:
 
 ### Run From Source
 
+> MCDI uses **pnpm** as its only package manager (`package-lock.json` is not supported).
+
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npm run db:push
-npm run start:dev
+pnpm run db:migrate
+pnpm run start:dev
 ```
 
 Optional helpers:
 
 ```bash
-npm run db:seed
-npm run test
-npm run test:e2e
+pnpm run db:seed
+pnpm run test
+pnpm run test:e2e
 ```
 
 ## Configuration
@@ -222,23 +224,34 @@ docker-compose up --build -d
 Useful scripts:
 
 ```bash
-npm run docker:up
-npm run docker:up:build
-npm run docker:down
-npm run docker:logs
-npm run docker:db:push
-npm run docker:db:seed
+pnpm run docker:up
+pnpm run docker:up:build
+pnpm run docker:down
+pnpm run docker:logs
+pnpm run docker:db:push
+pnpm run docker:db:seed
 ```
+
+> **Note:** the `docker-compose.yml` stack ships with hardcoded dev credentials
+> (`myuser` / `mypassword`, `redis_password`). These are **local development only**.
+> Production deployments pull the CI-built image via `docker-compose.prod.yml` and
+> inject all secrets through the deployment environment (e.g. dokploy env), never
+> hardcoded values.
 
 ### Production
 
-The repository includes a multi-stage production `Dockerfile`.
+The repository ships a CI-built, public image on GitHub Container Registry
+(`ghcr.io/<owner>/mcdi:latest`) and a ready-to-deploy Compose stack
+(`docker-compose.prod.yml`) that spins up the API together with PostgreSQL and
+Redis, with persistent volumes.
 
-Build and run manually:
+For a plain-image deploy, the production container runs **Drizzle migrations on
+startup** (never `db:push`) before booting the API:
 
 ```bash
 docker build -t mcdi:local .
-docker run --env-file .env -p 3000:3000 mcdi:local
+# migrations run automatically via the start:prod:migrate script
+docker run --env-file .env -p 3000:3000 mcdi:local pnpm run start:prod:migrate
 ```
 
 At runtime, the production container expects:
@@ -260,10 +273,10 @@ At runtime, the production container expects:
 
 The repository now keeps requirements and architecture notes under `docs/`:
 
-- [docs/specefication_document_mvp.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_document_mvp.md): current release scope and implemented requirements
-- [docs/specefication_document_last_version.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_document_last_version.md): next-phase roadmap and architecture direction
-- [docs/database_architecture_mvp.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/database_architecture_mvp.md): current database architecture and schema notes
-- [docs/specefication_file.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_file.md): index of the documentation set
+- [docs/specefication_document_mvp.md](docs/specefication_document_mvp.md): current release scope and implemented requirements
+- [docs/specefication_document_last_version.md](docs/specefication_document_last_version.md): next-phase roadmap and architecture direction
+- [docs/database_architecture_mvp.md](docs/database_architecture_mvp.md): current database architecture and schema notes
+- [docs/specefication_file.md](docs/specefication_file.md): index of the documentation set
 
 ## Future Extensions
 

@@ -30,6 +30,18 @@ describe('AppController', () => {
     });
   });
 
+  describe('health', () => {
+    it('returns an ok status with a numeric uptime', () => {
+      const result = appController.getHealth();
+
+      expect(result).toEqual({
+        status: 'ok',
+        uptime: expect.any(Number),
+      });
+      expect(Number.isFinite(result.uptime)).toBe(true);
+    });
+  });
+
   describe('admin', () => {
     it('renders the admin landing page with the expected endpoints', () => {
       const render = jest.fn();
