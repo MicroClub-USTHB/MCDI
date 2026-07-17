@@ -118,10 +118,10 @@ jobs:
 
       - name: Run database migrations
         run: |
-          for i in 1 2 3 4 5; do
+          for i in 1 2 3; do
             echo "Migration attempt $i"
-            pnpm run db:migrate && exit 0
-            sleep 5
+            RESET_DB=1 pnpm run db:migrate && exit 0
+            sleep 3
           done
           exit 1
         env:

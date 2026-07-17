@@ -21,7 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.config.cjs --runInBand",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "db:migrate:docker": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f /migrations/migration.sql",
     "db:studio": "drizzle-kit studio --host 0.0.0.0",
     "db:seed": "tsx src/database/seed.ts",
