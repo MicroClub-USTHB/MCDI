@@ -89,19 +89,21 @@ The compose stack starts:
 
 ### Run From Source
 
+> MCDI uses **pnpm** as its only package manager (`package-lock.json` is not supported).
+
 ```bash
-npm install
+pnpm install
 cp .env.example .env
-npm run db:push
-npm run start:dev
+pnpm run db:migrate
+pnpm run start:dev
 ```
 
 Optional helpers:
 
 ```bash
-npm run db:seed
-npm run test
-npm run test:e2e
+pnpm run db:seed
+pnpm run test
+pnpm run test:e2e
 ```
 
 ## Configuration
@@ -222,12 +224,12 @@ docker-compose up --build -d
 Useful scripts:
 
 ```bash
-npm run docker:up
-npm run docker:up:build
-npm run docker:down
-npm run docker:logs
-npm run docker:db:push
-npm run docker:db:seed
+pnpm run docker:up
+pnpm run docker:up:build
+pnpm run docker:down
+pnpm run docker:logs
+pnpm run docker:db:push
+pnpm run docker:db:seed
 ```
 
 ### Production
