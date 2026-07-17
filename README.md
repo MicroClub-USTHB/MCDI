@@ -232,6 +232,12 @@ pnpm run docker:db:push
 pnpm run docker:db:seed
 ```
 
+> **Note:** the `docker-compose.yml` stack ships with hardcoded dev credentials
+> (`myuser` / `mypassword`, `redis_password`). These are **local development only**.
+> Production deployments pull the CI-built image via `docker-compose.prod.yml` and
+> inject all secrets through the deployment environment (e.g. dokploy env), never
+> hardcoded values.
+
 ### Production
 
 The repository includes a multi-stage production `Dockerfile`.
@@ -262,10 +268,10 @@ At runtime, the production container expects:
 
 The repository now keeps requirements and architecture notes under `docs/`:
 
-- [docs/specefication_document_mvp.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_document_mvp.md): current release scope and implemented requirements
-- [docs/specefication_document_last_version.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_document_last_version.md): next-phase roadmap and architecture direction
-- [docs/database_architecture_mvp.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/database_architecture_mvp.md): current database architecture and schema notes
-- [docs/specefication_file.md](/Users/destockphonedz/Documents/MCDI/MCDI/docs/specefication_file.md): index of the documentation set
+- [docs/specefication_document_mvp.md](docs/specefication_document_mvp.md): current release scope and implemented requirements
+- [docs/specefication_document_last_version.md](docs/specefication_document_last_version.md): next-phase roadmap and architecture direction
+- [docs/database_architecture_mvp.md](docs/database_architecture_mvp.md): current database architecture and schema notes
+- [docs/specefication_file.md](docs/specefication_file.md): index of the documentation set
 
 ## Future Extensions
 
