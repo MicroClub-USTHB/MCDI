@@ -1,9 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
+import { DRIZZLE } from './database/database.module';
+import { RedisService } from './common/redis/redis.service';
 
 describe('AppController', () => {
   let appController: AppController;
+
+  const dbMock = { execute: jest.fn().mockResolvedValue(undefined) };
+  const redisMock = { ping: jest.fn().mockResolvedValue(true) };
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
@@ -18,6 +23,8 @@ describe('AppController', () => {
             }),
           },
         },
+        { provide: DRIZZLE, useValue: dbMock },
+        { provide: RedisService, useValue: redisMock },
       ],
     }).compile();
 
@@ -31,14 +38,37 @@ describe('AppController', () => {
   });
 
   describe('health', () => {
-    it('returns an ok status with a numeric uptime', () => {
-      const result = appController.getHealth();
+    it('returns ok with both dependencies up', async () => {
+      dbMock.execute.mockResolvedValueOnce(undefined);
+      redisMock.ping.mockResolvedValueOnce(true);
+
+      const result = await appController.getHealth();
 
       expect(result).toEqual({
         status: 'ok',
         uptime: expect.any(Number),
+        database: 'up',
+        redis: 'up',
       });
       expect(Number.isFinite(result.uptime)).toBe(true);
+    });
+
+    it('reports degraded when the database is unreachable', async () => {
+      dbMock.execute.mockRejectedValueOnce(new Error('db down'));
+      redisMock.ping.mockResolvedValueOnce(true);
+
+      const result = await appController.getHealth();
+
+      expect(result).toMatchObject({ status: 'degraded', database: 'down' });
+    });
+
+    it('reports degraded when redis is unreachable', async () => {
+      dbMock.execute.mockResolvedValueOnce(undefined);
+      redisMock.ping.mockResolvedValueOnce(false);
+
+      const result = await appController.getHealth();
+
+      expect(result).toMatchObject({ status: 'degraded', redis: 'down' });
     });
   });
 

@@ -147,9 +147,15 @@ export class ServersRepository {
           .where(inArray(serverMemberRoles.roleId, roleIds));
       }
 
-      await tx.delete(projectServers).where(eq(projectServers.serverId, serverId));
-      await tx.delete(serverSyncLogs).where(eq(serverSyncLogs.serverId, serverId));
-      await tx.delete(serverMembers).where(eq(serverMembers.serverId, serverId));
+      await tx
+        .delete(projectServers)
+        .where(eq(projectServers.serverId, serverId));
+      await tx
+        .delete(serverSyncLogs)
+        .where(eq(serverSyncLogs.serverId, serverId));
+      await tx
+        .delete(serverMembers)
+        .where(eq(serverMembers.serverId, serverId));
       await tx.delete(roles).where(eq(roles.serverId, serverId));
       await tx.delete(servers).where(eq(servers.id, serverId));
     });

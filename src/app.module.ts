@@ -1,6 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { RedisModule } from './common/redis/redis.module';
 import { AppController } from './app.controller';
 
 import { DiscordModule } from './modules/discord/discord.module';
@@ -34,6 +35,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     }),
     ConfigModule,
     DatabaseModule,
+    RedisModule,
     DiscordModule,
     AuthModule,
     ServersModule,

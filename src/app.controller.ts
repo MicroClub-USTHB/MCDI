@@ -1,13 +1,20 @@
-import { Controller, Get, Query, Req, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Query, Req, Res } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { sql } from 'drizzle-orm';
 import type { Request, Response } from 'express';
 import { extractSessionToken } from './common/utils/auth.util';
+import { DRIZZLE, DrizzleDB } from './database/database.module';
+import { RedisService } from './common/redis/redis.service';
 
 @ApiExcludeController()
 @Controller()
 export class AppController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly redis: RedisService,
+  ) {}
 
   @Get()
   getHello(): string {
@@ -42,7 +49,42 @@ export class AppController {
   }
 
   @Get('health')
-  getHealth() {
-    return { status: 'ok', uptime: Math.floor(process.uptime()) };
+  async getHealth(@Res() res?: Response) {
+    const [databaseUp, redisUp] = await Promise.all([
+      this.checkDatabase(),
+      this.checkRedis(),
+    ]);
+
+    const status = databaseUp && redisUp ? 'ok' : 'degraded';
+    const payload = {
+      status,
+      uptime: Math.floor(process.uptime()),
+      database: databaseUp ? 'up' : 'down',
+      redis: redisUp ? 'up' : 'down',
+    };
+
+    // Report unhealthy (503) when a core dependency is unavailable so that
+    // orchestrators (dokploy/docker healthcheck) stop routing real traffic.
+    if (res) {
+      return res.status(status === 'ok' ? 200 : 503).json(payload);
+    }
+    return payload;
+  }
+
+  private async checkDatabase(): Promise<boolean> {
+    try {
+      await this.db.execute(sql`select 1`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkRedis(): Promise<boolean> {
+    try {
+      return await this.redis.ping();
+    } catch {
+      return false;
+    }
   }
 }

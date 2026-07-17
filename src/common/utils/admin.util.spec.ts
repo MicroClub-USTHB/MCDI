@@ -41,9 +41,9 @@ describe('isAdminMember', () => {
     const db = buildSequentialMockDb([
       [], // no main server found
     ]);
-    await expect(isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(
+      isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('returns false when member is not in the main server', async () => {
