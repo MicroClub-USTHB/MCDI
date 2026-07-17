@@ -14,11 +14,6 @@ export interface IssueSsoSessionResult {
   expiresAt: Date;
 }
 
-export interface SsoSessionStatus {
-  ssoSession: typeof schema.ssoSessions.$inferSelect;
-  member: typeof schema.members.$inferSelect;
-}
-
 @Injectable()
 export class SsoService {
   private readonly logger = new Logger(SsoService.name);
