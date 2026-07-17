@@ -167,7 +167,7 @@ jobs:
         run: |
           gh api -X PATCH \
             -H "Accept: application/vnd.github+json" \
-            "/user/packages/container/mcdi/visibility" \
+            "/orgs/microclub-usthb/packages/container/mcdi/visibility" \
             -f visibility=public || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

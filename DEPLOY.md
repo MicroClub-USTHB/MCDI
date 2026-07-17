@@ -49,13 +49,19 @@ Enable **Scheduled Backups** for the `database` service in the dokploy UI, point
 at your preferred off-host storage.
 
 ### Option B — cron `pg_dump` sidecar / host cron
+On the dokploy host the compose file lives at
+`/etc/dokploy/compose/<app-name>/code/docker-compose.prod.yml`, so either
+`cd` into that directory first or pass the absolute path:
+
 ```bash
+COMPOSE_FILE=/etc/dokploy/compose/<app-name>/code/docker-compose.prod.yml
+
 # one-off dump
-docker compose -f docker-compose.prod.yml exec -T database \
+docker compose -f "$COMPOSE_FILE" exec -T database \
   pg_dump -U mcdi mcdi > mcdi-$(date +%F).sql
 
 # restore
-docker compose -f docker-compose.prod.yml exec -T database \
+docker compose -f "$COMPOSE_FILE" exec -T database \
   psql -U mcdi mcdi < mcdi-YYYY-MM-DD.sql
 ```
 
