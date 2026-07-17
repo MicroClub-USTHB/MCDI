@@ -240,13 +240,18 @@ pnpm run docker:db:seed
 
 ### Production
 
-The repository includes a multi-stage production `Dockerfile`.
+The repository ships a CI-built, public image on GitHub Container Registry
+(`ghcr.io/<owner>/mcdi:latest`) and a ready-to-deploy Compose stack
+(`docker-compose.prod.yml`) that spins up the API together with PostgreSQL and
+Redis, with persistent volumes.
 
-Build and run manually:
+For a plain-image deploy, the production container runs **Drizzle migrations on
+startup** (never `db:push`) before booting the API:
 
 ```bash
 docker build -t mcdi:local .
-docker run --env-file .env -p 3000:3000 mcdi:local
+# migrations run automatically via the start:prod:migrate script
+docker run --env-file .env -p 3000:3000 mcdi:local pnpm run start:prod:migrate
 ```
 
 At runtime, the production container expects:
