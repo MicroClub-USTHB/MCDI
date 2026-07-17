@@ -21,8 +21,10 @@ services:
       - REDIS_KEY_PREFIX=mcdi
 
     depends_on:
-      - database
-      - redis
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
     command: sh -lc "corepack enable && pnpm install && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm run start:dev"
 
@@ -41,6 +43,11 @@ services:
       - POSTGRES_DB=mcdi
     volumes:
       - my_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mcdi"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
