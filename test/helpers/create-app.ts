@@ -5,6 +5,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
+import { DatabaseInitService } from '../../src/database/database-init.service';
 
 /**
  * Bootstrap a full NestJS application instance suitable for E2E tests.
@@ -20,6 +21,9 @@ export async function createTestApp(): Promise<INestApplication> {
     // Disable rate limiting in E2E tests so tests don't trip over each other
     .overrideGuard(ThrottlerGuard)
     .useValue({ canActivate: () => true })
+    // E2E tests manage their own DB schema — skip auto-migration
+    .overrideProvider(DatabaseInitService)
+    .useValue({ onModuleInit: () => Promise.resolve() })
     .compile();
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
