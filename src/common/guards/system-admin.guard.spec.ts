@@ -91,12 +91,7 @@ describe('SystemAdminGuard', () => {
 
   it('throws UnauthorizedException when session is expired', async () => {
     const past = new Date(Date.now() - 10_000);
-    const db = buildMockDb(
-      [{ memberId: 'u1', expiresAt: past }],
-      [],
-      [],
-      [],
-    );
+    const db = buildMockDb([{ memberId: 'u1', expiresAt: past }], [], [], []);
     guard = await buildGuard(db);
     await expect(
       guard.canActivate(makeContext('Bearer expired-token')),

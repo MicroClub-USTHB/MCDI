@@ -125,10 +125,7 @@ describe('validateSession', () => {
     visit(whereArg);
 
     expect(values).toEqual(
-      expect.arrayContaining([
-        'valid-token',
-        hashSessionToken('valid-token'),
-      ]),
+      expect.arrayContaining(['valid-token', hashSessionToken('valid-token')]),
     );
   });
 

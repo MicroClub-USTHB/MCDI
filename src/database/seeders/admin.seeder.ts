@@ -12,7 +12,9 @@ import * as schema from '../entities';
  * that were set by the previous username/password auth system.
  */
 export async function adminSeeder(db: NodePgDatabase<typeof schema>) {
-  console.log('Clearing legacy admin credentials (is_system_admin / password_hash)...');
+  console.log(
+    'Clearing legacy admin credentials (is_system_admin / password_hash)...',
+  );
 
   await db
     .update(schema.members)

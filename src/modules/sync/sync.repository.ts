@@ -4,23 +4,10 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { serverSyncLogs } from '../../database/entities/server-sync-log.entity';
 import { syncChangeDetails } from '../../database/entities/sync-change-detail.entity';
-import {
-  eq,
-  and,
-  desc,
-  sql,
-  asc,
-  isNull,
-  lt,
-  or,
-} from 'drizzle-orm';
+import { eq, and, desc, sql, asc, isNull, lt, or } from 'drizzle-orm';
 import { SyncTarget } from './dto/trigger-sync.dto';
 
-export type SyncLogStatus =
-  | 'queued'
-  | 'in_progress'
-  | 'success'
-  | 'failed';
+export type SyncLogStatus = 'queued' | 'in_progress' | 'success' | 'failed';
 
 @Injectable()
 export class SyncRepository {

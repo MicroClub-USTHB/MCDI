@@ -19,9 +19,7 @@ export class DiscordIdentityService {
     return this.discordService.exchangeOAuthCode(code, redirectUri);
   }
 
-  async fetchProfile(
-    accessToken: string,
-  ): Promise<DiscordOAuthProfile | null> {
+  async fetchProfile(accessToken: string): Promise<DiscordOAuthProfile | null> {
     return this.discordService.fetchOAuthProfile(accessToken);
   }
 
@@ -46,7 +44,10 @@ export class DiscordIdentityService {
   }
 
   async resolveIdentityFromOAuthCode(code: string, redirectUri: string) {
-    const accessToken = await this.exchangeCodeForAccessToken(code, redirectUri);
+    const accessToken = await this.exchangeCodeForAccessToken(
+      code,
+      redirectUri,
+    );
     if (!accessToken) return null;
 
     return this.resolveIdentityFromAccessToken(accessToken);
