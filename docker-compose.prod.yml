@@ -8,7 +8,9 @@ services:
   api:
     image: ghcr.io/microclub-usthb/mcdi:latest
     restart: always
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       NODE_ENV: production
       PORT: 3000
