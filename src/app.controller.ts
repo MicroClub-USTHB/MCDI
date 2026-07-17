@@ -40,4 +40,9 @@ export class AppController {
     const apiPrefix = this.configService.get<string>('app.apiPrefix') || 'api';
     return res.redirect(`/${apiPrefix}/auth/admin/discord`);
   }
+
+  @Get('health')
+  getHealth() {
+    return { status: 'ok', uptime: Math.floor(process.uptime()) };
+  }
 }
