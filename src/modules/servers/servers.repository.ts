@@ -54,12 +54,13 @@ export class ServersRepository {
   }
 
   async upsertServer(serverData: typeof servers.$inferInsert) {
+    const { isMain: _, ...updateData } = serverData;
     const [row] = await this.db
       .insert(servers)
       .values(serverData)
       .onConflictDoUpdate({
         target: servers.id,
-        set: serverData,
+        set: { ...updateData, updatedAt: new Date() },
       })
       .returning();
 
