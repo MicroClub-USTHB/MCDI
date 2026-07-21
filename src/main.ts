@@ -168,18 +168,22 @@ async function bootstrap() {
     }
   }
 
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
-    customSiteTitle: 'MCDI API Documentation',
-    customfavIcon: 'https://nestjs.com/img/logo-small.svg',
-    customCss: '.swagger-ui .topbar { display: none }',
-  });
+  if (nodeEnv !== 'production') {
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
+      customSiteTitle: 'MCDI API Documentation',
+      customfavIcon: 'https://nestjs.com/img/logo-small.svg',
+      customCss: '.swagger-ui .topbar { display: none }',
+    });
+  }
 
   await app.listen(port, '0.0.0.0');
   console.log(
     `Application is running on: http://localhost:${port}/${apiPrefix}`,
   );
-  console.log(
-    `Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`,
-  );
+  if (nodeEnv !== 'production') {
+    console.log(
+      `Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`,
+    );
+  }
 }
 void bootstrap();

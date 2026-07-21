@@ -32,12 +32,23 @@ without a registry secret.
 5. Attach a domain + TLS to the `api` service (container port `3000`).
 6. Deploy.
 
-On boot the stack:
+On boot the stack does everything automatically — no manual seed step needed:
 
 - waits for Postgres to report healthy,
-- runs `pnpm run db:migrate:docker` (applies `migration.sql` via `psql` — idempotent),
-- starts the API once the schema is in place,
+- runs `pnpm run db:migrate:docker` (creates tables + seeds the Discord
+  permission catalog — idempotent),
+- starts the API, which auto-creates a `servers` row from `MC_GUILD_ID` when
+  the table is empty (first boot only),
 - routes traffic only after `/api/health` returns `200`.
+
+After deploy:
+
+- The Discord sync (runs automatically on an interval) populates **real**
+  roles, members, and role-permission grants from your Discord guild.
+- An Executive-role member logs in via Discord admin OAuth and creates real
+  projects via the admin panel (or API).
+- The system is live with 100% production data — zero seed fixtures, zero
+  fake API keys, zero backdoor sessions.
 
 ## 3. Postgres backups
 
