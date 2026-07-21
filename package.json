@@ -95,7 +95,7 @@
   "pnpm": {
     "overrides": {
       "minimatch": "5.1.6",
-      "undici": ">=6.27.0",
+      "undici": ">=6.27.0 <7.0.0",
       "ws": ">=8.21.0",
       "path-to-regexp": ">=8.1.0",
       "lodash": ">=4.17.21",
