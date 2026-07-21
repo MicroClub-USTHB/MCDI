@@ -42,7 +42,7 @@ describe('isAdminMember', () => {
       [], // no main server found
     ]);
     await expect(
-      isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID),
+      isAdminMember(db, MEMBER_ID, [EXECUTIVE_ROLE_ID]),
     ).rejects.toThrow(ForbiddenException);
   });
 
@@ -51,7 +51,7 @@ describe('isAdminMember', () => {
       [{ id: 'guild-1' }], // main server found
       [], // member not in server
     ]);
-    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
+    const result = await isAdminMember(db, MEMBER_ID, [EXECUTIVE_ROLE_ID]);
     expect(result).toBe(false);
   });
 
@@ -61,7 +61,7 @@ describe('isAdminMember', () => {
       [{ memberId: MEMBER_ID }], // membership confirmed
       [{ roleId: 'role-member' }, { roleId: 'role-guest' }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
+    const result = await isAdminMember(db, MEMBER_ID, [EXECUTIVE_ROLE_ID]);
     expect(result).toBe(false);
   });
 
@@ -71,17 +71,30 @@ describe('isAdminMember', () => {
       [{ memberId: MEMBER_ID }],
       [{ roleId: EXECUTIVE_ROLE_ID }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
+    const result = await isAdminMember(db, MEMBER_ID, [EXECUTIVE_ROLE_ID]);
     expect(result).toBe(true);
   });
 
-  it('returns false when member holds only the Lead role', async () => {
+  it('returns true when member holds one of the admin roles', async () => {
     const db = buildSequentialMockDb([
       [{ id: 'guild-1' }],
       [{ memberId: MEMBER_ID }],
       [{ roleId: 'role-lead' }, { roleId: 'role-member' }],
     ]);
-    const result = await isAdminMember(db, MEMBER_ID, EXECUTIVE_ROLE_ID);
+    const result = await isAdminMember(db, MEMBER_ID, [
+      EXECUTIVE_ROLE_ID,
+      'role-lead',
+    ]);
+    expect(result).toBe(true);
+  });
+
+  it('returns false when member holds only a non-admin role', async () => {
+    const db = buildSequentialMockDb([
+      [{ id: 'guild-1' }],
+      [{ memberId: MEMBER_ID }],
+      [{ roleId: 'role-lead' }, { roleId: 'role-member' }],
+    ]);
+    const result = await isAdminMember(db, MEMBER_ID, [EXECUTIVE_ROLE_ID]);
     expect(result).toBe(false);
   });
 });

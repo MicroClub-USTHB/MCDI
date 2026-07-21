@@ -16,14 +16,21 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class SystemAdminGuard implements CanActivate {
-  private readonly executiveRoleId: string;
+  private readonly adminRoleIds: string[];
 
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly configService: ConfigService,
   ) {
-    this.executiveRoleId =
+    const executiveRoleId =
       this.configService.get<string>('discord.executiveRoleId') || '';
+    const devLeadRoleId =
+      this.configService.get<string>('discord.devLeadRoleId') || '';
+    const itLeadRoleId =
+      this.configService.get<string>('discord.itLeadRoleId') || '';
+    this.adminRoleIds = [executiveRoleId, devLeadRoleId, itLeadRoleId].filter(
+      Boolean,
+    );
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -39,15 +46,11 @@ export class SystemAdminGuard implements CanActivate {
     const memberId = await validateSession(this.db, token);
     (request as Request & { memberId: string }).memberId = memberId;
 
-    // Sole access criterion: configured admin Discord role ID in the main server
-    const isAdmin = await isAdminMember(
-      this.db,
-      memberId,
-      this.executiveRoleId,
-    );
+    // Access criterion: member holds any of the configured admin Discord role IDs in the main server
+    const isAdmin = await isAdminMember(this.db, memberId, this.adminRoleIds);
     if (!isAdmin) {
       throw new ForbiddenException(
-        'Access restricted to members with the configured admin role in the main server',
+        'Access restricted to members with a configured admin role in the main server',
       );
     }
 

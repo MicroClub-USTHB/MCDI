@@ -4,17 +4,17 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 
 /**
- * Checks whether a member holds the configured admin role ID in the main server.
+ * Checks whether a member holds any of the configured admin role IDs in the main server.
  * Throws 403 if no main server is configured.
- * Returns false if the member is not in the main server or lacks the admin role.
+ * Returns false if the member is not in the main server or lacks any admin role.
  */
 export async function isAdminMember(
   db: NodePgDatabase<typeof schema>,
   memberId: string,
-  executiveRoleId: string,
+  adminRoleIds: string[],
 ): Promise<boolean> {
-  if (!executiveRoleId) {
-    throw new ForbiddenException('No executive role configured');
+  if (!adminRoleIds.length) {
+    throw new ForbiddenException('No admin roles configured');
   }
 
   // 1. Find the configured main server
@@ -55,6 +55,6 @@ export async function isAdminMember(
     )
     .where(eq(schema.serverMemberRoles.memberId, memberId));
 
-  // 4. Check for the configured admin role ID
-  return memberRoles.some((role) => role.roleId === executiveRoleId);
+  // 4. Check for any configured admin role ID
+  return memberRoles.some((role) => adminRoleIds.includes(role.roleId));
 }
