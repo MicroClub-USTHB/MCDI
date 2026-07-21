@@ -3,41 +3,51 @@ name: CI Pipeline
 on:
   push:
     branches:
-      - main 
-      - dev  
+      - main
+      - dev
 
   pull_request:
     branches:
-      - dev     
-      - main    
-
+      - dev
+      - main
 
 env:
-  NODE_VERSION: '20'
-  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/mcdi-api
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.28.1'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-
- 
   lint-and-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run linter
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Run unit tests with coverage
-        run: npm run test:ci
+        run: pnpm run test:ci
 
       - name: Upload coverage report
         if: always()
@@ -71,20 +81,54 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: npm ci
-      - name: Push database schema
-        run: npm run db:push
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for Postgres
+        run: |
+          node -e "const { Client } = require('pg'); (async () => {
+            for (let i = 0; i < 30; i++) {
+              try {
+                const c = new Client({ connectionString: process.env.DATABASE_URL });
+                await c.connect();
+                await c.query('select 1');
+                await c.end();
+                console.log('Postgres is ready');
+                return;
+              } catch (e) {
+                console.log('Waiting for Postgres: ' + e.message);
+                await new Promise((r) => setTimeout(r, 2000));
+              }
+            }
+            process.exit(1);
+          })();"
         env:
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+
+      - name: Run database migrations
+        run: |
+          for i in 1 2 3; do
+            echo "Migration attempt $i"
+            RESET_DB=1 pnpm run db:migrate && exit 0
+            sleep 3
+          done
+          exit 1
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm run test:e2e
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
@@ -105,11 +149,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -117,10 +174,11 @@ jobs:
         id: meta    # "id" lets other steps reference this step's outputs
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -129,5 +187,14 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Make package public
+        run: |
+          gh api -X PATCH \
+            -H "Accept: application/vnd.github+json" \
+            "/orgs/microclub-usthb/packages/container/mcdi/visibility" \
+            -f visibility=public || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Min, Max } from 'class-validator';
+import { IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SyncChangeDetailDto {
@@ -60,22 +60,4 @@ export class SyncChangeDetailsQueryDto {
   @Min(1)
   @Type(() => Number)
   syncLogId: number;
-
-  @ApiPropertyOptional({
-    default: 100,
-    description: 'Max results to return (1-500)',
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(500)
-  @Type(() => Number)
-  limit?: number;
-
-  @ApiPropertyOptional({ default: 0, description: 'Number of records to skip' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Type(() => Number)
-  offset?: number;
 }

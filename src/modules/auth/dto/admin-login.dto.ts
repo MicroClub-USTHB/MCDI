@@ -44,24 +44,3 @@ export class AdminLoginMemberDto {
   })
   isSystemAdmin: boolean;
 }
-
-export class AdminLoginResponseDto {
-  @ApiProperty({
-    description:
-      'Bearer token — include as `Authorization: Bearer <token>` on all admin endpoints',
-    example: 'a1b2c3d4e5f6...',
-  })
-  token: string;
-
-  @ApiProperty({
-    description: 'ISO 8601 timestamp when the session token expires (24 h from issue)',
-    example: '2026-03-13T05:00:00.000Z',
-  })
-  expiresAt: Date;
-
-  @ApiProperty({
-    description: 'Authenticated system-admin member',
-    type: () => AdminLoginMemberDto,
-  })
-  member: AdminLoginMemberDto;
-}

@@ -29,11 +29,6 @@ export const DEFAULT_PROJECT_SERVER_OPERATIONS: ProjectServerOperations = {
   MANAGE_WEBHOOKS: false,
 };
 
-export const isProjectServerOperation = (
-  value: string,
-): value is ProjectServerOperation =>
-  (PROJECT_SERVER_OPERATION_VALUES as readonly string[]).includes(value);
-
 type AccessAuditAction = 'GRANT' | 'UPDATE' | 'REVOKE';
 
 export interface ProjectRow {

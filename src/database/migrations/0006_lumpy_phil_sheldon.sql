@@ -1,1 +1,0 @@
-ALTER TABLE "oauth_states" DROP COLUMN "api_key";

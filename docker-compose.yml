@@ -26,7 +26,7 @@ services:
       redis:
         condition: service_started
 
-    command: sh -lc "npm install && npm run start:dev"
+    command: sh -lc "corepack enable && pnpm install && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm run start:dev"
 
     volumes:
       - .:/usr/src/app

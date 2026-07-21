@@ -1,1 +1,0 @@
-ALTER TABLE "roles" ADD COLUMN "hierarchy_level" integer;

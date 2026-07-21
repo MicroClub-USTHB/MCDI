@@ -1,0 +1,61 @@
+# Production stack — pulled from CI-built GHCR image (never built on the server).
+# Deployed via dokploy as a Compose stack using this file.
+# All secrets (POSTGRES_PASSWORD, REDIS_PASSWORD, DISCORD_*, MC_*, BASE_URL,
+# CORS_ORIGINS, ADMIN_FRONTEND_URL) are injected by the deployment environment
+# (e.g. dokploy env). Never hardcode real secrets here.
+
+services:
+  api:
+    image: ghcr.io/microclub-usthb/mcdi:latest
+    restart: always
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://mcdi:${POSTGRES_PASSWORD}@database:5432/mcdi
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_KEY_PREFIX: mcdi
+    command: sh -lc "pnpm run db:migrate:docker && node dist/main.js"
+    ports:
+      - '3000:3000'
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  database:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: mcdi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: mcdi
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mcdi -d mcdi']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD}']
+    volumes:
+      - redis_data:/data
+
+volumes:
+  pg_data:
+  redis_data:

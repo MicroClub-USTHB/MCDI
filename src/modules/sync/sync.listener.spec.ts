@@ -108,8 +108,8 @@ describe('SyncListener', () => {
     it('calls startupSyncAll immediately when client is already ready', async () => {
       const { listener, mockDiscordService, mockSyncService } =
         await buildModule({
-        isReady: jest.fn().mockReturnValue(true),
-      });
+          isReady: jest.fn().mockReturnValue(true),
+        });
       mockDiscordService.isBotReady.mockReturnValue(true);
       listener.onApplicationBootstrap();
 
@@ -121,8 +121,8 @@ describe('SyncListener', () => {
     it('waits for the ready event when client is not ready', async () => {
       const { listener, mockDiscordService, mockSyncService } =
         await buildModule({
-        isReady: jest.fn().mockReturnValue(false),
-      });
+          isReady: jest.fn().mockReturnValue(false),
+        });
       listener.onApplicationBootstrap();
 
       expect(mockSyncService.startupSyncAll).not.toHaveBeenCalled();

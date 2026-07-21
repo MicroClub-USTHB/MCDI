@@ -63,16 +63,17 @@ async function bootstrap() {
     ],
   });
   app.useStaticAssets(join(__dirname, 'public'));
-  app.useStaticAssets(join(__dirname, 'views', 'assets'), { prefix: '/assets' });
+  app.useStaticAssets(join(__dirname, 'views', 'assets'), {
+    prefix: '/assets',
+  });
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
 
   // Swagger Configuration
-  let swaggerServerUrl =
-    process.env.BASE_URL || `http://localhost:${port}`;
+  let swaggerServerUrl = process.env.BASE_URL || `http://localhost:${port}`;
   swaggerServerUrl = swaggerServerUrl.replace(/\/+$/, '');
   if (swaggerServerUrl.endsWith(`/${apiPrefix}`)) {
-    swaggerServerUrl = swaggerServerUrl.slice(0, -(`/${apiPrefix}`.length));
+    swaggerServerUrl = swaggerServerUrl.slice(0, -`/${apiPrefix}`.length);
   }
 
   const config = new DocumentBuilder()
@@ -140,7 +141,7 @@ async function bootstrap() {
       'api-key',
     )
     .addServer(
-      // The server URL should be the root ONLY. 
+      // The server URL should be the root ONLY.
       // NestJS paths include the apiPrefix already.
       process.env.BASE_URL || `http://localhost:${port}`,
       'API Server',
@@ -167,18 +168,22 @@ async function bootstrap() {
     }
   }
 
-  SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
-    customSiteTitle: 'MCDI API Documentation',
-    customfavIcon: 'https://nestjs.com/img/logo-small.svg',
-    customCss: '.swagger-ui .topbar { display: none }',
-  });
+  if (nodeEnv !== 'production') {
+    SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
+      customSiteTitle: 'MCDI API Documentation',
+      customfavIcon: 'https://nestjs.com/img/logo-small.svg',
+      customCss: '.swagger-ui .topbar { display: none }',
+    });
+  }
 
   await app.listen(port, '0.0.0.0');
   console.log(
     `Application is running on: http://localhost:${port}/${apiPrefix}`,
   );
-  console.log(
-    `Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`,
-  );
+  if (nodeEnv !== 'production') {
+    console.log(
+      `Swagger documentation available at: http://localhost:${port}/${apiPrefix}/docs`,
+    );
+  }
 }
 void bootstrap();
