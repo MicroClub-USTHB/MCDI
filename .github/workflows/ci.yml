@@ -190,11 +190,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Make package public
-        run: |
-          gh api -X PATCH \
-            -H "Accept: application/vnd.github+json" \
-            "/orgs/microclub-usthb/packages/container/mcdi/visibility" \
-            -f visibility=public || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

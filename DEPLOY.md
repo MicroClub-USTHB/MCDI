@@ -5,18 +5,33 @@ MCDI is deployed as a single Compose stack described in
 pushed by CI to GitHub Container Registry (GHCR) and **pulled** by dokploy — the
 server never builds the image.
 
-## 1. Make the GHCR package public
+## 1. Make the GHCR package public (one-time)
 
-The CI workflow already flips the `mcdi` package to **Public** on every push to
-`main`. If you ever need to do it manually:
+The CI workflow builds and pushes the image to GHCR, but the package starts as
+**private**. Before dokploy can pull it, make the package **Public** once:
 
-- GitHub → repo (or org) **Packages** → `mcdi` → **Package settings** →
+- GitHub → org **Packages** → `mcdi` → **Package settings** →
   **Change visibility** → **Public**.
 
 A public package means dokploy can pull `ghcr.io/microclub-usthb/mcdi:latest`
-without a registry secret.
+without registry credentials. You only need to do this once — subsequent pushes
+keep the visibility setting.
 
-## 2. Create the Compose deployment
+## 2. Configure the GHCR registry in dokploy
+
+Even though the image is public, dokploy needs a registry entry for GHCR
+to resolve the image host:
+
+1. dokploy → **Registry** → **Add Registry**.
+2. Fill in:
+   - **Registry Name**: `GitHub Container Registry`
+   - **Registry URL**: `ghcr.io`
+   - **Username**: *(leave empty for public images)*
+   - **Password**: *(leave empty for public images)*
+   - **Image Prefix**: *(leave empty)*
+3. Click **Test** to verify the connection, then **Create**.
+
+## 3. Create the Compose deployment
 
 1. dokploy → **Create** → **Compose**.
 2. Source = this repository, branch `main`.
@@ -50,7 +65,7 @@ After deploy:
 - The system is live with 100% production data — zero seed fixtures, zero
   fake API keys, zero backdoor sessions.
 
-## 3. Postgres backups
+## 4. Postgres backups
 
 The database data lives in the `pg_data` volume and **survives redeploys**, but it
 is not backed up by default. Own your backups:
