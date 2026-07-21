@@ -7,6 +7,7 @@
 services:
   api:
     image: ghcr.io/microclub-usthb/mcdi:latest
+    pull_policy: always
     restart: always
     env_file:
       - path: .env
