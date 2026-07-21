@@ -3,7 +3,6 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './entities';
 import { initialSeeder } from './seeders/initial.seeder';
-import { adminSeeder } from './seeders/admin.seeder';
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -20,7 +19,6 @@ async function main() {
 
   try {
     await initialSeeder(db);
-    await adminSeeder(db);
   } catch (error) {
     console.error('❌ Seeding failed:');
     console.error(error);
