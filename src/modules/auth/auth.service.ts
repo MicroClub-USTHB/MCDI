@@ -684,6 +684,16 @@ export class AuthService {
     return { success: true };
   }
 
+  /**
+   * Invalidate an admin session token.
+   * Admin sessions are issued without a projectId, so deletion matches on the
+   * token alone — unlike `logout`, this is not scoped to a calling project.
+   */
+  async adminLogout(token: string) {
+    await this.sessionRepository.deleteByToken(token);
+    return { success: true };
+  }
+
   // ─── Maintenance ─────────────────────────────────────────
 
   async cleanupExpired() {

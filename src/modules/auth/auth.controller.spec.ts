@@ -20,6 +20,7 @@ const mockAuthService = {
   validateSession: jest.fn(),
   logout: jest.fn(),
   logoutAll: jest.fn(),
+  adminLogout: jest.fn(),
   cleanupExpired: jest.fn(),
   exchangeCodeForToken: jest.fn(),
 };
@@ -460,6 +461,25 @@ describe('AuthController', () => {
       const result = await controller.adminMe(req as any);
       expect(mockAdminAuthService.getMe).toHaveBeenCalledWith('test-token');
       expect(result).toMatchObject({ id: 'u1', isSystemAdmin: true });
+    });
+  });
+
+  // ── adminLogout ─────────────────────────────────────────────────────
+
+  describe('adminLogout', () => {
+    it('invalidates the session and clears the admin_session cookie', async () => {
+      mockAuthService.adminLogout.mockResolvedValue({ success: true });
+      const req = { headers: { authorization: 'Bearer admin-tok' } };
+      const res = mockRes();
+
+      await controller.adminLogout(req as any, res as any);
+
+      expect(mockAuthService.adminLogout).toHaveBeenCalledWith('admin-tok');
+      expect(res.clearCookie).toHaveBeenCalledWith(
+        'admin_session',
+        expect.objectContaining({ path: '/', httpOnly: true }),
+      );
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
   });
 });
