@@ -62,3 +62,8 @@ package-lock.json
 eslint-results.json
 test-results.json
 coverage/
+
+.hermes
+docker-compose.override.yml
+
+.hermes
