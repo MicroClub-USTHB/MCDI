@@ -761,6 +761,39 @@ export class AuthController {
     return this.adminAuthService.getMe(token);
   }
 
+  @Post('admin/logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Log out of the admin dashboard',
+    description:
+      'Invalidates the current admin session and clears the `admin_session` ' +
+      'httpOnly cookie. Accepts the token via Authorization: Bearer or the ' +
+      '`admin_session` cookie, same as other admin routes.',
+  })
+  @ApiOkResponse({
+    description: 'Logout successful.',
+    type: SuccessResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, invalid, or expired session token.',
+  })
+  async adminLogout(@Req() req: Request, @Res() res: Response) {
+    const token = extractSessionToken(req)!;
+    await this.authService.adminLogout(token);
+
+    const isProduction =
+      this.configService.get<string>('app.nodeEnv') === 'production';
+    res.clearCookie('admin_session', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProduction,
+      path: '/',
+    });
+    res.json({ success: true });
+  }
+
   // ─── POST /auth/admin/set-password has been removed.
   // Admin access is gated solely on the configured Discord admin role ID.
 

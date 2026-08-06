@@ -602,6 +602,17 @@ describe('AuthService', () => {
     });
   });
 
+  // ── adminLogout ─────────────────────────────────────────────────────────
+
+  describe('adminLogout', () => {
+    it('deletes the session token without scoping to a project', async () => {
+      mockSessionRepo.deleteByToken.mockResolvedValue(undefined);
+      const result = await service.adminLogout('admin-tok');
+      expect(result).toEqual({ success: true });
+      expect(mockSessionRepo.deleteByToken).toHaveBeenCalledWith('admin-tok');
+    });
+  });
+
   // ── cleanupExpired ───────────────────────────────────────────────────────
 
   describe('cleanupExpired', () => {
