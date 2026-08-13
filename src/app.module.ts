@@ -1,5 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { RedisModule } from './common/redis/redis.module';
 import { AppController } from './app.controller';
 
 import { DiscordModule } from './modules/discord/discord.module';
@@ -21,9 +23,19 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: config.get<number>('THROTTLER_TTL_MS', 60_000),
+          limit: config.get<number>('THROTTLER_LIMIT', 120),
+        },
+      ],
+    }),
     ConfigModule,
     DatabaseModule,
+    RedisModule,
     DiscordModule,
     AuthModule,
     ServersModule,

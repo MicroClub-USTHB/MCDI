@@ -16,6 +16,9 @@ export default registerAs('discord', () => ({
   mainGuildId: process.env.MC_GUILD_ID,
   /** Discord role ID that grants admin access in the main guild */
   executiveRoleId: process.env.MC_EXECUTIVE_ROLE_ID,
+  /** Discord role IDs that grant admin access */
+  devLeadRoleId: process.env.MC_DEV_LEADS_ROLE_ID || '',
+  itLeadRoleId: process.env.MC_IT_LEADS_ROLE_ID || '',
   /** Where to redirect after a successful admin Discord OAuth callback */
   adminFrontendUrl:
     process.env.ADMIN_FRONTEND_URL ||

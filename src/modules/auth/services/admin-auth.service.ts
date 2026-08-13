@@ -23,7 +23,7 @@ export class AdminAuthService {
   private readonly discordClientId: string;
   private readonly discordAdminRedirectUri: string;
   private readonly mainGuildId: string;
-  private readonly executiveRoleId: string;
+  private readonly adminRoleIds: string[];
 
   constructor(
     private readonly sessionRepository: SessionRepository,
@@ -39,9 +39,17 @@ export class AdminAuthService {
       'discord.adminRedirectUri',
     )!;
     this.mainGuildId = this.configService.get<string>('discord.mainGuildId')!;
-    this.executiveRoleId = this.configService.get<string>(
-      'discord.executiveRoleId',
-    )!;
+    this.adminRoleIds = this.buildAdminRoleIds();
+  }
+
+  private buildAdminRoleIds(): string[] {
+    const executiveRoleId =
+      this.configService.get<string>('discord.executiveRoleId') || '';
+    const devLeadRoleId =
+      this.configService.get<string>('discord.devLeadRoleId') || '';
+    const itLeadRoleId =
+      this.configService.get<string>('discord.itLeadRoleId') || '';
+    return [executiveRoleId, devLeadRoleId, itLeadRoleId].filter(Boolean);
   }
 
   // ─── System Admin Discord OAuth2 Login ───────────────────
@@ -134,12 +142,12 @@ export class AdminAuthService {
       );
     }
 
-    if (!this.executiveRoleId) {
+    if (!this.adminRoleIds.length) {
       this.logger.error(
-        'MC_EXECUTIVE_ROLE_ID is not configured — admin login blocked',
+        'No admin roles configured — admin login blocked',
       );
       throw new ForbiddenException(
-        'Server configuration error: executive role not set',
+        'Server configuration error: no admin roles set',
       );
     }
 
@@ -157,13 +165,16 @@ export class AdminAuthService {
       );
     }
 
-    // 5. Verify the configured admin role by Discord role ID
-    if (!guildMember.roleIds.includes(this.executiveRoleId)) {
+    // 5. Verify the user holds at least one configured admin role
+    const hasAdminRole = guildMember.roleIds.some((rid) =>
+      this.adminRoleIds.includes(rid),
+    );
+    if (!hasAdminRole) {
       this.logger.warn(
-        `Admin login rejected: user ${profile.id} lacks admin role ID ${this.executiveRoleId}`,
+        `Admin login rejected: user ${profile.id} has none of the configured admin roles`,
       );
       throw new ForbiddenException(
-        'Only members with the configured admin role can access the admin panel',
+        'Only members with a configured admin role can access the admin panel',
       );
     }
 

@@ -273,7 +273,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   type ServerMemberRoleInsert = typeof schema.serverMemberRoles.$inferInsert;
 
   const buildSeededApiKey = (label: string) => {
-    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20);
+    const slug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '')
+      .slice(0, 20);
     return {
       apiKeyPrefix: `mcdi_pk_seed_${slug}`,
       apiKeyHash: createHash('sha256').update(`seed:${label}`).digest('hex'),
@@ -398,10 +401,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   );
 
   const buildPermissionsBits = (keys: string[]) =>
-    keys.reduce(
-      (bits, key) => bits | (permissionBitsByKey.get(key) ?? 0n),
-      0n,
-    );
+    keys.reduce((bits, key) => bits | (permissionBitsByKey.get(key) ?? 0n), 0n);
 
   const rolePermissionKeysByRoleId = new Map<string, string[]>([
     [MAIN_EXECUTIVE_ROLE_ID, ['ADMINISTRATOR']],
@@ -531,7 +531,12 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const allPermissions = await db
     .select()
     .from(schema.permissions)
-    .where(inArray(schema.permissions.key, permissionsData.map((p) => p.key)));
+    .where(
+      inArray(
+        schema.permissions.key,
+        permissionsData.map((p) => p.key),
+      ),
+    );
 
   const permissionIdByKey = new Map(
     allPermissions.map((permission) => [permission.key, permission.id]),
@@ -845,13 +850,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       continue;
     }
 
-    await db
-      .insert(schema.projects)
-      .values(project)
-      .onConflictDoUpdate({
-        target: schema.projects.name,
-        set: upsertData,
-      });
+    await db.insert(schema.projects).values(project).onConflictDoUpdate({
+      target: schema.projects.name,
+      set: upsertData,
+    });
   }
 
   const seededProjectRows = await db
@@ -861,7 +863,12 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       apiKeyPrefix: schema.projects.apiKeyPrefix,
     })
     .from(schema.projects)
-    .where(inArray(schema.projects.name, seededProjects.map((p) => p.name)));
+    .where(
+      inArray(
+        schema.projects.name,
+        seededProjects.map((p) => p.name),
+      ),
+    );
 
   const projectIdByName = new Map(
     seededProjectRows.map((project) => [project.name, project.id]),
@@ -914,7 +921,10 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .insert(schema.projectServers)
       .values(access)
       .onConflictDoUpdate({
-        target: [schema.projectServers.projectId, schema.projectServers.serverId],
+        target: [
+          schema.projectServers.projectId,
+          schema.projectServers.serverId,
+        ],
         set: {
           operations: access.operations,
           scopes: access.scopes ?? [],
@@ -1022,7 +1032,9 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
 
   console.log('Initial seeding completed!');
   console.log('\n=== TEST DATA SUMMARY ===');
-  console.log(`Servers: ${MAIN_SERVER_ID} (main), ${COMPETITION_SERVER_ID} (competition)`);
+  console.log(
+    `Servers: ${MAIN_SERVER_ID} (main), ${COMPETITION_SERVER_ID} (competition)`,
+  );
   console.log(
     `Roles: ${seededRoles.map((role) => `${role.name} (${role.id})`).join(', ')}`,
   );
@@ -1030,9 +1042,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log(
     `  - System admin: ${SYSTEM_ADMIN_ID} (ben_abdou5094) -> Executive`,
   );
-  console.log(
-    `  - Lead test member: ${discordId(300002)} (seed_lead) -> Lead`,
-  );
+  console.log(`  - Lead test member: ${discordId(300002)} (seed_lead) -> Lead`);
   console.log(
     `  - Member test member: ${discordId(300003)} (seed_member) -> Member`,
   );

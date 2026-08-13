@@ -1,12 +1,13 @@
 import { Global, Inject, Module, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './entities';
+import { DatabaseInitService } from './database-init.service';
+import { DRIZZLE, DATABASE_POOL, DrizzleDB } from './database.constants';
 
-export const DRIZZLE = 'DRIZZLE';
-export const DATABASE_POOL = 'DATABASE_POOL';
-export type DrizzleDB = NodePgDatabase<typeof schema>;
+export { DRIZZLE, DATABASE_POOL };
+export type { DrizzleDB };
 
 class DatabasePoolCleanupService implements OnModuleDestroy {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
@@ -33,6 +34,7 @@ class DatabasePoolCleanupService implements OnModuleDestroy {
       useFactory: (pool: Pool) => drizzle(pool, { schema }),
     },
     DatabasePoolCleanupService,
+    DatabaseInitService,
   ],
   exports: [DRIZZLE, DATABASE_POOL],
 })

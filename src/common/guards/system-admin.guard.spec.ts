@@ -51,7 +51,10 @@ describe('SystemAdminGuard', () => {
     return { select: jest.fn().mockImplementation(makeChain) };
   };
 
-  async function buildGuard(db: any) {
+  async function buildGuard(
+    db: any,
+    overrides?: Record<string, string>,
+  ) {
     const module = await Test.createTestingModule({
       providers: [
         SystemAdminGuard,
@@ -59,9 +62,15 @@ describe('SystemAdminGuard', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn((key: string) =>
-              key === 'discord.executiveRoleId' ? 'role-exec' : null,
-            ),
+            get: jest.fn((key: string) => {
+              if (overrides?.[key]) return overrides[key];
+              const map: Record<string, string> = {
+                'discord.executiveRoleId': 'role-exec',
+                'discord.devLeadRoleId': '',
+                'discord.itLeadRoleId': '',
+              };
+              return map[key] ?? null;
+            }),
           },
         },
       ],
@@ -91,12 +100,7 @@ describe('SystemAdminGuard', () => {
 
   it('throws UnauthorizedException when session is expired', async () => {
     const past = new Date(Date.now() - 10_000);
-    const db = buildMockDb(
-      [{ memberId: 'u1', expiresAt: past }],
-      [],
-      [],
-      [],
-    );
+    const db = buildMockDb([{ memberId: 'u1', expiresAt: past }], [], [], []);
     guard = await buildGuard(db);
     await expect(
       guard.canActivate(makeContext('Bearer expired-token')),
@@ -158,7 +162,7 @@ describe('SystemAdminGuard', () => {
     expect(result).toBe(true);
   });
 
-  it('throws ForbiddenException for a valid member with only Lead role', async () => {
+  it('throws ForbiddenException for a valid member with only Lead role when not configured', async () => {
     const future = new Date(Date.now() + 999_999_999);
     const db = buildMockDb(
       [{ memberId: 'u1', expiresAt: future }],
@@ -170,5 +174,20 @@ describe('SystemAdminGuard', () => {
     await expect(
       guard.canActivate(makeContext('Bearer valid-token')),
     ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('returns true when Lead role is granted admin access', async () => {
+    const future = new Date(Date.now() + 999_999_999);
+    const db = buildMockDb(
+      [{ memberId: 'u1', expiresAt: future }],
+      [{ id: 'guild-1' }],
+      [{ memberId: 'u1' }],
+      [{ roleId: 'role-lead' }],
+    );
+    guard = await buildGuard(db, {
+      'discord.devLeadRoleId': 'role-lead',
+    });
+    const result = await guard.canActivate(makeContext('Bearer valid-token'));
+    expect(result).toBe(true);
   });
 });

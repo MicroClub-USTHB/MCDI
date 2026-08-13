@@ -123,6 +123,30 @@ describeIf('/api/permissions (e2e)', () => {
         message: expect.stringContaining('required'),
       });
     });
+
+    it('returns allowed:true for a member whose role grants the permission', async () => {
+      const [perm] = await db
+        .insert(permissionsTable)
+        .values({ key: 'READ_MEMBERS' })
+        .returning();
+
+      await db.insert(rolePermissions).values({
+        roleId: member.roleId,
+        permissionId: perm.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/permissions/check')
+        .set('X-API-Key', apiKey)
+        .send({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permission: 'READ_MEMBERS',
+        })
+        .expect(200);
+
+      expect(res.body).toMatchObject({ allowed: true });
+    });
   });
 
   // ─── POST /api/permissions/check-batch ────────────────────────
@@ -193,6 +217,31 @@ describeIf('/api/permissions (e2e)', () => {
           mode: 'ANY',
         })
         .expect(400);
+    });
+
+    it('returns allowed:true (mode=ALL) when the member holds the requested permission', async () => {
+      const [perm] = await db
+        .insert(permissionsTable)
+        .values({ key: 'READ_MEMBERS' })
+        .returning();
+
+      await db.insert(rolePermissions).values({
+        roleId: member.roleId,
+        permissionId: perm.id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/permissions/check-batch')
+        .set('X-API-Key', apiKey)
+        .send({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permissions: ['READ_MEMBERS'],
+          mode: 'ALL',
+        })
+        .expect(200);
+
+      expect(res.body).toMatchObject({ allowed: true });
     });
   });
 

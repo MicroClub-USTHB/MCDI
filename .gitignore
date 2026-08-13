@@ -56,3 +56,14 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# npm (pnpm is the only package manager)
+package-lock.json
+eslint-results.json
+test-results.json
+coverage/
+
+.hermes
+docker-compose.override.yml
+
+.hermes
