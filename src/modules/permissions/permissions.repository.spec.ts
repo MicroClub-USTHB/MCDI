@@ -25,6 +25,7 @@ function makeChain(finalValue: unknown = []): any {
     'offset',
     'values',
     'onConflictDoUpdate',
+    'onConflictDoNothing',
   ];
   methods.forEach((m) => {
     chain[m] = jest.fn().mockReturnValue(chain);
@@ -251,6 +252,210 @@ describe('PermissionsRepository', () => {
           now: new Date(),
         }),
       ).resolves.not.toThrow();
+    });
+  });
+
+  // ── getRoleWithServer ──────────────────────────────────────────────
+
+  describe('getRoleWithServer', () => {
+    it('returns role with serverId, isGlobal, and hierarchyLevel when found', async () => {
+      const db = buildDb([
+        {
+          id: 'role-1',
+          serverId: 'guild-1',
+          name: 'Admin',
+          isGlobal: false,
+          hierarchyLevel: 2,
+        },
+      ]);
+      const repo = await buildRepo(db);
+      const result = await repo.getRoleWithServer('role-1');
+      expect(result).toEqual({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Admin',
+        isGlobal: false,
+        hierarchyLevel: 2,
+      });
+    });
+
+    it('returns null when role is not found', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getRoleWithServer('nonexistent');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── getPermissionsByRole ───────────────────────────────────────────
+
+  describe('getPermissionsByRole', () => {
+    it('returns all permissions assigned to a role', async () => {
+      const db = buildDb([
+        { id: 1, key: 'READ_MEMBERS', description: 'Read members' },
+        { id: 2, key: 'SEND_MESSAGES', description: null },
+      ]);
+      const repo = await buildRepo(db);
+      const result = await repo.getPermissionsByRole('role-1');
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 1,
+        key: 'READ_MEMBERS',
+        description: 'Read members',
+      });
+      expect(result[1]).toEqual({
+        id: 2,
+        key: 'SEND_MESSAGES',
+        description: null,
+      });
+    });
+
+    it('returns empty array when role has no permissions', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getPermissionsByRole('role-empty');
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ── addPermissionsToRole ───────────────────────────────────────────
+
+  describe('addPermissionsToRole', () => {
+    it('calls insert with batch values when permissionIds provided', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await repo.addPermissionsToRole('role-1', [1, 2, 3]);
+      expect(db.insert).toHaveBeenCalled();
+    });
+
+    it('does nothing when permissionIds is empty', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await repo.addPermissionsToRole('role-1', []);
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── removePermissionFromRole ───────────────────────────────────────
+
+  describe('removePermissionFromRole', () => {
+    it('calls delete with correct where clause', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await repo.removePermissionFromRole('role-1', 5);
+      expect(db.delete).toHaveBeenCalled();
+    });
+  });
+
+  // ── getMembersByRole ───────────────────────────────────────────────
+
+  describe('getMembersByRole', () => {
+    it('returns all member IDs holding a role', async () => {
+      const db = buildDb([
+        { memberId: 'member-1' },
+        { memberId: 'member-2' },
+        { memberId: 'member-3' },
+      ]);
+      const repo = await buildRepo(db);
+      const result = await repo.getMembersByRole('role-1');
+      expect(result).toEqual(['member-1', 'member-2', 'member-3']);
+    });
+
+    it('returns empty array when no members hold the role', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getMembersByRole('role-empty');
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ── getMinHierarchyLevelInServer ───────────────────────────────────
+
+  describe('getMinHierarchyLevelInServer', () => {
+    it('returns the minimum hierarchy level in a server', async () => {
+      const db = buildDb([{ minLevel: 1 }]);
+      const repo = await buildRepo(db);
+      const result = await repo.getMinHierarchyLevelInServer('guild-1');
+      expect(result).toBe(1);
+    });
+
+    it('returns null when server has no roles with hierarchyLevel', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.getMinHierarchyLevelInServer('guild-empty');
+      expect(result).toBeNull();
+    });
+  });
+
+  // ── findExistingPermissionIds ──────────────────────────────────────
+
+  describe('findExistingPermissionIds', () => {
+    it('returns only permission IDs that exist in the database', async () => {
+      const db = buildDb([{ id: 1 }, { id: 3 }]);
+      const repo = await buildRepo(db);
+      const result = await repo.findExistingPermissionIds([1, 2, 3]);
+      expect(result).toEqual([1, 3]);
+    });
+
+    it('returns empty array when no permission IDs are provided', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.findExistingPermissionIds([]);
+      expect(result).toEqual([]);
+    });
+  });
+
+  // ── hasPermissionAnySource ───────────────────────────────────────────
+
+  describe('hasPermissionAnySource', () => {
+    it('returns true when at least one source grants the permission', async () => {
+      const db = buildDb([{ roleId: 'role-1' }]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionAnySource(
+        'member-1',
+        'guild-1',
+        5,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no source grants the permission', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionAnySource(
+        'member-1',
+        'guild-1',
+        5,
+      );
+      expect(result).toBe(false);
+    });
+  });
+
+  // ── hasPermissionExcludingRole ───────────────────────────────────────
+
+  describe('hasPermissionExcludingRole', () => {
+    it('returns true when a source other than the excluded role grants the permission', async () => {
+      const db = buildDb([{ roleId: 'other-role' }]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionExcludingRole(
+        'member-1',
+        'guild-1',
+        5,
+        'excluded-role',
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when only the excluded role would grant the permission', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      const result = await repo.hasPermissionExcludingRole(
+        'member-1',
+        'guild-1',
+        5,
+        'excluded-role',
+      );
+      expect(result).toBe(false);
     });
   });
 });

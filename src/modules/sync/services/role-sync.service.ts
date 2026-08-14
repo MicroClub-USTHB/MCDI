@@ -73,7 +73,7 @@ export class RoleSyncService {
     }
 
     this.logger.log(`Upserted ${guildRoles.size} roles for server ${guild.id}`);
-    this.permissionCache.invalidateServer(guild.id);
+    await this.permissionCache.invalidateServer(guild.id);
     return { rolesSynced: guildRoles.size };
   }
 
@@ -106,7 +106,7 @@ export class RoleSyncService {
       `handleRoleCreate syncRolePermissions(${role.id})`,
       this.logger,
     );
-    this.permissionCache.invalidateServer(role.guild.id);
+    await this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',
@@ -143,7 +143,7 @@ export class RoleSyncService {
       `handleRoleUpdate syncRolePermissions(${role.id})`,
       this.logger,
     );
-    this.permissionCache.invalidateServer(role.guild.id);
+    await this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',
@@ -165,7 +165,7 @@ export class RoleSyncService {
       `handleRoleDelete deleteRole(${role.id})`,
       this.logger,
     );
-    this.permissionCache.invalidateServer(role.guild.id);
+    await this.permissionCache.invalidateServer(role.guild.id);
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',

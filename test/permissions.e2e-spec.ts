@@ -23,12 +23,13 @@ import {
   TestDb,
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
+import * as schema from '../src/database/entities';
 import {
   servers,
-  permissions,
+  permissions as permissionsTable,
   rolePermissions,
 } from '../src/database/entities';
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -125,7 +126,7 @@ describeIf('/api/permissions (e2e)', () => {
 
     it('returns allowed:true for a member whose role grants the permission', async () => {
       const [perm] = await db
-        .insert(permissions)
+        .insert(permissionsTable)
         .values({ key: 'READ_MEMBERS' })
         .returning();
 
@@ -220,7 +221,7 @@ describeIf('/api/permissions (e2e)', () => {
 
     it('returns allowed:true (mode=ALL) when the member holds the requested permission', async () => {
       const [perm] = await db
-        .insert(permissions)
+        .insert(permissionsTable)
         .values({ key: 'READ_MEMBERS' })
         .returning();
 
@@ -375,6 +376,430 @@ describeIf('/api/permissions (e2e)', () => {
 
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ─── GET /api/permissions/admin/servers/:serverId/roles/:roleId/permissions ─
+
+  describe('GET /api/permissions/admin/servers/:serverId/roles/:roleId/permissions', () => {
+    it('returns 401 without auth', async () => {
+      await request(app.getHttpServer())
+        .get(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .expect(401);
+    });
+
+    it('returns role permissions list on success', async () => {
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        roleId: adminCtx.roleId,
+        serverId: adminCtx.serverId,
+        permissions: expect.any(Array),
+      });
+    });
+
+    it('returns 400 when role does not exist', async () => {
+      await request(app.getHttpServer())
+        .get(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/000000000000000000/permissions`,
+        )
+        .set('Authorization', auth())
+        .expect(400);
+    });
+  });
+
+  // ─── POST /api/permissions/admin/servers/:serverId/roles/:roleId/permissions ─
+
+  describe('POST /api/permissions/admin/servers/:serverId/roles/:roleId/permissions', () => {
+    it('returns 401 without auth', async () => {
+      await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .send({ permissionIds: [1] })
+        .expect(401);
+    });
+
+    it('assigns permissions and returns updated list', async () => {
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_PERM_ASSIGN', description: 'Test assign' })
+        .returning({ id: permissionsTable.id });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id] })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        roleId: adminCtx.roleId,
+        serverId: adminCtx.serverId,
+      });
+      expect(res.body.permissions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: perm[0].id, key: 'TEST_PERM_ASSIGN' }),
+        ]),
+      );
+    });
+
+    it('returns 400 when permissionIds contains non-existent IDs', async () => {
+      await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [999999] })
+        .expect(400);
+    });
+
+    it('returns 400 when permissionIds is empty', async () => {
+      await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [] })
+        .expect(400);
+    });
+  });
+
+  // ─── DELETE /api/permissions/admin/servers/:serverId/roles/:roleId/permissions/:permissionId ─
+
+  describe('DELETE /api/permissions/admin/servers/:serverId/roles/:roleId/permissions/:permissionId', () => {
+    it('returns 401 without auth', async () => {
+      await request(app.getHttpServer())
+        .delete(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/permissions/1`,
+        )
+        .expect(401);
+    });
+
+    it('returns 403 when role is global', async () => {
+      const globalRoleId = '700000000000000099';
+      await db.insert(schema.roles).values({
+        id: globalRoleId,
+        serverId: adminCtx.serverId,
+        name: 'GlobalRole',
+        color: 0xff0000,
+        hoist: true,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: true,
+        hierarchyLevel: 1,
+      });
+
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_PERM_GLOBAL', description: 'Test global' })
+        .returning({ id: permissionsTable.id });
+
+      await db.insert(rolePermissions).values({
+        roleId: globalRoleId,
+        permissionId: perm[0].id,
+      });
+
+      await request(app.getHttpServer())
+        .delete(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${globalRoleId}/permissions/${perm[0].id}`,
+        )
+        .set('Authorization', auth())
+        .expect(403);
+    });
+
+    it('returns 403 when role has highest rank (min hierarchyLevel)', async () => {
+      const execRoleId = '700000000000000088';
+      await db.insert(schema.roles).values({
+        id: execRoleId,
+        serverId: adminCtx.serverId,
+        name: 'TopExecutive',
+        color: 0xffd700,
+        hoist: true,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 1,
+      });
+
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_PERM_EXEC', description: 'Test exec' })
+        .returning({ id: permissionsTable.id });
+
+      await db.insert(rolePermissions).values({
+        roleId: execRoleId,
+        permissionId: perm[0].id,
+      });
+
+      await request(app.getHttpServer())
+        .delete(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${execRoleId}/permissions/${perm[0].id}`,
+        )
+        .set('Authorization', auth())
+        .expect(403);
+    });
+
+    it('returns 204 on successful removal', async () => {
+      const higherRoleId = '700000000000000076';
+      await db.insert(schema.roles).values({
+        id: higherRoleId,
+        serverId: adminCtx.serverId,
+        name: 'HigherRole',
+        color: 0xff0000,
+        hoist: true,
+        position: 5,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 1,
+      });
+
+      const memberRoleId = '700000000000000077';
+      await db.insert(schema.roles).values({
+        id: memberRoleId,
+        serverId: adminCtx.serverId,
+        name: 'LowMember',
+        color: 0x00ff00,
+        hoist: false,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 10,
+      });
+
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_PERM_REMOVE', description: 'Test remove' })
+        .returning({ id: permissionsTable.id });
+
+      await db.insert(rolePermissions).values({
+        roleId: memberRoleId,
+        permissionId: perm[0].id,
+      });
+
+      await request(app.getHttpServer())
+        .delete(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${memberRoleId}/permissions/${perm[0].id}`,
+        )
+        .set('Authorization', auth())
+        .expect(204);
+    });
+  });
+
+  // ─── POST /api/permissions/admin/servers/:serverId/roles/:roleId/impact ─
+
+  describe('POST /api/permissions/admin/servers/:serverId/roles/:roleId/impact', () => {
+    it('returns 401 without auth', async () => {
+      await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .send({ permissionIds: [1], action: 'add' })
+        .expect(401);
+    });
+
+    it('returns accurate member count and IDs', async () => {
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [1], action: 'add' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        affectedMembers: 1,
+        roleHolders: 1,
+        memberIds: expect.arrayContaining([adminCtx.memberId]),
+      });
+    });
+
+    it('returns zero counts when no members hold the role', async () => {
+      const emptyRoleId = '700000000000000066';
+      await db.insert(schema.roles).values({
+        id: emptyRoleId,
+        serverId: adminCtx.serverId,
+        name: 'EmptyRole',
+        color: 0x888888,
+        hoist: false,
+        position: 5,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 5,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${emptyRoleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [1], action: 'add' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        affectedMembers: 0,
+        roleHolders: 0,
+        memberIds: [],
+      });
+    });
+
+    it('is read-only: does not modify role_permissions table', async () => {
+      const [{ count: beforeCount }] = await db
+        .select({ count: count() })
+        .from(rolePermissions);
+
+      await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [1], action: 'add' });
+
+      const [{ count: afterCount }] = await db
+        .select({ count: count() })
+        .from(rolePermissions);
+
+      expect(afterCount).toBe(beforeCount);
+    });
+
+    it('returns 0 affected when member already has the permission via another role (add)', async () => {
+      // Create a permission
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_ADD_ALREADY_HAVE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      // Create a second role, assign the perm to it, assign role to admin
+      const otherRoleId = '700000000000000077';
+      await db.insert(schema.roles).values({
+        id: otherRoleId,
+        serverId: adminCtx.serverId,
+        name: 'OtherRole',
+        color: 0x00ff00,
+        hoist: false,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 10,
+      });
+      await db.insert(rolePermissions).values({
+        roleId: otherRoleId,
+        permissionId: perm[0].id,
+      });
+      await db.insert(schema.serverMemberRoles).values({
+        memberId: adminCtx.memberId,
+        roleId: otherRoleId,
+      });
+
+      // Preview adding the same permission to adminCtx.roleId
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'add' })
+        .expect(200);
+
+      // Admin already has the perm via otherRole, so no impact
+      expect(res.body).toMatchObject({
+        affectedMembers: 0,
+        roleHolders: 1,
+        memberIds: [],
+      });
+    });
+
+    it('returns affected members who would lose permission on remove', async () => {
+      // Create a permission and assign it directly to adminCtx.roleId
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_REMOVE_LOSE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      await db.insert(rolePermissions).values({
+        roleId: adminCtx.roleId,
+        permissionId: perm[0].id,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'remove' })
+        .expect(200);
+
+      // Admin has the perm only through this role — would lose it
+      expect(res.body).toMatchObject({
+        affectedMembers: 1,
+        roleHolders: 1,
+        memberIds: [adminCtx.memberId],
+      });
+    });
+
+    it('returns 0 affected when member has permission via another role too (remove)', async () => {
+      // Create a permission
+      const perm = await db
+        .insert(permissionsTable)
+        .values({ key: 'TEST_IMPACT_REMOVE_STILL_HAVE', description: null })
+        .returning({ id: permissionsTable.id });
+
+      // Assign to adminCtx.roleId
+      await db.insert(rolePermissions).values({
+        roleId: adminCtx.roleId,
+        permissionId: perm[0].id,
+      });
+
+      // Create a second role with the same perm and assign to admin
+      const otherRoleId = '700000000000000078';
+      await db.insert(schema.roles).values({
+        id: otherRoleId,
+        serverId: adminCtx.serverId,
+        name: 'FallbackRole',
+        color: 0x0000ff,
+        hoist: false,
+        position: 10,
+        managed: false,
+        mentionable: false,
+        isGlobal: false,
+        hierarchyLevel: 10,
+      });
+      await db.insert(rolePermissions).values({
+        roleId: otherRoleId,
+        permissionId: perm[0].id,
+      });
+      await db.insert(schema.serverMemberRoles).values({
+        memberId: adminCtx.memberId,
+        roleId: otherRoleId,
+      });
+
+      const res = await request(app.getHttpServer())
+        .post(
+          `/api/permissions/admin/servers/${adminCtx.serverId}/roles/${adminCtx.roleId}/impact`,
+        )
+        .set('Authorization', auth())
+        .send({ permissionIds: [perm[0].id], action: 'remove' })
+        .expect(200);
+
+      // Admin has the perm via otherRole too — no impact
+      expect(res.body).toMatchObject({
+        affectedMembers: 0,
+        roleHolders: 1,
+        memberIds: [],
+      });
     });
   });
 });

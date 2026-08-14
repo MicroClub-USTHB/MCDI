@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PermissionsService } from './permissions.service';
 import { PermissionsRepository } from './permissions.repository';
 import { PermissionCacheService } from './permission-cache.service';
@@ -12,6 +12,8 @@ const mockRepo = {
   hasServerPermission: jest.fn(),
   hasHierarchyPermission: jest.fn(),
   hasInheritedPermission: jest.fn(),
+  hasPermissionAnySource: jest.fn(),
+  hasPermissionExcludingRole: jest.fn(),
   listGlobalPermissionNames: jest.fn(),
   listServerPermissionNames: jest.fn(),
   listHierarchyPermissionNames: jest.fn(),
@@ -21,12 +23,20 @@ const mockRepo = {
   getMainServerId: jest.fn(),
   getRoleServerId: jest.fn(),
   findMissingServerIds: jest.fn(),
+  getRoleWithServer: jest.fn(),
+  getPermissionsByRole: jest.fn(),
+  addPermissionsToRole: jest.fn(),
+  removePermissionFromRole: jest.fn(),
+  getMembersByRole: jest.fn(),
+  getMinHierarchyLevelInServer: jest.fn(),
+  findExistingPermissionIds: jest.fn(),
 };
 
 const mockCache = {
   get: jest.fn(),
   set: jest.fn(),
   invalidate: jest.fn(),
+  invalidateServer: jest.fn(),
 };
 
 const CHECK_DTO = {
@@ -427,6 +437,329 @@ describe('PermissionsService', () => {
       ]);
       expect(result.allowed).toBe(false);
       expect(result.matched).toEqual([]);
+    });
+  });
+
+  // ── getRolePermissions ────────────────────────────────────────────────
+
+  describe('getRolePermissions', () => {
+    it('throws BadRequestException when serverId is empty', async () => {
+      await expect(service.getRolePermissions('', 'role-1')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws BadRequestException when roleId is empty', async () => {
+      await expect(service.getRolePermissions('guild-1', '')).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws BadRequestException when role not found', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(null);
+      await expect(
+        service.getRolePermissions('guild-1', 'role-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when role belongs to different server', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-other',
+        name: 'Admin',
+        isGlobal: false,
+        hierarchyLevel: 2,
+      });
+      await expect(
+        service.getRolePermissions('guild-1', 'role-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('returns role permissions on success', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Admin',
+        isGlobal: false,
+        hierarchyLevel: 2,
+      });
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ_MEMBERS', description: 'Read members' },
+        { id: 2, key: 'SEND_MESSAGES', description: null },
+      ]);
+
+      const result = await service.getRolePermissions('guild-1', 'role-1');
+      expect(result.roleId).toBe('role-1');
+      expect(result.roleName).toBe('Admin');
+      expect(result.serverId).toBe('guild-1');
+      expect(result.permissions).toHaveLength(2);
+      expect(result.permissions[0].key).toBe('READ_MEMBERS');
+    });
+  });
+
+  // ── assignPermissionsToRole ───────────────────────────────────────────
+
+  describe('assignPermissionsToRole', () => {
+    it('throws BadRequestException when permissionIds is empty', async () => {
+      await expect(
+        service.assignPermissionsToRole('guild-1', 'role-1', {
+          permissionIds: [],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when role not found', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(null);
+      await expect(
+        service.assignPermissionsToRole('guild-1', 'role-1', {
+          permissionIds: [1, 2],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when some permission IDs do not exist', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Admin',
+        isGlobal: false,
+        hierarchyLevel: 2,
+      });
+      mockRepo.findExistingPermissionIds.mockResolvedValue([1]);
+
+      await expect(
+        service.assignPermissionsToRole('guild-1', 'role-1', {
+          permissionIds: [1, 999],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('assigns permissions and invalidates cache on success', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Admin',
+        isGlobal: false,
+        hierarchyLevel: 2,
+      });
+      mockRepo.findExistingPermissionIds.mockResolvedValue([1, 2]);
+      mockRepo.addPermissionsToRole.mockResolvedValue(undefined);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ_MEMBERS', description: 'Read members' },
+      ]);
+
+      const result = await service.assignPermissionsToRole(
+        'guild-1',
+        'role-1',
+        { permissionIds: [1, 2] },
+      );
+
+      expect(mockRepo.addPermissionsToRole).toHaveBeenCalledWith(
+        'role-1',
+        [1, 2],
+      );
+      expect(mockCache.invalidateServer).toHaveBeenCalledWith('guild-1');
+      expect(result.permissions).toHaveLength(1);
+    });
+  });
+
+  // ── removePermissionFromRole ──────────────────────────────────────────
+
+  describe('removePermissionFromRole', () => {
+    it('throws BadRequestException when serverId is empty', async () => {
+      await expect(
+        service.removePermissionFromRole('', 'role-1', 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when role not found', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(null);
+      await expect(
+        service.removePermissionFromRole('guild-1', 'role-1', 1),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws ForbiddenException when role is global', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Executive',
+        isGlobal: true,
+        hierarchyLevel: 1,
+      });
+
+      await expect(
+        service.removePermissionFromRole('guild-1', 'role-1', 1),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when role has highest rank (min hierarchyLevel)', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Lead',
+        isGlobal: false,
+        hierarchyLevel: 1,
+      });
+      mockRepo.getMinHierarchyLevelInServer.mockResolvedValue(1);
+
+      await expect(
+        service.removePermissionFromRole('guild-1', 'role-1', 1),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('removes permission and invalidates cache on success', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue({
+        id: 'role-1',
+        serverId: 'guild-1',
+        name: 'Member',
+        isGlobal: false,
+        hierarchyLevel: 5,
+      });
+      mockRepo.getMinHierarchyLevelInServer.mockResolvedValue(1);
+      mockRepo.removePermissionFromRole.mockResolvedValue(undefined);
+
+      await service.removePermissionFromRole('guild-1', 'role-1', 3);
+
+      expect(mockRepo.removePermissionFromRole).toHaveBeenCalledWith(
+        'role-1',
+        3,
+      );
+      expect(mockCache.invalidateServer).toHaveBeenCalledWith('guild-1');
+    });
+  });
+
+  // ── previewImpact ─────────────────────────────────────────────────────
+
+  describe('previewImpact', () => {
+    const roleData = {
+      id: 'role-1',
+      serverId: 'guild-1',
+      name: 'Member',
+      isGlobal: false,
+      hierarchyLevel: 3,
+    };
+
+    it('throws BadRequestException when serverId is empty', async () => {
+      await expect(
+        service.previewImpact('', 'role-1', {
+          permissionIds: [1],
+          action: 'add',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when role not found', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(null);
+      await expect(
+        service.previewImpact('guild-1', 'role-1', {
+          permissionIds: [1],
+          action: 'add',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('filters out permission IDs already on the role for action add', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
+      ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1']);
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'add',
+      });
+
+      // perm 1 is already on the role, so nothing to add → 0 affected
+      expect(result.affectedMembers).toBe(0);
+      expect(result.memberIds).toEqual([]);
+      expect(result.roleHolders).toBe(1);
+    });
+
+    it('filters out permission IDs not on the role for action remove', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
+      ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1']);
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [2],
+        action: 'remove',
+      });
+
+      // perm 2 is NOT on the role, so nothing to remove → 0 affected
+      expect(result.affectedMembers).toBe(0);
+      expect(result.memberIds).toEqual([]);
+      expect(result.roleHolders).toBe(1);
+    });
+
+    it('returns affected members who would gain permissions on add', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([]);
+      mockRepo.getMembersByRole.mockResolvedValue([
+        'member-1',
+        'member-2',
+        'member-3',
+      ]);
+
+      // member-1 already has perm 1, member-2 and member-3 don't
+      mockRepo.hasPermissionAnySource.mockImplementation((memberId: string) => {
+        if (memberId === 'member-1') return true;
+        return false;
+      });
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'add',
+      });
+
+      expect(result.affectedMembers).toBe(2);
+      expect(result.memberIds).toEqual(['member-2', 'member-3']);
+      expect(result.roleHolders).toBe(3);
+    });
+
+    it('returns affected members who would lose permissions on remove', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([
+        { id: 1, key: 'READ', description: null },
+      ]);
+      mockRepo.getMembersByRole.mockResolvedValue(['member-1', 'member-2']);
+
+      // member-1 has perm 1 only through this role
+      // member-2 has perm 1 through another source too
+      mockRepo.hasPermissionAnySource.mockResolvedValue(true);
+      mockRepo.hasPermissionExcludingRole.mockImplementation(
+        (_mid: string, _sid: string, _pid: number, _rid: string) => {
+          if (_mid === 'member-2') return true;
+          return false;
+        },
+      );
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'remove',
+      });
+
+      expect(result.affectedMembers).toBe(1);
+      expect(result.memberIds).toEqual(['member-1']);
+      expect(result.roleHolders).toBe(2);
+    });
+
+    it('returns zero counts when no members hold the role', async () => {
+      mockRepo.getRoleWithServer.mockResolvedValue(roleData);
+      mockRepo.getPermissionsByRole.mockResolvedValue([]);
+      mockRepo.getMembersByRole.mockResolvedValue([]);
+
+      const result = await service.previewImpact('guild-1', 'role-1', {
+        permissionIds: [1],
+        action: 'add',
+      });
+
+      expect(result.affectedMembers).toBe(0);
+      expect(result.memberIds).toEqual([]);
+      expect(result.roleHolders).toBe(0);
     });
   });
 });
