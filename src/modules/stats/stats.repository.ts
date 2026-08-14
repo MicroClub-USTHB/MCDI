@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lt, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -102,7 +103,20 @@ export class StatsRepository {
     return r?.value ?? 0;
   }
 
-  async countMembersBefore(date: Date): Promise<number> {
+  async countMembersBefore(date: Date, serverId?: string): Promise<number> {
+    if (serverId) {
+      const [r] = await this.db
+        .select({ value: sql<number>`count(*)::int` })
+        .from(serverMembers)
+        .innerJoin(members, eq(members.id, serverMembers.memberId))
+        .where(
+          and(
+            eq(serverMembers.serverId, serverId),
+            lt(members.createdAt, date),
+          ),
+        );
+      return r?.value ?? 0;
+    }
     const [r] = await this.db
       .select({ value: sql<number>`count(*)::int` })
       .from(members)
@@ -144,8 +158,24 @@ export class StatsRepository {
   /** New-member counts bucketed by day/week/month. `unit` is a fixed literal
    *  (never user input) so inlining it is injection-safe and keeps the SELECT
    *  and GROUP BY expressions identical. */
-  async memberGrowthBuckets(since: Date, unit: GrowthUnit) {
+  async memberGrowthBuckets(since: Date, unit: GrowthUnit, serverId?: string) {
     const bucket = sql<string>`date_trunc(${sql.raw(`'${unit}'`)}, ${members.createdAt})`;
+
+    if (serverId) {
+      return this.db
+        .select({ bucket, newMembers: sql<number>`count(*)::int` })
+        .from(serverMembers)
+        .innerJoin(members, eq(members.id, serverMembers.memberId))
+        .where(
+          and(
+            eq(serverMembers.serverId, serverId),
+            gte(members.createdAt, since),
+          ),
+        )
+        .groupBy(bucket)
+        .orderBy(bucket);
+    }
+
     return this.db
       .select({ bucket, newMembers: sql<number>`count(*)::int` })
       .from(members)
@@ -211,15 +241,31 @@ export class StatsRepository {
       .groupBy(roles.serverId);
   }
 
-  /** Latest sync row per server (by startedAt), for last-sync time + status. */
+  /** Latest sync attempt per server (by startedAt), regardless of outcome —
+   *  drives current syncStatus and, when that attempt failed, the surfaced
+   *  error message. */
   async latestSyncByServer() {
     return this.db
       .selectDistinctOn([serverSyncLogs.serverId], {
         serverId: serverSyncLogs.serverId,
         status: serverSyncLogs.status,
         finishedAt: serverSyncLogs.finishedAt,
+        message: serverSyncLogs.message,
       })
       .from(serverSyncLogs)
+      .orderBy(serverSyncLogs.serverId, desc(serverSyncLogs.startedAt));
+  }
+
+  /** Latest *successful* sync per server — may be older than the latest
+   *  attempt if that attempt failed. Drives "last successful sync". */
+  async latestSuccessfulSyncByServer() {
+    return this.db
+      .selectDistinctOn([serverSyncLogs.serverId], {
+        serverId: serverSyncLogs.serverId,
+        finishedAt: serverSyncLogs.finishedAt,
+      })
+      .from(serverSyncLogs)
+      .where(eq(serverSyncLogs.status, 'success'))
       .orderBy(serverSyncLogs.serverId, desc(serverSyncLogs.startedAt));
   }
 
@@ -228,5 +274,45 @@ export class StatsRepository {
       .select({ value: sql<number>`count(*)::int` })
       .from(servers);
     return r?.value ?? 0;
+  }
+
+  // ── Cross-server overlap ────────────────────────────────────────────────
+
+  /** Count of members present in more than one managed server. */
+  async countMembersInMultipleServers(): Promise<number> {
+    const rows = await this.db
+      .select({ memberId: serverMembers.memberId })
+      .from(serverMembers)
+      .groupBy(serverMembers.memberId)
+      .having(sql`count(*) > 1`);
+    return rows.length;
+  }
+
+  /** Pairwise member-overlap count between every pair of servers, via a
+   *  self-join on server_members (sa.server_id < sb.server_id avoids
+   *  double-counting each unordered pair and self-pairs). */
+  async serverOverlapPairs() {
+    const sa = alias(serverMembers, 'sa');
+    const sb = alias(serverMembers, 'sb');
+    const serverA = alias(servers, 'server_a');
+    const serverB = alias(servers, 'server_b');
+
+    return this.db
+      .select({
+        serverAId: sa.serverId,
+        serverAName: serverA.name,
+        serverBId: sb.serverId,
+        serverBName: serverB.name,
+        overlapCount: sql<number>`count(*)::int`,
+      })
+      .from(sa)
+      .innerJoin(
+        sb,
+        and(eq(sb.memberId, sa.memberId), lt(sa.serverId, sb.serverId)),
+      )
+      .innerJoin(serverA, eq(serverA.id, sa.serverId))
+      .innerJoin(serverB, eq(serverB.id, sb.serverId))
+      .groupBy(sa.serverId, serverA.name, sb.serverId, serverB.name)
+      .orderBy(desc(sql`count(*)`));
   }
 }

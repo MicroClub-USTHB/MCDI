@@ -8,6 +8,7 @@ function chain(result: unknown) {
     'innerJoin',
     'leftJoin',
     'groupBy',
+    'having',
     'orderBy',
     'limit',
   ].forEach((m) => {
@@ -57,10 +58,13 @@ describe('StatsRepository', () => {
       );
     });
 
-    it('countMembersBefore returns the baseline', async () => {
+    it('countMembersBefore returns the baseline (global and scoped)', async () => {
       expect(
         await repoWith([{ value: 1000 }]).countMembersBefore(new Date()),
       ).toBe(1000);
+      expect(
+        await repoWith([{ value: 25 }]).countMembersBefore(new Date(), 's1'),
+      ).toBe(25);
     });
 
     it('countServers returns the server total', async () => {
@@ -81,10 +85,13 @@ describe('StatsRepository', () => {
       expect(await repoWith(rows).membersByRole('s1')).toEqual(rows);
     });
 
-    it('memberGrowthBuckets returns buckets for the chosen unit', async () => {
+    it('memberGrowthBuckets returns buckets for the chosen unit (global and scoped)', async () => {
       const rows = [{ bucket: '2026-06-01T00:00:00.000Z', newMembers: 12 }];
       expect(
         await repoWith(rows).memberGrowthBuckets(new Date(), 'day'),
+      ).toEqual(rows);
+      expect(
+        await repoWith(rows).memberGrowthBuckets(new Date(), 'day', 's1'),
       ).toEqual(rows);
     });
 
@@ -123,14 +130,51 @@ describe('StatsRepository', () => {
       expect(await repoWith(rows).roleCountsByServer()).toEqual(rows);
     });
 
-    it('latestSyncByServer uses distinct-on and returns latest rows', async () => {
+    it('latestSyncByServer uses distinct-on and returns the latest attempt (incl. message)', async () => {
       const rows = [
-        { serverId: 's1', status: 'success', finishedAt: new Date() },
+        {
+          serverId: 's1',
+          status: 'failure',
+          finishedAt: new Date(),
+          message: 'guild unreachable',
+        },
       ];
       const db = dbReturning(rows);
       const repo = new StatsRepository(db as any);
       expect(await repo.latestSyncByServer()).toEqual(rows);
       expect(db.selectDistinctOn).toHaveBeenCalled();
+    });
+
+    it('latestSuccessfulSyncByServer uses distinct-on and returns the latest success', async () => {
+      const rows = [{ serverId: 's1', finishedAt: new Date() }];
+      const db = dbReturning(rows);
+      const repo = new StatsRepository(db as any);
+      expect(await repo.latestSuccessfulSyncByServer()).toEqual(rows);
+      expect(db.selectDistinctOn).toHaveBeenCalled();
+    });
+  });
+
+  describe('cross-server overlap', () => {
+    it('countMembersInMultipleServers counts members with >1 server row', async () => {
+      const rows = [{ memberId: 'm1' }, { memberId: 'm2' }];
+      expect(await repoWith(rows).countMembersInMultipleServers()).toBe(2);
+    });
+
+    it('countMembersInMultipleServers returns 0 when nobody overlaps', async () => {
+      expect(await repoWith([]).countMembersInMultipleServers()).toBe(0);
+    });
+
+    it('serverOverlapPairs returns pairwise overlap rows', async () => {
+      const rows = [
+        {
+          serverAId: 's1',
+          serverAName: 'Main',
+          serverBId: 's2',
+          serverBName: 'Side',
+          overlapCount: 18,
+        },
+      ];
+      expect(await repoWith(rows).serverOverlapPairs()).toEqual(rows);
     });
   });
 });
