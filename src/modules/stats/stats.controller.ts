@@ -73,8 +73,8 @@ export class StatsController {
     summary: 'Member growth over time',
     description:
       'New members are bucketed by `createdAt` (when the record entered the system); ' +
+      'departures are bucketed by `leftAt`; ' +
       '`count` is the cumulative member total at each bucket. ' +
-      'NOTE: member departures are not tracked yet, so `leftMembers` is always 0. ' +
       'Results are cached for 5 minutes.',
   })
   @ApiQuery({ name: 'period', required: false, enum: DATE_RANGES })
@@ -88,7 +88,7 @@ export class StatsController {
             date: '2026-06-01T00:00:00.000Z',
             count: 1180,
             newMembers: 12,
-            leftMembers: 0,
+            leftMembers: 2,
           },
         ],
         period: '30d',

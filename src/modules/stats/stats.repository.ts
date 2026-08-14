@@ -4,6 +4,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
 import {
+  memberDepartures,
   members,
   roles,
   serverMemberRoles,
@@ -110,6 +111,14 @@ export class StatsRepository {
     return r?.value ?? 0;
   }
 
+  async countDeparturesBefore(date: Date): Promise<number> {
+    const [r] = await this.db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(memberDepartures)
+      .where(lt(memberDepartures.leftAt, date));
+    return r?.value ?? 0;
+  }
+
   // ── Grouped breakdowns ──────────────────────────────────────────────────
 
   async membersByServer(serverId?: string) {
@@ -150,6 +159,17 @@ export class StatsRepository {
       .select({ bucket, newMembers: sql<number>`count(*)::int` })
       .from(members)
       .where(gte(members.createdAt, since))
+      .groupBy(bucket)
+      .orderBy(bucket);
+  }
+
+  /** Departure counts bucketed by day/week/month. */
+  async memberDepartureBuckets(since: Date, unit: GrowthUnit) {
+    const bucket = sql<string>`date_trunc(${sql.raw(`'${unit}'`)}, ${memberDepartures.leftAt})`;
+    return this.db
+      .select({ bucket, leftMembers: sql<number>`count(*)::int` })
+      .from(memberDepartures)
+      .where(gte(memberDepartures.leftAt, since))
       .groupBy(bucket)
       .orderBy(bucket);
   }

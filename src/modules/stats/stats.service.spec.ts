@@ -7,9 +7,11 @@ function makeRepo() {
     countActiveMembers: jest.fn(),
     countNewMembers: jest.fn(),
     countMembersBefore: jest.fn(),
+    countDeparturesBefore: jest.fn().mockResolvedValue(0),
     membersByServer: jest.fn().mockResolvedValue([]),
     membersByRole: jest.fn().mockResolvedValue([]),
     memberGrowthBuckets: jest.fn().mockResolvedValue([]),
+    memberDepartureBuckets: jest.fn().mockResolvedValue([]),
     serverName: jest.fn(),
     roleDistribution: jest.fn().mockResolvedValue([]),
     listServers: jest.fn().mockResolvedValue([]),
@@ -53,7 +55,7 @@ describe('StatsService', () => {
     });
 
     it('assembles metrics with derived counts, growth rate and percentages', async () => {
-      const result = await service.getMemberStats({ dateRange: '30d' } as any);
+      const result = await service.getMemberStats({ dateRange: '30d' });
 
       expect(result).toMatchObject({
         totalMembers: 1200,
@@ -77,7 +79,7 @@ describe('StatsService', () => {
     });
 
     it('caches the result on a miss (key includes scope + range, 5-min TTL)', async () => {
-      await service.getMemberStats({ dateRange: '30d' } as any);
+      await service.getMemberStats({ dateRange: '30d' });
       expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:members:all:30d');
       expect(redis.setJson).toHaveBeenCalledWith(
         'mcdi:stats:members:all:30d',
@@ -88,14 +90,14 @@ describe('StatsService', () => {
 
     it('returns the cached value and skips computation on a hit', async () => {
       redis.getJson.mockResolvedValue({ totalMembers: 7 });
-      const result = await service.getMemberStats({ dateRange: '30d' } as any);
+      const result = await service.getMemberStats({ dateRange: '30d' });
       expect(result).toEqual({ totalMembers: 7 });
       expect(repo.countMembers).not.toHaveBeenCalled();
       expect(redis.setJson).not.toHaveBeenCalled();
     });
 
     it('scopes the cache key and repo calls to a serverId', async () => {
-      await service.getMemberStats({ serverId: 's1', dateRange: '7d' } as any);
+      await service.getMemberStats({ serverId: 's1', dateRange: '7d' });
       expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:members:s1:7d');
       expect(repo.countMembers).toHaveBeenCalledWith('s1');
       expect(repo.countNewMembers).toHaveBeenCalledWith(expect.any(Date), 's1');
@@ -103,37 +105,56 @@ describe('StatsService', () => {
   });
 
   describe('getMemberGrowth', () => {
-    it('builds a cumulative series, fixes leftMembers to 0, and sums growth', async () => {
+    it('builds a cumulative series with real leftMembers and net growth', async () => {
       repo.countMembersBefore.mockResolvedValue(1000);
+      repo.countDeparturesBefore.mockResolvedValue(10);
       repo.memberGrowthBuckets.mockResolvedValue([
         { bucket: '2026-06-01T00:00:00.000Z', newMembers: 12 },
         { bucket: '2026-06-02T00:00:00.000Z', newMembers: 8 },
+      ]);
+      repo.memberDepartureBuckets.mockResolvedValue([
+        { bucket: '2026-06-01T00:00:00.000Z', leftMembers: 2 },
+        { bucket: '2026-06-03T00:00:00.000Z', leftMembers: 3 },
       ]);
 
       const result = await service.getMemberGrowth({
         period: '30d',
         granularity: 'daily',
-      } as any);
+      });
 
       expect(repo.memberGrowthBuckets).toHaveBeenCalledWith(
         expect.any(Date),
         'day',
       );
+      expect(repo.memberDepartureBuckets).toHaveBeenCalledWith(
+        expect.any(Date),
+        'day',
+      );
+      // baseline = 1000 - 10 = 990
+      // 2026-06-01: +12 - 2 -> running 1000 (net +10)
+      // 2026-06-02: +8 - 0  -> running 1008 (net +8)
+      // 2026-06-03: +0 - 3  -> running 1005 (net -3)
       expect(result.data).toEqual([
         {
           date: '2026-06-01T00:00:00.000Z',
-          count: 1012,
+          count: 1000,
           newMembers: 12,
-          leftMembers: 0,
+          leftMembers: 2,
         },
         {
           date: '2026-06-02T00:00:00.000Z',
-          count: 1020,
+          count: 1008,
           newMembers: 8,
           leftMembers: 0,
         },
+        {
+          date: '2026-06-03T00:00:00.000Z',
+          count: 1005,
+          newMembers: 0,
+          leftMembers: 3,
+        },
       ]);
-      expect(result.totalGrowth).toBe(20);
+      expect(result.totalGrowth).toBe(15);
       expect(result.period).toBe('30d');
     });
 
@@ -142,8 +163,12 @@ describe('StatsService', () => {
       await service.getMemberGrowth({
         period: '90d',
         granularity: 'monthly',
-      } as any);
+      });
       expect(repo.memberGrowthBuckets).toHaveBeenCalledWith(
+        expect.any(Date),
+        'month',
+      );
+      expect(repo.memberDepartureBuckets).toHaveBeenCalledWith(
         expect.any(Date),
         'month',
       );
@@ -164,7 +189,7 @@ describe('StatsService', () => {
       ]);
       repo.countMembers.mockResolvedValue(1200);
 
-      const result = await service.getRoleStats({ serverId: 's1' } as any);
+      const result = await service.getRoleStats({ serverId: 's1' });
 
       expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:roles:s1');
       expect(result).toEqual({
@@ -243,7 +268,7 @@ describe('StatsService', () => {
       repo.countActiveMembers.mockResolvedValue(0);
       repo.countNewMembers.mockResolvedValue(0);
 
-      await service.getMemberStats({ dateRange: '30d' } as any);
+      await service.getMemberStats({ dateRange: '30d' });
       expect(redis.setJson).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Object),

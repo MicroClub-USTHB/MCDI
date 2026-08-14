@@ -63,6 +63,12 @@ describe('StatsRepository', () => {
       ).toBe(1000);
     });
 
+    it('countDeparturesBefore returns departures baseline', async () => {
+      expect(
+        await repoWith([{ value: 50 }]).countDeparturesBefore(new Date()),
+      ).toBe(50);
+    });
+
     it('countServers returns the server total', async () => {
       expect(await repoWith([{ value: 4 }]).countServers()).toBe(4);
     });
@@ -85,6 +91,13 @@ describe('StatsRepository', () => {
       const rows = [{ bucket: '2026-06-01T00:00:00.000Z', newMembers: 12 }];
       expect(
         await repoWith(rows).memberGrowthBuckets(new Date(), 'day'),
+      ).toEqual(rows);
+    });
+
+    it('memberDepartureBuckets returns departure buckets for the chosen unit', async () => {
+      const rows = [{ bucket: '2026-06-01T00:00:00.000Z', leftMembers: 5 }];
+      expect(
+        await repoWith(rows).memberDepartureBuckets(new Date(), 'day'),
       ).toEqual(rows);
     });
 
