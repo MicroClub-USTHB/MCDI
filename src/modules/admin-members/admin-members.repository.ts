@@ -137,10 +137,20 @@ export class AdminMembersRepository {
   // ──────────────────────── Cross-server list queries ──────────────────────
 
   /**
-   * Count members matching the given filter/search criteria.
+   * Count members matching the given filter/search/serverId/roleId criteria.
    */
-  async countMembers(filter: 'club' | 'all', search?: string): Promise<number> {
-    const conditions = this.buildMemberConditions(filter, search);
+  async countMembers(
+    filter: 'club' | 'all' = 'all',
+    search?: string,
+    serverId?: string,
+    roleId?: string,
+  ): Promise<number> {
+    const conditions = this.buildMemberConditions(
+      filter,
+      search,
+      serverId,
+      roleId,
+    );
 
     const [{ count }] = await this.db
       .select({ count: sql<number>`count(*)::int` })
@@ -151,15 +161,22 @@ export class AdminMembersRepository {
   }
 
   /**
-   * Fetch a paginated list of members matching the given filter/search criteria.
+   * Fetch a paginated list of members matching the given filter/search/serverId/roleId criteria.
    */
   async findMembersPaginated(
-    filter: 'club' | 'all',
+    filter: 'club' | 'all' = 'all',
     search: string | undefined,
     limit: number,
     offset: number,
+    serverId?: string,
+    roleId?: string,
   ): Promise<RawMemberListRow[]> {
-    const conditions = this.buildMemberConditions(filter, search);
+    const conditions = this.buildMemberConditions(
+      filter,
+      search,
+      serverId,
+      roleId,
+    );
 
     return this.db
       .select({
@@ -223,17 +240,29 @@ export class AdminMembersRepository {
    * Build common WHERE conditions for member list queries.
    */
   private buildMemberConditions(
-    filter: 'club' | 'all',
+    filter: 'club' | 'all' = 'all',
     search?: string,
+    serverId?: string,
+    roleId?: string,
   ): SQL[] {
-    // Only members who exist in at least one server
-    const allMemberIdsInServers = this.db
-      .selectDistinct({ memberId: schema.serverMembers.memberId })
-      .from(schema.serverMembers);
+    const conditions: SQL[] = [];
 
-    const conditions: SQL[] = [
-      inArray(schema.members.id, allMemberIdsInServers),
-    ];
+    // Filter by specific server or any managed server
+    if (serverId) {
+      const serverMemberSubquery = this.db
+        .selectDistinct({ memberId: schema.serverMembers.memberId })
+        .from(schema.serverMembers)
+        .where(eq(schema.serverMembers.serverId, serverId));
+
+      conditions.push(inArray(schema.members.id, serverMemberSubquery));
+    } else {
+      // Only members who exist in at least one server
+      const allMemberIdsInServers = this.db
+        .selectDistinct({ memberId: schema.serverMembers.memberId })
+        .from(schema.serverMembers);
+
+      conditions.push(inArray(schema.members.id, allMemberIdsInServers));
+    }
 
     if (search) {
       const searchCondition = or(
@@ -256,6 +285,15 @@ export class AdminMembersRepository {
         .where(eq(schema.servers.isMain, true));
 
       conditions.push(inArray(schema.members.id, mainServerSubquery));
+    }
+
+    if (roleId) {
+      const roleSubquery = this.db
+        .select({ memberId: schema.serverMemberRoles.memberId })
+        .from(schema.serverMemberRoles)
+        .where(eq(schema.serverMemberRoles.roleId, roleId));
+
+      conditions.push(inArray(schema.members.id, roleSubquery));
     }
 
     return conditions;

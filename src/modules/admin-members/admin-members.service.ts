@@ -3,6 +3,7 @@ import { AdminMembersRepository } from './admin-members.repository';
 import {
   CrossServerListItemDto,
   CrossServerQueryDto,
+  ExportQueryDto,
   MemberCrossServerViewDto,
   MemberServerDetailDto,
   PaginatedCrossServerListDto,
@@ -83,22 +84,34 @@ export class AdminMembersService {
   // ──────────────────────── Cross-server list ──────────────────────────
 
   /**
+   * GET /admin/members?serverId=&roleId=&filter=club|all&page=&limit=&search=
    * GET /admin/members/cross-server?filter=club|all&page=&limit=&search=
    *
    * Paginated list of members across all managed servers.
    * filter=club  → only members present in the main server
    * filter=all   → any member in any managed server
+   * serverId     → restrict to members of this server
+   * roleId       → restrict to members holding this role
    */
   async getCrossServerList(
     query: CrossServerQueryDto,
   ): Promise<PaginatedCrossServerListDto> {
-    const { filter, page, limit, search } = query;
+    const {
+      filter = 'all',
+      page = 1,
+      limit = 20,
+      search,
+      serverId,
+      roleId,
+    } = query;
     const offset = (page - 1) * limit;
 
     // Count total matching members
     const totalCount = await this.adminMembersRepository.countMembers(
       filter,
       search,
+      serverId,
+      roleId,
     );
 
     // Fetch the page of members
@@ -107,6 +120,8 @@ export class AdminMembersService {
       search,
       limit,
       offset,
+      serverId,
+      roleId,
     );
 
     if (memberRows.length === 0) {
@@ -184,8 +199,14 @@ export class AdminMembersService {
    * Returns an array of flat objects suitable for CSV/JSON.
    */
   async getExportData(
-    filter: 'club' | 'all',
+    queryOrFilter: ExportQueryDto | 'club' | 'all',
   ): Promise<Record<string, unknown>[]> {
+    const query: ExportQueryDto =
+      typeof queryOrFilter === 'string'
+        ? { filter: queryOrFilter, format: 'json' }
+        : queryOrFilter;
+
+    const { filter = 'all', serverId, roleId, search } = query;
     const rows: Record<string, unknown>[] = [];
     const limit = 1000;
     let page = 1;
@@ -194,12 +215,19 @@ export class AdminMembersService {
     while (hasMore) {
       const result = await this.getCrossServerList({
         filter,
+        serverId,
+        roleId,
+        search,
         page,
         limit,
       });
 
       for (const item of result.data) {
-        for (const srv of item.servers) {
+        const serversToExport = serverId
+          ? item.servers.filter((s) => s.serverId === serverId)
+          : item.servers;
+
+        for (const srv of serversToExport) {
           rows.push({
             discord_id: item.memberId,
             username: item.username,

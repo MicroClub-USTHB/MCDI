@@ -140,6 +140,14 @@ describe('AdminMembersRepository', () => {
       const repo = await buildRepo(db);
       expect(await repo.countMembers('club', 'ali')).toBe(3);
     });
+
+    it('returns count when filtered by serverId and roleId', async () => {
+      const db = buildDb([{ count: 2 }]);
+      const repo = await buildRepo(db);
+      expect(await repo.countMembers('all', undefined, 'srv-1', 'role-1')).toBe(
+        2,
+      );
+    });
   });
 
   // ── findMembersPaginated ────────────────────────────────────────────────────
@@ -160,6 +168,23 @@ describe('AdminMembersRepository', () => {
       const repo = await buildRepo(db);
       const result = await repo.findMembersPaginated('club', 'bob', 5, 10);
       expect(result).toEqual([]);
+    });
+
+    it('applies serverId and roleId filters', async () => {
+      const rows = [
+        { id: 'mem-1', username: 'alice', globalName: null, avatar: null },
+      ];
+      const db = buildDb(rows);
+      const repo = await buildRepo(db);
+      const result = await repo.findMembersPaginated(
+        'all',
+        undefined,
+        10,
+        0,
+        'srv-1',
+        'role-1',
+      );
+      expect(result).toEqual(rows);
     });
   });
 
