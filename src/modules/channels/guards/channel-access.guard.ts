@@ -17,8 +17,8 @@ export class ChannelAccessGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const serverId = request.params['serverId'];
-    const channelId = request.params['channelId'];
+    const serverId = this.paramAsString(request.params['serverId']);
+    const channelId = this.paramAsString(request.params['channelId']);
 
     if (!channelId) {
       return true;
@@ -45,5 +45,12 @@ export class ChannelAccessGuard implements CanActivate {
     }
 
     return true;
+  }
+
+  /** Route params can type as `string | string[]` — collapse to a single string. */
+  private paramAsString(
+    value: string | string[] | undefined,
+  ): string | undefined {
+    return Array.isArray(value) ? value[0] : value;
   }
 }

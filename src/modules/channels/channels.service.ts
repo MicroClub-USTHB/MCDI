@@ -244,15 +244,19 @@ export class ChannelsService {
       );
     }
 
-    let messageList = [...messages.values()];
+    const rawMessages = [...messages.values()];
+    // hasMore reflects whether Discord's raw page was full, not the count
+    // after client-side authorId filtering — otherwise filtering down to a
+    // handful of matches would falsely report no more messages available.
+    const hasMore = rawMessages.length === (query.limit ?? 50);
+
+    let messageList = rawMessages;
 
     if (query.authorId) {
       messageList = messageList.filter(
         (msg) => msg.author.id === query.authorId,
       );
     }
-
-    const hasMore = messageList.length === (query.limit ?? 50);
 
     return {
       messages: messageList.map((msg) => ({
@@ -269,7 +273,7 @@ export class ChannelsService {
           description: e.description ?? null,
           url: e.url ?? null,
           color: e.color ?? null,
-          type: String(e.type),
+          type: String(e.data.type),
         })),
         attachments: msg.attachments.map((a) => ({
           id: a.id,

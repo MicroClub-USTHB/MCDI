@@ -423,6 +423,28 @@ describe('ChannelsService', () => {
       );
     });
 
+    it('should compute hasMore from the raw page, not the authorId-filtered count', async () => {
+      // Discord returned a full page (limit=50) — more messages likely exist
+      // upstream — but only 2 happen to match the authorId filter. hasMore
+      // must stay true; it should not collapse to `2 === 50` => false.
+      const messages = new Map();
+      for (let i = 0; i < 50; i++) {
+        const id = String(i);
+        const authorId = i < 2 ? 'author-a' : 'author-b';
+        messages.set(id, buildMockMessage(id, authorId, `msg-${i}`));
+      }
+
+      mockDiscordService.getChannelMessages.mockResolvedValue(messages as any);
+
+      const result = await service.getMessages('server-123', 'channel-123', {
+        limit: 50,
+        authorId: 'author-a',
+      });
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.hasMore).toBe(true);
+    });
+
     it('should pass before/after pagination to Discord service', async () => {
       mockDiscordService.getChannelMessages.mockResolvedValue(new Map() as any);
 
