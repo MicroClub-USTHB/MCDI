@@ -6,6 +6,7 @@ import {
   Query,
   Body,
   UseGuards,
+  UseFilters,
   UsePipes,
   ValidationPipe,
   HttpCode,
@@ -40,12 +41,14 @@ import {
   ChannelDetailResponseDto,
 } from './dto/channel-response.dto';
 import { GetMessagesResponseDto } from './dto/message-response.dto';
+import { ChannelsExceptionFilter } from './filters/channels-exception.filter';
 
 @ApiTags('Channels')
 @ApiSecurity('api-key')
 @Controller('servers/:serverId/channels')
 @UseGuards(ApiKeyGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+@UseFilters(ChannelsExceptionFilter)
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
 

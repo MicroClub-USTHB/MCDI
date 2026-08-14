@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  INestApplication,
+  NotFoundException,
+  ValidationPipe,
+} from '@nestjs/common';
 import request from 'supertest';
 import { ChannelsController } from './channels.controller';
 import { ChannelsService } from './channels.service';
@@ -78,7 +84,7 @@ describe('ChannelsController (integration)', () => {
             parentId: null,
             topic: 'Discussion',
             nsfw: false,
-            permissionOverwrites: { hasOverwrites: false },
+            permissionOverwrites: false,
           },
         ],
         categories: [],
@@ -197,16 +203,19 @@ describe('ChannelsController (integration)', () => {
 
     it('should return 400 when content is empty and no embeds provided', async () => {
       mockService.sendMessage.mockRejectedValue(
-        new (require('@nestjs/common').BadRequestException)(
-          'INVALID_CONTENT: Either content or embeds must be provided',
-        ),
+        new BadRequestException({
+          code: 'INVALID_CONTENT',
+          message: 'Either content or embeds must be provided',
+        }),
       );
 
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .post('/servers/123/channels/ch-1/messages')
         .set('X-API-Key', 'test-key')
         .send({})
         .expect(400);
+
+      expect(res.body.code).toBe('INVALID_CONTENT');
     });
 
     it('should return 400 when embed color exceeds range', async () => {
@@ -218,6 +227,50 @@ describe('ChannelsController (integration)', () => {
           embeds: [{ title: 'Title', color: 16777216 }],
         })
         .expect(400);
+    });
+  });
+
+  describe('error codes (ChannelsExceptionFilter)', () => {
+    it('tags a DTO validation 400 on the send-message route as INVALID_CONTENT', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/servers/123/channels/ch-1/messages')
+        .set('X-API-Key', 'test-key')
+        .send({ content: 'x'.repeat(2001) })
+        .expect(400);
+
+      expect(res.body.code).toBe('INVALID_CONTENT');
+    });
+
+    it('tags a service NotFoundException as CHANNEL_NOT_FOUND', async () => {
+      mockService.getChannel.mockRejectedValue(
+        new NotFoundException({
+          code: 'CHANNEL_NOT_FOUND',
+          message: 'Channel does not exist or bot lacks access',
+        }),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get('/servers/123/channels/ch-1')
+        .set('X-API-Key', 'test-key')
+        .expect(404);
+
+      expect(res.body.code).toBe('CHANNEL_NOT_FOUND');
+    });
+
+    it('infers NO_SEND_PERMISSION from a bare ForbiddenException mentioning SEND_MESSAGES', async () => {
+      mockService.sendMessage.mockRejectedValue(
+        new ForbiddenException(
+          'Project is not allowed to perform SEND_MESSAGES on server 123',
+        ),
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/servers/123/channels/ch-1/messages')
+        .set('X-API-Key', 'test-key')
+        .send({ content: 'Hello' })
+        .expect(403);
+
+      expect(res.body.code).toBe('NO_SEND_PERMISSION');
     });
   });
 });

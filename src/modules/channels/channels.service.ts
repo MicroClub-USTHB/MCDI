@@ -32,9 +32,10 @@ export class ChannelsService {
     author: { id: string; username: string };
   }> {
     if (!dto.content?.length && !dto.embeds?.length) {
-      throw new BadRequestException(
-        'INVALID_CONTENT: Either content or embeds must be provided',
-      );
+      throw new BadRequestException({
+        code: 'INVALID_CONTENT',
+        message: 'Either content or embeds must be provided',
+      });
     }
 
     const options: Discord.MessageCreateOptions = {};
@@ -67,9 +68,10 @@ export class ChannelsService {
     const message = await this.discordService.sendMessage(channelId, options);
 
     if (!message) {
-      throw new NotFoundException(
-        'CHANNEL_NOT_FOUND: Channel does not exist or bot lacks access',
-      );
+      throw new NotFoundException({
+        code: 'CHANNEL_NOT_FOUND',
+        message: 'Channel does not exist or bot lacks access',
+      });
     }
 
     return {
@@ -128,7 +130,10 @@ export class ChannelsService {
     const channels = await this.discordService.getGuildChannels(serverId);
 
     if (!channels) {
-      throw new NotFoundException('Server not found or bot not connected');
+      throw new NotFoundException({
+        code: 'SERVER_NOT_FOUND',
+        message: 'Server not found or bot not connected',
+      });
     }
 
     const channelEntries = [...channels.values()].filter(
@@ -183,9 +188,7 @@ export class ChannelsService {
         parentId: ch.parentId ?? null,
         topic: 'topic' in ch ? (ch.topic ?? null) : null,
         nsfw: 'nsfw' in ch ? ch.nsfw : false,
-        permissionOverwrites: {
-          hasOverwrites: ch.permissionOverwrites.cache.size > 0,
-        },
+        permissionOverwrites: ch.permissionOverwrites.cache.size > 0,
       };
     });
 
@@ -202,9 +205,10 @@ export class ChannelsService {
     const channel = await this.discordService.getChannelById(channelId);
 
     if (!channel || channel.isDMBased()) {
-      throw new NotFoundException(
-        'CHANNEL_NOT_FOUND: Channel does not exist or bot lacks access',
-      );
+      throw new NotFoundException({
+        code: 'CHANNEL_NOT_FOUND',
+        message: 'Channel does not exist or bot lacks access',
+      });
     }
 
     return {
@@ -239,9 +243,10 @@ export class ChannelsService {
     );
 
     if (!messages) {
-      throw new NotFoundException(
-        'CHANNEL_NOT_FOUND: Channel does not exist or bot lacks access',
-      );
+      throw new NotFoundException({
+        code: 'CHANNEL_NOT_FOUND',
+        message: 'Channel does not exist or bot lacks access',
+      });
     }
 
     const rawMessages = [...messages.values()];

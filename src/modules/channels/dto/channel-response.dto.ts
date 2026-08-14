@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-class ChannelPermissionOverwritesDto {
-  @ApiProperty({ description: 'Whether the channel has permission overwrites' })
-  hasOverwrites: boolean;
-}
-
 export class ChannelResponseDto {
   @ApiProperty({
     description: 'Discord channel ID',
@@ -43,10 +38,10 @@ export class ChannelResponseDto {
   nsfw: boolean;
 
   @ApiProperty({
-    description: 'Permission overwrites info',
-    type: () => ChannelPermissionOverwritesDto,
+    description: 'Whether the channel has permission overwrites',
+    example: false,
   })
-  permissionOverwrites: ChannelPermissionOverwritesDto;
+  permissionOverwrites: boolean;
 
   @ApiProperty({
     description: 'Last message ID',

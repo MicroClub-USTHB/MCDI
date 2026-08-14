@@ -81,10 +81,12 @@ describe('Channels Rate Limiting', () => {
         .expect(201);
     }
 
-    await request(app.getHttpServer())
+    const res = await request(app.getHttpServer())
       .post('/servers/123/channels/ch-1/messages')
       .set('X-API-Key', 'test-key')
       .send({ content: 'Rate limited message' })
       .expect(429);
+
+    expect(res.body.code).toBe('RATE_LIMITED');
   });
 });
