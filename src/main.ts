@@ -116,6 +116,10 @@ async function bootstrap() {
       'Discord server registration and lifecycle management — system admin only',
     )
     .addTag(
+      'Channels',
+      'Discord channel listing, message history, and message sending — project API key',
+    )
+    .addTag(
       'Sync',
       'Manual sync triggering and sync log inspection — system admin only',
     )
