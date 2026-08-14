@@ -114,6 +114,39 @@ describe('StatsService', () => {
       expect(repo.countMembers).toHaveBeenCalledWith('s1');
       expect(repo.countNewMembers).toHaveBeenCalledWith(expect.any(Date), 's1');
     });
+
+    it('derives activeMembers from a recent-presence cutoff, not a raw flag', async () => {
+      const result = await service.getMemberStats({
+        serverId: 's1',
+        dateRange: '30d',
+      } as any);
+      expect(repo.countActiveMembers).toHaveBeenCalledWith(
+        expect.any(Date),
+        's1',
+      );
+      expect(result.activityThresholdDays).toBe(30);
+    });
+
+    it('honours app.memberActivityThresholdDays from config', async () => {
+      config.get.mockImplementation((k: string) =>
+        k === 'app.memberActivityThresholdDays' ? 7 : undefined,
+      );
+      service = new StatsService(
+        repo as any,
+        redis as any,
+        config as any,
+        discord as any,
+      );
+      const result = await service.getMemberStats({
+        dateRange: '30d',
+      } as any);
+
+      expect(result.activityThresholdDays).toBe(7);
+      const cutoffArg = repo.countActiveMembers.mock.calls.at(-1)?.[0] as Date;
+      const expectedCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      // Allow a small margin for test execution time.
+      expect(Math.abs(cutoffArg.getTime() - expectedCutoff)).toBeLessThan(5000);
+    });
   });
 
   describe('getMemberGrowth', () => {
@@ -254,6 +287,7 @@ describe('StatsService', () => {
             roleId: 'r1',
             roleName: 'Member',
             memberCount: 800,
+            percentage: 66.67, // 800/1200*100
             hierarchyLevel: 1,
             color: 123,
           },
@@ -264,6 +298,11 @@ describe('StatsService', () => {
   });
 
   describe('getServerStats', () => {
+    it('passes an activity cutoff through to memberCountsByServer', async () => {
+      await service.getServerStats();
+      expect(repo.memberCountsByServer).toHaveBeenCalledWith(expect.any(Date));
+    });
+
     it('joins per-server aggregates by id, including health fields', async () => {
       repo.listServers.mockResolvedValue([
         { serverId: 's1', serverName: 'Main' },

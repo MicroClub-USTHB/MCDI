@@ -10,6 +10,11 @@ export default registerAs('app', () => ({
   corsOrigins: process.env.CORS_ORIGINS,
   permissionCacheTtlMs:
     Number(process.env.PERMISSION_CACHE_TTL_MS) || 5 * 60 * 1000,
+  statsCacheTtlMs: Number(process.env.STATS_CACHE_TTL_MS) || 5 * 60 * 1000,
+  // A member counts as "active" if their server presence was reconfirmed by
+  // sync (or, absent that, they joined) within this many days.
+  memberActivityThresholdDays:
+    Number(process.env.MEMBER_ACTIVITY_THRESHOLD_DAYS) || 30,
   projectAuthCacheTtlMs:
     Number(process.env.PROJECT_AUTH_CACHE_TTL_MS) || 30_000,
   projectAccessCacheTtlMs:

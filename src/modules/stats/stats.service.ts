@@ -32,6 +32,7 @@ export class StatsService {
   private readonly logger = new Logger(StatsService.name);
   private readonly ttlMs: number;
   private readonly keyPrefix: string;
+  private readonly activityThresholdDays: number;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -44,6 +45,16 @@ export class StatsService {
       this.configService.get<number>('app.statsCacheTtlMs') || DEFAULT_TTL_MS;
     this.keyPrefix =
       this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+    this.activityThresholdDays =
+      this.configService.get<number>('app.memberActivityThresholdDays') || 30;
+  }
+
+  /** A member is "active" if their server presence was reconfirmed by sync
+   *  (or, absent that, they joined) within the configured threshold. */
+  private activeCutoff(): Date {
+    return new Date(
+      Date.now() - this.activityThresholdDays * 24 * 60 * 60 * 1000,
+    );
   }
 
   // ── Member statistics ───────────────────────────────────────────────────
@@ -56,11 +67,12 @@ export class StatsService {
   private async computeMemberStats(dto: MemberStatsQueryDto) {
     const serverId = dto.serverId;
     const since = this.cutoff(dto.dateRange);
+    const activeCutoff = this.activeCutoff();
     const [total, club, active, newMembers, byServerRows, byRoleRows] =
       await Promise.all([
         this.repo.countMembers(serverId),
         this.repo.countClubMembers(serverId),
-        this.repo.countActiveMembers(serverId),
+        this.repo.countActiveMembers(activeCutoff, serverId),
         this.repo.countNewMembers(since, serverId),
         this.repo.membersByServer(serverId),
         this.repo.membersByRole(serverId),
@@ -72,6 +84,9 @@ export class StatsService {
       nonClubMembers: total - club,
       activeMembers: active,
       inactiveMembers: total - active,
+      // Members are "active" if resynced (or, absent that, joined) within
+      // this many days — see MEMBER_ACTIVITY_THRESHOLD_DAYS.
+      activityThresholdDays: this.activityThresholdDays,
       newMembersThisPeriod: newMembers,
       // Growth relative to the pre-period baseline.
       growthRate: round2((newMembers / Math.max(1, total - newMembers)) * 100),
@@ -147,6 +162,7 @@ export class StatsService {
         roleId: r.roleId,
         roleName: r.roleName,
         memberCount: r.memberCount,
+        percentage: round2((r.memberCount / Math.max(1, totalMembers)) * 100),
         hierarchyLevel: r.hierarchyLevel,
         color: r.color,
       })),
@@ -172,7 +188,7 @@ export class StatsService {
       totalMembers,
     ] = await Promise.all([
       this.repo.listServers(),
-      this.repo.memberCountsByServer(),
+      this.repo.memberCountsByServer(this.activeCutoff()),
       this.repo.roleCountsByServer(),
       this.repo.latestSyncByServer(),
       this.repo.latestSuccessfulSyncByServer(),

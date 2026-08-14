@@ -44,7 +44,9 @@ export class StatsController {
     summary: 'Aggregate member statistics',
     description:
       'Aggregate counts only, never individual member data. ' +
-      '`activeMembers` counts members with an active membership in at least one server. ' +
+      '`activeMembers` counts members whose server presence was reconfirmed ' +
+      'by sync (or, absent that, who joined) within `activityThresholdDays` ' +
+      '(configurable via MEMBER_ACTIVITY_THRESHOLD_DAYS, default 30). ' +
       '`growthRate` = newMembersThisPeriod / (totalMembers - newMembersThisPeriod) * 100. ' +
       'Results are cached for 5 minutes.',
   })
@@ -59,6 +61,7 @@ export class StatsController {
         nonClubMembers: 400,
         activeMembers: 1100,
         inactiveMembers: 100,
+        activityThresholdDays: 30,
         newMembersThisPeriod: 45,
         growthRate: 3.9,
         byRole: [{ roleName: 'Member', count: 800, percentage: 66.67 }],
@@ -115,7 +118,8 @@ export class StatsController {
   @ApiOperation({
     summary: 'Role distribution for a server',
     description:
-      'Member count per role for the given server, ordered by role position. ' +
+      'Member count and percentage of server members per role, ordered by ' +
+      'role position. `percentage` is memberCount / totalMembers * 100. ' +
       'Results are cached for 5 minutes.',
   })
   @ApiQuery({ name: 'serverId', required: true })
@@ -130,6 +134,7 @@ export class StatsController {
             roleId: '456',
             roleName: 'Member',
             memberCount: 800,
+            percentage: 66.67,
             hierarchyLevel: 1,
             color: 3447003,
           },

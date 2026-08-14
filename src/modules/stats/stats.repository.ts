@@ -59,8 +59,14 @@ export class StatsRepository {
     return r?.value ?? 0;
   }
 
-  /** Active = present in at least one server with an active membership. */
-  async countActiveMembers(serverId?: string): Promise<number> {
+  /** Active = still a current member AND their presence was reconfirmed by
+   *  sync (falling back to joinedAt when never resynced) within `activeCutoff`. */
+  async countActiveMembers(
+    activeCutoff: Date,
+    serverId?: string,
+  ): Promise<number> {
+    const recentPresence = sql`coalesce(${serverMembers.lastSyncedAt}, ${serverMembers.joinedAt}) >= ${activeCutoff}`;
+
     if (serverId) {
       const [r] = await this.db
         .select({ value: sql<number>`count(*)::int` })
@@ -69,6 +75,7 @@ export class StatsRepository {
           and(
             eq(serverMembers.serverId, serverId),
             eq(serverMembers.isActive, true),
+            recentPresence,
           ),
         );
       return r?.value ?? 0;
@@ -78,7 +85,7 @@ export class StatsRepository {
         value: sql<number>`count(distinct ${serverMembers.memberId})::int`,
       })
       .from(serverMembers)
-      .where(eq(serverMembers.isActive, true));
+      .where(and(eq(serverMembers.isActive, true), recentPresence));
     return r?.value ?? 0;
   }
 
@@ -220,12 +227,16 @@ export class StatsRepository {
       .orderBy(servers.name);
   }
 
-  async memberCountsByServer() {
+  /** Per-server totals, with activeMembers using the same recent-presence
+   *  definition as `countActiveMembers`. */
+  async memberCountsByServer(activeCutoff: Date) {
+    const recentPresence = sql`coalesce(${serverMembers.lastSyncedAt}, ${serverMembers.joinedAt}) >= ${activeCutoff}`;
+
     return this.db
       .select({
         serverId: serverMembers.serverId,
         memberCount: sql<number>`count(*)::int`,
-        activeMembers: sql<number>`count(*) filter (where ${serverMembers.isActive})::int`,
+        activeMembers: sql<number>`count(*) filter (where ${serverMembers.isActive} and ${recentPresence})::int`,
       })
       .from(serverMembers)
       .groupBy(serverMembers.serverId);

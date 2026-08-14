@@ -46,8 +46,13 @@ describe('StatsRepository', () => {
     });
 
     it('countActiveMembers handles global (distinct) and scoped paths', async () => {
-      expect(await repoWith([{ value: 1100 }]).countActiveMembers()).toBe(1100);
-      expect(await repoWith([{ value: 40 }]).countActiveMembers('s1')).toBe(40);
+      const cutoff = new Date('2026-05-25T00:00:00.000Z');
+      expect(await repoWith([{ value: 1100 }]).countActiveMembers(cutoff)).toBe(
+        1100,
+      );
+      expect(
+        await repoWith([{ value: 40 }]).countActiveMembers(cutoff, 's1'),
+      ).toBe(40);
     });
 
     it('countNewMembers handles global and scoped paths', async () => {
@@ -122,7 +127,8 @@ describe('StatsRepository', () => {
 
     it('memberCountsByServer returns grouped counts', async () => {
       const rows = [{ serverId: 's1', memberCount: 1200, activeMembers: 1100 }];
-      expect(await repoWith(rows).memberCountsByServer()).toEqual(rows);
+      const cutoff = new Date('2026-05-25T00:00:00.000Z');
+      expect(await repoWith(rows).memberCountsByServer(cutoff)).toEqual(rows);
     });
 
     it('roleCountsByServer returns grouped counts', async () => {
