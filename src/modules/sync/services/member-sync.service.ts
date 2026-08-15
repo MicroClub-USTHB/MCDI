@@ -174,6 +174,15 @@ export class MemberSyncService {
       `handleMemberRemove upsertServerMembership(${guildMember.id})`,
       this.logger,
     );
+    await withRetry(
+      () =>
+        this.memberRepository.recordMemberDeparture(
+          guildMember.guild.id,
+          guildMember.id,
+        ),
+      `handleMemberRemove recordMemberDeparture(${guildMember.id})`,
+      this.logger,
+    );
     this.permissionCache.invalidateMember(guildMember.id);
     await this.syncLogService.recordEventChange(
       guildMember.guild.id,

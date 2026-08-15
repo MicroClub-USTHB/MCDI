@@ -91,22 +91,50 @@ export class StatsService {
       const since = this.cutoff(dto.period);
       const unit = GRANULARITY_UNIT[dto.granularity] ?? 'day';
 
-      const [baseline, buckets] = await Promise.all([
-        this.repo.countMembersBefore(since),
-        this.repo.memberGrowthBuckets(since, unit),
-      ]);
+      const [membersBefore, departuresBefore, growthBuckets, departureBuckets] =
+        await Promise.all([
+          this.repo.countMembersBefore(since),
+          this.repo.countDeparturesBefore(since),
+          this.repo.memberGrowthBuckets(since, unit),
+          this.repo.memberDepartureBuckets(since, unit),
+        ]);
+
+      const baseline = Math.max(0, membersBefore - departuresBefore);
+
+      const bucketMap = new Map<
+        string,
+        { newMembers: number; leftMembers: number }
+      >();
+
+      for (const b of growthBuckets) {
+        const d = new Date(b.bucket).toISOString();
+        const entry = bucketMap.get(d) ?? { newMembers: 0, leftMembers: 0 };
+        entry.newMembers = b.newMembers;
+        bucketMap.set(d, entry);
+      }
+
+      for (const b of departureBuckets) {
+        const d = new Date(b.bucket).toISOString();
+        const entry = bucketMap.get(d) ?? { newMembers: 0, leftMembers: 0 };
+        entry.leftMembers = b.leftMembers;
+        bucketMap.set(d, entry);
+      }
+
+      const sortedDates = Array.from(bucketMap.keys()).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+      );
 
       let running = baseline;
       let totalGrowth = 0;
-      const data = buckets.map((b) => {
-        running += b.newMembers;
-        totalGrowth += b.newMembers;
+      const data = sortedDates.map((dateStr) => {
+        const b = bucketMap.get(dateStr)!;
+        running += b.newMembers - b.leftMembers;
+        totalGrowth += b.newMembers - b.leftMembers;
         return {
-          date: new Date(b.bucket).toISOString(),
+          date: dateStr,
           count: running,
           newMembers: b.newMembers,
-          // Departures are not tracked in the schema yet; always 0.
-          leftMembers: 0,
+          leftMembers: b.leftMembers,
         };
       });
 

@@ -8,6 +8,7 @@ import { members } from '../../database/entities/member.entity';
 import { serverMembers } from '../../database/entities/server-member.entity';
 import { serverMemberRoles } from '../../database/entities/server-member-role.entity';
 import { roles } from '../../database/entities/role.entity';
+import { memberDepartures } from '../../database/entities/member-departure.entity';
 
 interface DbPagination {
   offset: number;
@@ -299,17 +300,44 @@ export class MemberRepository {
     serverId: string,
     syncStart: Date,
   ): Promise<number> {
-    const result = await this.db
-      .update(serverMembers)
-      .set({ isActive: false, lastSyncedAt: new Date() })
-      .where(
-        and(
-          eq(serverMembers.serverId, serverId),
-          eq(serverMembers.isActive, true),
-          lt(serverMembers.lastSyncedAt, syncStart),
-        ),
-      );
-    return result.rowCount ?? 0;
+    const now = new Date();
+    return this.db.transaction(async (tx) => {
+      const deactivated = await tx
+        .update(serverMembers)
+        .set({ isActive: false, lastSyncedAt: now })
+        .where(
+          and(
+            eq(serverMembers.serverId, serverId),
+            eq(serverMembers.isActive, true),
+            lt(serverMembers.lastSyncedAt, syncStart),
+          ),
+        )
+        .returning({ memberId: serverMembers.memberId });
+
+      if (deactivated.length > 0) {
+        await tx.insert(memberDepartures).values(
+          deactivated.map((d) => ({
+            serverId,
+            memberId: d.memberId,
+            leftAt: now,
+          })),
+        );
+      }
+
+      return deactivated.length;
+    });
+  }
+
+  async recordMemberDeparture(
+    serverId: string,
+    memberId: string,
+    leftAt: Date = new Date(),
+  ): Promise<void> {
+    await this.db.insert(memberDepartures).values({
+      serverId,
+      memberId,
+      leftAt,
+    });
   }
 
   // role deletion
