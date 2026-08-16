@@ -14,6 +14,7 @@ function makeRepo() {
     memberDepartureBuckets: jest.fn().mockResolvedValue([]),
     serverName: jest.fn(),
     roleDistribution: jest.fn().mockResolvedValue([]),
+    globalRoleDistribution: jest.fn().mockResolvedValue([]),
     listServers: jest.fn().mockResolvedValue([]),
     memberCountsByServer: jest.fn().mockResolvedValue([]),
     roleCountsByServer: jest.fn().mockResolvedValue([]),
@@ -176,7 +177,7 @@ describe('StatsService', () => {
   });
 
   describe('getRoleStats', () => {
-    it('returns role distribution and total for the server', async () => {
+    it('returns role distribution and total for the server (scoped)', async () => {
       repo.serverName.mockResolvedValue('Main');
       repo.roleDistribution.mockResolvedValue([
         {
@@ -195,6 +196,7 @@ describe('StatsService', () => {
       expect(result).toEqual({
         serverId: 's1',
         serverName: 'Main',
+        scope: 'server',
         roles: [
           {
             roleId: 'r1',
@@ -205,6 +207,40 @@ describe('StatsService', () => {
           },
         ],
         totalMembers: 1200,
+      });
+    });
+
+    it('returns cross-server role distribution merged by name when serverId is omitted', async () => {
+      repo.globalRoleDistribution.mockResolvedValue([
+        {
+          roleName: 'Member',
+          memberCount: 1500,
+        },
+        {
+          roleName: 'Admin',
+          memberCount: 50,
+        },
+      ]);
+      repo.countMembers.mockResolvedValue(2000);
+
+      const result = await service.getRoleStats({});
+
+      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:roles:all');
+      expect(result).toEqual({
+        serverId: null,
+        serverName: null,
+        scope: 'global',
+        roles: [
+          {
+            roleName: 'Member',
+            memberCount: 1500,
+          },
+          {
+            roleName: 'Admin',
+            memberCount: 50,
+          },
+        ],
+        totalMembers: 2000,
       });
     });
   });

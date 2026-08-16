@@ -113,6 +113,16 @@ describe('StatsRepository', () => {
       ];
       expect(await repoWith(rows).roleDistribution('s1')).toEqual(rows);
     });
+
+    it('globalRoleDistribution returns cross-server role distribution merged by name', async () => {
+      const rows = [
+        {
+          roleName: 'Member',
+          memberCount: 1500,
+        },
+      ];
+      expect(await repoWith(rows).globalRoleDistribution()).toEqual(rows);
+    });
   });
 
   describe('server overview', () => {
