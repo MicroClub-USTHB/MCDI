@@ -145,24 +145,43 @@ export class StatsService {
   // ── Role distribution ───────────────────────────────────────────────────
 
   async getRoleStats(dto: RoleStatsQueryDto) {
-    const key = `${this.namespace()}:roles:${dto.serverId}`;
+    const key = `${this.namespace()}:roles:${dto.serverId ?? 'all'}`;
 
     return this.cached(key, async () => {
-      const [serverName, rows, totalMembers] = await Promise.all([
-        this.repo.serverName(dto.serverId),
-        this.repo.roleDistribution(dto.serverId),
-        this.repo.countMembers(dto.serverId),
+      if (dto.serverId) {
+        const [serverName, rows, totalMembers] = await Promise.all([
+          this.repo.serverName(dto.serverId),
+          this.repo.roleDistribution(dto.serverId),
+          this.repo.countMembers(dto.serverId),
+        ]);
+
+        return {
+          serverId: dto.serverId,
+          serverName,
+          scope: 'server' as const,
+          roles: rows.map((r) => ({
+            roleId: r.roleId,
+            roleName: r.roleName,
+            memberCount: r.memberCount,
+            hierarchyLevel: r.hierarchyLevel,
+            color: r.color,
+          })),
+          totalMembers,
+        };
+      }
+
+      const [rows, totalMembers] = await Promise.all([
+        this.repo.globalRoleDistribution(),
+        this.repo.countMembers(),
       ]);
 
       return {
-        serverId: dto.serverId,
-        serverName,
+        serverId: null,
+        serverName: null,
+        scope: 'global' as const,
         roles: rows.map((r) => ({
-          roleId: r.roleId,
           roleName: r.roleName,
           memberCount: r.memberCount,
-          hierarchyLevel: r.hierarchyLevel,
-          color: r.color,
         })),
         totalMembers,
       };

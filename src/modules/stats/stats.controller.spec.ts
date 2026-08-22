@@ -42,12 +42,22 @@ describe('StatsController', () => {
     expect(mockStatsService.getMemberGrowth).toHaveBeenCalledWith(dto);
   });
 
-  it('getRoleStats delegates to the service', async () => {
-    const expected = { serverId: 's1', roles: [] };
-    mockStatsService.getRoleStats.mockResolvedValue(expected);
-    const dto = { serverId: 's1' } as any;
-    await expect(controller.getRoleStats(dto)).resolves.toBe(expected);
-    expect(mockStatsService.getRoleStats).toHaveBeenCalledWith(dto);
+  it('getRoleStats delegates to the service (scoped and cross-server)', async () => {
+    const scopedExpected = { serverId: 's1', roles: [] };
+    mockStatsService.getRoleStats.mockResolvedValue(scopedExpected);
+    const scopedDto = { serverId: 's1' } as any;
+    await expect(controller.getRoleStats(scopedDto)).resolves.toBe(
+      scopedExpected,
+    );
+    expect(mockStatsService.getRoleStats).toHaveBeenCalledWith(scopedDto);
+
+    const crossServerExpected = { serverId: null, roles: [] };
+    mockStatsService.getRoleStats.mockResolvedValue(crossServerExpected);
+    const crossServerDto = {} as any;
+    await expect(controller.getRoleStats(crossServerDto)).resolves.toBe(
+      crossServerExpected,
+    );
+    expect(mockStatsService.getRoleStats).toHaveBeenCalledWith(crossServerDto);
   });
 
   it('getServerStats delegates to the service', async () => {

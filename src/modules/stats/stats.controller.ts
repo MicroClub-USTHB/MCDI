@@ -105,18 +105,25 @@ export class StatsController {
 
   @Get('roles')
   @ApiOperation({
-    summary: 'Role distribution for a server',
+    summary: 'Role distribution (scoped or cross-server)',
     description:
-      'Member count per role for the given server, ordered by role position. ' +
+      'Member count per role for the given server (when `serverId` is provided, ordered by position), ' +
+      'or aggregated across all servers merged by role name (when `serverId` is omitted). ' +
       'Results are cached for 5 minutes.',
   })
-  @ApiQuery({ name: 'serverId', required: true })
+  @ApiQuery({
+    name: 'serverId',
+    required: false,
+    description:
+      'Server ID to scope role distribution. Omit for cross-server aggregation.',
+  })
   @ApiOkResponse({
     description: 'Role distribution.',
     schema: {
       example: {
         serverId: '123',
         serverName: 'Main',
+        scope: 'server',
         roles: [
           {
             roleId: '456',
@@ -132,7 +139,7 @@ export class StatsController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  @ApiBadRequestResponse({ description: 'serverId is required.' })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   getRoleStats(@Query() dto: RoleStatsQueryDto) {
     return this.statsService.getRoleStats(dto);
   }

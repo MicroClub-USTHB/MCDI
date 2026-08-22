@@ -201,6 +201,19 @@ export class StatsRepository {
       .orderBy(desc(roles.position));
   }
 
+  /** Cross-server role distribution aggregated across all servers merged by role name. */
+  async globalRoleDistribution() {
+    return this.db
+      .select({
+        roleName: roles.name,
+        memberCount: sql<number>`count(${serverMemberRoles.memberId})::int`,
+      })
+      .from(roles)
+      .leftJoin(serverMemberRoles, eq(serverMemberRoles.roleId, roles.id))
+      .groupBy(roles.name)
+      .orderBy(desc(sql`count(${serverMemberRoles.memberId})`));
+  }
+
   // ── Server-level overview ───────────────────────────────────────────────
 
   async listServers() {
