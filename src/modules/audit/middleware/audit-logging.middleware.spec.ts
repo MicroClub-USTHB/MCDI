@@ -21,6 +21,7 @@ describe('AuditLoggingMiddleware', () => {
     project?: { id: string };
     headers?: Record<string, unknown>;
     ip?: string;
+    route?: unknown;
   }) {
     let finish: (() => void) | undefined;
     const res = {
@@ -36,6 +37,7 @@ describe('AuditLoggingMiddleware', () => {
       ip: opts.ip ?? '10.0.0.1',
       memberId: opts.memberId,
       project: opts.project,
+      route: opts.route,
     };
     const next = jest.fn();
 
@@ -121,6 +123,31 @@ describe('AuditLoggingMiddleware', () => {
       'POST',
       '/admin/projects',
       400,
+      expect.any(Number),
+      undefined,
+    );
+  });
+
+  it('collapses 404s for unknown paths into one usage key but keeps the path for matched routes', () => {
+    run({ method: 'GET', url: '/api/wp-admin/setup.php', statusCode: 404 });
+    expect(service.recordUsage).toHaveBeenCalledWith(
+      'GET',
+      '/<unmatched>',
+      404,
+      expect.any(Number),
+      undefined,
+    );
+
+    run({
+      method: 'GET',
+      url: '/api/members/123456789',
+      statusCode: 404,
+      route: { path: '/api/members/:id' },
+    });
+    expect(service.recordUsage).toHaveBeenLastCalledWith(
+      'GET',
+      '/members/123456789',
+      404,
       expect.any(Number),
       undefined,
     );

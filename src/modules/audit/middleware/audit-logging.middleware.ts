@@ -175,9 +175,16 @@ export class AuditLoggingMiddleware implements NestMiddleware {
       const method = req.method;
       const durationMs = Date.now() - startTime;
       const projectId = (req as RequestWithProject).project?.id;
+      // Express sets req.route only once a handler matched, so a 404 without
+      // one is Nest's fallback for an unknown path. Those share a single key
+      // so scanner traffic cannot grow the per-endpoint hashes.
+      const usagePath =
+        res.statusCode === 404 && req.route === undefined
+          ? '/<unmatched>'
+          : path;
       const recordUsage = () => {
         this.auditService
-          .recordUsage(method, path, res.statusCode, durationMs, projectId)
+          .recordUsage(method, usagePath, res.statusCode, durationMs, projectId)
           .catch(() => {});
       };
 
