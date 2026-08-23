@@ -5,6 +5,11 @@ import { AuditService } from '../audit.service';
 
 type AuditActionType = InsertAuditLog['actionType'];
 
+// Set by ApiKeyGuard once a project API key has been verified.
+interface RequestWithProject extends Request {
+  project?: { id: string };
+}
+
 // Maps HTTP method + route pattern to audit action type and action name
 interface RouteAction {
   actionType: AuditActionType;
@@ -145,6 +150,9 @@ function extractIp(req: Request): string {
 @Injectable()
 export class AuditLoggingMiddleware implements NestMiddleware {
   private readonly logger = new Logger(AuditLoggingMiddleware.name);
+  // Nest binds a wildcard middleware once per route excluded from the global
+  // prefix, so a single request can enter use() more than once.
+  private readonly seen = new WeakSet<Request>();
 
   constructor(
     private readonly auditRepository: AuditRepository,
@@ -152,6 +160,12 @@ export class AuditLoggingMiddleware implements NestMiddleware {
   ) {}
 
   use(req: Request, res: Response, next: NextFunction): void {
+    if (this.seen.has(req)) {
+      next();
+      return;
+    }
+    this.seen.add(req);
+
     const startTime = Date.now();
 
     res.on('finish', () => {
@@ -159,28 +173,29 @@ export class AuditLoggingMiddleware implements NestMiddleware {
       // except member exports which are auditable
       const path = req.originalUrl.replace(/\?.*$/, '').replace(/^\/api/, '');
       const method = req.method;
+      const durationMs = Date.now() - startTime;
+      const projectId = (req as RequestWithProject).project?.id;
+      const recordUsage = () => {
+        this.auditService
+          .recordUsage(method, path, res.statusCode, durationMs, projectId)
+          .catch(() => {});
+      };
 
       if (method === 'GET' && !path.includes('/export')) {
         // Still record usage for GET requests
-        this.auditService
-          .recordUsage(method, path, res.statusCode)
-          .catch(() => {});
+        recordUsage();
         return;
       }
 
       // Only audit successful mutations (2xx/3xx)
       if (res.statusCode >= 400) {
-        this.auditService
-          .recordUsage(method, path, res.statusCode)
-          .catch(() => {});
+        recordUsage();
         return;
       }
 
       const routeAction = resolveRouteAction(path, method);
       if (!routeAction) {
-        this.auditService
-          .recordUsage(method, path, res.statusCode)
-          .catch(() => {});
+        recordUsage();
         return;
       }
 
@@ -197,7 +212,7 @@ export class AuditLoggingMiddleware implements NestMiddleware {
           method,
           path,
           statusCode: res.statusCode,
-          durationMs: Date.now() - startTime,
+          durationMs,
         },
         ipAddress: extractIp(req),
         userAgent: req.headers['user-agent'] ?? null,
@@ -208,9 +223,7 @@ export class AuditLoggingMiddleware implements NestMiddleware {
         this.logger.warn(`Failed to write audit log: ${err.message}`);
       });
 
-      this.auditService
-        .recordUsage(method, path, res.statusCode)
-        .catch(() => {});
+      recordUsage();
     });
 
     next();

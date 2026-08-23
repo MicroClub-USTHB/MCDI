@@ -161,7 +161,7 @@ export class MonitoringController {
       example: {
         api: { status: 'healthy', uptime: 86400, responseTime: 2 },
         database: { status: 'connected', queryTime: 5, connections: 10 },
-        redis: { status: 'connected', hitRate: 0, memoryUsed: 'unknown' },
+        redis: { status: 'connected', hitRate: 0.97, memoryUsed: '1.25M' },
         discord: { status: 'connected', guilds: 3, latency: 45 },
       },
     },
