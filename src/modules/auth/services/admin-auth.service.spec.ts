@@ -8,6 +8,7 @@ import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.rep
 import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
+import { AuditService } from '../../audit/audit.service';
 
 describe('AdminAuthService', () => {
   let service: AdminAuthService;
@@ -17,6 +18,7 @@ describe('AdminAuthService', () => {
   let discordIdentityService: jest.Mocked<DiscordIdentityService>;
   let sessionIssuanceService: jest.Mocked<SessionIssuanceService>;
   let discordService: jest.Mocked<DiscordService>;
+  let auditService: { logAction: jest.Mock };
 
   beforeEach(async () => {
     const mockSessionRepo = {
@@ -53,6 +55,7 @@ describe('AdminAuthService', () => {
       fetchOAuthGuildMember: jest.fn(),
       fetchGuildRolesForMember: jest.fn(),
     };
+    auditService = { logAction: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -64,6 +67,7 @@ describe('AdminAuthService', () => {
         { provide: DiscordIdentityService, useValue: mockDiscordIdentity },
         { provide: SessionIssuanceService, useValue: mockSessionIssuance },
         { provide: DiscordService, useValue: mockDiscordService },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
 
@@ -215,6 +219,69 @@ describe('AdminAuthService', () => {
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('records a failed login with the reason, and with the Discord id once the profile resolved', async () => {
+      adminOAuthStateRepository.consumeValid.mockResolvedValueOnce(null);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'invalid', {
+          ipAddress: '203.0.113.7',
+          userAgent: 'jest',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(auditService.logAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: null,
+          actionType: 'auth',
+          action: 'login_failed',
+          severity: 'warning',
+          ipAddress: '203.0.113.7',
+          details: {
+            reason: 'Invalid or expired authentication request',
+            attemptedActor: null,
+          },
+        }),
+      );
+
+      discordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        roleIds: ['role-lead'],
+      } as any);
+      await expect(
+        service.handleAdminDiscordCallback('code', 'valid'),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(auditService.logAction).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          actorId: 'discord123',
+          action: 'login_failed',
+          details: {
+            reason:
+              'Only members with a configured admin role can access the admin panel',
+            attemptedActor: 'discord123',
+          },
+        }),
+      );
+    });
+
+    it('records the successful login against the member', async () => {
+      await service.handleAdminDiscordCallback('code', 'valid', {
+        ipAddress: '203.0.113.7',
+        userAgent: 'jest',
+      });
+
+      expect(auditService.logAction).toHaveBeenCalledTimes(1);
+      expect(auditService.logAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'discord123',
+          actionType: 'auth',
+          action: 'login',
+          severity: 'info',
+          ipAddress: '203.0.113.7',
+          userAgent: 'jest',
+        }),
+      );
     });
 
     it('returns token and member if successful', async () => {
