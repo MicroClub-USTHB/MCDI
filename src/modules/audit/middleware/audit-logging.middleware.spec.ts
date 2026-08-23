@@ -17,6 +17,9 @@ describe('AuditLoggingMiddleware', () => {
     method: string;
     url: string;
     statusCode?: number;
+    cookies?: Record<string, string>;
+    query?: Record<string, unknown>;
+    locals?: Record<string, unknown>;
     memberId?: string;
     project?: { id: string };
     headers?: Record<string, unknown>;
@@ -26,6 +29,7 @@ describe('AuditLoggingMiddleware', () => {
     let finish: (() => void) | undefined;
     const res = {
       statusCode: opts.statusCode ?? 200,
+      locals: opts.locals ?? {},
       on: jest.fn((event: string, cb: () => void) => {
         if (event === 'finish') finish = cb;
       }),
@@ -34,6 +38,8 @@ describe('AuditLoggingMiddleware', () => {
       method: opts.method,
       originalUrl: opts.url,
       headers: opts.headers ?? {},
+      cookies: opts.cookies,
+      query: opts.query ?? {},
       ip: opts.ip ?? '10.0.0.1',
       memberId: opts.memberId,
       project: opts.project,
@@ -165,6 +171,124 @@ describe('AuditLoggingMiddleware', () => {
     );
   });
 
+  it('audits the admin logout route', () => {
+    run({
+      method: 'POST',
+      url: '/api/auth/admin/logout',
+      statusCode: 200,
+      memberId: 'admin-1',
+    });
+    expect(repo.insert.mock.calls[0][0]).toMatchObject({
+      actorId: 'admin-1',
+      actionType: 'auth',
+      action: 'logout',
+      entityType: 'session',
+    });
+  });
+
+  it('records a rejected session token as a warning with the stashed reason and IP', () => {
+    run({
+      method: 'GET',
+      url: '/api/auth/admin/me',
+      statusCode: 401,
+      headers: { authorization: 'Bearer not-a-real-token' },
+      locals: { authFailureReason: 'Invalid or expired session' },
+      ip: '198.51.100.2',
+    });
+    expect(repo.insert).toHaveBeenCalledTimes(1);
+    expect(repo.insert.mock.calls[0][0]).toMatchObject({
+      actorId: null,
+      actionType: 'auth',
+      action: 'session_rejected',
+      entityType: 'session',
+      severity: 'warning',
+      ipAddress: '198.51.100.2',
+      details: {
+        reason: 'Invalid or expired session',
+        method: 'GET',
+        path: '/auth/admin/me',
+        attemptedActor: null,
+      },
+    });
+    expect(service.recordUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a rejected API key by prefix only and keeps the actor for a 403 from a known member', () => {
+    run({
+      method: 'GET',
+      url: '/api/members/123',
+      statusCode: 401,
+      headers: { 'x-api-key': 'pk_abc123.supersecretvalue' },
+      locals: { authFailureReason: 'Invalid API key' },
+    });
+    const apiKeyEntry = repo.insert.mock.calls[0][0];
+    expect(apiKeyEntry).toMatchObject({
+      action: 'api_key_rejected',
+      details: { reason: 'Invalid API key', attemptedActor: 'pk_abc123' },
+    });
+    expect(JSON.stringify(apiKeyEntry)).not.toContain('supersecretvalue');
+
+    run({
+      method: 'GET',
+      url: '/api/admin/projects',
+      statusCode: 403,
+      memberId: 'member-9',
+      cookies: { admin_session: 'cookie-token' },
+      locals: { authFailureReason: 'Access restricted' },
+    });
+    expect(repo.insert.mock.calls[1][0]).toMatchObject({
+      actorId: 'member-9',
+      action: 'session_rejected',
+      details: { reason: 'Access restricted', attemptedActor: null },
+    });
+  });
+
+  it('ignores a 401 that carried no credential at all', () => {
+    run({ method: 'GET', url: '/api/auth/admin/me', statusCode: 401 });
+    expect(repo.insert).not.toHaveBeenCalled();
+    expect(service.recordUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a 401 raised after the API key was already accepted', () => {
+    run({
+      method: 'GET',
+      url: '/api/members/123',
+      statusCode: 401,
+      project: { id: 'proj-1' },
+      headers: { 'x-api-key': 'pk_abc123.supersecretvalue' },
+      locals: { authFailureReason: 'Authentication required' },
+    });
+    expect(repo.insert).not.toHaveBeenCalled();
+  });
+
+  it('ignores a 403 that rejected no credential, such as a disabled server', () => {
+    run({
+      method: 'GET',
+      url: '/api/members/123',
+      statusCode: 403,
+      headers: { 'x-api-key': 'pk_abc123.supersecretvalue' },
+      locals: { authFailureReason: 'Server is disabled' },
+    });
+    expect(repo.insert).not.toHaveBeenCalled();
+  });
+
+  it('treats a dotted bearer value as an API key and stores only the prefix', () => {
+    run({
+      method: 'GET',
+      url: '/api/members/123',
+      statusCode: 401,
+      headers: { authorization: 'Bearer pk_abc123.secret' },
+      locals: { authFailureReason: 'Invalid API key' },
+    });
+    expect(repo.insert).toHaveBeenCalledTimes(1);
+    const entry = repo.insert.mock.calls[0][0];
+    expect(entry).toMatchObject({
+      action: 'api_key_rejected',
+      details: { reason: 'Invalid API key', attemptedActor: 'pk_abc123' },
+    });
+    expect(JSON.stringify(entry)).not.toContain('secret');
+  });
+
   it('forwards the request duration and the authenticated project id for non-admin routes', () => {
     jest.useFakeTimers();
     try {
@@ -179,6 +303,7 @@ describe('AuditLoggingMiddleware', () => {
         method: 'POST',
         originalUrl: '/api/auth/validate',
         headers: {},
+        query: {},
         ip: '10.0.0.1',
         project: { id: 'proj-1' },
       };
