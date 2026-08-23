@@ -17,6 +17,7 @@ type MockRedisClient = {
   sAdd: jest.Mock;
   sMembers: jest.Mock;
   expire: jest.Mock;
+  info: jest.Mock;
   scanIterator: jest.Mock;
   on: jest.Mock;
   isReady: boolean;
@@ -58,6 +59,7 @@ function makeClient(): MockRedisClient {
     sAdd: jest.fn(),
     sMembers: jest.fn(),
     expire: jest.fn(),
+    info: jest.fn(),
     scanIterator: jest.fn().mockReturnValue(makeAsyncIterable([])),
     on: jest.fn((event: string, handler: (...args: unknown[]) => void) => {
       handlers.set(event, handler);
@@ -218,6 +220,18 @@ describe('RedisService', () => {
     await expect(service.scanKeys('mcdi:*')).resolves.toEqual(['a', 'b']);
   });
 
+  it('returns the raw INFO payload for the requested section', async () => {
+    const client = makeClient();
+    client.isReady = true;
+    client.info.mockResolvedValue('# Stats\r\nkeyspace_hits:12\r\n');
+
+    const { service } = await buildService({}, client);
+    await expect(service.info('stats')).resolves.toBe(
+      '# Stats\r\nkeyspace_hits:12\r\n',
+    );
+    expect(client.info).toHaveBeenCalledWith('stats');
+  });
+
   it('returns safe fallbacks when the client is not ready', async () => {
     const { service, client } = await buildService();
     client.isReady = false;
@@ -227,5 +241,6 @@ describe('RedisService', () => {
     await expect(service.delete('a')).resolves.toBe(0);
     await expect(service.sMembers('set')).resolves.toEqual([]);
     await expect(service.scanKeys('mcdi:*')).resolves.toEqual([]);
+    await expect(service.info('stats')).resolves.toBeNull();
   });
 });
