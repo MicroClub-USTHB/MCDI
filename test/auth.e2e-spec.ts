@@ -961,4 +961,43 @@ describeIf('/api/auth (e2e)', () => {
         .expect(401);
     });
   });
+
+  // ─── GET /api/admin/monitoring/auth-failures ──────────────────
+
+  describe('GET /api/admin/monitoring/auth-failures', () => {
+    it('lists a rejected bearer token with its reason, path and IP', async () => {
+      const { bearerToken } = await seedAdminContext(db);
+
+      await request(app.getHttpServer())
+        .get('/api/admin/monitoring/health')
+        .set('Authorization', 'Bearer not-a-real-token')
+        .expect(401);
+
+      // The audit row is written on the response "finish" event, so poll the
+      // endpoint instead of asserting on the first read.
+      let failures: Array<Record<string, unknown>> = [];
+      for (let i = 0; i < 50 && failures.length === 0; i++) {
+        const res = await request(app.getHttpServer())
+          .get('/api/admin/monitoring/auth-failures')
+          .set('Authorization', `Bearer ${bearerToken}`)
+          .expect(200);
+        failures = (res.body.failures as Array<Record<string, unknown>>).filter(
+          (f) => f.path === '/admin/monitoring/health',
+        );
+        if (failures.length === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        reason: 'Invalid or expired session',
+        attemptedActor: null,
+        actorId: null,
+        path: '/admin/monitoring/health',
+      });
+      expect(typeof failures[0].ipAddress).toBe('string');
+      expect(new Date(failures[0].timestamp as string).getTime()).not.toBeNaN();
+    });
+  });
 });
