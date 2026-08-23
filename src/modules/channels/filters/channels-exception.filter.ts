@@ -39,6 +39,12 @@ export class ChannelsExceptionFilter implements ExceptionFilter {
         ? bodyObj.code
         : this.inferCode(status as HttpStatus, request, message);
 
+    // Same contract as the global filter. The audit middleware reads this on
+    // finish to record the rejected credential with its reason.
+    if (status === 401 || status === 403) {
+      response.locals.authFailureReason = exception.message;
+    }
+
     response.status(status).json({ statusCode: status, code, message });
   }
 
