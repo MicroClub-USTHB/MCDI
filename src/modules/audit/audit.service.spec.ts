@@ -3,6 +3,7 @@ import { AuditService } from './audit.service';
 import { AuditRepository } from './audit.repository';
 import { RedisService } from '../../common/redis/redis.service';
 import { DiscordService } from '../discord/discord.service';
+import { ProjectsService } from '../projects/projects.service';
 import { DATABASE_POOL } from '../../database/database.module';
 
 const CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -35,8 +36,10 @@ describe('AuditService', () => {
     hGetAll: jest.Mock;
     hIncrBy: jest.Mock;
     expire: jest.Mock;
+    info: jest.Mock;
   };
   let discord: { isBotReady: jest.Mock; getClient: jest.Mock };
+  let projects: { findAll: jest.Mock };
   let pool: { query: jest.Mock };
 
   beforeEach(async () => {
@@ -50,11 +53,13 @@ describe('AuditService', () => {
       hGetAll: jest.fn().mockResolvedValue({}),
       hIncrBy: jest.fn().mockResolvedValue(1),
       expire: jest.fn().mockResolvedValue(undefined),
+      info: jest.fn().mockResolvedValue(null),
     };
     discord = {
       isBotReady: jest.fn().mockReturnValue(false),
       getClient: jest.fn(),
     };
+    projects = { findAll: jest.fn().mockResolvedValue([]) };
     pool = { query: jest.fn() };
 
     const mod = await Test.createTestingModule({
@@ -63,6 +68,7 @@ describe('AuditService', () => {
         { provide: AuditRepository, useValue: repo },
         { provide: RedisService, useValue: redis },
         { provide: DiscordService, useValue: discord },
+        { provide: ProjectsService, useValue: projects },
         { provide: DATABASE_POOL, useValue: pool },
       ],
     }).compile();
@@ -182,6 +188,13 @@ describe('AuditService', () => {
     it('reports all services healthy when reachable', async () => {
       pool.query.mockResolvedValue({ rows: [{ connections: '7' }] });
       redis.isAvailable = true;
+      redis.info.mockImplementation((section: string) =>
+        Promise.resolve(
+          section === 'stats'
+            ? '# Stats\r\nkeyspace_hits:30\r\nkeyspace_misses:10\r\n'
+            : '# Memory\r\nused_memory:1572864\r\nused_memory_human:1.50M\r\n',
+        ),
+      );
       discord.isBotReady.mockReturnValue(true);
       discord.getClient.mockReturnValue({
         guilds: { cache: { size: 3 } },
@@ -197,11 +210,45 @@ describe('AuditService', () => {
         queryTime: expect.any(Number),
         connections: 7,
       });
-      expect(health.redis.status).toBe('connected');
+      expect(health.redis).toEqual({
+        status: 'connected',
+        hitRate: 0.75,
+        memoryUsed: '1.50M',
+      });
       expect(health.discord).toEqual({
         status: 'connected',
         guilds: 3,
         latency: 42,
+      });
+    });
+
+    it('reports a zero hit rate and unknown memory when INFO has nothing usable', async () => {
+      redis.isAvailable = true;
+      redis.info.mockImplementation((section: string) =>
+        Promise.resolve(
+          section === 'stats' ? 'keyspace_hits:0\r\nkeyspace_misses:0' : null,
+        ),
+      );
+
+      const health = await service.getHealthStatus();
+
+      expect(health.redis).toEqual({
+        status: 'connected',
+        hitRate: 0,
+        memoryUsed: 'unknown',
+      });
+    });
+
+    it('reports disconnected when INFO cannot be read at all', async () => {
+      redis.isAvailable = true;
+      redis.info.mockResolvedValue(null);
+
+      const health = await service.getHealthStatus();
+
+      expect(health.redis).toEqual({
+        status: 'disconnected',
+        hitRate: 0,
+        memoryUsed: 'unknown',
       });
     });
 
@@ -217,7 +264,12 @@ describe('AuditService', () => {
         queryTime: -1,
         connections: 0,
       });
-      expect(health.redis.status).toBe('disconnected');
+      expect(health.redis).toEqual({
+        status: 'disconnected',
+        hitRate: 0,
+        memoryUsed: 'unknown',
+      });
+      expect(redis.info).not.toHaveBeenCalled();
       expect(health.discord).toEqual({
         status: 'disconnected',
         guilds: 0,
@@ -227,65 +279,123 @@ describe('AuditService', () => {
   });
 
   describe('getUsageStats', () => {
-    const wireRedis = () =>
+    const wireRedis = () => {
       redis.hGetAll.mockImplementation((key: string) => {
         if (key.endsWith(':total')) return Promise.resolve({ count: '10' });
         if (key.endsWith(':endpoints'))
           return Promise.resolve({ 'GET:/admin/projects': '4' });
+        if (key.endsWith(':durations'))
+          return Promise.resolve({ 'GET:/admin/projects': '62' });
         if (key.endsWith(':errors'))
           return Promise.resolve({ '404': '2', '500': '1' });
         if (key.endsWith(':projects'))
-          return Promise.resolve({ 'proj-1': '5' });
+          return Promise.resolve({ 'proj-1': '5', 'proj-2': '2' });
+        if (key.endsWith(':project_errors'))
+          return Promise.resolve({ 'proj-1': '1' });
         return Promise.resolve({});
       });
+      projects.findAll.mockResolvedValue([{ id: 'proj-1', name: 'Proj One' }]);
+    };
 
     it('aggregates counters across the 7-day window', async () => {
       wireRedis();
       const stats = await service.getUsageStats({ period: '7d' } as any);
 
       expect(stats.totalRequests).toBe(70);
+      // 434ms over 28 requests rounds to 16
       expect(stats.byEndpoint).toEqual([
         {
           endpoint: '/admin/projects',
           method: 'GET',
           count: 28,
-          avgResponseTime: 0,
+          avgResponseTime: 16,
         },
       ]);
+      // unknown project ids keep the id as the display name
       expect(stats.byProject).toEqual([
-        { projectId: 'proj-1', projectName: 'proj-1', requests: 35, errors: 0 },
+        {
+          projectId: 'proj-1',
+          projectName: 'Proj One',
+          requests: 35,
+          errors: 7,
+        },
+        { projectId: 'proj-2', projectName: 'proj-2', requests: 14, errors: 0 },
       ]);
       expect(stats.errors).toEqual({
         total: 21,
         byType: { '4xx': 14, '5xx': 7 },
       });
-      // 4 hashes read per day
-      expect(redis.hGetAll).toHaveBeenCalledTimes(28);
+      // 6 hashes read per day
+      expect(redis.hGetAll).toHaveBeenCalledTimes(42);
     });
 
-    it('honours the projectId filter', async () => {
+    it('honours the projectId filter for requests and errors', async () => {
+      wireRedis();
+      const stats = await service.getUsageStats({
+        period: '7d',
+        projectId: 'proj-1',
+      } as any);
+      expect(stats.byProject).toEqual([
+        {
+          projectId: 'proj-1',
+          projectName: 'Proj One',
+          requests: 35,
+          errors: 7,
+        },
+      ]);
+    });
+
+    it('skips the name lookup when no project matches', async () => {
       wireRedis();
       const stats = await service.getUsageStats({
         period: '7d',
         projectId: 'other',
       } as any);
       expect(stats.byProject).toEqual([]);
+      expect(projects.findAll).not.toHaveBeenCalled();
+    });
+
+    it('averages only over requests that have a recorded duration', async () => {
+      const oldest = new Date();
+      oldest.setDate(oldest.getDate() - 6);
+      const oldestKey = oldest.toISOString().slice(0, 10);
+      redis.hGetAll.mockImplementation((key: string) => {
+        if (key.endsWith(':endpoints'))
+          return Promise.resolve({ 'GET:/admin/projects': '4' });
+        if (key.endsWith(':durations'))
+          return Promise.resolve(
+            key.includes(oldestKey) ? {} : { 'GET:/admin/projects': '60' },
+          );
+        return Promise.resolve({});
+      });
+
+      const stats = await service.getUsageStats({ period: '7d' } as any);
+
+      // 360ms over the 24 timed requests; the untimed day is excluded
+      expect(stats.byEndpoint).toEqual([
+        {
+          endpoint: '/admin/projects',
+          method: 'GET',
+          count: 28,
+          avgResponseTime: 15,
+        },
+      ]);
     });
 
     it('defaults to a 30-day window', async () => {
       await service.getUsageStats({ period: '30d' } as any);
-      expect(redis.hGetAll).toHaveBeenCalledTimes(120);
+      expect(redis.hGetAll).toHaveBeenCalledTimes(180);
     });
 
     it('supports the 90-day window', async () => {
       await service.getUsageStats({ period: '90d' } as any);
-      expect(redis.hGetAll).toHaveBeenCalledTimes(360);
+      expect(redis.hGetAll).toHaveBeenCalledTimes(540);
     });
   });
 
   describe('recordUsage', () => {
-    it('increments total + endpoint counters and sets TTLs', async () => {
-      await service.recordUsage('POST', '/admin/projects', 201);
+    it('increments total, endpoint, duration and project counters and sets TTLs', async () => {
+      await service.recordUsage('POST', '/admin/projects', 201, 12, 'proj-1');
       expect(redis.hIncrBy).toHaveBeenCalledWith(
         expect.stringContaining(':total'),
         'count',
@@ -296,20 +406,54 @@ describe('AuditService', () => {
         'POST:/admin/projects',
         1,
       );
+      expect(redis.hIncrBy).toHaveBeenCalledWith(
+        expect.stringContaining(':durations'),
+        'POST:/admin/projects',
+        12,
+      );
+      expect(redis.hIncrBy).toHaveBeenCalledWith(
+        expect.stringContaining(':projects'),
+        'proj-1',
+        1,
+      );
       expect(redis.hIncrBy).not.toHaveBeenCalledWith(
         expect.stringContaining(':errors'),
         expect.anything(),
         expect.anything(),
       );
-      expect(redis.expire).toHaveBeenCalledTimes(3);
+      expect(redis.hIncrBy).not.toHaveBeenCalledWith(
+        expect.stringContaining(':project_errors'),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(redis.expire).toHaveBeenCalledTimes(4);
     });
 
-    it('records an error counter for 4xx/5xx', async () => {
-      await service.recordUsage('GET', '/admin/x', 404);
+    it('records error counters per status and per project for 4xx/5xx', async () => {
+      await service.recordUsage('GET', '/admin/x', 404, 5, 'proj-1');
       expect(redis.hIncrBy).toHaveBeenCalledWith(
         expect.stringContaining(':errors'),
         '404',
         1,
+      );
+      expect(redis.hIncrBy).toHaveBeenCalledWith(
+        expect.stringContaining(':project_errors'),
+        'proj-1',
+        1,
+      );
+    });
+
+    it('skips the project hashes when no project is attached', async () => {
+      await service.recordUsage('POST', '/auth/validate', 401, 3);
+      expect(redis.hIncrBy).not.toHaveBeenCalledWith(
+        expect.stringMatching(/:(projects|project_errors)$/),
+        expect.anything(),
+        expect.anything(),
+      );
+      expect(redis.hIncrBy).toHaveBeenCalledWith(
+        expect.stringContaining(':durations'),
+        'POST:/auth/validate',
+        3,
       );
     });
 
@@ -318,11 +462,13 @@ describe('AuditService', () => {
         'DELETE',
         '/admin/servers/123456789012345678',
         200,
+        0,
       );
       await service.recordUsage(
         'PATCH',
         '/admin/projects/123e4567-e89b-42d3-a456-426614174000',
         200,
+        0,
       );
       expect(redis.hIncrBy).toHaveBeenCalledWith(
         expect.stringContaining(':endpoints'),

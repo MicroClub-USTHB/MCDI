@@ -36,6 +36,7 @@ import nock from 'nock';
 import { hashSessionToken } from '../src/common/utils/session-token.util';
 import { hashSsoToken } from '../src/common/utils/sso-token.util';
 import { hashRefreshToken } from '../src/common/utils/refresh-token.util';
+import { AuditService } from '../src/modules/audit/audit.service';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -177,6 +178,37 @@ describeIf('/api/auth (e2e)', () => {
         .set('x-api-key', project.apiKey)
         .send({ token: 'does-not-exist-token-abc' })
         .expect(401);
+    });
+
+    it('records usage for this API-key route with the caller project and a duration', async () => {
+      const { project } = await seedProjectSessionContext('E2E Validate Usage');
+      const recordUsage = jest
+        .spyOn(app.get(AuditService), 'recordUsage')
+        .mockResolvedValue(undefined);
+
+      try {
+        await request(app.getHttpServer())
+          .post('/api/auth/validate')
+          .set('x-api-key', project.apiKey)
+          .send({ token: 'does-not-exist-token-abc' })
+          .expect(401);
+
+        // The middleware runs on the response "finish" event, which can land
+        // just after the client has already read the reply.
+        for (let i = 0; i < 50 && recordUsage.mock.calls.length === 0; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+
+        expect(recordUsage).toHaveBeenCalledWith(
+          'POST',
+          '/auth/validate',
+          401,
+          expect.any(Number),
+          project.id,
+        );
+      } finally {
+        recordUsage.mockRestore();
+      }
     });
 
     it('returns 401 for expired token', async () => {

@@ -60,6 +60,11 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(MethodNotAllowedMiddleware).forRoutes('*');
-    consumer.apply(AuditLoggingMiddleware).forRoutes('admin/*');
+    // Usage telemetry needs every route; audit rows stay limited to the admin
+    // mutations in the middleware's route map.
+    consumer
+      .apply(AuditLoggingMiddleware)
+      .exclude('health', 'docs', 'docs/{*splat}', 'docs-json', 'docs-yaml')
+      .forRoutes('*');
   }
 }
