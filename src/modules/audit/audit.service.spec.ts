@@ -116,6 +116,67 @@ describe('AuditService', () => {
     });
   });
 
+  describe('getAuthFailures', () => {
+    it('pins the auth/warning filter and lifts reason, attempted actor and path out of details', async () => {
+      repo.findPaginated.mockResolvedValue({
+        rows: [
+          fakeRow({
+            id: 7,
+            actorId: null,
+            actionType: 'auth',
+            action: 'api_key_rejected',
+            severity: 'warning',
+            ipAddress: '203.0.113.7',
+            details: {
+              reason: 'Invalid API key',
+              method: 'GET',
+              path: '/members/1',
+              attemptedActor: 'pk_abc123',
+            },
+          }),
+          fakeRow({
+            id: 8,
+            actionType: 'auth',
+            severity: 'warning',
+            details: null,
+          }),
+        ],
+        total: 2,
+      });
+
+      const result = await service.getAuthFailures({
+        dateFrom: '2026-03-01T00:00:00Z',
+        limit: 20,
+        offset: 5,
+      } as any);
+
+      expect(repo.findPaginated).toHaveBeenCalledWith({
+        dateFrom: '2026-03-01T00:00:00Z',
+        dateTo: undefined,
+        actionType: 'auth',
+        severity: 'warning',
+        limit: 20,
+        offset: 5,
+      });
+      expect(result).toMatchObject({ total: 2, limit: 20, offset: 5 });
+      expect(result.failures[0]).toEqual({
+        id: 7,
+        timestamp: '2026-04-01T12:00:00.000Z',
+        ipAddress: '203.0.113.7',
+        reason: 'Invalid API key',
+        attemptedActor: 'pk_abc123',
+        actorId: null,
+        path: '/members/1',
+      });
+      expect(result.failures[1]).toMatchObject({
+        id: 8,
+        reason: null,
+        attemptedActor: null,
+        path: null,
+      });
+    });
+  });
+
   describe('getAuditLogsCsv', () => {
     it('returns a CSV with header + rows, blanking nulls, and caps the export', async () => {
       repo.findPaginated.mockResolvedValue({

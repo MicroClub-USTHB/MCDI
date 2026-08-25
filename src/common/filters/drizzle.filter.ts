@@ -64,6 +64,11 @@ export class PostgresExceptionFilter extends BaseExceptionFilter {
       const response = host.switchToHttp().getResponse<Response>();
       const status = exception.getStatus();
       const body = exception.getResponse();
+      // Read by AuditLoggingMiddleware on finish to record the failed
+      // attempt with the reason the guard gave.
+      if (status === 401 || status === 403) {
+        response.locals.authFailureReason = exception.message;
+      }
       if (response.headersSent) return;
       if (typeof body === 'string') {
         return response.status(status).json({

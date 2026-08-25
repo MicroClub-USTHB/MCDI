@@ -6,6 +6,7 @@ import { DiscordService } from '../discord/discord.service';
 import { ProjectsService } from '../projects/projects.service';
 import { AuditRepository, InsertAuditLog } from './audit.repository';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
+import { QueryAuthFailuresDto } from './dto/query-auth-failures.dto';
 import { QueryUsageDto } from './dto/query-usage.dto';
 import { toCsv } from '../../common/utils/csv.util';
 
@@ -116,6 +117,37 @@ export class AuditService {
     this.auditRepository.insert(entry).catch((err: Error) => {
       this.logger.warn(`Failed to write audit log: ${err.message}`);
     });
+  }
+
+  // Failed logins, rejected sessions and rejected API keys are the 'auth'
+  // rows written with severity 'warning'; successful logins and logouts are
+  // 'info' and stay out of this view.
+  async getAuthFailures(dto: QueryAuthFailuresDto) {
+    const { rows, total } = await this.auditRepository.findPaginated({
+      dateFrom: dto.dateFrom,
+      dateTo: dto.dateTo,
+      actionType: 'auth',
+      severity: 'warning',
+      limit: dto.limit,
+      offset: dto.offset,
+    });
+
+    const text = (value: unknown) => (typeof value === 'string' ? value : null);
+
+    return {
+      failures: rows.map((r) => ({
+        id: r.id,
+        timestamp: r.createdAt.toISOString(),
+        ipAddress: r.ipAddress,
+        reason: text(r.details?.reason),
+        attemptedActor: text(r.details?.attemptedActor),
+        actorId: r.actorId,
+        path: text(r.details?.path),
+      })),
+      total,
+      limit: dto.limit,
+      offset: dto.offset,
+    };
   }
 
   // ── Health Check ──────────────────────────────────────────────────────

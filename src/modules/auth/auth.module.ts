@@ -18,9 +18,10 @@ import { SessionGuard } from '../../common/guards/session.guard';
 import { DiscordModule } from '../discord/discord.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { ServersModule } from '../servers/servers.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [DiscordModule, ProjectsModule, ServersModule],
+  imports: [DiscordModule, ProjectsModule, ServersModule, AuditModule],
   controllers: [AuthController],
   providers: [
     AuthService,

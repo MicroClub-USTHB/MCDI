@@ -21,6 +21,7 @@ import { Response } from 'express';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { AuditService } from './audit.service';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
+import { QueryAuthFailuresDto } from './dto/query-auth-failures.dto';
 import { QueryUsageDto } from './dto/query-usage.dto';
 
 // ── Audit Logs Controller ────────────���──────────────────────────────────
@@ -222,5 +223,66 @@ export class MonitoringController {
   @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   getUsage(@Query() dto: QueryUsageDto) {
     return this.auditService.getUsageStats(dto);
+  }
+
+  @Get('auth-failures')
+  @ApiOperation({
+    summary: 'Recent authentication failures',
+    description:
+      'Returns failed admin logins, rejected session tokens and rejected ' +
+      'API keys recorded in the audit log, newest first. `attemptedActor` ' +
+      'is the Discord user id or the API key prefix when known; `actorId` ' +
+      'is set when the credential resolved to a member. `path` is null for ' +
+      'failed OAuth logins, which the callback service records instead of a ' +
+      'route.',
+  })
+  @ApiQuery({
+    name: 'dateFrom',
+    required: false,
+    description: 'Start date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'dateTo',
+    required: false,
+    description: 'End date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Max results (1-500, default 50)',
+  })
+  @ApiQuery({
+    name: 'offset',
+    required: false,
+    type: Number,
+    description: 'Pagination offset',
+  })
+  @ApiOkResponse({
+    description: 'Authentication failures retrieved.',
+    schema: {
+      example: {
+        failures: [
+          {
+            id: 42,
+            timestamp: '2026-04-01T12:00:00.000Z',
+            ipAddress: '192.168.1.1',
+            reason: 'Invalid API key',
+            attemptedActor: 'pk_1a2b3c4d',
+            actorId: null,
+            path: '/members/123456789012345678',
+          },
+        ],
+        total: 1,
+        limit: 50,
+        offset: 0,
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  getAuthFailures(@Query() dto: QueryAuthFailuresDto) {
+    return this.auditService.getAuthFailures(dto);
   }
 }

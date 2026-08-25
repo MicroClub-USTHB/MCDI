@@ -11,7 +11,7 @@ import { ChannelsExceptionFilter } from './channels-exception.filter';
 function makeHost(request: Partial<Record<string, unknown>>): ArgumentsHost {
   const json = jest.fn();
   const status = jest.fn().mockReturnValue({ json });
-  const response = { status };
+  const response = { status, locals: {} as Record<string, unknown> };
 
   const host = {
     switchToHttp: () => ({
@@ -33,6 +33,12 @@ function caughtBody(host: ArgumentsHost): {
     __json: jest.Mock;
   };
   return anyHost.__json.mock.calls[0][0];
+}
+
+function responseLocals(host: ArgumentsHost): Record<string, unknown> {
+  return (
+    host as unknown as { __response: { locals: Record<string, unknown> } }
+  ).__response.locals;
 }
 
 describe('ChannelsExceptionFilter', () => {
@@ -93,13 +99,16 @@ describe('ChannelsExceptionFilter', () => {
     expect(caughtBody(host).code).toBe('NO_SEND_PERMISSION');
   });
 
-  it('falls back to FORBIDDEN for an unrelated 403', () => {
+  it('falls back to FORBIDDEN for an unrelated 403 and stashes the reason for the audit middleware', () => {
     const exception = new ForbiddenException('Server not found or inactive');
     const host = makeHost({ method: 'GET', path: '/servers/1/channels' });
 
     filter.catch(exception, host);
 
     expect(caughtBody(host).code).toBe('FORBIDDEN');
+    expect(responseLocals(host).authFailureReason).toBe(
+      'Server not found or inactive',
+    );
   });
 
   it('infers INVALID_CONTENT for a 400 on the send-message route', () => {
