@@ -42,6 +42,7 @@ to resolve the image host:
    - `DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_TOKEN`,
      `DISCORD_CALLBACK_URL`, `DISCORD_ADMIN_CALLBACK_URL`.
    - `MC_GUILD_ID`, `MC_EXECUTIVE_ROLE_ID`.
+   - `WEBHOOK_ENCRYPTION_KEY` (64 hex characters, `openssl rand -hex 32`).
    - `BASE_URL`, `CORS_ORIGINS`, `ADMIN_FRONTEND_URL`.
    - `THROTTLER_TTL_MS`, `THROTTLER_LIMIT` (optional).
 5. Attach a domain + TLS to the `api` service (container port `3000`).

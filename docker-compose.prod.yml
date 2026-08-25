@@ -1,8 +1,9 @@
 # Production stack — pulled from CI-built GHCR image (never built on the server).
 # Deployed via dokploy as a Compose stack using this file.
-# All secrets (POSTGRES_PASSWORD, REDIS_PASSWORD, DISCORD_*, MC_*, BASE_URL,
-# CORS_ORIGINS, ADMIN_FRONTEND_URL) are injected by the deployment environment
-# (e.g. dokploy env). Never hardcode real secrets here.
+# All secrets (POSTGRES_PASSWORD, REDIS_PASSWORD, DISCORD_*, MC_*,
+# WEBHOOK_ENCRYPTION_KEY, BASE_URL, CORS_ORIGINS, ADMIN_FRONTEND_URL) are
+# injected by the deployment environment (e.g. dokploy env). Never hardcode
+# real secrets here.
 
 services:
   api:
@@ -20,6 +21,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_KEY_PREFIX: mcdi
+      WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY}
     command: sh -lc "pnpm run db:migrate:docker && node dist/main.js"
     ports:
       - '3000:3000'
