@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsIn, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString, IsIn, IsInt, Min, Max, IsArray } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 /**
  * Query parameters for the paginated cross-server member list.
@@ -21,21 +21,43 @@ export class CrossServerQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Discord server ID to restrict results to members of a specific server',
+      'Discord server ID(s) to restrict results to members of specific server(s)',
     example: '123456789012345678',
+    isArray: true,
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }) => {
+    if (value == null) return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
+    }
+    return [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  serverId?: string;
+  serverId?: string[];
 
   @ApiPropertyOptional({
     description:
-      'Discord role ID to restrict results to members holding a specific role',
+      'Discord role ID(s) to restrict results to members holding specific role(s)',
     example: '987654321098765432',
+    isArray: true,
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }) => {
+    if (value == null) return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
+    }
+    return [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  roleId?: string;
+  roleId?: string[];
 
   @ApiPropertyOptional({
     description: 'Page number (1-based)',
@@ -89,20 +111,42 @@ export class ExportQueryDto {
   filter: 'club' | 'all' = 'all';
 
   @ApiPropertyOptional({
-    description: 'Discord server ID to filter export data',
+    description: 'Discord server ID(s) to filter export data',
     example: '123456789012345678',
+    isArray: true,
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }) => {
+    if (value == null) return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
+    }
+    return [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  serverId?: string;
+  serverId?: string[];
 
   @ApiPropertyOptional({
-    description: 'Discord role ID to filter export data',
+    description: 'Discord role ID(s) to filter export data',
     example: '987654321098765432',
+    isArray: true,
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }) => {
+    if (value == null) return undefined;
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
+    }
+    return [value];
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  roleId?: string;
+  roleId?: string[];
 
   @ApiPropertyOptional({
     description:
