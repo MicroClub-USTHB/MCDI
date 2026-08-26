@@ -3,6 +3,26 @@ import { IsOptional, IsString, IsIn, IsInt, Min, Max, IsArray } from 'class-vali
 import { Type, Transform } from 'class-transformer';
 
 /**
+ * Safely normalizes an unknown query parameter value into a string array.
+ * Handles repeated parameters, comma-separated strings, and single values.
+ */
+function toStringArray(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.includes(',')
+      ? value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [value.trim()].filter(Boolean);
+  }
+  return [String(value).trim()].filter(Boolean);
+}
+
+/**
  * Query parameters for the paginated cross-server member list.
  *
  * GET /admin/members/cross-server?filter=club|all&page=1&limit=20&search=
@@ -26,14 +46,7 @@ export class CrossServerQueryDto {
     isArray: true,
     type: [String],
   })
-  @Transform(({ value }) => {
-    if (value == null) return undefined;
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
-    }
-    return [value];
-  })
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -46,14 +59,7 @@ export class CrossServerQueryDto {
     isArray: true,
     type: [String],
   })
-  @Transform(({ value }) => {
-    if (value == null) return undefined;
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
-    }
-    return [value];
-  })
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -116,14 +122,7 @@ export class ExportQueryDto {
     isArray: true,
     type: [String],
   })
-  @Transform(({ value }) => {
-    if (value == null) return undefined;
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
-    }
-    return [value];
-  })
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
@@ -135,14 +134,7 @@ export class ExportQueryDto {
     isArray: true,
     type: [String],
   })
-  @Transform(({ value }) => {
-    if (value == null) return undefined;
-    if (Array.isArray(value)) return value;
-    if (typeof value === 'string') {
-      return value.includes(',') ? value.split(',').map((s) => s.trim()).filter(Boolean) : [value];
-    }
-    return [value];
-  })
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
