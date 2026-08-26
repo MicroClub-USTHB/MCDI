@@ -144,7 +144,7 @@ describe('AdminMembersRepository', () => {
     it('returns count when filtered by serverId and roleId', async () => {
       const db = buildDb([{ count: 2 }]);
       const repo = await buildRepo(db);
-      expect(await repo.countMembers('all', undefined, 'srv-1', 'role-1')).toBe(
+      expect(await repo.countMembers('all', undefined, ['srv-1'], ['role-1'])).toBe(
         2,
       );
     });
@@ -181,8 +181,8 @@ describe('AdminMembersRepository', () => {
         undefined,
         10,
         0,
-        'srv-1',
-        'role-1',
+        ['srv-1'],
+        ['role-1'],
       );
       expect(result).toEqual(rows);
     });

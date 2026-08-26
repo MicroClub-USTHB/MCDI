@@ -3,23 +3,44 @@ import { IsOptional, IsString, IsIn, IsInt, Min, Max, IsArray } from 'class-vali
 import { Type, Transform } from 'class-transformer';
 
 /**
+ * Safely extracts a trimmed non-empty string from a primitive value.
+ */
+function toCleanString(val: unknown): string | null {
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {
+    return String(val);
+  }
+  return null;
+}
+
+/**
  * Safely normalizes an unknown query parameter value into a string array.
  * Handles repeated parameters, comma-separated strings, and single values.
  */
 function toStringArray(value: unknown): string[] | undefined {
   if (value == null) return undefined;
   if (Array.isArray(value)) {
-    return value.map((v) => String(v).trim()).filter(Boolean);
+    const result: string[] = [];
+    for (const item of value) {
+      const clean = toCleanString(item);
+      if (clean) result.push(clean);
+    }
+    return result.length > 0 ? result : undefined;
   }
   if (typeof value === 'string') {
-    return value.includes(',')
-      ? value
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [value.trim()].filter(Boolean);
+    const split = value.includes(',') ? value.split(',') : [value];
+    const result: string[] = [];
+    for (const item of split) {
+      const clean = toCleanString(item);
+      if (clean) result.push(clean);
+    }
+    return result.length > 0 ? result : undefined;
   }
-  return [String(value).trim()].filter(Boolean);
+  const clean = toCleanString(value);
+  return clean ? [clean] : undefined;
 }
 
 /**
