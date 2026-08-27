@@ -26,6 +26,8 @@ export default registerAs('app', () => ({
   oauthStateTtlSec: Number(process.env.OAUTH_STATE_TTL_SEC) || 600,
   callbackCodeTtlSec: Number(process.env.CALLBACK_CODE_TTL_SEC) || 120,
   sessionTtlSec: Number(process.env.SESSION_TTL_SEC) || 30 * 24 * 60 * 60, // 30 days
+  // 64 hex chars; encrypts stored Discord webhook tokens at rest
+  webhookEncryptionKey: process.env.WEBHOOK_ENCRYPTION_KEY || '',
   // SSO — global browser session shared across projects
   ssoCookieName: process.env.SSO_COOKIE_NAME || 'mcdi_sso',
   ssoCookieDomain: process.env.SSO_COOKIE_DOMAIN || undefined,

@@ -30,6 +30,9 @@ export async function createTestApp(): Promise<INestApplication> {
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
 
+  // Base64 webhook avatars overflow Express's default 100kb JSON body limit
+  app.useBodyParser('json', { limit: '512kb' });
+
   app.use(cookieParser());
 
   // Global validation — same config as production

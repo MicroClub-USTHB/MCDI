@@ -28,6 +28,7 @@ export * from './auth-request.entity';
 export * from './admin-oauth-state.entity';
 export * from './audit-log.entity';
 export * from './sso-session.entity';
+export * from './webhook.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');
