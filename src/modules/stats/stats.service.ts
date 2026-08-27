@@ -114,22 +114,50 @@ export class StatsService {
     const since = this.cutoff(dto.period);
     const unit = GRANULARITY_UNIT[dto.granularity] ?? 'day';
 
-    const [baseline, buckets] = await Promise.all([
-      this.repo.countMembersBefore(since, dto.serverId),
-      this.repo.memberGrowthBuckets(since, unit, dto.serverId),
-    ]);
+    const [membersBefore, departuresBefore, growthBuckets, departureBuckets] =
+      await Promise.all([
+        this.repo.countMembersBefore(since, dto.serverId),
+        this.repo.countDeparturesBefore(since, dto.serverId),
+        this.repo.memberGrowthBuckets(since, unit, dto.serverId),
+        this.repo.memberDepartureBuckets(since, unit, dto.serverId),
+      ]);
+
+    const baseline = Math.max(0, membersBefore - departuresBefore);
+
+    const bucketMap = new Map<
+      string,
+      { newMembers: number; leftMembers: number }
+    >();
+
+    for (const b of growthBuckets) {
+      const d = new Date(b.bucket).toISOString();
+      const entry = bucketMap.get(d) ?? { newMembers: 0, leftMembers: 0 };
+      entry.newMembers = b.newMembers;
+      bucketMap.set(d, entry);
+    }
+
+    for (const b of departureBuckets) {
+      const d = new Date(b.bucket).toISOString();
+      const entry = bucketMap.get(d) ?? { newMembers: 0, leftMembers: 0 };
+      entry.leftMembers = b.leftMembers;
+      bucketMap.set(d, entry);
+    }
+
+    const sortedDates = Array.from(bucketMap.keys()).sort(
+      (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+    );
 
     let running = baseline;
     let totalGrowth = 0;
-    const data = buckets.map((b) => {
-      running += b.newMembers;
-      totalGrowth += b.newMembers;
+    const data = sortedDates.map((dateStr) => {
+      const b = bucketMap.get(dateStr)!;
+      running += b.newMembers - b.leftMembers;
+      totalGrowth += b.newMembers - b.leftMembers;
       return {
-        date: new Date(b.bucket).toISOString(),
+        date: dateStr,
         count: running,
         newMembers: b.newMembers,
-        // Departures are not tracked in the schema yet; always 0.
-        leftMembers: 0,
+        leftMembers: b.leftMembers,
       };
     });
 
@@ -144,27 +172,46 @@ export class StatsService {
   // ── Role distribution ───────────────────────────────────────────────────
 
   async getRoleStats(dto: RoleStatsQueryDto) {
-    const key = `${this.namespace()}:roles:${dto.serverId}`;
+    const key = `${this.namespace()}:roles:${dto.serverId ?? 'all'}`;
     return this.cached(key, () => this.computeRoleStats(dto));
   }
 
   private async computeRoleStats(dto: RoleStatsQueryDto) {
-    const [serverName, rows, totalMembers] = await Promise.all([
-      this.repo.serverName(dto.serverId),
-      this.repo.roleDistribution(dto.serverId),
-      this.repo.countMembers(dto.serverId),
+    if (dto.serverId) {
+      const [serverName, rows, totalMembers] = await Promise.all([
+        this.repo.serverName(dto.serverId),
+        this.repo.roleDistribution(dto.serverId),
+        this.repo.countMembers(dto.serverId),
+      ]);
+
+      return {
+        serverId: dto.serverId,
+        serverName,
+        scope: 'server' as const,
+        roles: rows.map((r) => ({
+          roleId: r.roleId,
+          roleName: r.roleName,
+          memberCount: r.memberCount,
+          percentage: round2((r.memberCount / Math.max(1, totalMembers)) * 100),
+          hierarchyLevel: r.hierarchyLevel,
+          color: r.color,
+        })),
+        totalMembers,
+      };
+    }
+
+    const [rows, totalMembers] = await Promise.all([
+      this.repo.globalRoleDistribution(),
+      this.repo.countMembers(),
     ]);
 
     return {
-      serverId: dto.serverId,
-      serverName,
+      serverId: null,
+      serverName: null,
+      scope: 'global' as const,
       roles: rows.map((r) => ({
-        roleId: r.roleId,
         roleName: r.roleName,
         memberCount: r.memberCount,
-        percentage: round2((r.memberCount / Math.max(1, totalMembers)) * 100),
-        hierarchyLevel: r.hierarchyLevel,
-        color: r.color,
       })),
       totalMembers,
     };

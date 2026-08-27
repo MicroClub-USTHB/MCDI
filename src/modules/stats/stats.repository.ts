@@ -5,6 +5,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
 import {
+  memberDepartures,
   members,
   roles,
   serverMemberRoles,
@@ -131,6 +132,21 @@ export class StatsRepository {
     return r?.value ?? 0;
   }
 
+  async countDeparturesBefore(date: Date, serverId?: string): Promise<number> {
+    const [r] = await this.db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(memberDepartures)
+      .where(
+        serverId
+          ? and(
+              lt(memberDepartures.leftAt, date),
+              eq(memberDepartures.serverId, serverId),
+            )
+          : lt(memberDepartures.leftAt, date),
+      );
+    return r?.value ?? 0;
+  }
+
   // ── Grouped breakdowns ──────────────────────────────────────────────────
 
   async membersByServer(serverId?: string) {
@@ -191,6 +207,28 @@ export class StatsRepository {
       .orderBy(bucket);
   }
 
+  /** Departure counts bucketed by day/week/month. */
+  async memberDepartureBuckets(
+    since: Date,
+    unit: GrowthUnit,
+    serverId?: string,
+  ) {
+    const bucket = sql<string>`date_trunc(${sql.raw(`'${unit}'`)}, ${memberDepartures.leftAt})`;
+    return this.db
+      .select({ bucket, leftMembers: sql<number>`count(*)::int` })
+      .from(memberDepartures)
+      .where(
+        serverId
+          ? and(
+              gte(memberDepartures.leftAt, since),
+              eq(memberDepartures.serverId, serverId),
+            )
+          : gte(memberDepartures.leftAt, since),
+      )
+      .groupBy(bucket)
+      .orderBy(bucket);
+  }
+
   // ── Role distribution for one server ────────────────────────────────────
 
   async serverName(serverId: string): Promise<string | null> {
@@ -216,6 +254,19 @@ export class StatsRepository {
       .where(eq(roles.serverId, serverId))
       .groupBy(roles.id)
       .orderBy(desc(roles.position));
+  }
+
+  /** Cross-server role distribution aggregated across all servers merged by role name. */
+  async globalRoleDistribution() {
+    return this.db
+      .select({
+        roleName: roles.name,
+        memberCount: sql<number>`count(${serverMemberRoles.memberId})::int`,
+      })
+      .from(roles)
+      .leftJoin(serverMemberRoles, eq(serverMemberRoles.roleId, roles.id))
+      .groupBy(roles.name)
+      .orderBy(desc(sql`count(${serverMemberRoles.memberId})`));
   }
 
   // ── Server-level overview ───────────────────────────────────────────────

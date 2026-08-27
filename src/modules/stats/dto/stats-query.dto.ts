@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export const DATE_RANGES = ['7d', '30d', '90d', '1y'] as const;
 export const GRANULARITIES = ['daily', 'weekly', 'monthly'] as const;
@@ -46,10 +46,13 @@ export class GrowthQueryDto {
 }
 
 export class RoleStatsQueryDto {
-  @ApiProperty({ description: 'Server to analyse (required)' })
+  @ApiPropertyOptional({
+    description:
+      'Server to analyse. If omitted, returns cross-server role distribution merged by role name.',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  serverId!: string;
+  serverId?: string;
 }
 
 export const EXPORT_TYPES = [
