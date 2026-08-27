@@ -44,6 +44,28 @@ describe('AdminMembersController', () => {
     expect(result).toMatchObject({ memberId: 'u1' });
   });
 
+  it('getMemberList returns paginated list', async () => {
+    mockAdminMembersService.getCrossServerList.mockResolvedValue({
+      data: [],
+      total: 0,
+    });
+    const result = await controller.getMemberList({
+      filter: 'all',
+      serverId: 's1',
+      roleId: 'r1',
+      page: 1,
+      limit: 20,
+    } as any);
+    expect(mockAdminMembersService.getCrossServerList).toHaveBeenCalledWith({
+      filter: 'all',
+      serverId: 's1',
+      roleId: 'r1',
+      page: 1,
+      limit: 20,
+    });
+    expect(result).toMatchObject({ total: 0 });
+  });
+
   it('getCrossServerList returns paginated list', async () => {
     mockAdminMembersService.getCrossServerList.mockResolvedValue({
       data: [],
@@ -51,13 +73,14 @@ describe('AdminMembersController', () => {
     });
     const result = await controller.getCrossServerList({
       filter: 'all',
+      serverId: 's1',
       page: 1,
       limit: 20,
     } as any);
     expect(result).toMatchObject({ total: 0 });
   });
 
-  it('exportMembers sends CSV when format=csv', async () => {
+  it('exportMembers sends CSV when format=csv and passes filters', async () => {
     mockAdminMembersService.getExportData.mockResolvedValue([
       {
         discord_id: 'u1',
@@ -72,9 +95,15 @@ describe('AdminMembersController', () => {
     ]);
     const res = mockRes();
     await controller.exportMembers(
-      { filter: 'club', format: 'csv' } as any,
+      { filter: 'club', serverId: 's1', roleId: 'r1', format: 'csv' } as any,
       res as any,
     );
+    expect(mockAdminMembersService.getExportData).toHaveBeenCalledWith({
+      filter: 'club',
+      serverId: 's1',
+      roleId: 'r1',
+      format: 'csv',
+    });
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
     expect(res.send).toHaveBeenCalled();
   });

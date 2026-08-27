@@ -8,7 +8,7 @@ import { Type } from 'class-transformer';
  * GET /admin/members/cross-server?filter=club|all&page=1&limit=20&search=
  */
 export class CrossServerQueryDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
       'Filter type: "club" = only members in the main server, "all" = any managed server',
     enum: ['club', 'all'],
@@ -18,6 +18,24 @@ export class CrossServerQueryDto {
   @IsIn(['club', 'all'])
   @IsOptional()
   filter: 'club' | 'all' = 'all';
+
+  @ApiPropertyOptional({
+    description:
+      'Discord server ID to restrict results to members of a specific server',
+    example: '123456789012345678',
+  })
+  @IsString()
+  @IsOptional()
+  serverId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Discord role ID to restrict results to members holding a specific role',
+    example: '987654321098765432',
+  })
+  @IsString()
+  @IsOptional()
+  roleId?: string;
 
   @ApiPropertyOptional({
     description: 'Page number (1-based)',
@@ -54,11 +72,13 @@ export class CrossServerQueryDto {
   search?: string;
 }
 
+export { CrossServerQueryDto as AdminMembersQueryDto };
+
 /**
  * Query parameters for the export endpoint.
  */
 export class ExportQueryDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Filter type for export',
     enum: ['club', 'all'],
     default: 'all',
@@ -68,7 +88,32 @@ export class ExportQueryDto {
   @IsOptional()
   filter: 'club' | 'all' = 'all';
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    description: 'Discord server ID to filter export data',
+    example: '123456789012345678',
+  })
+  @IsString()
+  @IsOptional()
+  serverId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Discord role ID to filter export data',
+    example: '987654321098765432',
+  })
+  @IsString()
+  @IsOptional()
+  roleId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Search string to filter export data by username or global name',
+    example: 'john',
+  })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Output format',
     enum: ['csv', 'json'],
     default: 'json',

@@ -72,6 +72,12 @@ describe('StatsRepository', () => {
       ).toBe(25);
     });
 
+    it('countDeparturesBefore returns departures baseline', async () => {
+      expect(
+        await repoWith([{ value: 50 }]).countDeparturesBefore(new Date()),
+      ).toBe(50);
+    });
+
     it('countServers returns the server total', async () => {
       expect(await repoWith([{ value: 4 }]).countServers()).toBe(4);
     });
@@ -100,6 +106,13 @@ describe('StatsRepository', () => {
       ).toEqual(rows);
     });
 
+    it('memberDepartureBuckets returns departure buckets for the chosen unit', async () => {
+      const rows = [{ bucket: '2026-06-01T00:00:00.000Z', leftMembers: 5 }];
+      expect(
+        await repoWith(rows).memberDepartureBuckets(new Date(), 'day'),
+      ).toEqual(rows);
+    });
+
     it('roleDistribution returns per-role counts', async () => {
       const rows = [
         {
@@ -111,6 +124,16 @@ describe('StatsRepository', () => {
         },
       ];
       expect(await repoWith(rows).roleDistribution('s1')).toEqual(rows);
+    });
+
+    it('globalRoleDistribution returns cross-server role distribution merged by name', async () => {
+      const rows = [
+        {
+          roleName: 'Member',
+          memberCount: 1500,
+        },
+      ];
+      expect(await repoWith(rows).globalRoleDistribution()).toEqual(rows);
     });
   });
 

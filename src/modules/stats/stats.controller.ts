@@ -81,9 +81,9 @@ export class StatsController {
     summary: 'Member growth over time',
     description:
       'New members are bucketed by `createdAt` (when the record entered the system); ' +
+      'departures are bucketed by `leftAt`; ' +
       '`count` is the cumulative member total at each bucket. ' +
       '`trend` compares the second half of the series against the first half. ' +
-      'NOTE: member departures are not tracked yet, so `leftMembers` is always 0. ' +
       'Results are cached for 5 minutes.',
   })
   @ApiQuery({ name: 'serverId', required: false })
@@ -98,7 +98,7 @@ export class StatsController {
             date: '2026-06-01T00:00:00.000Z',
             count: 1180,
             newMembers: 12,
-            leftMembers: 0,
+            leftMembers: 2,
           },
         ],
         period: '30d',
@@ -116,19 +116,26 @@ export class StatsController {
 
   @Get('roles')
   @ApiOperation({
-    summary: 'Role distribution for a server',
+    summary: 'Role distribution (scoped or cross-server)',
     description:
-      'Member count and percentage of server members per role, ordered by ' +
-      'role position. `percentage` is memberCount / totalMembers * 100. ' +
+      'Member count per role for the given server (when `serverId` is provided, ordered by position), ' +
+      'or aggregated across all servers merged by role name (when `serverId` is omitted). ' +
+      'For a server scope, `percentage` is memberCount / totalMembers * 100. ' +
       'Results are cached for 5 minutes.',
   })
-  @ApiQuery({ name: 'serverId', required: true })
+  @ApiQuery({
+    name: 'serverId',
+    required: false,
+    description:
+      'Server ID to scope role distribution. Omit for cross-server aggregation.',
+  })
   @ApiOkResponse({
     description: 'Role distribution.',
     schema: {
       example: {
         serverId: '123',
         serverName: 'Main',
+        scope: 'server',
         roles: [
           {
             roleId: '456',
@@ -145,7 +152,7 @@ export class StatsController {
   })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  @ApiBadRequestResponse({ description: 'serverId is required.' })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
   getRoleStats(@Query() dto: RoleStatsQueryDto) {
     return this.statsService.getRoleStats(dto);
   }

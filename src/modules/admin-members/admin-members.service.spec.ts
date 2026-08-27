@@ -137,6 +137,50 @@ describe('AdminMembersService', () => {
       expect(result.total).toBe(1);
       expect(result.totalPages).toBe(1);
     });
+
+    it('should pass serverId, roleId, and search to repository', async () => {
+      repository.countMembers.mockResolvedValue(1);
+      repository.findMembersPaginated.mockResolvedValue([
+        { id: '123', username: 'testuser', globalName: 'Test', avatar: null },
+      ]);
+      repository.findMembershipsByMemberIds.mockResolvedValue([
+        {
+          memberId: '123',
+          serverId: 's1',
+          joinedAt: new Date('2025-01-01'),
+          serverName: 'Main Server',
+          isMainServer: true,
+        },
+      ]);
+      repository.findRoleNamesByMemberIds.mockResolvedValue([
+        { memberId: '123', serverId: 's1', roleName: 'Admin' },
+      ]);
+
+      const result = await service.getCrossServerList({
+        filter: 'all',
+        serverId: 's1',
+        roleId: 'r1',
+        search: 'test',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(repository.countMembers).toHaveBeenCalledWith(
+        'all',
+        'test',
+        's1',
+        'r1',
+      );
+      expect(repository.findMembersPaginated).toHaveBeenCalledWith(
+        'all',
+        'test',
+        20,
+        0,
+        's1',
+        'r1',
+      );
+      expect(result.data).toHaveLength(1);
+    });
   });
 
   // ── getExportData ─────────────────────────────────────────────────────
@@ -155,6 +199,13 @@ describe('AdminMembersService', () => {
           serverName: 'Main',
           isMainServer: true,
         },
+        {
+          memberId: '123',
+          serverId: 's2',
+          joinedAt: new Date('2025-01-02'),
+          serverName: 'Secondary',
+          isMainServer: false,
+        },
       ]);
       repository.findRoleNamesByMemberIds.mockResolvedValue([]);
     });
@@ -168,8 +219,18 @@ describe('AdminMembersService', () => {
 
     it('flattens cross-server list into rows for CSV export (filter=all)', async () => {
       const rows = await service.getExportData('all');
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(2);
       expect(rows[0]).toHaveProperty('username', 'alice');
+    });
+
+    it('filters rows to specific serverId when serverId is provided in ExportQueryDto', async () => {
+      const rows = await service.getExportData({
+        filter: 'all',
+        serverId: 's1',
+        format: 'csv',
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveProperty('server_id', 's1');
     });
   });
 });

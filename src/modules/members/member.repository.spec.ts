@@ -4,7 +4,7 @@ import { DRIZZLE } from '../../database/database.module';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 
-function buildDb(finalValue: unknown = []) {
+function buildDb(finalValue: unknown = [], txUpdateValue: unknown = []) {
   function makeChain(): any {
     const chain: any = {};
     const methods = [
@@ -64,7 +64,9 @@ function buildDb(finalValue: unknown = []) {
       const tx = {
         select: jest.fn().mockImplementation(() => makeChainWithTx([])),
         insert: jest.fn().mockImplementation(() => makeChainWithTx([])),
-        update: jest.fn().mockImplementation(() => makeChainWithTx([])),
+        update: jest
+          .fn()
+          .mockImplementation(() => makeChainWithTx(txUpdateValue)),
         delete: jest.fn().mockImplementation(() => makeChainWithTx([])),
       };
       return cb(tx);
@@ -207,7 +209,7 @@ describe('MemberRepository (members module)', () => {
         username: 'bob',
         isClubMember: false,
         syncedAt: new Date(),
-      } as any);
+      });
       expect(result).toMatchObject({ id: 'mem-2', username: 'bob' });
     });
   });
@@ -248,17 +250,37 @@ describe('MemberRepository (members module)', () => {
   // ── markInactiveForServer ───────────────────────────────────────────────────
 
   describe('markInactiveForServer', () => {
-    it('returns the number of rows marked inactive', async () => {
-      const db = buildDb({ rowCount: 4 });
+    it('returns the number of deactivated members and records departures in transaction', async () => {
+      const deactivatedRows = [
+        { memberId: 'm1' },
+        { memberId: 'm2' },
+        { memberId: 'm3' },
+        { memberId: 'm4' },
+      ];
+      const db = buildDb([], deactivatedRows);
       const repo = await buildRepo(db);
       const count = await repo.markInactiveForServer('srv-1', new Date());
       expect(count).toBe(4);
+      expect(db.transaction).toHaveBeenCalledTimes(1);
     });
 
-    it('returns 0 when rowCount is null', async () => {
-      const db = buildDb({ rowCount: null });
+    it('returns 0 when no members are deactivated', async () => {
+      const db = buildDb([], []);
       const repo = await buildRepo(db);
       expect(await repo.markInactiveForServer('srv-1', new Date())).toBe(0);
+    });
+  });
+
+  // ── recordMemberDeparture ───────────────────────────────────────────────────
+
+  describe('recordMemberDeparture', () => {
+    it('inserts a departure record', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await expect(
+        repo.recordMemberDeparture('srv-1', 'm1', new Date()),
+      ).resolves.toBeUndefined();
+      expect(db.insert).toHaveBeenCalledTimes(1);
     });
   });
 

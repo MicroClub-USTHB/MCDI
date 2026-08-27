@@ -62,12 +62,33 @@ export class AdminMembersController {
     return this.adminMembersService.getMemberCrossServerView(discordId);
   }
 
+  @Get()
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @ApiOperation({
+    summary:
+      'List members with optional server, role, filter and search criteria (paginated)',
+    description:
+      'Paginated list of members across managed servers. Supports filtering by serverId, roleId, filter=club|all, and search term.',
+  })
+  @ApiOkResponse({
+    description: 'Paginated member list retrieved.',
+    type: PaginatedCrossServerListDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid query parameters.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  async getMemberList(
+    @Query() query: CrossServerQueryDto,
+  ): Promise<PaginatedCrossServerListDto> {
+    return this.adminMembersService.getCrossServerList(query);
+  }
+
   @Get('cross-server')
   @UsePipes(new ValidationPipe({ transform: true }))
   @ApiOperation({
     summary: 'List members across servers (paginated)',
     description:
-      'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server.',
+      'Paginated list of members across all managed servers. Use filter=club for members in the main server only, or filter=all for any managed server. Also supports serverId, roleId, and search.',
   })
   @ApiOkResponse({
     description: 'Paginated cross-server member list retrieved.',
@@ -87,7 +108,7 @@ export class AdminMembersController {
   @ApiOperation({
     summary: 'Export members report',
     description:
-      'Exports the cross-server member report as a downloadable CSV or JSON file.',
+      'Exports the member report as a downloadable CSV or JSON file. Supports serverId, roleId, filter, and search parameters matching the list endpoint.',
   })
   @ApiOkResponse({ description: 'File download (CSV or JSON).' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
@@ -97,7 +118,7 @@ export class AdminMembersController {
     @Query() query: ExportQueryDto,
     @Res() res: Response,
   ): Promise<void> {
-    const rows = await this.adminMembersService.getExportData(query.filter);
+    const rows = await this.adminMembersService.getExportData(query);
 
     if (query.format === 'csv') {
       const csv = toCsv(rows);
