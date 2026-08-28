@@ -194,6 +194,52 @@ describeIf('/api/admin/members (e2e)', () => {
       expect(found).toBeDefined();
     });
 
+    it('filters by multiple serverId values (multi-select repeated params)', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(
+          `${BASE}/cross-server?serverId=${adminCtx.serverId}&serverId=${secondServerId}`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+      const found = res.body.data.find(
+        (m: { memberId: string }) => m.memberId === adminCtx.memberId,
+      );
+      expect(found).toBeDefined();
+    });
+
+    it('filters by multiple serverId values (comma-separated)', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(
+          `${BASE}/cross-server?serverId=${adminCtx.serverId},${secondServerId}`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    });
+
     it('returns empty list when search matches nothing', async () => {
       const res = await request(app.getHttpServer())
         .get(`${BASE}/cross-server?search=zzz_no_match_xyz`)
@@ -239,6 +285,29 @@ describeIf('/api/admin/members (e2e)', () => {
 
       // Should not be empty (admin is a club member)
       expect(res.text.length).toBeGreaterThan(0);
+    });
+
+    it('filters export rows by multiple serverId values', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(
+          `${BASE}/export?format=json&serverId=${adminCtx.serverId}&serverId=${secondServerId}`,
+        )
+        .set('Authorization', auth())
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+      expect(res.body[0].server_id).toBe(adminCtx.serverId);
     });
 
     it('returns 401 without auth', async () => {

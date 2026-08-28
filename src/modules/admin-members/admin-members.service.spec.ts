@@ -158,8 +158,8 @@ describe('AdminMembersService', () => {
 
       const result = await service.getCrossServerList({
         filter: 'all',
-        serverId: 's1',
-        roleId: 'r1',
+        serverId: ['s1', 's2'],
+        roleId: ['r1', 'r2'],
         search: 'test',
         page: 1,
         limit: 20,
@@ -168,16 +168,16 @@ describe('AdminMembersService', () => {
       expect(repository.countMembers).toHaveBeenCalledWith(
         'all',
         'test',
-        's1',
-        'r1',
+        ['s1', 's2'],
+        ['r1', 'r2'],
       );
       expect(repository.findMembersPaginated).toHaveBeenCalledWith(
         'all',
         'test',
         20,
         0,
-        's1',
-        'r1',
+        ['s1', 's2'],
+        ['r1', 'r2'],
       );
       expect(result.data).toHaveLength(1);
     });
@@ -226,11 +226,20 @@ describe('AdminMembersService', () => {
     it('filters rows to specific serverId when serverId is provided in ExportQueryDto', async () => {
       const rows = await service.getExportData({
         filter: 'all',
-        serverId: 's1',
+        serverId: ['s1'],
         format: 'csv',
       });
       expect(rows).toHaveLength(1);
       expect(rows[0]).toHaveProperty('server_id', 's1');
+    });
+
+    it('filters rows to matching serverIds when multiple serverIds are provided', async () => {
+      const rows = await service.getExportData({
+        filter: 'all',
+        serverId: ['s1', 's2'],
+        format: 'json',
+      });
+      expect(rows).toHaveLength(2);
     });
   });
 });

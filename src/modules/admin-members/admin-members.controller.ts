@@ -108,7 +108,7 @@ export class AdminMembersController {
   @ApiOperation({
     summary: 'Export members report',
     description:
-      'Exports the member report as a downloadable CSV or JSON file. Supports serverId, roleId, filter, and search parameters matching the list endpoint.',
+      'Exports the member report as a downloadable CSV or JSON file. Supports serverId, roleId, filter, and search parameters matching the list endpoint. Each exported row represents a server membership for matching members (narrowed by serverId if specified; roleId filters members holding the role across their memberships).',
   })
   @ApiOkResponse({ description: 'File download (CSV or JSON).' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
