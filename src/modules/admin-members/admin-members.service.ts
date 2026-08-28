@@ -223,9 +223,10 @@ export class AdminMembersService {
       });
 
       for (const item of result.data) {
-        const serversToExport = serverId && serverId.length > 0
-          ? item.servers.filter((s) => serverId.includes(s.serverId))
-          : item.servers;
+        const serversToExport =
+          serverId && serverId.length > 0
+            ? item.servers.filter((s) => serverId.includes(s.serverId))
+            : item.servers;
 
         for (const srv of serversToExport) {
           rows.push({

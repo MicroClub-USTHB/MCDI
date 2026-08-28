@@ -141,12 +141,17 @@ describe('AdminMembersRepository', () => {
       expect(await repo.countMembers('club', 'ali')).toBe(3);
     });
 
-    it('returns count when filtered by serverId and roleId', async () => {
+    it('returns count when filtered by serverId and roleId (multiple values)', async () => {
       const db = buildDb([{ count: 2 }]);
       const repo = await buildRepo(db);
-      expect(await repo.countMembers('all', undefined, ['srv-1'], ['role-1'])).toBe(
-        2,
-      );
+      expect(
+        await repo.countMembers(
+          'all',
+          undefined,
+          ['srv-1', 'srv-2'],
+          ['role-1', 'role-2'],
+        ),
+      ).toBe(2);
     });
   });
 
@@ -170,7 +175,7 @@ describe('AdminMembersRepository', () => {
       expect(result).toEqual([]);
     });
 
-    it('applies serverId and roleId filters', async () => {
+    it('applies serverId and roleId filters with multiple IDs', async () => {
       const rows = [
         { id: 'mem-1', username: 'alice', globalName: null, avatar: null },
       ];
@@ -181,8 +186,8 @@ describe('AdminMembersRepository', () => {
         undefined,
         10,
         0,
-        ['srv-1'],
-        ['role-1'],
+        ['srv-1', 'srv-2'],
+        ['role-1', 'role-2'],
       );
       expect(result).toEqual(rows);
     });

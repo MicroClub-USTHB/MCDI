@@ -1,46 +1,43 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsIn, IsInt, Min, Max, IsArray } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsIn,
+  IsInt,
+  Min,
+  Max,
+  IsArray,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 /**
- * Safely extracts a trimmed non-empty string from a primitive value.
- */
-function toCleanString(val: unknown): string | null {
-  if (typeof val === 'string') {
-    const trimmed = val.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'bigint') {
-    return String(val);
-  }
-  return null;
-}
-
-/**
  * Safely normalizes an unknown query parameter value into a string array.
- * Handles repeated parameters, comma-separated strings, and single values.
+ * Handles repeated parameters, comma-separated strings, single values,
+ * and qs-collapsed plain objects (e.g. when 21+ values exceed qs arrayLimit).
  */
-function toStringArray(value: unknown): string[] | undefined {
+export function toStringArray(value: unknown): string[] | undefined {
   if (value == null) return undefined;
-  if (Array.isArray(value)) {
-    const result: string[] = [];
-    for (const item of value) {
-      const clean = toCleanString(item);
-      if (clean) result.push(clean);
+
+  const rawItems: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === 'object'
+      ? Object.values(value as Record<string, unknown>)
+      : [value];
+
+  const result: string[] = [];
+  for (const item of rawItems) {
+    if (typeof item === 'string') {
+      const parts = item.includes(',') ? item.split(',') : [item];
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.length > 0) {
+          result.push(trimmed);
+        }
+      }
     }
-    return result.length > 0 ? result : undefined;
   }
-  if (typeof value === 'string') {
-    const split = value.includes(',') ? value.split(',') : [value];
-    const result: string[] = [];
-    for (const item of split) {
-      const clean = toCleanString(item);
-      if (clean) result.push(clean);
-    }
-    return result.length > 0 ? result : undefined;
-  }
-  const clean = toCleanString(value);
-  return clean ? [clean] : undefined;
+
+  return result.length > 0 ? result : undefined;
 }
 
 /**
@@ -62,9 +59,8 @@ export class CrossServerQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Discord server ID(s) to restrict results to members of specific server(s)',
-    example: '123456789012345678',
-    isArray: true,
+      'Discord server ID(s) to restrict results to members of specific server(s). Supports repeated params (?serverId=A&serverId=B) or comma-separated values (?serverId=A,B).',
+    example: ['123456789012345678', '987654321098765432'],
     type: [String],
   })
   @Transform(({ value }): string[] | undefined => toStringArray(value))
@@ -75,9 +71,8 @@ export class CrossServerQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Discord role ID(s) to restrict results to members holding specific role(s)',
-    example: '987654321098765432',
-    isArray: true,
+      'Discord role ID(s) to restrict results to members holding specific role(s). Supports repeated params (?roleId=A&roleId=B) or comma-separated values (?roleId=A,B).',
+    example: ['987654321098765432', '876543210987654321'],
     type: [String],
   })
   @Transform(({ value }): string[] | undefined => toStringArray(value))
@@ -138,9 +133,9 @@ export class ExportQueryDto {
   filter: 'club' | 'all' = 'all';
 
   @ApiPropertyOptional({
-    description: 'Discord server ID(s) to filter export data',
-    example: '123456789012345678',
-    isArray: true,
+    description:
+      'Discord server ID(s) to filter export data. Supports repeated params (?serverId=A&serverId=B) or comma-separated values (?serverId=A,B).',
+    example: ['123456789012345678', '987654321098765432'],
     type: [String],
   })
   @Transform(({ value }): string[] | undefined => toStringArray(value))
@@ -150,9 +145,9 @@ export class ExportQueryDto {
   serverId?: string[];
 
   @ApiPropertyOptional({
-    description: 'Discord role ID(s) to filter export data',
-    example: '987654321098765432',
-    isArray: true,
+    description:
+      'Discord role ID(s) to filter export data. Supports repeated params (?roleId=A&roleId=B) or comma-separated values (?roleId=A,B).',
+    example: ['987654321098765432', '876543210987654321'],
     type: [String],
   })
   @Transform(({ value }): string[] | undefined => toStringArray(value))
