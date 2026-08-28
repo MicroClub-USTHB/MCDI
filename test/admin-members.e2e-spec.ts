@@ -195,9 +195,19 @@ describeIf('/api/admin/members (e2e)', () => {
     });
 
     it('filters by multiple serverId values (multi-select repeated params)', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
       const res = await request(app.getHttpServer())
         .get(
-          `${BASE}/cross-server?serverId=${adminCtx.serverId}&serverId=999999999999999999`,
+          `${BASE}/cross-server?serverId=${adminCtx.serverId}&serverId=${secondServerId}`,
         )
         .set('Authorization', auth())
         .expect(200);
@@ -210,9 +220,19 @@ describeIf('/api/admin/members (e2e)', () => {
     });
 
     it('filters by multiple serverId values (comma-separated)', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
       const res = await request(app.getHttpServer())
         .get(
-          `${BASE}/cross-server?serverId=${adminCtx.serverId},999999999999999999`,
+          `${BASE}/cross-server?serverId=${adminCtx.serverId},${secondServerId}`,
         )
         .set('Authorization', auth())
         .expect(200);
@@ -268,9 +288,19 @@ describeIf('/api/admin/members (e2e)', () => {
     });
 
     it('filters export rows by multiple serverId values', async () => {
+      const secondServerId = '555555555555555555';
+      await db.insert(servers).values({
+        id: secondServerId,
+        name: 'Second Server',
+        type: 'other',
+        isMain: false,
+        isActive: true,
+        syncedAt: new Date(),
+      });
+
       const res = await request(app.getHttpServer())
         .get(
-          `${BASE}/export?format=json&serverId=${adminCtx.serverId}&serverId=999999999999999999`,
+          `${BASE}/export?format=json&serverId=${adminCtx.serverId}&serverId=${secondServerId}`,
         )
         .set('Authorization', auth())
         .expect(200);
