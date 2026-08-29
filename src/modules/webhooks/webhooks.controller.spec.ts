@@ -10,6 +10,7 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { ChannelAccessGuard } from '../channels/guards/channel-access.guard';
+import { ProjectThrottlerGuard } from '../channels/guards/project-throttler.guard';
 
 const WEBHOOK_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -22,6 +23,7 @@ describe('WebhooksController (integration)', () => {
     getWebhook: jest.fn(),
     updateWebhook: jest.fn(),
     deleteWebhook: jest.fn(),
+    executeWebhook: jest.fn(),
   };
 
   const mockApiKeyGuard = {
@@ -35,6 +37,10 @@ describe('WebhooksController (integration)', () => {
   };
 
   const mockChannelAccessGuard = {
+    canActivate: jest.fn().mockResolvedValue(true),
+  };
+
+  const mockProjectThrottlerGuard = {
     canActivate: jest.fn().mockResolvedValue(true),
   };
 
@@ -52,6 +58,8 @@ describe('WebhooksController (integration)', () => {
       .useValue(mockApiKeyGuard)
       .overrideGuard(ChannelAccessGuard)
       .useValue(mockChannelAccessGuard)
+      .overrideGuard(ProjectThrottlerGuard)
+      .useValue(mockProjectThrottlerGuard)
       .compile();
 
     app = module.createNestApplication();
@@ -240,6 +248,43 @@ describe('WebhooksController (integration)', () => {
         WEBHOOK_ID,
         'proj-1',
       );
+    });
+  });
+
+  describe('POST /webhooks/:webhookId/execute', () => {
+    it('should return 204 after executing the webhook', async () => {
+      mockService.executeWebhook.mockResolvedValue(undefined);
+
+      const res = await request(app.getHttpServer())
+        .post(`/webhooks/${WEBHOOK_ID}/execute`)
+        .set('X-API-Key', 'test-key')
+        .send({
+          content: 'Deployment completed',
+          username: 'Deployments',
+          avatar_url: 'https://example.com/avatar.png',
+        })
+        .expect(204);
+
+      expect(res.body).toEqual({});
+      expect(mockService.executeWebhook).toHaveBeenCalledWith(
+        WEBHOOK_ID,
+        'proj-1',
+        {
+          content: 'Deployment completed',
+          username: 'Deployments',
+          avatar_url: 'https://example.com/avatar.png',
+        },
+      );
+    });
+
+    it('should reject content longer than 2000 characters', async () => {
+      await request(app.getHttpServer())
+        .post(`/webhooks/${WEBHOOK_ID}/execute`)
+        .set('X-API-Key', 'test-key')
+        .send({ content: 'x'.repeat(2001) })
+        .expect(400);
+
+      expect(mockService.executeWebhook).not.toHaveBeenCalled();
     });
   });
 });

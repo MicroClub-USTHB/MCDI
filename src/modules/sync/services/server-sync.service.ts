@@ -3,7 +3,7 @@ import { Guild } from 'discord.js';
 import { ServersRepository } from '../../servers/servers.repository';
 import { SyncRepository } from '../sync.repository';
 import { SyncChangeEntry } from '../sync-types';
-import { withRetry } from '../sync-retry.util';
+import { withRetry } from '../../../common/utils/retry.util';
 import { SyncTarget } from '../dto/trigger-sync.dto';
 
 @Injectable()

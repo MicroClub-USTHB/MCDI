@@ -1,11 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadGatewayException, BadRequestException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from './webhooks.service';
 import { WebhooksRepository } from './webhooks.repository';
 import { DiscordService } from '../discord/discord.service';
-import { decryptSecret } from '../../common/utils/encryption.util';
+import {
+  decryptSecret,
+  encryptSecret,
+} from '../../common/utils/encryption.util';
 
 const KEY = 'a'.repeat(64);
 const WEBHOOK_ID = '11111111-1111-4111-8111-111111111111';
@@ -35,6 +42,7 @@ describe('WebhooksService', () => {
       type: 0,
     }),
     createWebhook: jest.fn(),
+    executeWebhook: jest.fn(),
     editWebhook: jest.fn(),
     deleteWebhook: jest.fn(),
     getCachedChannelName: jest.fn().mockReturnValue(null),
@@ -43,16 +51,20 @@ describe('WebhooksService', () => {
 
   const mockRepository = {
     create: jest.fn(),
+    countByProject: jest.fn(),
     findById: jest.fn(),
     findByProject: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    recordExecution: jest.fn(),
   };
 
   const mockConfigService = {
-    get: jest.fn((key: string) =>
-      key === 'app.webhookEncryptionKey' ? KEY : undefined,
-    ),
+    get: jest.fn((key: string) => {
+      if (key === 'app.webhookEncryptionKey') return KEY;
+      if (key === 'app.maxWebhooksPerProject') return 10;
+      return undefined;
+    }),
   };
 
   beforeEach(async () => {
@@ -66,6 +78,9 @@ describe('WebhooksService', () => {
     }).compile();
 
     service = module.get(WebhooksService);
+    mockRepository.countByProject.mockResolvedValue(0);
+    mockRepository.recordExecution.mockResolvedValue(true);
+    mockDiscordService.executeWebhook.mockResolvedValue(undefined);
   });
 
   afterEach(() => jest.clearAllMocks());
@@ -120,6 +135,17 @@ describe('WebhooksService', () => {
       await expect(
         service.createWebhook('srv-1', 'ch-1', 'proj-1', { name: 'hook' }),
       ).rejects.toThrow(BadGatewayException);
+    });
+
+    it('rejects creation at the project limit before calling Discord', async () => {
+      mockRepository.countByProject.mockResolvedValue(10);
+
+      await expect(
+        service.createWebhook('srv-1', 'ch-1', 'proj-1', { name: 'hook' }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(mockDiscordService.getChannelById).not.toHaveBeenCalled();
+      expect(mockDiscordService.createWebhook).not.toHaveBeenCalled();
     });
 
     it('rejects a thread before calling Discord', async () => {
@@ -184,6 +210,166 @@ describe('WebhooksService', () => {
         BadGatewayException,
       );
       expect(mockRepository.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeWebhook', () => {
+    const executableRow = {
+      ...row,
+      encryptedToken: encryptSecret('secret-token', KEY),
+    };
+
+    it('decrypts the token, sends the payload and records one execution', async () => {
+      mockRepository.findById.mockResolvedValue(executableRow);
+
+      await service.executeWebhook(WEBHOOK_ID, 'proj-1', {
+        content: 'Deployment completed',
+        embeds: [{ title: 'Status' }],
+        username: 'Deployments',
+        avatar_url: 'https://example.com/avatar.png',
+      });
+
+      expect(mockDiscordService.executeWebhook).toHaveBeenCalledWith(
+        'dw-1',
+        'secret-token',
+        {
+          content: 'Deployment completed',
+          embeds: [{ title: 'Status' }],
+          username: 'Deployments',
+          avatarURL: 'https://example.com/avatar.png',
+        },
+      );
+      expect(mockRepository.recordExecution).toHaveBeenCalledWith(WEBHOOK_ID);
+    });
+
+    it('rejects an empty message before decrypting or sending', async () => {
+      mockRepository.findById.mockResolvedValue(executableRow);
+
+      await expect(
+        service.executeWebhook(WEBHOOK_ID, 'proj-1', {}),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockDiscordService.executeWebhook).not.toHaveBeenCalled();
+      expect(mockRepository.recordExecution).not.toHaveBeenCalled();
+    });
+
+    it('checks ownership before decrypting or sending', async () => {
+      mockRepository.findById.mockResolvedValue({
+        ...executableRow,
+        projectId: 'other-project',
+        encryptedToken: 'invalid',
+      });
+
+      await expect(
+        service.executeWebhook(WEBHOOK_ID, 'proj-1', { content: 'hello' }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockDiscordService.executeWebhook).not.toHaveBeenCalled();
+      expect(mockRepository.recordExecution).not.toHaveBeenCalled();
+    });
+
+    it('rejects aggregate embed text over 6000 characters before decrypting', async () => {
+      mockRepository.findById.mockResolvedValue({
+        ...executableRow,
+        encryptedToken: 'invalid',
+      });
+
+      await expect(
+        service.executeWebhook(WEBHOOK_ID, 'proj-1', {
+          embeds: [
+            {
+              title: 't'.repeat(256),
+              description: 'd'.repeat(4096),
+              footer: { text: 'f'.repeat(1000) },
+              author: { name: 'a'.repeat(256) },
+            },
+            {
+              title: 't'.repeat(256),
+              description: 'd'.repeat(137),
+            },
+          ],
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockDiscordService.executeWebhook).not.toHaveBeenCalled();
+      expect(mockRepository.recordExecution).not.toHaveBeenCalled();
+    });
+
+    it('succeeds on the third Discord attempt', async () => {
+      jest.useFakeTimers();
+      try {
+        mockRepository.findById.mockResolvedValue(executableRow);
+        mockDiscordService.executeWebhook
+          .mockRejectedValueOnce(new Error('first failure'))
+          .mockRejectedValueOnce(new Error('second failure'))
+          .mockResolvedValueOnce(undefined);
+
+        const execution = service.executeWebhook(WEBHOOK_ID, 'proj-1', {
+          content: 'hello',
+        });
+        await jest.advanceTimersByTimeAsync(3000);
+        await execution;
+
+        expect(mockDiscordService.executeWebhook).toHaveBeenCalledTimes(3);
+        expect(mockRepository.recordExecution).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('returns 502 without tracking after three failed attempts', async () => {
+      jest.useFakeTimers();
+      try {
+        mockRepository.findById.mockResolvedValue(executableRow);
+        mockDiscordService.executeWebhook.mockRejectedValue(
+          new Error('request failed for secret-token'),
+        );
+        const warn = jest.spyOn((service as any).logger, 'warn');
+
+        const rejection = expect(
+          service.executeWebhook(WEBHOOK_ID, 'proj-1', { content: 'hello' }),
+        ).rejects.toThrow(BadGatewayException);
+        await jest.advanceTimersByTimeAsync(3000);
+        await rejection;
+
+        expect(mockDiscordService.executeWebhook).toHaveBeenCalledTimes(3);
+        expect(mockRepository.recordExecution).not.toHaveBeenCalled();
+        expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-token');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('returns success when execution tracking rejects after the send', async () => {
+      mockRepository.findById.mockResolvedValue(executableRow);
+      mockRepository.recordExecution.mockRejectedValueOnce(
+        new Error('tracking failed for secret-token'),
+      );
+      const warn = jest.spyOn((service as any).logger, 'warn');
+
+      await expect(
+        service.executeWebhook(WEBHOOK_ID, 'proj-1', { content: 'hello' }),
+      ).resolves.toBeUndefined();
+
+      expect(mockDiscordService.executeWebhook).toHaveBeenCalledTimes(1);
+      expect(mockRepository.recordExecution).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-token');
+    });
+
+    it('returns success when execution tracking reports no updated row', async () => {
+      mockRepository.findById.mockResolvedValue(executableRow);
+      mockRepository.recordExecution.mockResolvedValueOnce(false);
+      const warn = jest.spyOn((service as any).logger, 'warn');
+
+      await expect(
+        service.executeWebhook(WEBHOOK_ID, 'proj-1', { content: 'hello' }),
+      ).resolves.toBeUndefined();
+
+      expect(mockDiscordService.executeWebhook).toHaveBeenCalledTimes(1);
+      expect(mockRepository.recordExecution).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-token');
     });
   });
 

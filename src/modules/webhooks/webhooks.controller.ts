@@ -18,6 +18,7 @@ import {
 import {
   ApiBadGatewayResponse,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -28,8 +29,10 @@ import {
   ApiQuery,
   ApiSecurity,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { WebhooksService } from './webhooks.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -38,12 +41,14 @@ import { RequireProjectOperation } from '../../common/decorators/require-project
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
 import { ListWebhooksQueryDto } from './dto/list-webhooks-query.dto';
+import { ExecuteWebhookDto } from './dto/execute-webhook.dto';
 import {
   WebhookCreatedResponseDto,
   WebhookDetailResponseDto,
   WebhookListResponseDto,
 } from './dto/webhook-response.dto';
 import { WebhooksExceptionFilter } from './filters/webhooks-exception.filter';
+import { ProjectThrottlerGuard } from '../channels/guards/project-throttler.guard';
 
 type RequestWithProject = Request & { project?: { id: string } };
 
@@ -81,6 +86,7 @@ export class WebhooksController {
     type: WebhookCreatedResponseDto,
   })
   @ApiBadRequestResponse({ description: 'Invalid name or avatar.' })
+  @ApiConflictResponse({ description: 'Project webhook limit reached.' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
   @ApiForbiddenResponse({
     description:
@@ -212,6 +218,41 @@ export class WebhooksController {
     @Req() req: RequestWithProject,
   ): Promise<WebhookDetailResponseDto> {
     return this.webhooksService.updateWebhook(webhookId, req.project!.id, dto);
+  }
+
+  @Post('webhooks/:webhookId/execute')
+  @UseGuards(ProjectThrottlerGuard)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Execute a webhook',
+    description:
+      'Sends a message through a stored Discord webhook. The webhook must ' +
+      'belong to the requesting project.',
+  })
+  @ApiParam({
+    name: 'webhookId',
+    description: 'Webhook ID',
+    example: '3f6f7f9a-4c1a-4a9e-9d7b-2f1f4b6a8c0d',
+  })
+  @ApiNoContentResponse({ description: 'Webhook executed.' })
+  @ApiBadRequestResponse({
+    description: 'Message content and embeds are both empty or invalid.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid API key.' })
+  @ApiNotFoundResponse({
+    description: 'Webhook not found for this project.',
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Execution limit exceeded for this project.',
+  })
+  @ApiBadGatewayResponse({ description: 'Discord rejected every attempt.' })
+  async executeWebhook(
+    @Param('webhookId') webhookId: string,
+    @Body() dto: ExecuteWebhookDto,
+    @Req() req: RequestWithProject,
+  ): Promise<void> {
+    return this.webhooksService.executeWebhook(webhookId, req.project!.id, dto);
   }
 
   @Delete('webhooks/:webhookId')

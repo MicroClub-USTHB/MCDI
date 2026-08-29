@@ -5,11 +5,17 @@ import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { WebhooksRepository } from './webhooks.repository';
 import { ChannelAccessGuard } from '../channels/guards/channel-access.guard';
+import { ProjectThrottlerGuard } from '../channels/guards/project-throttler.guard';
 
 @Module({
   imports: [DiscordModule, ProjectsModule],
   controllers: [WebhooksController],
-  providers: [WebhooksService, WebhooksRepository, ChannelAccessGuard],
+  providers: [
+    WebhooksService,
+    WebhooksRepository,
+    ChannelAccessGuard,
+    ProjectThrottlerGuard,
+  ],
   exports: [WebhooksService],
 })
 export class WebhooksModule {}

@@ -451,6 +451,20 @@ export class DiscordService {
     }
   }
 
+  async executeWebhook(
+    webhookId: string,
+    token: string,
+    options: Discord.WebhookMessageCreateOptions,
+  ): Promise<void> {
+    const webhook = new Discord.WebhookClient({ id: webhookId, token });
+
+    try {
+      await webhook.send(options);
+    } finally {
+      webhook.destroy();
+    }
+  }
+
   async editWebhook(
     webhookId: string,
     options: Discord.WebhookEditOptions,

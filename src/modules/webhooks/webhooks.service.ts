@@ -1,19 +1,26 @@
 import {
   BadGatewayException,
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { isUUID } from 'class-validator';
 import Discord from 'discord.js';
 import { DiscordService } from '../discord/discord.service';
-import { encryptSecret } from '../../common/utils/encryption.util';
+import {
+  decryptSecret,
+  encryptSecret,
+} from '../../common/utils/encryption.util';
+import { withRetry } from '../../common/utils/retry.util';
 import { WebhookRow, WebhooksRepository } from './webhooks.repository';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
 import { ListWebhooksQueryDto } from './dto/list-webhooks-query.dto';
+import { ExecuteWebhookDto } from './dto/execute-webhook.dto';
 import {
   WebhookCreatedResponseDto,
   WebhookDetailResponseDto,
@@ -22,11 +29,14 @@ import {
 } from './dto/webhook-response.dto';
 
 const MAX_AVATAR_BYTES = 256 * 1024;
+const MAX_EMBED_TEXT_LENGTH = 6000;
 const BASE64_PATTERN =
   /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(
     private readonly discordService: DiscordService,
     private readonly webhooksRepository: WebhooksRepository,
@@ -39,6 +49,18 @@ export class WebhooksService {
     projectId: string,
     dto: CreateWebhookDto,
   ): Promise<WebhookCreatedResponseDto> {
+    const webhookCount =
+      await this.webhooksRepository.countByProject(projectId);
+    const maxWebhooks =
+      this.configService.get<number>('app.maxWebhooksPerProject') ?? 10;
+
+    if (webhookCount >= maxWebhooks) {
+      throw new ConflictException({
+        code: 'WEBHOOK_LIMIT_REACHED',
+        message: `Project cannot own more than ${maxWebhooks} webhooks`,
+      });
+    }
+
     const encryptionKey = this.encryptionKey();
     if (!encryptionKey) {
       throw new InternalServerErrorException({
@@ -222,6 +244,93 @@ export class WebhooksService {
     }
 
     await this.webhooksRepository.delete(row.id);
+  }
+
+  async executeWebhook(
+    webhookId: string,
+    projectId: string,
+    dto: ExecuteWebhookDto,
+  ): Promise<void> {
+    const row = await this.findOwnedWebhook(webhookId, projectId);
+
+    if (!dto.content?.length && !dto.embeds?.length) {
+      throw new BadRequestException({
+        code: 'INVALID_CONTENT',
+        message: 'Either content or embeds must be provided',
+      });
+    }
+
+    const embedTextLength = (dto.embeds ?? []).reduce(
+      (total, embed) =>
+        total +
+        (embed.title?.length ?? 0) +
+        (embed.description?.length ?? 0) +
+        (embed.footer?.text.length ?? 0) +
+        (embed.author?.name.length ?? 0),
+      0,
+    );
+
+    if (embedTextLength > MAX_EMBED_TEXT_LENGTH) {
+      throw new BadRequestException({
+        code: 'INVALID_EMBEDS',
+        message: 'Embed text must not exceed 6000 characters in total',
+      });
+    }
+
+    const encryptionKey = this.encryptionKey();
+    if (!encryptionKey) {
+      throw new InternalServerErrorException({
+        code: 'ENCRYPTION_KEY_MISSING',
+        message: 'WEBHOOK_ENCRYPTION_KEY is not configured',
+      });
+    }
+
+    let token: string;
+    try {
+      token = decryptSecret(row.encryptedToken, encryptionKey);
+    } catch {
+      throw new InternalServerErrorException({
+        code: 'WEBHOOK_TOKEN_INVALID',
+        message: 'Stored webhook credentials could not be decrypted',
+      });
+    }
+
+    const options: Discord.WebhookMessageCreateOptions = {
+      content: dto.content,
+      embeds: dto.embeds,
+      username: dto.username,
+      avatarURL: dto.avatar_url,
+    };
+
+    try {
+      await withRetry(
+        () =>
+          this.discordService.executeWebhook(
+            row.discordWebhookId,
+            token,
+            options,
+          ),
+        `webhook execution ${row.id}`,
+        {
+          warn: () =>
+            this.logger.warn(`Webhook execution attempt failed for ${row.id}`),
+        },
+      );
+    } catch {
+      throw new BadGatewayException({
+        code: 'DISCORD_ERROR',
+        message: 'Failed to execute webhook after three attempts',
+      });
+    }
+
+    try {
+      const recorded = await this.webhooksRepository.recordExecution(row.id);
+      if (!recorded) {
+        this.logger.warn(`Webhook execution tracking failed for ${row.id}`);
+      }
+    } catch {
+      this.logger.warn(`Webhook execution tracking failed for ${row.id}`);
+    }
   }
 
   // 404 for a missing row and for another project's row alike, so webhook

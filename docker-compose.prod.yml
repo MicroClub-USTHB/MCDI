@@ -22,6 +22,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_KEY_PREFIX: mcdi
       WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY}
+      MAX_WEBHOOKS_PER_PROJECT: ${MAX_WEBHOOKS_PER_PROJECT:-10}
     command: sh -lc "pnpm run db:migrate:docker && node dist/main.js"
     ports:
       - '3000:3000'

@@ -4,7 +4,7 @@ import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
 import { SyncChangeEntry } from '../sync-types';
 import { members } from '../../../database/entities/member.entity';
-import { withRetry } from '../sync-retry.util';
+import { withRetry } from '../../../common/utils/retry.util';
 import { PermissionCacheService } from '../../permissions/permission-cache.service';
 
 @Injectable()
