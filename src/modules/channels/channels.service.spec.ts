@@ -330,7 +330,56 @@ describe('ChannelsService', () => {
         nsfw: false,
         lastMessageId: 'msg-123',
         createdAt: '2025-01-15T14:30:00.000Z',
+        permissionOverwrites: false,
+        overwrites: [],
       });
+    });
+
+    it('should map permission overwrites from the channel cache', async () => {
+      const mockChannel: any = {
+        id: 'ch-1',
+        name: 'general',
+        type: ChannelType.GuildText,
+        position: 0,
+        parentId: null,
+        topic: null,
+        nsfw: false,
+        lastMessageId: null,
+        createdAt: new Date('2025-01-15T14:30:00.000Z'),
+        isDMBased: () => false,
+        permissionOverwrites: {
+          cache: new Map([
+            [
+              'role-1',
+              {
+                id: 'role-1',
+                type: 0,
+                allow: { bitfield: 1024n },
+                deny: { bitfield: 0n },
+              },
+            ],
+            [
+              'member-1',
+              {
+                id: 'member-1',
+                type: 1,
+                allow: { bitfield: 0n },
+                deny: { bitfield: 2048n },
+              },
+            ],
+          ]),
+        },
+      };
+
+      mockDiscordService.getChannelById.mockResolvedValue(mockChannel);
+
+      const result = await service.getChannel('server-123', 'ch-1');
+
+      expect(result.permissionOverwrites).toBe(true);
+      expect(result.overwrites).toEqual([
+        { id: 'role-1', type: 'role', allow: '1024', deny: '0' },
+        { id: 'member-1', type: 'member', allow: '0', deny: '2048' },
+      ]);
     });
 
     it('should throw NotFoundException when channel not found', async () => {

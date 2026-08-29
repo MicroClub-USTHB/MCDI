@@ -83,6 +83,33 @@ export class ChannelListResponseDto {
   categories: ChannelCategoryDto[];
 }
 
+export class ChannelPermissionOverwriteDto {
+  @ApiProperty({
+    description: 'Role or member ID the overwrite targets',
+    example: '123456789012345678',
+  })
+  id: string;
+
+  @ApiProperty({
+    description: 'Whether the overwrite targets a role or a member',
+    enum: ['role', 'member'],
+    example: 'role',
+  })
+  type: 'role' | 'member';
+
+  @ApiProperty({
+    description: 'Allowed permission bits (Discord bitfield as a string)',
+    example: '1024',
+  })
+  allow: string;
+
+  @ApiProperty({
+    description: 'Denied permission bits (Discord bitfield as a string)',
+    example: '0',
+  })
+  deny: string;
+}
+
 export class ChannelDetailResponseDto {
   @ApiProperty({
     description: 'Discord channel ID',
@@ -128,4 +155,16 @@ export class ChannelDetailResponseDto {
     example: '2025-01-15T14:30:00.000Z',
   })
   createdAt: string;
+
+  @ApiProperty({
+    description: 'Whether the channel has any permission overwrites',
+    example: false,
+  })
+  permissionOverwrites: boolean;
+
+  @ApiProperty({
+    description: 'Per-target permission overwrites configured on the channel',
+    type: [ChannelPermissionOverwriteDto],
+  })
+  overwrites: ChannelPermissionOverwriteDto[];
 }

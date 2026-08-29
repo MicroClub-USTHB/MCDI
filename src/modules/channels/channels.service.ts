@@ -12,7 +12,11 @@ import {
 } from './dto/list-channels-query.dto';
 import { ListMessagesQueryDto } from './dto/list-messages-query.dto';
 import { EmbedDto } from './dto/embed.dto';
-import Discord, { ChannelType } from 'discord.js';
+import {
+  ChannelDetailResponseDto,
+  ChannelPermissionOverwriteDto,
+} from './dto/channel-response.dto';
+import Discord, { ChannelType, OverwriteType } from 'discord.js';
 
 @Injectable()
 export class ChannelsService {
@@ -201,7 +205,10 @@ export class ChannelsService {
     return { channels: channelList, categories };
   }
 
-  async getChannel(serverId: string, channelId: string) {
+  async getChannel(
+    serverId: string,
+    channelId: string,
+  ): Promise<ChannelDetailResponseDto> {
     const channel = await this.discordService.getChannelById(channelId);
 
     if (!channel || channel.isDMBased()) {
@@ -210,6 +217,16 @@ export class ChannelsService {
         message: 'Channel does not exist or bot lacks access',
       });
     }
+
+    const overwrites: ChannelPermissionOverwriteDto[] =
+      'permissionOverwrites' in channel
+        ? [...channel.permissionOverwrites.cache.values()].map((o) => ({
+            id: o.id,
+            type: o.type === OverwriteType.Role ? 'role' : 'member',
+            allow: o.allow.bitfield.toString(),
+            deny: o.deny.bitfield.toString(),
+          }))
+        : [];
 
     return {
       id: channel.id,
@@ -222,6 +239,8 @@ export class ChannelsService {
       lastMessageId:
         'lastMessageId' in channel ? (channel.lastMessageId ?? null) : null,
       createdAt: channel.createdAt?.toISOString() ?? new Date().toISOString(),
+      permissionOverwrites: overwrites.length > 0,
+      overwrites,
     };
   }
 
