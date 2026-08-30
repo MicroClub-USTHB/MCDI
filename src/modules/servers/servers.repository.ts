@@ -185,6 +185,7 @@ export class ServersRepository {
           managed: roleData.managed,
           mentionable: roleData.mentionable,
           permissionsBits: roleData.permissionsBits ?? 0n,
+          hierarchyLevel: roleData.hierarchyLevel,
           updatedAt: new Date(),
         },
       })
