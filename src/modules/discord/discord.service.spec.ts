@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { DiscordAPIError } from 'discord.js';
+import Discord, { DiscordAPIError } from 'discord.js';
 import { DiscordService } from './discord.service';
 import { DISCORD_CLIENT } from './discord.constants';
 
@@ -543,6 +543,48 @@ describe('DiscordService', () => {
     it('returns false when member not found', async () => {
       mockClient.guilds.fetch.mockRejectedValue(new Error('Not found'));
       expect(await service.memberHasRole('bad', 'u-1', 'role-1')).toBe(false);
+    });
+  });
+
+  describe('executeWebhook', () => {
+    it('sends with the stored identity and destroys the client', async () => {
+      const send = jest.fn().mockResolvedValue({ id: 'message-1' });
+      const destroy = jest.fn();
+      const webhookClient = jest
+        .spyOn(Discord, 'WebhookClient')
+        .mockImplementation(() => ({ send, destroy }) as any);
+
+      try {
+        await service.executeWebhook('wh-1', 'secret-token', {
+          content: 'hello',
+        });
+
+        expect(webhookClient).toHaveBeenCalledWith({
+          id: 'wh-1',
+          token: 'secret-token',
+        });
+        expect(send).toHaveBeenCalledWith({ content: 'hello' });
+        expect(destroy).toHaveBeenCalledTimes(1);
+      } finally {
+        webhookClient.mockRestore();
+      }
+    });
+
+    it('destroys the client when sending fails', async () => {
+      const send = jest.fn().mockRejectedValue(new Error('network failure'));
+      const destroy = jest.fn();
+      const webhookClient = jest
+        .spyOn(Discord, 'WebhookClient')
+        .mockImplementation(() => ({ send, destroy }) as any);
+
+      try {
+        await expect(
+          service.executeWebhook('wh-1', 'secret-token', { content: 'hello' }),
+        ).rejects.toThrow('network failure');
+        expect(destroy).toHaveBeenCalledTimes(1);
+      } finally {
+        webhookClient.mockRestore();
+      }
     });
   });
 

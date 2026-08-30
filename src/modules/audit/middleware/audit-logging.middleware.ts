@@ -119,6 +119,28 @@ const ROUTE_MAP: [RegExp, string, RouteAction][] = [
       entityType: 'permission',
     },
   ],
+
+  // Webhooks
+  [
+    /^\/servers\/[^/]+\/channels\/[^/]+\/webhooks\/?$/,
+    'POST',
+    { actionType: 'webhook', action: 'created', entityType: 'webhook' },
+  ],
+  [
+    /^\/webhooks\/[^/]+\/?$/,
+    'PATCH',
+    { actionType: 'webhook', action: 'updated', entityType: 'webhook' },
+  ],
+  [
+    /^\/webhooks\/[^/]+\/?$/,
+    'DELETE',
+    { actionType: 'webhook', action: 'deleted', entityType: 'webhook' },
+  ],
+  [
+    /^\/webhooks\/[^/]+\/execute\/?$/,
+    'POST',
+    { actionType: 'webhook', action: 'executed', entityType: 'webhook' },
+  ],
 ];
 
 function resolveRouteAction(path: string, method: string): RouteAction | null {
@@ -131,11 +153,13 @@ function resolveRouteAction(path: string, method: string): RouteAction | null {
 }
 
 function extractEntityId(path: string): string | null {
-  // Extract UUID or Discord ID from paths like /admin/projects/:id or /admin/servers/:id
-  const match = path.match(
+  const webhookMatch = path.match(/^\/webhooks\/([^/]+)/);
+  if (webhookMatch) return webhookMatch[1];
+
+  const adminMatch = path.match(
     /\/admin\/(?:projects|servers|permissions)\/([^/]+)/,
   );
-  return match?.[1] ?? null;
+  return adminMatch?.[1] ?? null;
 }
 
 function extractIp(req: Request): string {

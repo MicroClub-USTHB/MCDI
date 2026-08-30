@@ -88,6 +88,7 @@ import redisConfig from './redis.config';
                 'WEBHOOK_ENCRYPTION_KEY must be 64 hex characters',
             }),
         }),
+        MAX_WEBHOOKS_PER_PROJECT: Joi.number().integer().min(1).default(10),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().port().default(6379),
         REDIS_PASSWORD: Joi.string().allow('').default(''),

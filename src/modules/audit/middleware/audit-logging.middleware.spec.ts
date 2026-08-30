@@ -101,6 +101,67 @@ describe('AuditLoggingMiddleware', () => {
     });
   });
 
+  it.each([
+    {
+      method: 'POST',
+      path: '/api/servers/123/channels/456/webhooks',
+      statusCode: 201,
+      action: 'created',
+      entityId: null,
+    },
+    {
+      method: 'PATCH',
+      path: '/api/webhooks/hook-1',
+      statusCode: 200,
+      action: 'updated',
+      entityId: 'hook-1',
+    },
+    {
+      method: 'DELETE',
+      path: '/api/webhooks/hook-1',
+      statusCode: 204,
+      action: 'deleted',
+      entityId: 'hook-1',
+    },
+    {
+      method: 'POST',
+      path: '/api/webhooks/hook-1/execute',
+      statusCode: 204,
+      action: 'executed',
+      entityId: 'hook-1',
+    },
+  ])('audits a successful webhook $action', (testCase) => {
+    run({
+      method: testCase.method,
+      url: testCase.path,
+      statusCode: testCase.statusCode,
+      project: { id: 'proj-1' },
+    });
+
+    expect(repo.insert.mock.calls[0][0]).toMatchObject({
+      actionType: 'webhook',
+      action: testCase.action,
+      entityType: 'webhook',
+      entityId: testCase.entityId,
+    });
+  });
+
+  it('audits webhook execution with a trailing slash', () => {
+    run({
+      method: 'POST',
+      url: '/api/webhooks/hook-1/execute/',
+      statusCode: 204,
+      project: { id: 'proj-1' },
+    });
+
+    expect(repo.insert.mock.calls[0][0]).toMatchObject({
+      actionType: 'webhook',
+      action: 'executed',
+      entityType: 'webhook',
+      entityId: 'hook-1',
+    });
+  });
+
   it('audits member export (a GET that mutates nothing but is sensitive)', () => {
     run({ method: 'GET', url: '/api/admin/members/export', statusCode: 200 });
     expect(repo.insert).toHaveBeenCalledTimes(1);

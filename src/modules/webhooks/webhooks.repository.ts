@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -49,6 +49,15 @@ export class WebhooksRepository {
     return row ?? null;
   }
 
+  async countByProject(projectId: string): Promise<number> {
+    const [{ total }] = await this.db
+      .select({ total: count() })
+      .from(webhooks)
+      .where(eq(webhooks.projectId, projectId));
+
+    return total;
+  }
+
   async findByProject(
     filter: ListWebhooksFilter,
   ): Promise<{ rows: WebhookRow[]; total: number }> {
@@ -89,5 +98,20 @@ export class WebhooksRepository {
 
   async delete(id: string): Promise<void> {
     await this.db.delete(webhooks).where(eq(webhooks.id, id));
+  }
+
+  async recordExecution(id: string): Promise<boolean> {
+    const now = new Date();
+    const [updated] = await this.db
+      .update(webhooks)
+      .set({
+        usageCount: sql`${webhooks.usageCount} + 1`,
+        lastUsedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(webhooks.id, id))
+      .returning({ id: webhooks.id });
+
+    return updated !== undefined;
   }
 }
