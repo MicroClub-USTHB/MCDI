@@ -152,6 +152,17 @@ export class MemberRepository {
     await this.db.delete(schema.members).where(eq(schema.members.id, id));
   }
 
+  /** Admin-set display-name override; `null` clears it. Sync never touches it. */
+  async setPreferredName(id: string, preferredName: string | null) {
+    const members = await this.db
+      .update(schema.members)
+      .set({ preferredName, updatedAt: new Date() })
+      .where(eq(schema.members.id, id))
+      .returning();
+
+    return members[0] || null;
+  }
+
   async setClubMemberStatus(id: string, isClubMember: boolean) {
     const members = await this.db
       .update(schema.members)
