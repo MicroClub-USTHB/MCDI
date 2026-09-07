@@ -16,6 +16,7 @@ import {
   encryptSecret,
 } from '../../common/utils/encryption.util';
 import { withRetry } from '../../common/utils/retry.util';
+import { SettingsService } from '../admin-settings/settings.service';
 import { WebhookRow, WebhooksRepository } from './webhooks.repository';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UpdateWebhookDto } from './dto/update-webhook.dto';
@@ -41,6 +42,7 @@ export class WebhooksService {
     private readonly discordService: DiscordService,
     private readonly webhooksRepository: WebhooksRepository,
     private readonly configService: ConfigService,
+    private readonly settings: SettingsService,
   ) {}
 
   async createWebhook(
@@ -51,8 +53,7 @@ export class WebhooksService {
   ): Promise<WebhookCreatedResponseDto> {
     const webhookCount =
       await this.webhooksRepository.countByProject(projectId);
-    const maxWebhooks =
-      this.configService.get<number>('app.maxWebhooksPerProject') ?? 10;
+    const maxWebhooks = this.settings.getMaxWebhooksPerProject();
 
     if (webhookCount >= maxWebhooks) {
       throw new ConflictException({

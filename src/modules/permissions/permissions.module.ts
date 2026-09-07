@@ -6,9 +6,10 @@ import { PermissionCacheService } from './permission-cache.service';
 import { DatabaseModule } from '../../database/database.module';
 import { ProjectsModule } from '../projects/projects.module';
 import { RedisModule } from '../../common/redis/redis.module';
+import { AdminSettingsModule } from '../admin-settings/admin-settings.module';
 
 @Module({
-  imports: [DatabaseModule, ProjectsModule, RedisModule],
+  imports: [DatabaseModule, ProjectsModule, RedisModule, AdminSettingsModule],
   controllers: [PermissionsController],
   providers: [
     PermissionsRepository,

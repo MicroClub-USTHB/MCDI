@@ -2,6 +2,13 @@ import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { PermissionCacheService } from './permission-cache.service';
 import { RedisService } from '../../common/redis/redis.service';
+import { SettingsService } from '../admin-settings/settings.service';
+
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
+let lastSettingsMock: {
+  getPermissionCacheTtlMs: jest.Mock;
+  registerChangeListener: jest.Mock;
+};
 
 const fakeEntry = () => ({
   permissions: ['READ_MEMBERS', 'WRITE_ROLES'],
@@ -24,6 +31,14 @@ const mockRedisService = {
 };
 
 async function buildService(config: Record<string, unknown> = {}) {
+  lastSettingsMock = {
+    getPermissionCacheTtlMs: jest
+      .fn()
+      .mockReturnValue(
+        (config['app.permissionCacheTtlMs'] as number) ?? DEFAULT_TTL_MS,
+      ),
+    registerChangeListener: jest.fn(),
+  };
   const module = await Test.createTestingModule({
     providers: [
       PermissionCacheService,
@@ -34,10 +49,13 @@ async function buildService(config: Record<string, unknown> = {}) {
         },
       },
       { provide: RedisService, useValue: mockRedisService },
+      { provide: SettingsService, useValue: lastSettingsMock },
     ],
   }).compile();
 
-  return module.get(PermissionCacheService);
+  const svc = module.get(PermissionCacheService);
+  svc.onModuleInit();
+  return svc;
 }
 
 describe('PermissionCacheService', () => {
@@ -214,6 +232,28 @@ describe('PermissionCacheService', () => {
 
       const svc = await buildService();
       await expect(svc.clear()).resolves.not.toThrow();
+    });
+  });
+
+  describe('settings change listener', () => {
+    it('registers a listener on init that flushes on permissionCacheTtlMs change', async () => {
+      mockRedisService.scanKeys.mockResolvedValue([
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+      ]);
+      await buildService();
+
+      expect(lastSettingsMock.registerChangeListener).toHaveBeenCalledTimes(1);
+      const listener = lastSettingsMock.registerChangeListener.mock
+        .calls[0][0] as (keys: string[]) => Promise<void>;
+
+      await listener(['permissionCacheTtlMs']);
+      expect(mockRedisService.scanKeys).toHaveBeenCalledWith(
+        'mcdi:perm-cache:*',
+      );
+
+      mockRedisService.scanKeys.mockClear();
+      await listener(['statsCacheTtlMs']);
+      expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
     });
   });
 });

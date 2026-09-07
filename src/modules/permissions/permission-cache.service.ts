@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
+import { SettingsService } from '../admin-settings/settings.service';
 
 const INDEX_TTL_BUFFER_MS = 60_000;
 
@@ -31,20 +32,32 @@ export interface CachedPermissions {
  * Gracefully falls back to DB path when Redis is unavailable.
  */
 @Injectable()
-export class PermissionCacheService {
+export class PermissionCacheService implements OnModuleInit {
   private readonly logger = new Logger(PermissionCacheService.name);
-  private readonly ttlMs: number;
   private readonly keyPrefix: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly settings: SettingsService,
   ) {
-    this.ttlMs =
-      this.configService.get<number>('app.permissionCacheTtlMs') ||
-      5 * 60 * 1000;
     this.keyPrefix =
       this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+  }
+
+  onModuleInit(): void {
+    // A shortened TTL only applies to entries cached after the change, so
+    // flush on decrease to stop anything lingering on the old, longer TTL.
+    this.settings.registerChangeListener(async (changed) => {
+      if (changed.includes('permissionCacheTtlMs')) {
+        await this.clear();
+      }
+    });
+  }
+
+  /** Effective permission-cache TTL, read live from SettingsService. */
+  private get ttlMs(): number {
+    return this.settings.getPermissionCacheTtlMs();
   }
 
   private namespace(): string {
