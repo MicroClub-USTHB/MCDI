@@ -1,4 +1,10 @@
-import { check, integer, pgTable, timestamp, varchar } from 'drizzle-orm/pg-core';
+import {
+  check,
+  integer,
+  pgTable,
+  timestamp,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**

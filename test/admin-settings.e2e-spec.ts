@@ -44,6 +44,13 @@ describeIf('/api/admin/settings & /api/admin/profile (e2e)', () => {
   beforeEach(async () => {
     await clearAllTables(db);
     adminCtx = await seedAdminContext(db);
+    // clearAllTables only truncates Postgres; the settings row is also mirrored
+    // to Redis and held in memory by the running app. Reset through the API so
+    // each test starts from the environment defaults regardless of prior runs.
+    await request(app.getHttpServer())
+      .post('/api/admin/settings/reset')
+      .set('Authorization', `Bearer ${adminCtx.bearerToken}`)
+      .expect(200);
   });
 
   const auth = () => `Bearer ${adminCtx.bearerToken}`;

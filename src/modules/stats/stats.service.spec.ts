@@ -42,7 +42,12 @@ function makeSettings() {
 
 describe('StatsService', () => {
   let repo: ReturnType<typeof makeRepo>;
-  let redis: { getJson: jest.Mock; setJson: jest.Mock };
+  let redis: {
+    getJson: jest.Mock;
+    setJson: jest.Mock;
+    scanKeys: jest.Mock;
+    delete: jest.Mock;
+  };
   let config: { get: jest.Mock };
   let discord: ReturnType<typeof makeDiscord>;
   let settings: ReturnType<typeof makeSettings>;
@@ -53,6 +58,8 @@ describe('StatsService', () => {
     redis = {
       getJson: jest.fn().mockResolvedValue(null),
       setJson: jest.fn().mockResolvedValue(undefined),
+      scanKeys: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(0),
     };
     config = { get: jest.fn().mockReturnValue(undefined) };
     discord = makeDiscord();
@@ -695,6 +702,25 @@ describe('StatsService', () => {
         expect.any(Object),
         60000,
       );
+    });
+  });
+
+  describe('settings change listener', () => {
+    it('flushes the stats namespace only when statsCacheTtlMs decreases', async () => {
+      expect(settings.registerChangeListener).toHaveBeenCalledTimes(1);
+      const listener = settings.registerChangeListener.mock.calls[0][0];
+      redis.scanKeys.mockResolvedValue(['mcdi:stats:members:all:30d']);
+
+      await listener([{ key: 'statsCacheTtlMs', from: 300_000, to: 60_000 }]);
+      expect(redis.scanKeys).toHaveBeenCalledWith('mcdi:stats:*');
+      expect(redis.delete).toHaveBeenCalledWith('mcdi:stats:members:all:30d');
+
+      redis.scanKeys.mockClear();
+      await listener([{ key: 'statsCacheTtlMs', from: 60_000, to: 300_000 }]);
+      await listener([
+        { key: 'permissionCacheTtlMs', from: 300_000, to: 60_000 },
+      ]);
+      expect(redis.scanKeys).not.toHaveBeenCalled();
     });
   });
 });

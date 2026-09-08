@@ -42,6 +42,24 @@ export class StatsService {
   ) {
     this.keyPrefix =
       this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+
+    // Mirror PermissionCacheService: a shortened stats TTL doesn't re-expire
+    // entries already cached, so flush the stats namespace on a decrease.
+    this.settings.registerChangeListener(async (changes) => {
+      const ttl = changes.find((c) => c.key === 'statsCacheTtlMs');
+      if (ttl && ttl.to < ttl.from) {
+        await this.clearCache();
+      }
+    });
+  }
+
+  /** Flush every cached stats payload. */
+  private async clearCache(): Promise<void> {
+    const keys = await this.redisService.scanKeys(`${this.namespace()}:*`);
+    await this.redisService.delete(...keys);
+    if (keys.length > 0) {
+      this.logger.debug(`Stats cache: flushed ${keys.length} entries`);
+    }
   }
 
   /** Stats-cache TTL, read live from SettingsService. */

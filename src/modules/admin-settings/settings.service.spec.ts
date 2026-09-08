@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../../common/redis/redis.service';
 import { AppSettingsRow } from '../../database/entities';
-import { SettingsService } from './settings.service';
+import { SettingChange, SettingsService } from './settings.service';
 import { SettingsRepository } from './settings.repository';
 
 const ENV_DEFAULTS: Record<string, number | string> = {
@@ -14,13 +15,15 @@ const ENV_DEFAULTS: Record<string, number | string> = {
   'app.sessionTtlSec': 2_592_000,
   'app.ssoTtlSec': 2_592_000,
   'app.webhookEncryptionKey': 'a'.repeat(64),
+  'redis.keyPrefix': 'mcdi',
   'discord.clientId': 'client-123',
   'discord.mainGuildId': 'guild-123',
   'discord.adminRedirectUri': 'https://mcdi.test/callback',
   'discord.token': 'bot-token',
   'discord.clientSecret': '',
-  THROTTLER_TTL_MS: 60_000,
-  THROTTLER_LIMIT: 120,
+  // Not in the Joi schema — ConfigService returns the raw string.
+  THROTTLER_TTL_MS: '60000',
+  THROTTLER_LIMIT: '120',
 };
 
 const row = (over: Partial<AppSettingsRow> = {}): AppSettingsRow => ({
@@ -37,12 +40,20 @@ const row = (over: Partial<AppSettingsRow> = {}): AppSettingsRow => ({
 describe('SettingsService', () => {
   let service: SettingsService;
   let repo: jest.Mocked<SettingsRepository>;
+  let redis: {
+    getJson: jest.Mock;
+    setJson: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mockRepo: Partial<jest.Mocked<SettingsRepository>> = {
       find: jest.fn().mockResolvedValue(null),
       upsert: jest.fn(),
       reset: jest.fn(),
+    };
+    redis = {
+      getJson: jest.fn().mockResolvedValue(null),
+      setJson: jest.fn().mockResolvedValue(undefined),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -52,6 +63,7 @@ describe('SettingsService', () => {
           provide: ConfigService,
           useValue: { get: jest.fn((k: string) => ENV_DEFAULTS[k]) },
         },
+        { provide: RedisService, useValue: redis },
       ],
     }).compile();
     service = module.get(SettingsService);
@@ -70,11 +82,23 @@ describe('SettingsService', () => {
     expect(service.getStatsCacheTtlMs()).toBe(300_000);
   });
 
-  it('prefers a stored override over the env default', async () => {
-    repo.find.mockResolvedValueOnce(row({ permissionCacheTtlMs: 600_000 }));
+  it('prefers the shared Redis copy over Postgres on boot', async () => {
+    repo.find.mockClear();
+    redis.getJson.mockResolvedValueOnce(row({ permissionCacheTtlMs: 900_000 }));
     await service.onModuleInit();
-    expect(service.getPermissionCacheTtlMs()).toBe(600_000);
-    expect(service.getStatsCacheTtlMs()).toBe(300_000); // still default
+    expect(service.getPermissionCacheTtlMs()).toBe(900_000);
+    expect(repo.find).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Postgres and seeds Redis when the cache is empty', async () => {
+    repo.find.mockResolvedValueOnce(row({ statsCacheTtlMs: 111_000 }));
+    await service.onModuleInit();
+    expect(service.getStatsCacheTtlMs()).toBe(111_000);
+    expect(redis.setJson).toHaveBeenCalledWith(
+      'mcdi:app-settings:row',
+      expect.objectContaining({ statsCacheTtlMs: 111_000 }),
+      expect.any(Number),
+    );
   });
 
   describe('getEffectiveSettings', () => {
@@ -87,7 +111,16 @@ describe('SettingsService', () => {
       expect(s.rateLimit.maxWebhooksPerProject.editable).toBe(true);
       expect(s.preferences.memberActivityThresholdDays.editable).toBe(true);
       expect(s.cache.projectAuthTtlMs.editable).toBe(false);
+    });
+
+    it('coerces the raw THROTTLER_* env strings to numbers', () => {
+      const s = service.getEffectiveSettings();
+      expect(s.rateLimit.globalTtlMs).toEqual({
+        value: 60_000,
+        editable: false,
+      });
       expect(s.rateLimit.globalLimit).toEqual({ value: 120, editable: false });
+      expect(typeof s.rateLimit.globalTtlMs.value).toBe('number');
     });
 
     it('exposes secrets only as isSet, never the value', () => {
@@ -100,10 +133,10 @@ describe('SettingsService', () => {
   });
 
   describe('updateSettings', () => {
-    it('persists only the provided knobs and notifies changed keys', async () => {
+    it('persists the knobs, mirrors to Redis, and notifies before→after', async () => {
       repo.upsert.mockResolvedValue(row({ permissionCacheTtlMs: 600_000 }));
-      const listener = jest.fn();
-      service.registerChangeListener(listener);
+      const changes: SettingChange[][] = [];
+      service.registerChangeListener((c) => void changes.push(c));
 
       await service.updateSettings(
         { cache: { permissionTtlMs: 600_000 } },
@@ -114,7 +147,14 @@ describe('SettingsService', () => {
         { permissionCacheTtlMs: 600_000 },
         'admin-1',
       );
-      expect(listener).toHaveBeenCalledWith(['permissionCacheTtlMs']);
+      expect(redis.setJson).toHaveBeenLastCalledWith(
+        'mcdi:app-settings:row',
+        expect.objectContaining({ permissionCacheTtlMs: 600_000 }),
+        expect.any(Number),
+      );
+      expect(changes).toEqual([
+        [{ key: 'permissionCacheTtlMs', from: 300_000, to: 600_000 }],
+      ]);
     });
 
     it('does not touch the DB or notify when nothing changes', async () => {
@@ -154,22 +194,20 @@ describe('SettingsService', () => {
 
   describe('resetSettings', () => {
     it('clears overrides and notifies the keys that reverted', async () => {
-      repo.find.mockResolvedValueOnce(
+      redis.getJson.mockResolvedValueOnce(
         row({ permissionCacheTtlMs: 600_000, maxWebhooksPerProject: 25 }),
       );
       await service.onModuleInit();
       repo.reset.mockResolvedValue(row());
-      const listener = jest.fn();
-      service.registerChangeListener(listener);
+      const changes: SettingChange[][] = [];
+      service.registerChangeListener((c) => void changes.push(c));
 
       await service.resetSettings('admin-1');
 
       expect(repo.reset).toHaveBeenCalledWith('admin-1');
       expect(service.getPermissionCacheTtlMs()).toBe(300_000);
-      const changed = listener.mock.calls[0][0] as string[];
-      expect(changed.sort()).toEqual(
-        ['maxWebhooksPerProject', 'permissionCacheTtlMs'].sort(),
-      );
+      const keys = changes[0].map((c) => c.key).sort();
+      expect(keys).toEqual(['maxWebhooksPerProject', 'permissionCacheTtlMs']);
     });
   });
 });

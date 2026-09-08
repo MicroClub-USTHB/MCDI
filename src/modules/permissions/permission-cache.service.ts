@@ -46,10 +46,12 @@ export class PermissionCacheService implements OnModuleInit {
   }
 
   onModuleInit(): void {
-    // A shortened TTL only applies to entries cached after the change, so
-    // flush on decrease to stop anything lingering on the old, longer TTL.
-    this.settings.registerChangeListener(async (changed) => {
-      if (changed.includes('permissionCacheTtlMs')) {
+    // Only a *decrease* needs a flush: shrinking the TTL doesn't re-expire
+    // entries already written on the old, longer TTL. An increase is harmless
+    // and flushing it would needlessly cold-start every permission lookup.
+    this.settings.registerChangeListener(async (changes) => {
+      const ttl = changes.find((c) => c.key === 'permissionCacheTtlMs');
+      if (ttl && ttl.to < ttl.from) {
         await this.clear();
       }
     });

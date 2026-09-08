@@ -236,23 +236,32 @@ describe('PermissionCacheService', () => {
   });
 
   describe('settings change listener', () => {
-    it('registers a listener on init that flushes on permissionCacheTtlMs change', async () => {
+    it('flushes only when permissionCacheTtlMs decreases', async () => {
       mockRedisService.scanKeys.mockResolvedValue([
         'mcdi:perm-cache:entry:mem-1:srv-1',
       ]);
       await buildService();
 
       expect(lastSettingsMock.registerChangeListener).toHaveBeenCalledTimes(1);
-      const listener = lastSettingsMock.registerChangeListener.mock
-        .calls[0][0] as (keys: string[]) => Promise<void>;
+      const listener = lastSettingsMock.registerChangeListener.mock.calls[0][0];
 
-      await listener(['permissionCacheTtlMs']);
+      // Decrease → flush
+      await listener([
+        { key: 'permissionCacheTtlMs', from: 600_000, to: 300_000 },
+      ]);
       expect(mockRedisService.scanKeys).toHaveBeenCalledWith(
         'mcdi:perm-cache:*',
       );
 
+      // Increase → no flush
       mockRedisService.scanKeys.mockClear();
-      await listener(['statsCacheTtlMs']);
+      await listener([
+        { key: 'permissionCacheTtlMs', from: 300_000, to: 600_000 },
+      ]);
+      expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
+
+      // Unrelated key → no flush
+      await listener([{ key: 'statsCacheTtlMs', from: 600_000, to: 60_000 }]);
       expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
     });
   });
