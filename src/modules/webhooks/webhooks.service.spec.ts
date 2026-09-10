@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { WebhooksService } from './webhooks.service';
 import { WebhooksRepository } from './webhooks.repository';
 import { DiscordService } from '../discord/discord.service';
+import { SettingsService } from '../admin-settings/settings.service';
 import {
   decryptSecret,
   encryptSecret,
@@ -62,9 +63,12 @@ describe('WebhooksService', () => {
   const mockConfigService = {
     get: jest.fn((key: string) => {
       if (key === 'app.webhookEncryptionKey') return KEY;
-      if (key === 'app.maxWebhooksPerProject') return 10;
       return undefined;
     }),
+  };
+
+  const mockSettings = {
+    getMaxWebhooksPerProject: jest.fn().mockReturnValue(10),
   };
 
   beforeEach(async () => {
@@ -74,6 +78,7 @@ describe('WebhooksService', () => {
         { provide: DiscordService, useValue: mockDiscordService },
         { provide: WebhooksRepository, useValue: mockRepository },
         { provide: ConfigService, useValue: mockConfigService },
+        { provide: SettingsService, useValue: mockSettings },
       ],
     }).compile();
 

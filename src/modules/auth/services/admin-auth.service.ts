@@ -298,6 +298,7 @@ export class AdminAuthService {
       username: member.username,
       globalName: member.globalName,
       displayName: member.displayName,
+      preferredName: member.preferredName,
       avatar: member.avatar,
       email: member.email,
       isSystemAdmin: member.isSystemAdmin,

@@ -14,6 +14,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { AdminMembersModule } from './modules/admin-members/admin-members.module';
 import { AdminChannelsModule } from './modules/admin-channels/admin-channels.module';
+import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
@@ -49,6 +50,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     AdminMembersModule,
     ChannelsModule,
     AdminChannelsModule,
+    AdminSettingsModule,
     WebhooksModule,
     AuditModule,
     StatsModule,

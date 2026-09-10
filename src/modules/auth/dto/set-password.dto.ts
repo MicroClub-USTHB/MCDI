@@ -21,11 +21,20 @@ export class AdminMeResponseDto {
   globalName: string | null;
 
   @ApiPropertyOptional({
-    description: 'Server-level display name override',
-    example: 'J. Doe',
+    description: 'Discord guild nickname (rewritten on every sync)',
+    example: 'John',
     nullable: true,
   })
   displayName: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Admin-set display-name override (via PATCH /api/admin/profile); ' +
+      'takes precedence over displayName in the UI when present',
+    example: 'J. Doe',
+    nullable: true,
+  })
+  preferredName: string | null;
 
   @ApiPropertyOptional({
     description: 'Discord avatar hash or full CDN URL',

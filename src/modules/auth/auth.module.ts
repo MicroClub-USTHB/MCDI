@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
+import { AdminProfileController } from './admin-profile.controller';
 import { AuthService } from './auth.service';
 import { AdminAuthService } from './services/admin-auth.service';
+import { AdminProfileService } from './services/admin-profile.service';
 import { DiscordIdentityService } from './services/discord-identity.service';
 import { SessionIssuanceService } from './services/session-issuance.service';
 import { SsoService } from './services/sso.service';
@@ -22,10 +24,11 @@ import { AuditModule } from '../audit/audit.module';
 
 @Module({
   imports: [DiscordModule, ProjectsModule, ServersModule, AuditModule],
-  controllers: [AuthController],
+  controllers: [AuthController, AdminProfileController],
   providers: [
     AuthService,
     AdminAuthService,
+    AdminProfileService,
     DiscordIdentityService,
     SessionIssuanceService,
     SsoService,

@@ -4,6 +4,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { DiscordService } from '../discord/discord.service';
 import { toCsv } from '../../common/utils/csv.util';
 import { StatsRepository } from './stats.repository';
+import { SettingsService } from '../admin-settings/settings.service';
 import {
   ExportStatsQueryDto,
   GrowthQueryDto,
@@ -11,7 +12,6 @@ import {
   RoleStatsQueryDto,
 } from './dto/stats-query.dto';
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DAILY_REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const RANGE_DAYS: Record<string, number> = {
@@ -30,9 +30,7 @@ const GRANULARITY_UNIT: Record<string, 'day' | 'week' | 'month'> = {
 @Injectable()
 export class StatsService {
   private readonly logger = new Logger(StatsService.name);
-  private readonly ttlMs: number;
   private readonly keyPrefix: string;
-  private readonly activityThresholdDays: number;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -40,13 +38,38 @@ export class StatsService {
     private readonly redisService: RedisService,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
+    private readonly settings: SettingsService,
   ) {
-    this.ttlMs =
-      this.configService.get<number>('app.statsCacheTtlMs') || DEFAULT_TTL_MS;
     this.keyPrefix =
       this.configService.get<string>('redis.keyPrefix') || 'mcdi';
-    this.activityThresholdDays =
-      this.configService.get<number>('app.memberActivityThresholdDays') || 30;
+
+    // Mirror PermissionCacheService: a shortened stats TTL doesn't re-expire
+    // entries already cached, so flush the stats namespace on a decrease.
+    this.settings.registerChangeListener(async (changes) => {
+      const ttl = changes.find((c) => c.key === 'statsCacheTtlMs');
+      if (ttl && ttl.to < ttl.from) {
+        await this.clearCache();
+      }
+    });
+  }
+
+  /** Flush every cached stats payload. */
+  private async clearCache(): Promise<void> {
+    const keys = await this.redisService.scanKeys(`${this.namespace()}:*`);
+    await this.redisService.delete(...keys);
+    if (keys.length > 0) {
+      this.logger.debug(`Stats cache: flushed ${keys.length} entries`);
+    }
+  }
+
+  /** Stats-cache TTL, read live from SettingsService. */
+  private get ttlMs(): number {
+    return this.settings.getStatsCacheTtlMs();
+  }
+
+  /** "Active member" window in days, read live from SettingsService. */
+  private get activityThresholdDays(): number {
+    return this.settings.getMemberActivityThresholdDays();
   }
 
   /** A member is "active" if their server presence was reconfirmed by sync

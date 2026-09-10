@@ -22,6 +22,13 @@
       "when": 1787876091536,
       "tag": "0002_member_departures",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788798996414,
+      "tag": "0003_admin_settings",
+      "breakpoints": true
     }
   ]
 }

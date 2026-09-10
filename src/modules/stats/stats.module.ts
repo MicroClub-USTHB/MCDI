@@ -2,12 +2,13 @@ import { Module, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { DatabaseModule } from '../../database/database.module';
 import { RedisModule } from '../../common/redis/redis.module';
 import { DiscordModule } from '../discord/discord.module';
+import { AdminSettingsModule } from '../admin-settings/admin-settings.module';
 import { StatsController } from './stats.controller';
 import { StatsService } from './stats.service';
 import { StatsRepository } from './stats.repository';
 
 @Module({
-  imports: [DatabaseModule, RedisModule, DiscordModule],
+  imports: [DatabaseModule, RedisModule, DiscordModule, AdminSettingsModule],
   controllers: [StatsController],
   providers: [StatsService, StatsRepository],
   exports: [StatsService],
