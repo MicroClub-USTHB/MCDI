@@ -75,6 +75,10 @@ services:
       DISCORD_CLIENT_SECRET: placeholder
       DISCORD_CALLBACK_URL: http://localhost:3000/api/auth/discord/callback
       DISCORD_ADMIN_CALLBACK_URL: http://localhost:3000/api/auth/admin/discord/callback
+      # Required by the production env validation; throwaway values, fuzz stack only.
+      MC_GUILD_ID: '111111111111111111'
+      MC_EXECUTIVE_ROLE_ID: '222222222222222222'
+      WEBHOOK_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
     ports:
       - "3000:3000"
     depends_on:
@@ -83,7 +87,7 @@ services:
     networks:
       - fuzznet
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/docs-json > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/docs-json > /dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 18
