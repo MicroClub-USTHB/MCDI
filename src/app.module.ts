@@ -18,6 +18,7 @@ import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StatsModule } from './modules/stats/stats.module';
+import { InboundWebhooksModule } from './modules/inbound-webhooks/inbound-webhooks.module';
 import { MethodNotAllowedMiddleware } from './common/middleware/method-not-allowed.middleware';
 import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging.middleware';
 
@@ -46,6 +47,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     AdminMembersModule,
     AuditModule,
     StatsModule,
+    InboundWebhooksModule,
   ],
   controllers: [AppController],
   providers: [

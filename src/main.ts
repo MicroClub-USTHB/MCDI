@@ -11,7 +11,11 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { PostgresExceptionFilter } from './common/filters/drizzle.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody: inbound-webhook HMAC verification must sign the unparsed body —
+  // key order and whitespace do not survive a JSON round trip.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   app.enableShutdownHooks();
   const configService = app.get(ConfigService);
 
