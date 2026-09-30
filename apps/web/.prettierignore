@@ -1,0 +1,18 @@
+node_modules
+.next
+build
+dist
+coverage
+.env
+.env.local
+*.min.js
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Agent/skill config docs — not app source, not meant to be reformatted
+.claude
+.opencode
+AGENTS.md
+CLAUDE.md
+README.md
