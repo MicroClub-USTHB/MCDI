@@ -1,0 +1,24 @@
+{
+  "name": "mcdi",
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write \"**/*.{ts,tsx,mjs,cjs,json,md,yml}\" --ignore-path .gitignore",
+    "clean": "turbo run clean && rm -rf .turbo node_modules"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.2",
+    "turbo": "^2.11.5"
+  }
+}
