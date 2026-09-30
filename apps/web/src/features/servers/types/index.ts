@@ -1,3 +1,5 @@
+import type { PermissionPolicy, ServerType } from '@mcdi/contracts';
+
 /**
  * Raw shape returned by `GET /api/servers`. This list response omits
  * `createdAt`/`updatedAt` (present on the single-resource `GET /api/servers/:id`)
@@ -8,19 +10,18 @@ export interface ServerListItemDto {
   id: string;
   name: string;
   icon: string | null;
-  type: 'main' | 'competition' | 'event' | 'other';
+  type: ServerType;
   isMain: boolean;
   isActive: boolean;
   syncFrequencyHours: number;
-  defaultPermissionPolicy: 'deny_all' | 'allow_all' | 'custom';
+  defaultPermissionPolicy: PermissionPolicy;
   disabledReason: string | null;
   syncedAt: string | null;
   lastSyncAt: string | null;
   botConnected: boolean;
 }
 
-export type ServerType = 'main' | 'competition' | 'event' | 'other';
-export type PermissionPolicy = 'deny_all' | 'allow_all' | 'custom';
+export type { PermissionPolicy, ServerType };
 
 /**
  * Raw shape returned by `POST /api/servers`, `PATCH /api/servers/:id/disable`,

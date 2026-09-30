@@ -42,6 +42,7 @@
     "docker:db:studio:stop": "docker exec mcdi-api-1 sh -lc \"pkill -f 'drizzle-kit studio --host 0.0.0.0 --port 4983' 2>/dev/null || true\""
   },
   "dependencies": {
+    "@mcdi/contracts": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",

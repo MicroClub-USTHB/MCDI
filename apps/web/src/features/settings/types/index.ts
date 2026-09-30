@@ -1,3 +1,5 @@
+import type { AdminProfile } from '@mcdi/contracts';
+
 export interface SettingValue<T = number> {
   value: T;
   editable: boolean;
@@ -66,16 +68,7 @@ export interface UpdateSettingsPayload {
   };
 }
 
-export interface AdminProfileDto {
-  id: string;
-  username: string;
-  globalName: string | null;
-  displayName: string | null;
-  preferredName: string | null;
-  avatar: string | null;
-  email: string | null;
-  isSystemAdmin: boolean;
-}
+export type AdminProfileDto = AdminProfile;
 
 export interface UpdateProfilePayload {
   preferredName?: string | null;

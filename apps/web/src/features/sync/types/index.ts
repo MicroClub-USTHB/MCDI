@@ -1,8 +1,16 @@
+import type {
+  SyncChangeAction,
+  SyncEntityType,
+  SyncLogStatus,
+  SyncStatus,
+  SyncType,
+} from '@mcdi/contracts';
+
 /** Raw shape returned by `GET /api/admin/sync/status/all` and `/status`, one entry per server. */
 export interface SyncStatusDto {
   serverId: string;
   lastSyncAt: string | null;
-  status: 'queued' | 'in_progress' | 'success' | 'failed' | 'never';
+  status: SyncStatus;
   membersSynced: number;
   rolesSynced: number;
   message?: string;
@@ -14,8 +22,8 @@ export interface SyncStatusDto {
 export interface SyncLogDto {
   id: number;
   serverId: string;
-  syncType: 'full' | 'incremental' | 'manual';
-  status: 'queued' | 'in_progress' | 'success' | 'failed';
+  syncType: SyncType;
+  status: SyncLogStatus;
   membersSynced: number;
   rolesSynced: number;
   message?: string;
@@ -34,9 +42,9 @@ export interface SyncChangeDetailDto {
   id: number;
   syncLogId: number;
   serverId: string;
-  entityType: 'member' | 'role' | 'server';
+  entityType: SyncEntityType;
   entityId: string;
-  action: 'added' | 'removed' | 'updated' | 'deactivated' | 'role_assigned' | 'role_removed';
+  action: SyncChangeAction;
   description?: string;
   /** JSON string of the before/after payload, when the backend recorded one. */
   details?: string;

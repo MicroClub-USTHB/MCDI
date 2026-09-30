@@ -6,8 +6,9 @@ import { serverSyncLogs } from '../../database/entities/server-sync-log.entity';
 import { syncChangeDetails } from '../../database/entities/sync-change-detail.entity';
 import { eq, and, desc, sql, asc, isNull, lt, or } from 'drizzle-orm';
 import { SyncTarget } from './dto/trigger-sync.dto';
+import type { SyncLogStatus, SyncType } from '@mcdi/contracts';
 
-export type SyncLogStatus = 'queued' | 'in_progress' | 'success' | 'failed';
+export type { SyncLogStatus };
 
 @Injectable()
 export class SyncRepository {
@@ -17,7 +18,7 @@ export class SyncRepository {
 
   async createLog(
     serverId: string,
-    syncType: 'full' | 'incremental' | 'manual',
+    syncType: SyncType,
     status: SyncLogStatus,
     startedAt: Date,
     target: SyncTarget = SyncTarget.ALL,

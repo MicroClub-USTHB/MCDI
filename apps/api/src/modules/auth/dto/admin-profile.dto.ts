@@ -1,3 +1,4 @@
+import type { AdminProfile } from '@mcdi/contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 
@@ -18,7 +19,7 @@ export class UpdateAdminProfileDto {
   preferredName?: string | null;
 }
 
-export class AdminProfileResponseDto {
+export class AdminProfileResponseDto implements AdminProfile {
   @ApiProperty({ example: '123456789012345678' })
   id!: string;
 

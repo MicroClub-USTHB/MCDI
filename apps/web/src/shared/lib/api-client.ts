@@ -1,16 +1,10 @@
+import type { NestErrorBody } from '@mcdi/contracts';
 import type { ApiError, ApiResponse } from '@/shared/types';
 import { env } from '@/shared/lib/env';
 import { useAuthStore } from '@/features/auth/stores/auth';
 
 interface CustomRequestInit extends RequestInit {
   requiresAuth?: boolean;
-}
-
-/** Nest's default error body — `message` is an array when ValidationPipe rejects a DTO. */
-interface NestErrorBody {
-  message?: string | string[];
-  error?: string;
-  statusCode?: number;
 }
 
 function toErrorCode(error: string | undefined, status: number): string {

@@ -1,3 +1,4 @@
+import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
 import { UnauthorizedException } from '@nestjs/common';
 import { inArray } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
@@ -29,7 +30,7 @@ export function extractBearerToken(request: Request): string | null {
 export function extractSessionToken(request: Request): string | null {
   return (
     extractBearerToken(request) ||
-    (request.cookies as Record<string, string>)?.admin_session ||
+    (request.cookies as Record<string, string>)?.[ADMIN_SESSION_COOKIE] ||
     null
   );
 }

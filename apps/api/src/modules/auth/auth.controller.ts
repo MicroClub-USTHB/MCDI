@@ -15,6 +15,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
@@ -293,7 +294,7 @@ export class AuthController {
           extractClientInfo(req),
         );
 
-        res.cookie('admin_session', result.token, {
+        res.cookie(ADMIN_SESSION_COOKIE, result.token, {
           httpOnly: true,
           sameSite: 'lax',
           secure: isProduction,
@@ -785,7 +786,7 @@ export class AuthController {
 
     const isProduction =
       this.configService.get<string>('app.nodeEnv') === 'production';
-    res.clearCookie('admin_session', {
+    res.clearCookie(ADMIN_SESSION_COOKIE, {
       httpOnly: true,
       sameSite: 'lax',
       secure: isProduction,
@@ -846,7 +847,7 @@ export class AuthController {
 
       // Set an httpOnly session cookie so the admin frontend does not need to
       // store the token in JS-accessible storage.
-      res.cookie('admin_session', result.token, {
+      res.cookie(ADMIN_SESSION_COOKIE, result.token, {
         httpOnly: true,
         sameSite: 'lax',
         secure: isProduction,

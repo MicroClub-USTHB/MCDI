@@ -1,4 +1,5 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
 import { Request, Response, NextFunction } from 'express';
 import { AuditRepository, InsertAuditLog } from '../audit.repository';
 import { AuditService } from '../audit.service';
@@ -187,7 +188,9 @@ function extractPresentedSessionToken(req: Request): string | null {
   const bearer = extractBearerToken(req);
   if (bearer && !bearer.includes('.')) return bearer;
   return (
-    (req.cookies as Record<string, string> | undefined)?.admin_session ?? null
+    (req.cookies as Record<string, string> | undefined)?.[
+      ADMIN_SESSION_COOKIE
+    ] ?? null
   );
 }
 
