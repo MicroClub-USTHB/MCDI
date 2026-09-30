@@ -253,8 +253,9 @@ startup** (never `db:push`) before booting the API:
 ```bash
 # the build context is the repository root
 docker build -f apps/api/Dockerfile -t mcdi:local .
-# migrations run automatically via the start:prod:migrate script
-docker run --env-file .env -p 3000:3000 mcdi:local pnpm run start:prod:migrate
+# apply the baked-in migrations with psql, then start the API
+docker run --env-file .env -p 3000:3000 mcdi:local \
+  sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/migration.sql && node dist/main.js'
 ```
 
 At runtime, the production container expects:

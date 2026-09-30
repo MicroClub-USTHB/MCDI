@@ -57,7 +57,7 @@ to resolve the image host:
 On boot the stack does everything automatically — no manual seed step needed:
 
 - waits for Postgres to report healthy,
-- runs `pnpm run db:migrate:docker` (creates tables + seeds the Discord
+- applies the baked-in `/migrations/migration.sql` with `psql` (creates tables + seeds the Discord
   permission catalog — idempotent),
 - starts the API, which auto-creates a `servers` row from `MC_GUILD_ID` when
   the table is empty (first boot only),

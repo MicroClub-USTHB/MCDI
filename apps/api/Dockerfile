@@ -49,8 +49,7 @@ FROM node:24-alpine AS production
 
 ENV NODE_ENV=production
 
-RUN corepack enable \
-  && apk add --no-cache postgresql-client
+RUN apk add --no-cache postgresql-client
 
 USER node
 

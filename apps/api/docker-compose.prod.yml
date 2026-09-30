@@ -23,7 +23,9 @@ services:
       REDIS_KEY_PREFIX: mcdi
       WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY}
       MAX_WEBHOOKS_PER_PROJECT: ${MAX_WEBHOOKS_PER_PROJECT:-10}
-    command: sh -lc "pnpm run db:migrate:docker && node dist/main.js"
+    # psql applies the migration file baked into the image (no pnpm at runtime);
+    # `$$` keeps compose from interpolating DATABASE_URL on the host.
+    command: sh -c 'psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/migration.sql && node dist/main.js'
     ports:
       - '3000:3000'
     depends_on:
