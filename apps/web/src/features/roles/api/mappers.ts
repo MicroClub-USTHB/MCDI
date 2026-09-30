@@ -23,7 +23,7 @@ function roleDisplayName(roleName: string): string {
   const trimmed = roleName.trim();
   if (!trimmed) return 'Unnamed role';
   // Only whitespace-like unicode or pure separator punctuation → treat as unnamed.
-  if (/^[\s⠀​ㅤᅟ—―_*~=\-–—·•▬▭▮▯|]+$/.test(trimmed)) {
+  if (/^[\s⠀ ㅤᅟ—―_*~=\-–—·•▬▭▮▯|]+$/.test(trimmed)) {
     return 'Unnamed role';
   }
   return trimmed;

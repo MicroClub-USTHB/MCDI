@@ -1,8 +1,7 @@
 {
-  "name": "mcdi",
+  "name": "@mcdi/api",
   "version": "0.0.1",
   "description": "",
-  "packageManager": "pnpm@10.28.1",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -10,10 +9,11 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
+    "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "test": "jest --config jest.config.cjs",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -64,7 +64,8 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
+    "@mcdi/eslint-config": "workspace:*",
+    "@mcdi/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.1.14",
@@ -78,8 +79,6 @@
     "@types/supertest": "^6.0.2",
     "drizzle-kit": "^0.31.9",
     "eslint": "9.39.4",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
     "jest": "^30.0.0",
     "nock": "^14.0.11",
@@ -90,19 +89,6 @@
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.20.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "minimatch": "5.1.6",
-      "undici": ">=6.27.0 <7.0.0",
-      "ws": ">=8.21.0",
-      "path-to-regexp": ">=8.1.0",
-      "lodash": ">=4.17.21",
-      "multer": ">=2.2.0",
-      "form-data": ">=4.0.6",
-      "picomatch": ">=4.0.4",
-      "js-yaml": ">=4.2.0"
-    }
+    "typescript-eslint": "^8.58.1"
   }
 }
