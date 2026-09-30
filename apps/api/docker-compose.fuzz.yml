@@ -36,8 +36,8 @@ services:
   # Invoked by fuzz.sh via: docker compose run --rm migrate
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/api/Dockerfile
       target: builder          # builder stage has drizzle-kit + entities source
     environment:
       DATABASE_URL: postgresql://myuser:mypassword@database:5432/mcdi
@@ -50,7 +50,7 @@ services:
         condition: service_healthy
     networks:
       - fuzznet
-    entrypoint: ["/usr/src/app/node_modules/.bin/drizzle-kit", "push", "--config", "drizzle.config.ts"]
+    entrypoint: ["pnpm", "--filter", "@mcdi/api", "exec", "drizzle-kit", "push", "--config", "drizzle.config.ts"]
     profiles:
       - fuzz
 
@@ -58,8 +58,8 @@ services:
   api:
     image: mcdi-api-fuzz:latest
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: apps/api/Dockerfile
     container_name: mcdi-api-fuzz
     environment:
       NODE_ENV: production

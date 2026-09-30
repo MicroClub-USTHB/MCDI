@@ -1,8 +1,12 @@
+# Fixed project name: the `docker:*` package scripts address the container as mcdi-api-1.
+name: mcdi
+
 services:
   api:
     build:
-      context: .                  # Look for files in the current directory
-      dockerfile: Dockerfile.dev   # Use our specific development blueprint
+      context: ../..                        # repository root — the workspace is bind-mounted below
+      dockerfile: apps/api/Dockerfile.dev
+    working_dir: /usr/src/app/apps/api
     env_file:
       - .env
     ports:
@@ -26,11 +30,16 @@ services:
       redis:
         condition: service_started
 
-    command: sh -lc "corepack enable && pnpm install && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm run start:dev"
+    command: sh -lc "corepack enable && pnpm install --filter '@mcdi/api...' && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm exec turbo run dev --filter=@mcdi/api --ui=stream"
 
     volumes:
-      - .:/usr/src/app
+      - ../..:/usr/src/app
+      # keep the container's Linux node_modules out of the host checkout
       - /usr/src/app/node_modules
+      - /usr/src/app/apps/api/node_modules
+      - /usr/src/app/packages/contracts/node_modules
+      - /usr/src/app/packages/eslint-config/node_modules
+      - /usr/src/app/packages/typescript-config/node_modules
 
   database:
     image: postgres:16-alpine

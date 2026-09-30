@@ -1,63 +1,41 @@
-# Dependencies
-node_modules
-npm-debug.log
-yarn-error.log
-pnpm-debug.log
-
-# Build outputs
-dist
-build
-*.tsbuildinfo
+# Dependencies and build output
+**/node_modules
+**/dist
+**/build
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+.pnpm-store
 
 # Testing
-coverage
-.nyc_output
-test-results
-
-# RESTler fuzzing workspace outputs
-restler/Compile
-restler/Test
-restler/Fuzz
-restler/FuzzLean
-restler/openapi.json
+**/coverage
+**/.nyc_output
+**/test-results*
+apps/api/restler/Compile
+apps/api/restler/Test
+apps/api/restler/Fuzz
+apps/api/restler/FuzzLean
+apps/api/restler/openapi.json
 
 # IDE and editor files
 .vscode
 .idea
-*.swp
-*.swo
-*~
-.DS_Store
+**/*.swp
+**/.DS_Store
 
-# Git
+# Git and CI
 .git
-.gitignore
-.gitattributes
+.github
 
 # Environment files
-.env
-.env.local
-.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
 
-# Docker files
-Dockerfile
-.dockerignore
-docker-compose*.yml
-
-# CI/CD
-.github
-.gitlab-ci.yml
-.travis.yml
-.circleci
-
-# Documentation
-README.md
-CHANGELOG.md
-LICENSE
+# Docs and misc
 docs
-
-# Misc
-*.log
-.cache
-.temp
-tmp
+**/*.md
+**/*.log
+**/.cache
+**/.temp
+**/tmp

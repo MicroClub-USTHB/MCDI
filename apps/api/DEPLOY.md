@@ -1,9 +1,14 @@
 # Deploying MCDI to dokploy
 
-MCDI is deployed as a single Compose stack described in
+MCDI's backend (`apps/api`) is deployed as a single Compose stack described in
 [`docker-compose.prod.yml`](docker-compose.prod.yml). The API image is built and
 pushed by CI to GitHub Container Registry (GHCR) and **pulled** by dokploy — the
-server never builds the image.
+server never builds the image. The web app (`apps/web`) is **not** part of this
+stack: it is deployed on Vercel (see the root README).
+
+The image is built from the repository root with
+`docker build -f apps/api/Dockerfile .` (`turbo prune @mcdi/api --docker` keeps
+the build context limited to the API and the workspace packages it uses).
 
 ## 1. Make the GHCR package public (one-time)
 
@@ -35,7 +40,7 @@ to resolve the image host:
 
 1. dokploy → **Create** → **Compose**.
 2. Source = this repository, branch `main`.
-3. Compose file = `docker-compose.prod.yml`.
+3. Compose file = `apps/api/docker-compose.prod.yml`.
 4. In the service env panel, set **all** required secrets/variables:
    - `POSTGRES_PASSWORD`, `REDIS_PASSWORD` (used by the API, database and redis
      services in the compose file).
@@ -78,11 +83,11 @@ at your preferred off-host storage.
 
 ### Option B — cron `pg_dump` sidecar / host cron
 On the dokploy host the compose file lives at
-`/etc/dokploy/compose/<app-name>/code/docker-compose.prod.yml`, so either
+`/etc/dokploy/compose/<app-name>/code/apps/api/docker-compose.prod.yml`, so either
 `cd` into that directory first or pass the absolute path:
 
 ```bash
-COMPOSE_FILE=/etc/dokploy/compose/<app-name>/code/docker-compose.prod.yml
+COMPOSE_FILE=/etc/dokploy/compose/<app-name>/code/apps/api/docker-compose.prod.yml
 
 # one-off dump
 docker compose -f "$COMPOSE_FILE" exec -T database \

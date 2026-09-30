@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom';
+import { configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
+
+configure({ asyncUtilTimeout: 5000 });
 
 const env = process.env as Record<string, string>;
 env['NEXT_PUBLIC_API_URL'] = 'http://localhost:3000/api';

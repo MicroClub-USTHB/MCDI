@@ -1,15 +1,11 @@
+# Build from the repository root (see docker-compose.yml). Dependencies are
+# installed by the compose command into the bind-mounted workspace.
 FROM node:24-alpine
 
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/apps/api
 
 RUN corepack enable
 
-COPY package.json pnpm-lock.yaml ./
-
-RUN pnpm install
-
-COPY . .
-
 EXPOSE 3000
 
-CMD ["pnpm", "run", "start:dev"]
+CMD ["pnpm", "exec", "turbo", "run", "dev", "--filter=@mcdi/api", "--ui=stream"]

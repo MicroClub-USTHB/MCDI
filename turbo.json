@@ -26,6 +26,10 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
+    "test:ci": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**", "test-results.json"]
+    },
     "test:e2e": {
       "dependsOn": ["^build"],
       "cache": false
