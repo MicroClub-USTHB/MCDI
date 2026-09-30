@@ -19,7 +19,7 @@
 | Testing | Vitest + React Testing Library + MSW | latest |
 | Linting | ESLint 9 flat config + Prettier | latest |
 
-**Backend**: NestJS API at `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api`). See the full V2 specification in `../MCDI-V2-SPECIFICATION.md`.
+**Backend**: NestJS API at `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api`). See the full V2 specification in `../../docs/MCDI-V2-SPECIFICATION.md`.
 
 ## 2. Architecture & Directory Structure
 
@@ -68,7 +68,7 @@ src/
 - **Path alias**: `@/` maps to `./src/` (configured in `tsconfig.json`).
 - **No `tailwind.config.ts`**: Tailwind v4 uses CSS-based config via `@theme` in `globals.css`.
 - **Dark-only UI**: No light mode, no theme toggle, no `dark:` prefixed classes. The design system is a Discord-inspired dark theme.
-- **Standalone output**: `next.config.ts` uses `output: 'standalone'` for containerized deployment.
+- **Deployment**: the web app is deployed on Vercel straight from this monorepo (Root Directory `apps/web`); there is no Docker image for it.
 
 ## 3. Code Style & Gotchas
 
@@ -145,36 +145,36 @@ src/
 ### Development
 
 ```bash
-npm run dev              # Start dev server (localhost:3000)
-npm run build            # Production build (standalone output)
-npm run start            # Start production server
+pnpm run dev              # Start dev server (localhost:3002)
+pnpm run build            # Production build
+pnpm run start            # Start production server
 ```
 
 ### Code Quality
 
 ```bash
-npm run lint             # ESLint check
-npm run lint:fix         # ESLint auto-fix
-npm run format           # Prettier write
-npm run format:check     # Prettier check
-npm run typecheck        # TypeScript type check (tsc --noEmit)
+pnpm run lint             # ESLint check
+pnpm run lint:fix         # ESLint auto-fix
+pnpm run format           # Prettier write
+pnpm run format:check     # Prettier check
+pnpm run typecheck        # TypeScript type check (tsc --noEmit)
 ```
 
 ### Testing
 
 ```bash
-npm run test             # Vitest (watch mode)
-npm run test:coverage    # Vitest with coverage report
-npm run test:ui          # Vitest UI
+pnpm run test             # Vitest (watch mode)
+pnpm run test:coverage    # Vitest with coverage report
+pnpm run test:ui          # Vitest UI
 ```
 
 ### Pre-commit Checklist
 
 Before every commit, ensure:
-1. `npm run typecheck` passes
-2. `npm run lint` passes
-3. `npm run format:check` passes
-4. `npm run build` passes
+1. `pnpm run typecheck` passes
+2. `pnpm run lint` passes
+3. `pnpm run format:check` passes
+4. `pnpm run build` passes
 
 ## 6. Agent Brief & Persona
 
@@ -197,16 +197,15 @@ You are a **senior frontend engineer** working on a Discord-inspired admin panel
 ### When Modifying Existing Code
 
 - Check the feature's barrel file to understand its public API
-- Run `npm run typecheck` after changes
-- Run `npm run lint` to catch style issues
-- Run `npm run format` to auto-fix formatting
+- Run `pnpm run typecheck` after changes
+- Run `pnpm run lint` to catch style issues
+- Run `pnpm run format` to auto-fix formatting
 
 ## 7. Build & Test Requirements
 
 ### Build
 
-- `npm run build` must succeed with zero errors and zero TypeScript errors.
-- Output is `standalone` mode for Docker deployment.
+- `pnpm run build` must succeed with zero errors and zero TypeScript errors.
 - Env vars are validated at build time by `env.ts`.
 
 ### Tests

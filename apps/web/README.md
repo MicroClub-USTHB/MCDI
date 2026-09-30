@@ -67,38 +67,39 @@ MCDI (MicroClub Discord Interface) is a full-stack platform that serves as the i
 ### Prerequisites
 
 - **Node.js** >= 20
-- **npm** >= 10
+- **pnpm** >= 10 (the repo is a pnpm + Turborepo workspace)
 - A running instance of the [MCDI Backend](https://github.com/MicroClub-USTHB/MCDI) (NestJS API)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/MicroClub-USTHB/MCDI-Front.git
-cd MCDI-Front
+# Clone the monorepo and install every workspace from the repository root
+git clone https://github.com/MicroClub-USTHB/MCDI.git
+cd MCDI
+pnpm install
 
-# Install dependencies
-npm install
+# Everything below runs from apps/web
+cd apps/web
 
 # Copy the environment file
 cp .env.example .env
 # Or create .env manually:
-# NEXT_PUBLIC_API_URL=http://localhost:8080/api
-# NEXT_PUBLIC_APP_URL=http://localhost:3000
+# NEXT_PUBLIC_API_URL=http://localhost:3000/api
+# NEXT_PUBLIC_APP_URL=http://localhost:3002
 # NODE_ENV=development
 
 # Start the dev server
-npm run dev
+pnpm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+Open [http://localhost:3002](http://localhost:3002) to see the app.
 
 ### Environment variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (e.g., `http://localhost:8080/api`) |
-| `NEXT_PUBLIC_APP_URL` | Yes | Frontend app URL (e.g., `http://localhost:3000`) |
+| `NEXT_PUBLIC_API_URL` | Yes | Backend API base URL (e.g., `http://localhost:3000/api`) |
+| `NEXT_PUBLIC_APP_URL` | Yes | Frontend app URL (e.g., `http://localhost:3002`) |
 | `NODE_ENV` | Yes | `development`, `test`, or `production` |
 
 Environment variables are validated at build time using Zod (`src/shared/lib/env.ts`). Missing or invalid vars will crash the build intentionally.
@@ -106,19 +107,19 @@ Environment variables are validated at build time using Zod (`src/shared/lib/env
 ### Available scripts
 
 ```bash
-npm run dev              # Start dev server (localhost:3000)
-npm run build            # Production build (standalone output)
-npm run start            # Start production server
+pnpm run dev              # Start dev server (localhost:3002)
+pnpm run build            # Production build
+pnpm run start            # Start production server
 
-npm run lint             # ESLint check
-npm run lint:fix         # ESLint auto-fix
-npm run format           # Prettier write
-npm run format:check     # Prettier check (CI-safe)
-npm run typecheck        # TypeScript type check (tsc --noEmit)
+pnpm run lint             # ESLint check
+pnpm run lint:fix         # ESLint auto-fix
+pnpm run format           # Prettier write
+pnpm run format:check     # Prettier check (CI-safe)
+pnpm run typecheck        # TypeScript type check (tsc --noEmit)
 
-npm run test             # Vitest (watch mode)
-npm run test:coverage    # Vitest with coverage report
-npm run test:ui          # Vitest browser UI
+pnpm run test             # Vitest (watch mode)
+pnpm run test:coverage    # Vitest with coverage report
+pnpm run test:ui          # Vitest browser UI
 ```
 
 ---
@@ -182,7 +183,7 @@ src/
 
 4. **Server components by default** — only add `'use client'` when a component uses hooks, event handlers, or browser APIs.
 
-5. **Standalone output** — `next.config.ts` uses `output: 'standalone'` for Docker deployment.
+5. **Vercel deployment** — the app is deployed on Vercel from this monorepo (Root Directory `apps/web`); there is no Docker image for it.
 
 ### Import rules
 
@@ -610,9 +611,9 @@ describe('MemberCard', () => {
 ### Running tests
 
 ```bash
-npm run test              # Watch mode
-npm run test:coverage     # Full coverage report
-npm run test:ui           # Browser-based test UI
+pnpm run test              # Watch mode
+pnpm run test:coverage     # Full coverage report
+pnpm run test:ui           # Browser-based test UI
 ```
 
 ---
@@ -734,34 +735,34 @@ git checkout -b benabdou1001/my-feature
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start Next.js dev server at `localhost:3000` |
-| `npm run build` | Production build (standalone output for Docker) |
-| `npm run start` | Start production server |
+| `pnpm run dev` | Start Next.js dev server at `localhost:3002` |
+| `pnpm run build` | Production build |
+| `pnpm run start` | Start production server |
 
 ### Code quality
 
 | Command | Description |
 |---|---|
-| `npm run typecheck` | TypeScript type checking (`tsc --noEmit`) |
-| `npm run lint` | ESLint check |
-| `npm run lint:fix` | ESLint auto-fix |
-| `npm run format` | Prettier write |
-| `npm run format:check` | Prettier check (fails in CI if formatting is off) |
+| `pnpm run typecheck` | TypeScript type checking (`tsc --noEmit`) |
+| `pnpm run lint` | ESLint check |
+| `pnpm run lint:fix` | ESLint auto-fix |
+| `pnpm run format` | Prettier write |
+| `pnpm run format:check` | Prettier check (fails in CI if formatting is off) |
 
 ### Testing
 
 | Command | Description |
 |---|---|
-| `npm run test` | Vitest in watch mode |
-| `npm run test:coverage` | Generate coverage report (text + json + html) |
-| `npm run test:ui` | Vitest browser UI |
+| `pnpm run test` | Vitest in watch mode |
+| `pnpm run test:coverage` | Generate coverage report (text + json + html) |
+| `pnpm run test:ui` | Vitest browser UI |
 
 ### Pre-commit checklist
 
 Before every commit, ensure all four pass:
 
 ```bash
-npm run typecheck && npm run lint && npm run format:check && npm run build
+pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run build
 ```
 
 ---
@@ -812,10 +813,10 @@ Refs #<issue-number>
 - [ ] No hardcoded hex values
 - [ ] No `dark:` prefixed classes
 - [ ] Typography uses DM Sans / JetBrains Mono
-- [ ] `npm run typecheck` passes
-- [ ] `npm run lint` passes
-- [ ] `npm run format:check` passes
-- [ ] `npm run build` passes
+- [ ] `pnpm run typecheck` passes
+- [ ] `pnpm run lint` passes
+- [ ] `pnpm run format:check` passes
+- [ ] `pnpm run build` passes
 - [ ] Tests written for new code
 - [ ] Issue referenced (`Closes #N` or `Refs #N`)
 

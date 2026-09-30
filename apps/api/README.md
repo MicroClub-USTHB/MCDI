@@ -35,7 +35,9 @@ The current codebase ships a production-oriented NestJS backend with PostgreSQL,
 
 ## Quick Start
 
-There are two practical ways to run MCDI locally.
+There are two practical ways to run MCDI locally. This package lives in the
+`apps/api` folder of the MCDI pnpm/Turborepo monorepo: run `pnpm install` once
+at the repository root, then run the commands below from `apps/api`.
 
 ### Run With Docker Compose
 
@@ -95,7 +97,7 @@ The compose stack starts:
 pnpm install
 cp .env.example .env
 pnpm run db:migrate
-pnpm run start:dev
+pnpm run dev
 ```
 
 Optional helpers:
@@ -249,7 +251,8 @@ For a plain-image deploy, the production container runs **Drizzle migrations on
 startup** (never `db:push`) before booting the API:
 
 ```bash
-docker build -t mcdi:local .
+# the build context is the repository root
+docker build -f apps/api/Dockerfile -t mcdi:local .
 # migrations run automatically via the start:prod:migrate script
 docker run --env-file .env -p 3000:3000 mcdi:local pnpm run start:prod:migrate
 ```

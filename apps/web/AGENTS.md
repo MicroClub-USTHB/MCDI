@@ -16,7 +16,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | Layer | Stack |
 |---|---|
-| Framework | Next.js 16.2.2 (App Router, standalone output) |
+| Framework | Next.js 16.2.2 (App Router, deployed on Vercel) |
 | Language | TypeScript 5 (strict mode, `noUncheckedIndexedAccess`) |
 | Styling | Tailwind CSS v4 (CSS-based `@theme`, no JS config) |
 | Server State | TanStack React Query v5 |
@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Testing | Vitest + RTL + MSW |
 | Linting | ESLint 9 (flat config) + Prettier |
 
-**Backend**: NestJS REST API at `NEXT_PUBLIC_API_URL`. Full spec: `../MCDI-V2-SPECIFICATION.md`.
+**Backend**: NestJS REST API at `NEXT_PUBLIC_API_URL`. Full spec: `../../docs/MCDI-V2-SPECIFICATION.md`.
 
 ## 2. Architecture & Directory Structure
 
@@ -103,21 +103,21 @@ All tokens defined in `src/shared/styles/globals.css` via `@theme`.
 
 ```bash
 # Development
-npm run dev              # Dev server (localhost:3000)
-npm run build            # Production build
-npm run start            # Production server
+pnpm run dev              # Dev server (localhost:3002)
+pnpm run build            # Production build
+pnpm run start            # Production server
 
 # Quality
-npm run lint             # ESLint check
-npm run lint:fix         # ESLint auto-fix
-npm run format           # Prettier write
-npm run format:check     # Prettier check
-npm run typecheck        # tsc --noEmit
+pnpm run lint             # ESLint check
+pnpm run lint:fix         # ESLint auto-fix
+pnpm run format           # Prettier write
+pnpm run format:check     # Prettier check
+pnpm run typecheck        # tsc --noEmit
 
 # Testing
-npm run test             # Vitest watch
-npm run test:coverage    # Coverage report
-npm run test:ui          # Vitest UI
+pnpm run test             # Vitest watch
+pnpm run test:coverage    # Coverage report
+pnpm run test:ui          # Vitest UI
 ```
 
 ### Pre-commit: `typecheck` → `lint` → `format:check` → `build`
@@ -142,8 +142,8 @@ You are a **senior frontend engineer** building a Discord-inspired admin panel. 
 
 ## 7. Build & Test Requirements
 
-- `npm run build` must succeed with zero errors
-- `npm run typecheck` must pass
+- `pnpm run build` must succeed with zero errors
+- `pnpm run typecheck` must pass
 - Tests live in `tests/` directory (not colocated)
 - Use MSW for API mocking (`tests/mocks/`)
 - Target 90%+ coverage on new code
