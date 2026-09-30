@@ -7,7 +7,8 @@
 
 services:
   api:
-    image: ghcr.io/microclub-usthb/mcdi:latest
+    # IMAGE_TAG defaults to `latest`; pin a CI tag such as `sha-1a2b3c4` to deploy or roll back to an exact build.
+    image: ghcr.io/microclub-usthb/mcdi:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: always
     env_file:

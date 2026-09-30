@@ -51,8 +51,22 @@ to resolve the image host:
    - `MAX_WEBHOOKS_PER_PROJECT` (optional, defaults to `10`).
    - `BASE_URL`, `CORS_ORIGINS`, `ADMIN_FRONTEND_URL`.
    - `THROTTLER_TTL_MS`, `THROTTLER_LIMIT` (optional).
+   - `IMAGE_TAG` (optional, defaults to `latest`) — see "Pinning and rolling back" below.
 5. Attach a domain + TLS to the `api` service (container port `3000`).
 6. Deploy.
+
+### Pinning and rolling back
+
+CI pushes every `main` build to GHCR as both `latest` and an immutable
+`sha-<short commit>` tag (visible under the package's *Tags*). The compose file
+uses `ghcr.io/microclub-usthb/mcdi:${IMAGE_TAG:-latest}`:
+
+- **Follow the newest build:** leave `IMAGE_TAG` unset (or `latest`) and redeploy.
+- **Deploy or roll back to an exact build:** set `IMAGE_TAG=sha-1a2b3c4` in the
+  dokploy env panel and redeploy. Switching the tag back is the rollback.
+
+The migration file is baked into each image, so a rolled-back image applies its
+own (idempotent) migrations; it does not undo newer ones.
 
 On boot the stack does everything automatically — no manual seed step needed:
 
