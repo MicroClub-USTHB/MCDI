@@ -3,9 +3,12 @@ import {
   ConflictException,
   ForbiddenException,
   GoneException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +28,11 @@ import { validateSchema } from './schema/schema.validator';
 import { validatePayload, FileMeta } from './schema/payload.validator';
 import type { FormSchema } from './schema/form-schema.types';
 import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
+import {
+  renderMarkdown,
+  renderOpenApi,
+  WebhookDocsInput,
+} from './docs/webhook-docs.generator';
 import { UpdateInboundWebhookDto } from './dto/update-inbound-webhook.dto';
 
 export interface CreateInboundWebhookResult {
@@ -32,7 +40,13 @@ export interface CreateInboundWebhookResult {
   /** Returned ONCE — never stored in plaintext, never returned again */
   signingSecret: string;
   allowedRoleIds: string[];
+  /** Where to send this webhook's submissions. */
+  submitUrl: string;
+  /** Developer documentation generated from the schema just declared. */
+  docsUrl: string;
 }
+
+export type DocsFormat = 'markdown' | 'openapi';
 
 export interface IngestContext {
   projectId: string;
@@ -101,7 +115,14 @@ export class InboundWebhooksService {
       },
     });
 
-    return { webhook, signingSecret, allowedRoleIds: dto.allowedRoleIds };
+    const baseUrl = this.baseUrl();
+    return {
+      webhook,
+      signingSecret,
+      allowedRoleIds: dto.allowedRoleIds,
+      submitUrl: `${baseUrl}/inbound-webhooks/${webhook.id}/submit`,
+      docsUrl: `${baseUrl}/admin/inbound-webhooks/${webhook.id}/docs`,
+    };
   }
 
   async findById(id: string): Promise<InboundWebhookRow> {
@@ -211,6 +232,56 @@ export class InboundWebhooksService {
       entityId: id,
       actorId: actor,
     });
+  }
+
+  // ─── Developer documentation ────────────────────────────────────────────
+
+  /**
+   * Renders documentation for one webhook from its own live schema.
+   *
+   * Documentation generated from the schema cannot drift from validation,
+   * because both read the same artefact: if a field is required, the table
+   * says so because the validator would reject the payload without it.
+   */
+  async generateDocs(
+    id: string,
+    format: DocsFormat,
+  ): Promise<{ filename: string; contentType: string; body: string }> {
+    const webhook = await this.findById(id);
+    const roles = await this.repository.findAllowedRoles(id);
+
+    const baseUrl = this.baseUrl();
+
+    const input: WebhookDocsInput = {
+      id: webhook.id,
+      name: webhook.name,
+      slug: webhook.slug,
+      schema: webhook.schema,
+      acceptedOrigins: webhook.acceptedOrigins,
+      requireSignature: webhook.requireSignature,
+      rejectUnknownFields: webhook.rejectUnknownFields,
+      isActive: webhook.isActive,
+      createdAt: webhook.createdAt,
+      allowedRoles: roles.map((r) => ({
+        roleId: r.roleId,
+        roleName: r.roleName,
+      })),
+      baseUrl,
+    };
+
+    if (format === 'openapi') {
+      return {
+        filename: `${webhook.slug}.openapi.json`,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(renderOpenApi(input), null, 2),
+      };
+    }
+
+    return {
+      filename: `${webhook.slug}.md`,
+      contentType: 'text/markdown; charset=utf-8',
+      body: renderMarkdown(input),
+    };
   }
 
   // ─── Role validation ────────────────────────────────────────────────────
@@ -455,8 +526,8 @@ export class InboundWebhooksService {
     });
 
     if (!result.ok) {
-      throw new BadRequestException({
-        statusCode: 401,
+      throw new UnauthorizedException({
+        statusCode: HttpStatus.UNAUTHORIZED,
         error: 'InvalidSignature',
         reason: result.reason,
       });
@@ -464,10 +535,24 @@ export class InboundWebhooksService {
 
     // Replay protection: the same signature may be presented only once within
     // the tolerance window.
+    //
+    // Deliberately fails OPEN when Redis is unreachable. Treating "no answer"
+    // as "already seen" would turn a cache blip into a total ingest outage,
+    // which is a worse failure than briefly allowing a replay of an
+    // already-authenticated request.
     const key = `${REPLAY_PREFIX}${webhook.id}:${result.parsed.signature}`;
-    const fresh = await this.redisService.setNx(key, '1', tolerance * 1000);
-    if (!fresh) {
+    const state = await this.redisService.setIfAbsent(
+      key,
+      '1',
+      tolerance * 1000,
+    );
+    if (state === 'exists') {
       throw new ConflictException('This request has already been processed');
+    }
+    if (state === 'unavailable') {
+      this.logger.warn(
+        `Replay protection skipped for webhook ${webhook.id}: Redis unavailable`,
+      );
     }
   }
 
@@ -482,13 +567,20 @@ export class InboundWebhooksService {
     for (const scope of [`w:${webhookId}`, `p:${projectId}`]) {
       const key = `${RATE_PREFIX}${scope}:${Math.floor(Date.now() / 60_000)}`;
       const count = await this.redisService.incr(key);
+      // RedisService.incr returns 0 when Redis did not answer; a real INCR
+      // always returns >= 1. Skip the limit rather than reject, for the same
+      // reason replay protection fails open.
+      if (count === 0) return;
       if (count === 1) await this.redisService.expire(key, 120);
       if (count > limit) {
-        throw new BadRequestException({
-          statusCode: 429,
-          error: 'RateLimited',
-          message: `Rate limit of ${limit} requests per minute exceeded`,
-        });
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            error: 'RateLimited',
+            message: `Rate limit of ${limit} requests per minute exceeded`,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
     }
   }
@@ -511,6 +603,25 @@ export class InboundWebhooksService {
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────
+
+  /**
+   * The externally reachable API root, prefix included.
+   *
+   * `app.baseUrl` is the host only — main.ts applies `app.apiPrefix` as a
+   * global prefix separately, and strips it back off again for Swagger.
+   * Documented URLs must carry it, or every example a developer copies 404s.
+   */
+  private baseUrl(): string {
+    const host = (
+      this.configService.get<string>('app.baseUrl') ?? 'http://localhost:3000'
+    ).replace(/\/+$/, '');
+    const prefix = (
+      this.configService.get<string>('app.apiPrefix') ?? 'api'
+    ).replace(/^\/+|\/+$/g, '');
+
+    if (!prefix || host.endsWith(`/${prefix}`)) return host;
+    return `${host}/${prefix}`;
+  }
 
   private assertValidSchema(raw: unknown): FormSchema {
     const result = validateSchema(raw);
