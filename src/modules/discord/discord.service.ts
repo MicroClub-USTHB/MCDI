@@ -451,6 +451,68 @@ export class DiscordService {
     }
   }
 
+  async executeWebhook(
+    webhookId: string,
+    token: string,
+    options: Discord.WebhookMessageCreateOptions,
+  ): Promise<void> {
+    const webhook = new Discord.WebhookClient({ id: webhookId, token });
+
+    try {
+      await webhook.send(options);
+    } finally {
+      webhook.destroy();
+    }
+  }
+
+  async editWebhook(
+    webhookId: string,
+    options: Discord.WebhookEditOptions,
+  ): Promise<Discord.Webhook | null> {
+    if (!this.isBotReady()) return null;
+
+    try {
+      const webhook = await this.client.fetchWebhook(webhookId);
+      const editedWebhook = await webhook.edit(options);
+      return editedWebhook;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async deleteWebhook(webhookId: string): Promise<boolean> {
+    if (!this.isBotReady()) return false;
+
+    try {
+      const webhook = await this.client.fetchWebhook(webhookId);
+      await webhook.delete();
+      return true;
+    } catch (error: unknown) {
+      if (
+        error instanceof Discord.DiscordAPIError &&
+        error.code === Discord.RESTJSONErrorCodes.UnknownWebhook
+      ) {
+        // Already gone on Discord's side, treat as deleted
+        return true;
+      }
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  getCachedChannelName(channelId: string): string | null {
+    if (!this.isBotReady()) return null;
+    const channel = this.client.channels.cache.get(channelId);
+    if (!channel || !('name' in channel)) return null;
+    return channel.name;
+  }
+
+  getCachedGuildName(guildId: string): string | null {
+    if (!this.isBotReady()) return null;
+    return this.client.guilds.cache.get(guildId)?.name ?? null;
+  }
+
   // ─── OAuth2 / REST helpers (user-facing, not bot-client) ────────────────
 
   /**

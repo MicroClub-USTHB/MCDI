@@ -3,6 +3,7 @@ import {
   Logger,
   UnauthorizedException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SessionRepository } from '../repositories/session.repository';
@@ -13,6 +14,7 @@ import { buildDiscordOAuthUrl } from '../utils';
 import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
+import { AuditService } from '../../audit/audit.service';
 import type { ClientInfo } from '../../../common/utils/client-info.util';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
@@ -33,6 +35,7 @@ export class AdminAuthService {
     private readonly discordIdentityService: DiscordIdentityService,
     private readonly sessionIssuanceService: SessionIssuanceService,
     private readonly discordService: DiscordService,
+    private readonly auditService: AuditService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordAdminRedirectUri = this.configService.get<string>(
@@ -105,8 +108,9 @@ export class AdminAuthService {
       await this.adminOAuthStateRepository.consumeValid(stateToken);
 
     if (!stateData) {
-      throw new UnauthorizedException(
-        'Invalid or expired authentication request',
+      throw this.rejectLogin(
+        new UnauthorizedException('Invalid or expired authentication request'),
+        clientInfo,
       );
     }
 
@@ -119,7 +123,10 @@ export class AdminAuthService {
 
     if (!accessToken) {
       this.logger.error('Admin Discord token exchange failed');
-      throw new UnauthorizedException('Failed to authenticate with Discord');
+      throw this.rejectLogin(
+        new UnauthorizedException('Failed to authenticate with Discord'),
+        clientInfo,
+      );
     }
 
     // 3. Fetch Discord profile & upsert member
@@ -129,7 +136,10 @@ export class AdminAuthService {
       );
 
     if (!identity) {
-      throw new UnauthorizedException('Failed to fetch Discord profile');
+      throw this.rejectLogin(
+        new UnauthorizedException('Failed to fetch Discord profile'),
+        clientInfo,
+      );
     }
 
     const { profile, member } = identity;
@@ -137,17 +147,25 @@ export class AdminAuthService {
     // 4. Verify main guild membership
     if (!this.mainGuildId) {
       this.logger.error('MC_GUILD_ID is not configured — admin login blocked');
-      throw new ForbiddenException(
-        'Server configuration error: main guild not set',
+      throw this.rejectLogin(
+        new ForbiddenException(
+          'Server configuration error: main guild not set',
+        ),
+        clientInfo,
+        identity,
       );
     }
 
     if (!this.adminRoleIds.length) {
       this.logger.error(
-        'No admin roles configured — admin login blocked',
+        'Admin login blocked because no admin role ids are configured',
       );
-      throw new ForbiddenException(
-        'Server configuration error: no admin roles set',
+      throw this.rejectLogin(
+        new ForbiddenException(
+          'Server configuration error: no admin roles set',
+        ),
+        clientInfo,
+        identity,
       );
     }
 
@@ -160,8 +178,12 @@ export class AdminAuthService {
       this.logger.warn(
         `Admin login rejected: user ${profile.id} is not in the main guild (status ${guildMember.status})`,
       );
-      throw new ForbiddenException(
-        'You must be a member of the main MCDI Discord server to access the admin panel',
+      throw this.rejectLogin(
+        new ForbiddenException(
+          'You must be a member of the main MCDI Discord server to access the admin panel',
+        ),
+        clientInfo,
+        identity,
       );
     }
 
@@ -173,8 +195,12 @@ export class AdminAuthService {
       this.logger.warn(
         `Admin login rejected: user ${profile.id} has none of the configured admin roles`,
       );
-      throw new ForbiddenException(
-        'Only members with a configured admin role can access the admin panel',
+      throw this.rejectLogin(
+        new ForbiddenException(
+          'Only members with a configured admin role can access the admin panel',
+        ),
+        clientInfo,
+        identity,
       );
     }
 
@@ -200,6 +226,16 @@ export class AdminAuthService {
       },
     );
 
+    this.auditService.logAction({
+      actorId: member.id,
+      actionType: 'auth',
+      action: 'login',
+      entityType: 'session',
+      ipAddress: clientInfo?.ipAddress ?? null,
+      userAgent: clientInfo?.userAgent ?? null,
+      severity: 'info',
+    });
+
     return {
       token,
       expiresAt,
@@ -213,6 +249,31 @@ export class AdminAuthService {
         isSystemAdmin: member.isSystemAdmin,
       },
     };
+  }
+
+  // Writes the failed-login audit row and hands the exception back so the
+  // call site can throw it. actorId is filled only once the Discord profile
+  // resolved to a member row, because audit_logs.actor_id references
+  // members.id; the Discord id goes into details as attemptedActor.
+  private rejectLogin(
+    exception: HttpException,
+    clientInfo: ClientInfo | undefined,
+    identity?: { profile: { id: string }; member: { id: string } },
+  ): HttpException {
+    this.auditService.logAction({
+      actorId: identity?.member.id ?? null,
+      actionType: 'auth',
+      action: 'login_failed',
+      entityType: 'session',
+      details: {
+        reason: exception.message,
+        attemptedActor: identity?.profile.id ?? null,
+      },
+      ipAddress: clientInfo?.ipAddress ?? null,
+      userAgent: clientInfo?.userAgent ?? null,
+      severity: 'warning',
+    });
+    return exception;
   }
 
   // ─── GET /auth/admin/me ───────────────────────────────────────────────
@@ -237,6 +298,7 @@ export class AdminAuthService {
       username: member.username,
       globalName: member.globalName,
       displayName: member.displayName,
+      preferredName: member.preferredName,
       avatar: member.avatar,
       email: member.email,
       isSystemAdmin: member.isSystemAdmin,

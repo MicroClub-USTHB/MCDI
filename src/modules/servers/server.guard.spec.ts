@@ -117,6 +117,34 @@ describe('ServerActiveGuard', () => {
       });
       expect(await guard.canActivate(ctx)).toBe(true);
     });
+
+    it('returns true when serverId is an array of active server IDs', async () => {
+      const db = buildDb([
+        { id: 'srv-1', isActive: true },
+        { id: 'srv-2', isActive: true },
+      ]);
+      const guard = await buildGuard(db);
+      const ctx = buildContext({
+        url: '/api/admin/members',
+        query: { serverId: ['srv-1', 'srv-2'] as any },
+        headers: { authorization: 'Bearer token' },
+      });
+      expect(await guard.canActivate(ctx)).toBe(true);
+    });
+
+    it('returns true when serverId is a comma-separated list of active server IDs', async () => {
+      const db = buildDb([
+        { id: 'srv-1', isActive: true },
+        { id: 'srv-2', isActive: true },
+      ]);
+      const guard = await buildGuard(db);
+      const ctx = buildContext({
+        url: '/api/admin/members',
+        query: { serverId: 'srv-1,srv-2' },
+        headers: { authorization: 'Bearer token' },
+      });
+      expect(await guard.canActivate(ctx)).toBe(true);
+    });
   });
 
   describe('disabled server', () => {

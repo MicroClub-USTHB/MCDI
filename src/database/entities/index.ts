@@ -28,12 +28,14 @@ export * from './auth-request.entity';
 export * from './admin-oauth-state.entity';
 export * from './audit-log.entity';
 export * from './sso-session.entity';
+export * from './webhook.entity';
 export * from './member-departure.entity';
 export * from './inbound-webhook.entity';
 export * from './inbound-webhook-role.entity';
 export * from './inbound-webhook-draft.entity';
 export * from './inbound-webhook-submission.entity';
 export * from './inbound-webhook-file.entity';
+export * from './app-settings.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');

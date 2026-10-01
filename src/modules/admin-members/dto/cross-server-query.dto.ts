@@ -1,6 +1,44 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsIn, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsIn,
+  IsInt,
+  Min,
+  Max,
+  IsArray,
+} from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+
+/**
+ * Safely normalizes an unknown query parameter value into a string array.
+ * Handles repeated parameters, comma-separated strings, single values,
+ * and qs-collapsed plain objects (e.g. when 21+ values exceed qs arrayLimit).
+ */
+export function toStringArray(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+
+  const rawItems: unknown[] = Array.isArray(value)
+    ? value
+    : typeof value === 'object'
+      ? Object.values(value as Record<string, unknown>)
+      : [value];
+
+  const result: string[] = [];
+  for (const item of rawItems) {
+    if (typeof item === 'string') {
+      const parts = item.includes(',') ? item.split(',') : [item];
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.length > 0) {
+          result.push(trimmed);
+        }
+      }
+    }
+  }
+
+  return result.length > 0 ? result : undefined;
+}
 
 /**
  * Query parameters for the paginated cross-server member list.
@@ -21,21 +59,27 @@ export class CrossServerQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Discord server ID to restrict results to members of a specific server',
-    example: '123456789012345678',
+      'Discord server ID(s) to restrict results to members of specific server(s). Supports repeated params (?serverId=A&serverId=B) or comma-separated values (?serverId=A,B).',
+    example: ['123456789012345678', '987654321098765432'],
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  serverId?: string;
+  serverId?: string[];
 
   @ApiPropertyOptional({
     description:
-      'Discord role ID to restrict results to members holding a specific role',
-    example: '987654321098765432',
+      'Discord role ID(s) to restrict results to members holding specific role(s). Supports repeated params (?roleId=A&roleId=B) or comma-separated values (?roleId=A,B).',
+    example: ['987654321098765432', '876543210987654321'],
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  roleId?: string;
+  roleId?: string[];
 
   @ApiPropertyOptional({
     description: 'Page number (1-based)',
@@ -89,20 +133,28 @@ export class ExportQueryDto {
   filter: 'club' | 'all' = 'all';
 
   @ApiPropertyOptional({
-    description: 'Discord server ID to filter export data',
-    example: '123456789012345678',
+    description:
+      'Discord server ID(s) to filter export data. Supports repeated params (?serverId=A&serverId=B) or comma-separated values (?serverId=A,B).',
+    example: ['123456789012345678', '987654321098765432'],
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  serverId?: string;
+  serverId?: string[];
 
   @ApiPropertyOptional({
-    description: 'Discord role ID to filter export data',
-    example: '987654321098765432',
+    description:
+      'Discord role ID(s) to filter export data. Supports repeated params (?roleId=A&roleId=B) or comma-separated values (?roleId=A,B).',
+    example: ['987654321098765432', '876543210987654321'],
+    type: [String],
   })
-  @IsString()
+  @Transform(({ value }): string[] | undefined => toStringArray(value))
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  roleId?: string;
+  roleId?: string[];
 
   @ApiPropertyOptional({
     description:

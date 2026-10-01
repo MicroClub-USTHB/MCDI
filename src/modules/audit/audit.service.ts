@@ -3,8 +3,10 @@ import { Pool } from 'pg';
 import { DATABASE_POOL } from '../../database/database.module';
 import { RedisService } from '../../common/redis/redis.service';
 import { DiscordService } from '../discord/discord.service';
+import { ProjectsService } from '../projects/projects.service';
 import { AuditRepository, InsertAuditLog } from './audit.repository';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
+import { QueryAuthFailuresDto } from './dto/query-auth-failures.dto';
 import { QueryUsageDto } from './dto/query-usage.dto';
 import { toCsv } from '../../common/utils/csv.util';
 
@@ -24,6 +26,19 @@ function normalizePath(path: string): string {
     .join('/');
 }
 
+// INFO replies are "field:value" lines; "#" lines are section headers.
+function parseRedisInfo(raw: string | null): Record<string, string> {
+  const fields: Record<string, string> = {};
+  if (!raw) return fields;
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line || line.startsWith('#')) continue;
+    const sep = line.indexOf(':');
+    if (sep === -1) continue;
+    fields[line.slice(0, sep)] = line.slice(sep + 1);
+  }
+  return fields;
+}
+
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
@@ -33,6 +48,7 @@ export class AuditService {
     private readonly auditRepository: AuditRepository,
     private readonly redisService: RedisService,
     private readonly discordService: DiscordService,
+    private readonly projectsService: ProjectsService,
     @Inject(DATABASE_POOL) private readonly pool: Pool,
   ) {}
 
@@ -103,11 +119,44 @@ export class AuditService {
     });
   }
 
+  // Failed logins, rejected sessions and rejected API keys are the 'auth'
+  // rows written with severity 'warning'; successful logins and logouts are
+  // 'info' and stay out of this view.
+  async getAuthFailures(dto: QueryAuthFailuresDto) {
+    const { rows, total } = await this.auditRepository.findPaginated({
+      dateFrom: dto.dateFrom,
+      dateTo: dto.dateTo,
+      actionType: 'auth',
+      severity: 'warning',
+      limit: dto.limit,
+      offset: dto.offset,
+    });
+
+    const text = (value: unknown) => (typeof value === 'string' ? value : null);
+
+    return {
+      failures: rows.map((r) => ({
+        id: r.id,
+        timestamp: r.createdAt.toISOString(),
+        ipAddress: r.ipAddress,
+        reason: text(r.details?.reason),
+        attemptedActor: text(r.details?.attemptedActor),
+        actorId: r.actorId,
+        path: text(r.details?.path),
+      })),
+      total,
+      limit: dto.limit,
+      offset: dto.offset,
+    };
+  }
+
   // ── Health Check ──────────────────────────────────────────────────────
 
   async getHealthStatus() {
-    const dbHealth = await this.checkDatabase();
-    const redisHealth = this.checkRedis();
+    const [dbHealth, redisHealth] = await Promise.all([
+      this.checkDatabase(),
+      this.checkRedis(),
+    ]);
     const discordHealth = this.checkDiscord();
 
     return {
@@ -140,7 +189,7 @@ export class AuditService {
     }
   }
 
-  private checkRedis() {
+  private async checkRedis() {
     if (!this.redisService.isAvailable) {
       return {
         status: 'disconnected' as const,
@@ -148,10 +197,28 @@ export class AuditService {
         memoryUsed: 'unknown',
       };
     }
+
+    const [stats, memory] = await Promise.all([
+      this.redisService.info('stats'),
+      this.redisService.info('memory'),
+    ]);
+    if (stats === null && memory === null) {
+      return {
+        status: 'disconnected' as const,
+        hitRate: 0,
+        memoryUsed: 'unknown',
+      };
+    }
+
+    const statFields = parseRedisInfo(stats);
+    const hits = Number(statFields.keyspace_hits ?? 0);
+    const misses = Number(statFields.keyspace_misses ?? 0);
+    const lookups = hits + misses;
+
     return {
       status: 'connected' as const,
-      hitRate: 0,
-      memoryUsed: 'unknown',
+      hitRate: lookups > 0 ? hits / lookups : 0,
+      memoryUsed: parseRedisInfo(memory).used_memory_human ?? 'unknown',
     };
   }
 
@@ -179,7 +246,10 @@ export class AuditService {
 
     let totalRequests = 0;
     const endpointCounts: Record<string, number> = {};
+    const endpointDurations: Record<string, number> = {};
+    const timedCounts: Record<string, number> = {};
     const projectCounts: Record<string, number> = {};
+    const projectErrorCounts: Record<string, number> = {};
     const errorCounts: Record<string, number> = {};
 
     for (let i = 0; i < days; i++) {
@@ -188,9 +258,18 @@ export class AuditService {
       const dateKey = date.toISOString().slice(0, 10);
       const prefix = `mcdi:usage:daily:${dateKey}`;
 
-      const [endpoints, projects, errors, dailyTotal] = await Promise.all([
+      const [
+        endpoints,
+        durations,
+        projects,
+        projectErrors,
+        errors,
+        dailyTotal,
+      ] = await Promise.all([
         this.redisService.hGetAll(`${prefix}:endpoints`),
+        this.redisService.hGetAll(`${prefix}:durations`),
         this.redisService.hGetAll(`${prefix}:projects`),
+        this.redisService.hGetAll(`${prefix}:project_errors`),
         this.redisService.hGetAll(`${prefix}:errors`),
         this.redisService.hGetAll(`${prefix}:total`),
       ]);
@@ -200,10 +279,24 @@ export class AuditService {
 
       for (const [key, val] of Object.entries(endpoints)) {
         endpointCounts[key] = (endpointCounts[key] ?? 0) + parseInt(val, 10);
+        // Days missing a durations hash predate tracking and are not averaged.
+        if (key in durations) {
+          timedCounts[key] = (timedCounts[key] ?? 0) + parseInt(val, 10);
+        }
+      }
+      for (const [key, val] of Object.entries(durations)) {
+        endpointDurations[key] =
+          (endpointDurations[key] ?? 0) + parseInt(val, 10);
       }
       for (const [key, val] of Object.entries(projects)) {
         if (!dto.projectId || key === dto.projectId) {
           projectCounts[key] = (projectCounts[key] ?? 0) + parseInt(val, 10);
+        }
+      }
+      for (const [key, val] of Object.entries(projectErrors)) {
+        if (!dto.projectId || key === dto.projectId) {
+          projectErrorCounts[key] =
+            (projectErrorCounts[key] ?? 0) + parseInt(val, 10);
         }
       }
       for (const [key, val] of Object.entries(errors)) {
@@ -211,6 +304,10 @@ export class AuditService {
       }
     }
 
+    const projectNames =
+      Object.keys(projectCounts).length > 0
+        ? await this.lookupProjectNames()
+        : new Map<string, string>();
     const errorTotal = Object.values(errorCounts).reduce((a, b) => a + b, 0);
     const fourXx = Object.entries(errorCounts)
       .filter(([code]) => code.startsWith('4'))
@@ -223,50 +320,84 @@ export class AuditService {
       totalRequests,
       byProject: Object.entries(projectCounts).map(([projectId, requests]) => ({
         projectId,
-        projectName: projectId,
+        projectName: projectNames.get(projectId) ?? projectId,
         requests,
-        errors: 0,
+        errors: projectErrorCounts[projectId] ?? 0,
       })),
       byEndpoint: Object.entries(endpointCounts).map(([key, cnt]) => {
         const [method, ...rest] = key.split(':');
+        const timed = timedCounts[key] ?? 0;
         return {
           endpoint: rest.join(':'),
           method: method ?? 'GET',
           count: cnt,
-          avgResponseTime: 0,
+          avgResponseTime:
+            timed > 0 ? Math.round((endpointDurations[key] ?? 0) / timed) : 0,
         };
       }),
       errors: { total: errorTotal, byType: { '4xx': fourXx, '5xx': fiveXx } },
     };
   }
 
+  // Loads the whole projects table in one query because the table is small.
+  // Unknown ids fall back to the id so a failed lookup cannot turn the
+  // Redis-backed stats into a 500.
+  private async lookupProjectNames(): Promise<Map<string, string>> {
+    const names = new Map<string, string>();
+    try {
+      for (const project of await this.projectsService.findAll()) {
+        names.set(project.id, project.name);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to resolve project names for usage stats: ${(err as Error).message}`,
+      );
+    }
+    return names;
+  }
+
   async recordUsage(
     method: string,
     path: string,
     statusCode: number,
+    durationMs: number,
+    projectId?: string,
   ): Promise<void> {
     const dateKey = new Date().toISOString().slice(0, 10);
     const prefix = `mcdi:usage:daily:${dateKey}`;
     const ttl = (RETENTION_DAYS + 1) * 24 * 60 * 60;
     const endpointKey = `${method}:${normalizePath(path)}`;
+    const isError = statusCode >= 400;
+    // HINCRBY only accepts integers; a NaN or negative duration is a caller bug.
+    const duration = Number.isFinite(durationMs)
+      ? Math.max(0, Math.round(durationMs))
+      : 0;
 
-    const ops: Promise<unknown>[] = [
-      this.redisService.hIncrBy(`${prefix}:total`, 'count', 1),
-      this.redisService.hIncrBy(`${prefix}:endpoints`, endpointKey, 1),
+    const increments: [key: string, field: string, by: number][] = [
+      [`${prefix}:total`, 'count', 1],
+      [`${prefix}:endpoints`, endpointKey, 1],
+      [`${prefix}:durations`, endpointKey, duration],
     ];
-
-    if (statusCode >= 400) {
-      ops.push(
-        this.redisService.hIncrBy(`${prefix}:errors`, String(statusCode), 1),
-      );
+    if (isError) {
+      increments.push([`${prefix}:errors`, String(statusCode), 1]);
+    }
+    if (projectId) {
+      increments.push([`${prefix}:projects`, projectId, 1]);
+      if (isError) {
+        increments.push([`${prefix}:project_errors`, projectId, 1]);
+      }
     }
 
-    await Promise.all(ops).catch(() => {});
+    await Promise.all(
+      increments.map(([key, field, by]) =>
+        this.redisService.hIncrBy(key, field, by),
+      ),
+    ).catch(() => {});
 
     // TTL once per key set (best-effort)
-    this.redisService.expire(`${prefix}:total`, ttl).catch(() => {});
-    this.redisService.expire(`${prefix}:endpoints`, ttl).catch(() => {});
-    this.redisService.expire(`${prefix}:errors`, ttl).catch(() => {});
+    for (const [key] of increments) {
+      this.redisService.expire(key, ttl).catch(() => {});
+    }
   }
 
   private periodToDays(period: string): number {

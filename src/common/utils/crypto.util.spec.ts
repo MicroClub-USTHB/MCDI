@@ -12,7 +12,7 @@ const OTHER = randomBytes(32);
 
 describe('crypto.util', () => {
   afterEach(() => {
-    delete process.env.WEBHOOK_ENCRYPTION_KEY;
+    delete process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY;
     resetEncryptionKeyCache();
   });
 
@@ -20,18 +20,18 @@ describe('crypto.util', () => {
     it('throws when the key is absent — boot must fail, not fall back', () => {
       resetEncryptionKeyCache();
       expect(() => getEncryptionKey()).toThrow(
-        /WEBHOOK_ENCRYPTION_KEY is not set/,
+        /INBOUND_WEBHOOK_ENCRYPTION_KEY is not set/,
       );
     });
 
     it('throws when the key is the wrong length', () => {
-      process.env.WEBHOOK_ENCRYPTION_KEY = randomBytes(16).toString('base64');
+      process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY = randomBytes(16).toString('base64');
       resetEncryptionKeyCache();
       expect(() => getEncryptionKey()).toThrow(/exactly 32 bytes/);
     });
 
     it('accepts a correct key', () => {
-      process.env.WEBHOOK_ENCRYPTION_KEY = KEY.toString('base64');
+      process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY = KEY.toString('base64');
       resetEncryptionKeyCache();
       expect(getEncryptionKey()).toEqual(KEY);
     });

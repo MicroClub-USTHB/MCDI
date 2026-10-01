@@ -183,6 +183,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       : {};
   }
 
+  async info(section?: string): Promise<string | null> {
+    const result = await this.run(() => this.client.info(section));
+    return typeof result === 'string' ? result : null;
+  }
+
   async scanKeys(pattern: string): Promise<string[]> {
     if (!this.client.isReady) {
       return [];

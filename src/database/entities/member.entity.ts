@@ -11,6 +11,10 @@ export const members = pgTable('members', {
   username: varchar('username', { length: 255 }).notNull(),
   globalName: varchar('global_name', { length: 255 }),
   displayName: varchar('display_name', { length: 255 }),
+  // Admin-set display-name override. Unlike `displayName` (rewritten from the
+  // Discord guild nickname on every sync), this is owned by the settings API
+  // and never touched by sync.
+  preferredName: varchar('preferred_name', { length: 255 }),
   avatar: text('avatar'),
   email: varchar('email', { length: 255 }),
   isClubMember: boolean('is_club_member').default(false).notNull(),

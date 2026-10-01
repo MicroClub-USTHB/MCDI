@@ -556,7 +556,7 @@ for the tolerance window.
 | PII exfiltration | every read audited; denials logged at `warning` |
 | Disguised file upload | magic-byte sniffing, not the client's `Content-Type` |
 | Permanent file URL outliving a grant | downloads are short-lived signed URLs behind the read guard |
-| Secret at rest | AES-256-GCM; boot fails if `WEBHOOK_ENCRYPTION_KEY` is absent |
+| Secret at rest | AES-256-GCM; boot fails if `INBOUND_WEBHOOK_ENCRYPTION_KEY` is absent |
 
 ---
 
@@ -709,7 +709,7 @@ establishes the `RETENTION_DAYS` + `setInterval` pattern to copy.
 
 | Variable | Required | Description |
 |---|---|---|
-| `WEBHOOK_ENCRYPTION_KEY` | **yes** | 32 bytes, base64. Boot **must fail** if absent — silently falling back to plaintext secrets is exactly the failure that ships |
+| `INBOUND_WEBHOOK_ENCRYPTION_KEY` | **yes** | 32 bytes, base64. Boot **must fail** if absent — silently falling back to plaintext secrets is exactly the failure that ships |
 | `INBOUND_WEBHOOK_MAX_BODY_BYTES` | no (default 1 MiB) | JSON submission cap |
 | `INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_S` | no (default 300) | timestamp window |
 | `INBOUND_WEBHOOK_DRAFT_TTL_H` | no (default 24) | draft expiry |
@@ -838,7 +838,7 @@ The core of the feature. Still pure — no Nest, no database.
 ### IW-04 — Crypto and HMAC signature utilities
 **Labels**: `enhancement` · **Estimate**: M · **Depends on**: —
 
-- [ ] `crypto.util.ts`: AES-256-GCM `encrypt`/`decrypt` using `WEBHOOK_ENCRYPTION_KEY`
+- [ ] `crypto.util.ts`: AES-256-GCM `encrypt`/`decrypt` using `INBOUND_WEBHOOK_ENCRYPTION_KEY`
 - [ ] Boot fails loudly if the key is missing or not 32 bytes
 - [ ] `inbound-webhook-signature.util.ts`: `sign`, `verify`, `parseSignatureHeader`
 - [ ] `verify` uses `timingSafeEqual`, mirroring `api-key.util.ts:16`

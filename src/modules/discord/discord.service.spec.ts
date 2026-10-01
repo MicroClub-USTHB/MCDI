@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import Discord, { DiscordAPIError } from 'discord.js';
 import { DiscordService } from './discord.service';
 import { DISCORD_CLIENT } from './discord.constants';
 
@@ -23,6 +24,7 @@ function buildMockClient() {
     users: { fetch: jest.fn() },
     guilds: { fetch: jest.fn() },
     channels: { fetch: jest.fn() },
+    fetchWebhook: jest.fn(),
     isReady: jest.fn().mockReturnValue(true),
     login: jest.fn().mockResolvedValue('token'),
     once: jest.fn(),
@@ -541,6 +543,106 @@ describe('DiscordService', () => {
     it('returns false when member not found', async () => {
       mockClient.guilds.fetch.mockRejectedValue(new Error('Not found'));
       expect(await service.memberHasRole('bad', 'u-1', 'role-1')).toBe(false);
+    });
+  });
+
+  describe('executeWebhook', () => {
+    it('sends with the stored identity and destroys the client', async () => {
+      const send = jest.fn().mockResolvedValue({ id: 'message-1' });
+      const destroy = jest.fn();
+      const webhookClient = jest
+        .spyOn(Discord, 'WebhookClient')
+        .mockImplementation(() => ({ send, destroy }) as any);
+
+      try {
+        await service.executeWebhook('wh-1', 'secret-token', {
+          content: 'hello',
+        });
+
+        expect(webhookClient).toHaveBeenCalledWith({
+          id: 'wh-1',
+          token: 'secret-token',
+        });
+        expect(send).toHaveBeenCalledWith({ content: 'hello' });
+        expect(destroy).toHaveBeenCalledTimes(1);
+      } finally {
+        webhookClient.mockRestore();
+      }
+    });
+
+    it('destroys the client when sending fails', async () => {
+      const send = jest.fn().mockRejectedValue(new Error('network failure'));
+      const destroy = jest.fn();
+      const webhookClient = jest
+        .spyOn(Discord, 'WebhookClient')
+        .mockImplementation(() => ({ send, destroy }) as any);
+
+      try {
+        await expect(
+          service.executeWebhook('wh-1', 'secret-token', { content: 'hello' }),
+        ).rejects.toThrow('network failure');
+        expect(destroy).toHaveBeenCalledTimes(1);
+      } finally {
+        webhookClient.mockRestore();
+      }
+    });
+  });
+
+  // ── editWebhook ───────────────────────────────────────────────────────
+
+  describe('editWebhook', () => {
+    it('returns the edited webhook on success', async () => {
+      const edited = { id: 'wh-1', name: 'renamed' };
+      mockClient.fetchWebhook.mockResolvedValue({
+        edit: jest.fn().mockResolvedValue(edited),
+      });
+      expect(await service.editWebhook('wh-1', { name: 'renamed' })).toBe(
+        edited,
+      );
+    });
+
+    it('returns null when the webhook cannot be fetched', async () => {
+      mockClient.fetchWebhook.mockRejectedValue(new Error('Not found'));
+      expect(await service.editWebhook('bad', { name: 'x' })).toBeNull();
+    });
+  });
+
+  // ── deleteWebhook ─────────────────────────────────────────────────────
+
+  describe('deleteWebhook', () => {
+    it('returns true after deleting the webhook', async () => {
+      mockClient.fetchWebhook.mockResolvedValue({
+        delete: jest.fn().mockResolvedValue(undefined),
+      });
+      expect(await service.deleteWebhook('wh-1')).toBe(true);
+    });
+
+    it('treats Unknown Webhook (10015) as already deleted', async () => {
+      mockClient.fetchWebhook.mockRejectedValue(
+        new DiscordAPIError(
+          { code: 10015, message: 'Unknown Webhook' },
+          10015,
+          404,
+          'GET',
+          'https://discord.com/api/v10/webhooks/wh-1',
+          { files: undefined, body: undefined },
+        ),
+      );
+      expect(await service.deleteWebhook('wh-1')).toBe(true);
+    });
+
+    it('returns false on any other Discord error', async () => {
+      mockClient.fetchWebhook.mockRejectedValue(
+        new DiscordAPIError(
+          { code: 50013, message: 'Missing Permissions' },
+          50013,
+          403,
+          'DELETE',
+          'https://discord.com/api/v10/webhooks/wh-1',
+          { files: undefined, body: undefined },
+        ),
+      );
+      expect(await service.deleteWebhook('wh-1')).toBe(false);
     });
   });
 

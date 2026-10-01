@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { join } from 'path';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
 import { DatabaseInitService } from '../../src/database/database-init.service';
+import { PostgresExceptionFilter } from '../../src/common/filters/drizzle.filter';
 
 /**
  * Bootstrap a full NestJS application instance suitable for E2E tests.
@@ -28,6 +30,9 @@ export async function createTestApp(): Promise<INestApplication> {
 
   const app = moduleFixture.createNestApplication<NestExpressApplication>();
 
+  // Base64 webhook avatars overflow Express's default 100kb JSON body limit
+  app.useBodyParser('json', { limit: '512kb' });
+
   app.use(cookieParser());
 
   // Global validation — same config as production
@@ -38,6 +43,10 @@ export async function createTestApp(): Promise<INestApplication> {
       transform: true,
     }),
   );
+
+  // Global exception filter, registered the way main.ts does it
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new PostgresExceptionFilter(httpAdapter));
 
   // API prefix matches production default
   app.setGlobalPrefix('api');

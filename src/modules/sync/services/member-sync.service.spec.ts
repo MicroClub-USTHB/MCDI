@@ -3,6 +3,7 @@ import { MemberSyncService } from './member-sync.service';
 import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
 import { PermissionCacheService } from '../../permissions/permission-cache.service';
+import { ServersRepository } from '../../servers/servers.repository';
 
 const mockMemberRepo = {
   upsertMember: jest.fn(),
@@ -20,6 +21,12 @@ const mockSyncLog = {
 const mockPermissionCache = {
   invalidateMember: jest.fn(),
   invalidateServer: jest.fn(),
+};
+
+const mockServersRepo = {
+  // Default: the guild is a registered server. Individual tests override to
+  // null to exercise the "unregistered guild" skip path.
+  findById: jest.fn().mockResolvedValue({ id: 'guild-1' }),
 };
 
 const makeGuildMember = (overrides: Partial<any> = {}): any => ({
@@ -55,12 +62,16 @@ describe('MemberSyncService', () => {
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: SyncLogService, useValue: mockSyncLog },
         { provide: PermissionCacheService, useValue: mockPermissionCache },
+        { provide: ServersRepository, useValue: mockServersRepo },
       ],
     }).compile();
     service = module.get(MemberSyncService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    jest.clearAllMocks();
+    mockServersRepo.findById.mockResolvedValue({ id: 'guild-1' });
+  });
 
   // ── processMember ─────────────────────────────────────────────────────
 
@@ -182,6 +193,42 @@ describe('MemberSyncService', () => {
 
       await service.handleMemberUpdate(same, same);
       expect(mockMemberRepo.upsertMember).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── unregistered guild guard ─────────────────────────────────────────
+
+  describe('real-time events for an unregistered guild', () => {
+    beforeEach(() => mockServersRepo.findById.mockResolvedValue(undefined));
+
+    it('handleMemberAdd is a no-op (no writes, no FK error)', async () => {
+      await service.handleMemberAdd(makeGuildMember());
+      expect(mockMemberRepo.upsertMember).not.toHaveBeenCalled();
+      expect(mockMemberRepo.upsertServerMembership).not.toHaveBeenCalled();
+      expect(mockSyncLog.recordEventChange).not.toHaveBeenCalled();
+    });
+
+    it('handleMemberRemove is a no-op', async () => {
+      await service.handleMemberRemove(makeGuildMember());
+      expect(mockMemberRepo.upsertServerMembership).not.toHaveBeenCalled();
+      expect(mockMemberRepo.recordMemberDeparture).not.toHaveBeenCalled();
+    });
+
+    it('handleMemberUpdate is a no-op', async () => {
+      const base = makeGuildMember();
+      const newer = makeGuildMember({ nickname: 'bob' });
+      await service.handleMemberUpdate(base, newer);
+      expect(mockMemberRepo.upsertServerMembership).not.toHaveBeenCalled();
+      expect(mockMemberRepo.upsertMember).not.toHaveBeenCalled();
+    });
+
+    it('the bulk syncAllMembers path is unaffected by the guard', async () => {
+      // processMember is called directly by the full-sync loop; it must not
+      // consult serversRepository.
+      const guild: any = { id: 'guild-9' };
+      await service.processMember(guild, makeGuildMember(), new Date());
+      expect(mockServersRepo.findById).not.toHaveBeenCalled();
+      expect(mockMemberRepo.upsertServerMembership).toHaveBeenCalled();
     });
   });
 

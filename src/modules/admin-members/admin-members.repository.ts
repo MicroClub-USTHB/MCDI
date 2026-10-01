@@ -142,8 +142,8 @@ export class AdminMembersRepository {
   async countMembers(
     filter: 'club' | 'all' = 'all',
     search?: string,
-    serverId?: string,
-    roleId?: string,
+    serverId?: string[],
+    roleId?: string[],
   ): Promise<number> {
     const conditions = this.buildMemberConditions(
       filter,
@@ -168,8 +168,8 @@ export class AdminMembersRepository {
     search: string | undefined,
     limit: number,
     offset: number,
-    serverId?: string,
-    roleId?: string,
+    serverId?: string[],
+    roleId?: string[],
   ): Promise<RawMemberListRow[]> {
     const conditions = this.buildMemberConditions(
       filter,
@@ -242,17 +242,17 @@ export class AdminMembersRepository {
   private buildMemberConditions(
     filter: 'club' | 'all' = 'all',
     search?: string,
-    serverId?: string,
-    roleId?: string,
+    serverId?: string[],
+    roleId?: string[],
   ): SQL[] {
     const conditions: SQL[] = [];
 
     // Filter by specific server or any managed server
-    if (serverId) {
+    if (serverId && serverId.length > 0) {
       const serverMemberSubquery = this.db
         .selectDistinct({ memberId: schema.serverMembers.memberId })
         .from(schema.serverMembers)
-        .where(eq(schema.serverMembers.serverId, serverId));
+        .where(inArray(schema.serverMembers.serverId, serverId));
 
       conditions.push(inArray(schema.members.id, serverMemberSubquery));
     } else {
@@ -287,11 +287,11 @@ export class AdminMembersRepository {
       conditions.push(inArray(schema.members.id, mainServerSubquery));
     }
 
-    if (roleId) {
+    if (roleId && roleId.length > 0) {
       const roleSubquery = this.db
         .select({ memberId: schema.serverMemberRoles.memberId })
         .from(schema.serverMemberRoles)
-        .where(eq(schema.serverMemberRoles.roleId, roleId));
+        .where(inArray(schema.serverMemberRoles.roleId, roleId));
 
       conditions.push(inArray(schema.members.id, roleSubquery));
     }

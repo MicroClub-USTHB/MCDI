@@ -1,155 +1,268 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { PermissionCacheService } from './permission-cache.service';
+import { RedisService } from '../../common/redis/redis.service';
+import { SettingsService } from '../admin-settings/settings.service';
 
-async function buildService() {
-  const mod = await Test.createTestingModule({
+const DEFAULT_TTL_MS = 5 * 60 * 1000;
+let lastSettingsMock: {
+  getPermissionCacheTtlMs: jest.Mock;
+  registerChangeListener: jest.Mock;
+};
+
+const fakeEntry = () => ({
+  permissions: ['READ_MEMBERS', 'WRITE_ROLES'],
+  sources: {
+    global: [] as string[],
+    server: ['READ_MEMBERS'],
+    hierarchy: [] as string[],
+    inherited: ['WRITE_ROLES'],
+  },
+});
+
+const mockRedisService = {
+  getJson: jest.fn(),
+  setJson: jest.fn(),
+  delete: jest.fn(),
+  sAdd: jest.fn(),
+  sMembers: jest.fn(),
+  expire: jest.fn(),
+  scanKeys: jest.fn(),
+};
+
+async function buildService(config: Record<string, unknown> = {}) {
+  lastSettingsMock = {
+    getPermissionCacheTtlMs: jest
+      .fn()
+      .mockReturnValue(
+        (config['app.permissionCacheTtlMs'] as number) ?? DEFAULT_TTL_MS,
+      ),
+    registerChangeListener: jest.fn(),
+  };
+  const module = await Test.createTestingModule({
     providers: [
       PermissionCacheService,
       {
         provide: ConfigService,
-        useValue: { get: jest.fn().mockReturnValue(5 * 60 * 1000) },
+        useValue: {
+          get: jest.fn((key: string) => config[key]),
+        },
       },
+      { provide: RedisService, useValue: mockRedisService },
+      { provide: SettingsService, useValue: lastSettingsMock },
     ],
   }).compile();
-  return mod.get(PermissionCacheService);
+
+  const svc = module.get(PermissionCacheService);
+  svc.onModuleInit();
+  return svc;
 }
 
-const fakeEntry = (
-  overrides: Partial<{
-    permissions: string[];
-    sources: {
-      global: string[];
-      server: string[];
-      hierarchy: string[];
-      inherited: string[];
-    };
-  }> = {},
-) => ({
-  permissions: ['READ_MEMBERS', 'WRITE_ROLES'],
-  sources: {
-    global: [],
-    server: ['READ_MEMBERS'],
-    hierarchy: [],
-    inherited: ['WRITE_ROLES'],
-  },
-  ...overrides,
-});
-
 describe('PermissionCacheService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockRedisService.delete.mockResolvedValue(0);
+    mockRedisService.sMembers.mockResolvedValue([]);
+    mockRedisService.scanKeys.mockResolvedValue([]);
+  });
+
   describe('get — cache miss', () => {
     it('returns null when no entry exists for (memberId, serverId)', async () => {
+      mockRedisService.getJson.mockResolvedValue(null);
+
       const svc = await buildService();
-      expect(svc.get('mem-1', 'srv-1')).toBeNull();
+      const result = await svc.get('mem-1', 'srv-1');
+
+      expect(result).toBeNull();
+      expect(mockRedisService.getJson).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:entry:mem-1:srv-1'),
+      );
     });
   });
 
   describe('set & get', () => {
     it('caches and retrieves permissions for a member/server pair', async () => {
-      const svc = await buildService();
       const entry = fakeEntry();
-      svc.set('mem-1', 'srv-1', entry);
+      mockRedisService.getJson.mockResolvedValue(entry);
 
-      const result = svc.get('mem-1', 'srv-1')!;
+      const svc = await buildService();
+      await svc.set('mem-1', 'srv-1', entry);
+
+      const result = await svc.get('mem-1', 'srv-1');
       expect(result).not.toBeNull();
-      expect(result.permissions).toEqual(['READ_MEMBERS', 'WRITE_ROLES']);
-      expect(result.sources.server).toEqual(['READ_MEMBERS']);
+      expect(result!.permissions).toEqual(['READ_MEMBERS', 'WRITE_ROLES']);
+      expect(result!.sources.server).toEqual(['READ_MEMBERS']);
     });
 
     it('stores different entries per member/server combination', async () => {
       const svc = await buildService();
-      svc.set('mem-1', 'srv-1', fakeEntry({ permissions: ['A'] }));
-      svc.set('mem-2', 'srv-1', fakeEntry({ permissions: ['B'] }));
 
-      expect(svc.get('mem-1', 'srv-1')!.permissions).toEqual(['A']);
-      expect(svc.get('mem-2', 'srv-1')!.permissions).toEqual(['B']);
+      mockRedisService.getJson.mockImplementation((key: string) => {
+        if (key.includes('mem-1:srv-1'))
+          return {
+            permissions: ['A'],
+            sources: { global: [], server: [], hierarchy: [], inherited: [] },
+          };
+        if (key.includes('mem-2:srv-1'))
+          return {
+            permissions: ['B'],
+            sources: { global: [], server: [], hierarchy: [], inherited: [] },
+          };
+        return null;
+      });
+
+      await svc.set('mem-1', 'srv-1', fakeEntry());
+      await svc.set('mem-2', 'srv-1', fakeEntry());
+
+      expect((await svc.get('mem-1', 'srv-1'))!.permissions).toEqual(['A']);
+      expect((await svc.get('mem-2', 'srv-1'))!.permissions).toEqual(['B']);
     });
 
     it('size() reflects number of cached entries', async () => {
+      mockRedisService.scanKeys.mockResolvedValue(['k1', 'k2']);
+
       const svc = await buildService();
-      expect(svc.size()).toBe(0);
-      svc.set('mem-1', 'srv-1', fakeEntry());
-      expect(svc.size()).toBe(1);
-      svc.set('mem-2', 'srv-1', fakeEntry());
-      expect(svc.size()).toBe(2);
+      expect(await svc.size()).toBe(2);
     });
   });
 
-  describe('get — expired entry', () => {
-    it('returns null and removes the entry when TTL has elapsed', async () => {
-      const svc = await buildService();
-      svc.set('mem-1', 'srv-1', fakeEntry());
+  describe('set — stores entry and maintains indices', () => {
+    it('sets JSON entry with TTL and adds to member/server indices', async () => {
+      const svc = await buildService({ 'app.permissionCacheTtlMs': 10_000 });
 
-      // Manually expire the entry by patching the internal store
-      const store: Map<string, any> = (svc as any).store;
-      const key = 'mem-1:srv-1';
-      const entry = store.get(key)!;
-      store.set(key, { ...entry, expiresAt: Date.now() - 1 });
+      await svc.set('mem-1', 'srv-1', fakeEntry());
 
-      expect(svc.get('mem-1', 'srv-1')).toBeNull();
-      expect(svc.size()).toBe(0); // entry was removed
+      expect(mockRedisService.setJson).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:entry:mem-1:srv-1'),
+        fakeEntry(),
+        10_000,
+      );
+      expect(mockRedisService.sAdd).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:member:mem-1'),
+        expect.stringContaining('perm-cache:entry:mem-1:srv-1'),
+      );
+      expect(mockRedisService.sAdd).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:server:srv-1'),
+        expect.stringContaining('perm-cache:entry:mem-1:srv-1'),
+      );
     });
   });
 
   describe('invalidateMember', () => {
     it('removes all entries for a given memberId across all servers', async () => {
+      mockRedisService.sMembers.mockResolvedValue([
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-1:srv-2',
+      ]);
+
       const svc = await buildService();
-      svc.set('mem-1', 'srv-1', fakeEntry());
-      svc.set('mem-1', 'srv-2', fakeEntry());
-      svc.set('mem-2', 'srv-1', fakeEntry());
+      await svc.invalidateMember('mem-1');
 
-      svc.invalidateMember('mem-1');
-
-      expect(svc.get('mem-1', 'srv-1')).toBeNull();
-      expect(svc.get('mem-1', 'srv-2')).toBeNull();
-      expect(svc.get('mem-2', 'srv-1')).not.toBeNull(); // unaffected
-      expect(svc.size()).toBe(1);
+      expect(mockRedisService.sMembers).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:member:mem-1'),
+      );
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:member:mem-1'),
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-1:srv-2',
+      );
     });
 
     it('does nothing when no entries exist for the member', async () => {
+      mockRedisService.sMembers.mockResolvedValue([]);
+
       const svc = await buildService();
-      svc.set('mem-2', 'srv-1', fakeEntry());
-      expect(() => svc.invalidateMember('mem-1')).not.toThrow();
-      expect(svc.size()).toBe(1);
+      await expect(svc.invalidateMember('mem-1')).resolves.not.toThrow();
+
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:member:mem-1'),
+      );
     });
   });
 
   describe('invalidateServer', () => {
     it('removes all entries for a given serverId across all members', async () => {
+      mockRedisService.sMembers.mockResolvedValue([
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-2:srv-1',
+      ]);
+
       const svc = await buildService();
-      svc.set('mem-1', 'srv-1', fakeEntry());
-      svc.set('mem-2', 'srv-1', fakeEntry());
-      svc.set('mem-1', 'srv-2', fakeEntry());
+      await svc.invalidateServer('srv-1');
 
-      svc.invalidateServer('srv-1');
-
-      expect(svc.get('mem-1', 'srv-1')).toBeNull();
-      expect(svc.get('mem-2', 'srv-1')).toBeNull();
-      expect(svc.get('mem-1', 'srv-2')).not.toBeNull(); // unaffected
-      expect(svc.size()).toBe(1);
+      expect(mockRedisService.sMembers).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:server:srv-1'),
+      );
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        expect.stringContaining('perm-cache:idx:server:srv-1'),
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-2:srv-1',
+      );
     });
 
     it('does nothing when no entries exist for the server', async () => {
+      mockRedisService.sMembers.mockResolvedValue([]);
+
       const svc = await buildService();
-      expect(() => svc.invalidateServer('srv-x')).not.toThrow();
+      await expect(svc.invalidateServer('srv-x')).resolves.not.toThrow();
     });
   });
 
   describe('clear', () => {
     it('flushes all entries from the cache', async () => {
-      const svc = await buildService();
-      svc.set('mem-1', 'srv-1', fakeEntry());
-      svc.set('mem-2', 'srv-2', fakeEntry());
-      expect(svc.size()).toBe(2);
+      mockRedisService.scanKeys.mockResolvedValue([
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-2:srv-2',
+      ]);
 
-      svc.clear();
-      expect(svc.size()).toBe(0);
-      expect(svc.get('mem-1', 'srv-1')).toBeNull();
+      const svc = await buildService();
+      await svc.clear();
+
+      expect(mockRedisService.scanKeys).toHaveBeenCalledWith(
+        'mcdi:perm-cache:*',
+      );
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+        'mcdi:perm-cache:entry:mem-2:srv-2',
+      );
     });
 
     it('does not throw when store is already empty', async () => {
+      mockRedisService.scanKeys.mockResolvedValue([]);
+
       const svc = await buildService();
-      expect(() => svc.clear()).not.toThrow();
+      await expect(svc.clear()).resolves.not.toThrow();
+    });
+  });
+
+  describe('settings change listener', () => {
+    it('flushes only when permissionCacheTtlMs decreases', async () => {
+      mockRedisService.scanKeys.mockResolvedValue([
+        'mcdi:perm-cache:entry:mem-1:srv-1',
+      ]);
+      await buildService();
+
+      expect(lastSettingsMock.registerChangeListener).toHaveBeenCalledTimes(1);
+      const listener = lastSettingsMock.registerChangeListener.mock.calls[0][0];
+
+      // Decrease → flush
+      await listener([
+        { key: 'permissionCacheTtlMs', from: 600_000, to: 300_000 },
+      ]);
+      expect(mockRedisService.scanKeys).toHaveBeenCalledWith(
+        'mcdi:perm-cache:*',
+      );
+
+      // Increase → no flush
+      mockRedisService.scanKeys.mockClear();
+      await listener([
+        { key: 'permissionCacheTtlMs', from: 300_000, to: 600_000 },
+      ]);
+      expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
+
+      // Unrelated key → no flush
+      await listener([{ key: 'statsCacheTtlMs', from: 600_000, to: 60_000 }]);
+      expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
     });
   });
 });

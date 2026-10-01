@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, inArray, or, sql, SQL } from 'drizzle-orm';
+import { and, eq, inArray, ne, or, sql, SQL } from 'drizzle-orm';
 import * as databaseModule from '../../database/database.module';
 import {
   permissions,
@@ -519,5 +519,213 @@ export class PermissionsRepository {
           .map((r) => r.permissionName),
       ),
     );
+  }
+
+  async getRoleWithServer(roleId: string): Promise<{
+    id: string;
+    serverId: string;
+    name: string;
+    isGlobal: boolean;
+    hierarchyLevel: number | null;
+  } | null> {
+    const [row] = await this.db
+      .select({
+        id: roles.id,
+        serverId: roles.serverId,
+        name: roles.name,
+        isGlobal: roles.isGlobal,
+        hierarchyLevel: roles.hierarchyLevel,
+      })
+      .from(roles)
+      .where(eq(roles.id, roleId))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  async getPermissionsByRole(
+    roleId: string,
+  ): Promise<{ id: number; key: string; description: string | null }[]> {
+    const rows = await this.db
+      .select({
+        id: permissions.id,
+        key: permissions.key,
+        description: permissions.description,
+      })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+      .where(eq(rolePermissions.roleId, roleId));
+
+    return rows;
+  }
+
+  async addPermissionsToRole(
+    roleId: string,
+    permissionIds: number[],
+  ): Promise<void> {
+    if (!permissionIds.length) return;
+
+    await this.db
+      .insert(rolePermissions)
+      .values(permissionIds.map((permissionId) => ({ roleId, permissionId })))
+      .onConflictDoNothing();
+  }
+
+  async removePermissionFromRole(
+    roleId: string,
+    permissionId: number,
+  ): Promise<void> {
+    await this.db
+      .delete(rolePermissions)
+      .where(
+        and(
+          eq(rolePermissions.roleId, roleId),
+          eq(rolePermissions.permissionId, permissionId),
+        ),
+      );
+  }
+
+  async getMembersByRole(roleId: string): Promise<string[]> {
+    const rows = await this.db
+      .select({ memberId: serverMemberRoles.memberId })
+      .from(serverMemberRoles)
+      .where(eq(serverMemberRoles.roleId, roleId));
+
+    return rows.map((r) => r.memberId);
+  }
+
+  async hasPermissionAnySource(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+  ): Promise<boolean> {
+    const results = await Promise.all([
+      this.hasGlobalRolePermission(memberId, permissionId),
+      this.hasServerPermission(memberId, serverId, permissionId),
+      this.hasHierarchyPermission(memberId, serverId, permissionId),
+      this.hasInheritedPermission(memberId, serverId, permissionId),
+    ]);
+    return results.some(Boolean);
+  }
+
+  async hasPermissionExcludingRole(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+    excludeRoleId: string,
+  ): Promise<boolean> {
+    const results = await Promise.all([
+      this.hasGlobalRolePermission(memberId, permissionId),
+      this.hasServerPermissionExcludingRole(
+        memberId,
+        serverId,
+        permissionId,
+        excludeRoleId,
+      ),
+      this.hasHierarchyPermissionExcludingRole(
+        memberId,
+        serverId,
+        permissionId,
+        excludeRoleId,
+      ),
+      this.hasInheritedPermission(memberId, serverId, permissionId),
+    ]);
+    return results.some(Boolean);
+  }
+
+  private async hasServerPermissionExcludingRole(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+    excludeRoleId: string,
+  ): Promise<boolean> {
+    const [row] = await this.db
+      .select({ roleId: serverMemberRoles.roleId })
+      .from(serverMembers)
+      .innerJoin(
+        serverMemberRoles,
+        eq(serverMemberRoles.memberId, serverMembers.memberId),
+      )
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .where(
+        and(
+          eq(serverMembers.memberId, memberId),
+          eq(serverMembers.serverId, serverId),
+          eq(roles.serverId, serverId),
+          eq(rolePermissions.permissionId, permissionId),
+          ne(roles.id, excludeRoleId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  private async hasHierarchyPermissionExcludingRole(
+    memberId: string,
+    serverId: string,
+    permissionId: number,
+    excludeRoleId: string,
+  ): Promise<boolean> {
+    const memberRoles = await this.db
+      .select({ hierarchyLevel: roles.hierarchyLevel })
+      .from(serverMemberRoles)
+      .innerJoin(roles, eq(roles.id, serverMemberRoles.roleId))
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      );
+
+    if (!memberRoles.length) return false;
+
+    const highestRank = Math.min(...memberRoles.map((r) => r.hierarchyLevel!));
+
+    const [row] = await this.db
+      .select({ roleId: roles.id })
+      .from(roles)
+      .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+          sql`${roles.hierarchyLevel} >= ${highestRank}`,
+          eq(rolePermissions.permissionId, permissionId),
+          ne(roles.id, excludeRoleId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(row);
+  }
+
+  async getMinHierarchyLevelInServer(serverId: string): Promise<number | null> {
+    const [row] = await this.db
+      .select({ minLevel: roles.hierarchyLevel })
+      .from(roles)
+      .where(
+        and(
+          eq(roles.serverId, serverId),
+          sql`${roles.hierarchyLevel} IS NOT NULL`,
+        ),
+      )
+      .orderBy(roles.hierarchyLevel)
+      .limit(1);
+
+    return row?.minLevel ?? null;
+  }
+
+  async findExistingPermissionIds(permissionIds: number[]): Promise<number[]> {
+    if (!permissionIds.length) return [];
+
+    const rows = await this.db
+      .select({ id: permissions.id })
+      .from(permissions)
+      .where(inArray(permissions.id, permissionIds));
+
+    return rows.map((r) => r.id);
   }
 }

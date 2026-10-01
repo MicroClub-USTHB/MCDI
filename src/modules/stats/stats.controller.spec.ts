@@ -8,6 +8,8 @@ const mockStatsService = {
   getMemberGrowth: jest.fn(),
   getRoleStats: jest.fn(),
   getServerStats: jest.fn(),
+  getCrossServerStats: jest.fn(),
+  exportStats: jest.fn(),
 };
 
 describe('StatsController', () => {
@@ -35,7 +37,12 @@ describe('StatsController', () => {
   });
 
   it('getMemberGrowth delegates to the service', async () => {
-    const expected = { data: [], period: '30d', totalGrowth: 0 };
+    const expected = {
+      data: [],
+      period: '30d',
+      totalGrowth: 0,
+      trend: 'stable',
+    };
     mockStatsService.getMemberGrowth.mockResolvedValue(expected);
     const dto = { period: '30d', granularity: 'daily' } as any;
     await expect(controller.getMemberGrowth(dto)).resolves.toBe(expected);
@@ -65,5 +72,32 @@ describe('StatsController', () => {
     mockStatsService.getServerStats.mockResolvedValue(expected);
     await expect(controller.getServerStats()).resolves.toBe(expected);
     expect(mockStatsService.getServerStats).toHaveBeenCalled();
+  });
+
+  it('getCrossServerStats delegates to the service', async () => {
+    const expected = { membersInMultipleServers: 0, overlaps: [] };
+    mockStatsService.getCrossServerStats.mockResolvedValue(expected);
+    await expect(controller.getCrossServerStats()).resolves.toBe(expected);
+    expect(mockStatsService.getCrossServerStats).toHaveBeenCalled();
+  });
+
+  it('exportStats streams the export with download headers', async () => {
+    mockStatsService.exportStats.mockResolvedValue({
+      content: 'serverId,memberCount\ns1,10',
+      contentType: 'text/csv',
+      filename: 'stats-servers-2026-06-22.csv',
+    });
+    const res = { setHeader: jest.fn(), send: jest.fn() };
+    const dto = { type: 'servers', format: 'csv' } as any;
+
+    await controller.exportStats(dto, res as any);
+
+    expect(mockStatsService.exportStats).toHaveBeenCalledWith(dto);
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="stats-servers-2026-06-22.csv"',
+    );
+    expect(res.send).toHaveBeenCalledWith('serverId,memberCount\ns1,10');
   });
 });

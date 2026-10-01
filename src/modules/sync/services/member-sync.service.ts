@@ -4,8 +4,9 @@ import { MemberRepository } from '../../members/member.repository';
 import { SyncLogService } from './sync-log.service';
 import { SyncChangeEntry } from '../sync-types';
 import { members } from '../../../database/entities/member.entity';
-import { withRetry } from '../sync-retry.util';
+import { withRetry } from '../../../common/utils/retry.util';
 import { PermissionCacheService } from '../../permissions/permission-cache.service';
+import { ServersRepository } from '../../servers/servers.repository';
 
 @Injectable()
 export class MemberSyncService {
@@ -15,7 +16,20 @@ export class MemberSyncService {
     private readonly memberRepository: MemberRepository,
     private readonly syncLogService: SyncLogService,
     private readonly permissionCache: PermissionCacheService,
+    private readonly serversRepository: ServersRepository,
   ) {}
+
+  /**
+   * Real-time gateway events fire for every guild the bot is in, including
+   * guilds that were never registered in MCDI. Writing `server_members` for one
+   * of those fails the `server_id` foreign key — and `ON CONFLICT DO NOTHING`
+   * does not cover FK violations — so unregistered guilds are skipped outright.
+   * The bulk `syncAllMembers` path is unaffected: it only runs for servers
+   * already loaded from the DB.
+   */
+  private async isRegisteredServer(serverId: string): Promise<boolean> {
+    return (await this.serversRepository.findById(serverId)) != null;
+  }
 
   /**
    * Upsert a single guild member's profile, server membership, and role list.
@@ -122,7 +136,7 @@ export class MemberSyncService {
       guild.id,
       syncStart,
     );
-    this.permissionCache.invalidateServer(guild.id);
+    await this.permissionCache.invalidateServer(guild.id);
     this.logger.log(
       `Deactivated ${deactivatedCount} members in server ${guild.id}`,
     );
@@ -147,8 +161,14 @@ export class MemberSyncService {
     this.logger.debug(
       `Member added: ${guildMember.id} in ${guildMember.guild.id}`,
     );
+    if (!(await this.isRegisteredServer(guildMember.guild.id))) {
+      this.logger.debug(
+        `Ignoring memberAdd for unregistered guild ${guildMember.guild.id}`,
+      );
+      return;
+    }
     await this.processMember(guildMember.guild, guildMember, new Date());
-    this.permissionCache.invalidateMember(guildMember.id);
+    await this.permissionCache.invalidateMember(guildMember.id);
     await this.syncLogService.recordEventChange(
       guildMember.guild.id,
       'member',
@@ -162,6 +182,12 @@ export class MemberSyncService {
     this.logger.debug(
       `Member removed: ${guildMember.id} in ${guildMember.guild.id}`,
     );
+    if (!(await this.isRegisteredServer(guildMember.guild.id))) {
+      this.logger.debug(
+        `Ignoring memberRemove for unregistered guild ${guildMember.guild.id}`,
+      );
+      return;
+    }
     await withRetry(
       () =>
         this.memberRepository.upsertServerMembership({
@@ -183,7 +209,7 @@ export class MemberSyncService {
       `handleMemberRemove recordMemberDeparture(${guildMember.id})`,
       this.logger,
     );
-    this.permissionCache.invalidateMember(guildMember.id);
+    await this.permissionCache.invalidateMember(guildMember.id);
     await this.syncLogService.recordEventChange(
       guildMember.guild.id,
       'member',
@@ -200,6 +226,12 @@ export class MemberSyncService {
     this.logger.debug(
       `Member updated: ${newMember.id} in ${newMember.guild.id}`,
     );
+    if (!(await this.isRegisteredServer(newMember.guild.id))) {
+      this.logger.debug(
+        `Ignoring memberUpdate for unregistered guild ${newMember.guild.id}`,
+      );
+      return;
+    }
     const syncTime = new Date();
 
     const profileChanged =
@@ -259,7 +291,7 @@ export class MemberSyncService {
       this.logger,
     );
     if (rolesChanged) {
-      this.permissionCache.invalidateMember(newMember.id);
+      await this.permissionCache.invalidateMember(newMember.id);
     }
 
     const changes: string[] = [];

@@ -36,6 +36,7 @@ import nock from 'nock';
 import { hashSessionToken } from '../src/common/utils/session-token.util';
 import { hashSsoToken } from '../src/common/utils/sso-token.util';
 import { hashRefreshToken } from '../src/common/utils/refresh-token.util';
+import { AuditService } from '../src/modules/audit/audit.service';
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -177,6 +178,37 @@ describeIf('/api/auth (e2e)', () => {
         .set('x-api-key', project.apiKey)
         .send({ token: 'does-not-exist-token-abc' })
         .expect(401);
+    });
+
+    it('records usage for this API-key route with the caller project and a duration', async () => {
+      const { project } = await seedProjectSessionContext('E2E Validate Usage');
+      const recordUsage = jest
+        .spyOn(app.get(AuditService), 'recordUsage')
+        .mockResolvedValue(undefined);
+
+      try {
+        await request(app.getHttpServer())
+          .post('/api/auth/validate')
+          .set('x-api-key', project.apiKey)
+          .send({ token: 'does-not-exist-token-abc' })
+          .expect(401);
+
+        // The middleware runs on the response "finish" event, which can land
+        // just after the client has already read the reply.
+        for (let i = 0; i < 50 && recordUsage.mock.calls.length === 0; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+
+        expect(recordUsage).toHaveBeenCalledWith(
+          'POST',
+          '/auth/validate',
+          401,
+          expect.any(Number),
+          project.id,
+        );
+      } finally {
+        recordUsage.mockRestore();
+      }
     });
 
     it('returns 401 for expired token', async () => {
@@ -927,6 +959,45 @@ describeIf('/api/auth (e2e)', () => {
         .get('/api/auth/admin/me')
         .set('Authorization', `Bearer ${expiredToken}`)
         .expect(401);
+    });
+  });
+
+  // ─── GET /api/admin/monitoring/auth-failures ──────────────────
+
+  describe('GET /api/admin/monitoring/auth-failures', () => {
+    it('lists a rejected bearer token with its reason, path and IP', async () => {
+      const { bearerToken } = await seedAdminContext(db);
+
+      await request(app.getHttpServer())
+        .get('/api/admin/monitoring/health')
+        .set('Authorization', 'Bearer not-a-real-token')
+        .expect(401);
+
+      // The audit row is written on the response "finish" event, so poll the
+      // endpoint instead of asserting on the first read.
+      let failures: Array<Record<string, unknown>> = [];
+      for (let i = 0; i < 50 && failures.length === 0; i++) {
+        const res = await request(app.getHttpServer())
+          .get('/api/admin/monitoring/auth-failures')
+          .set('Authorization', `Bearer ${bearerToken}`)
+          .expect(200);
+        failures = (res.body.failures as Array<Record<string, unknown>>).filter(
+          (f) => f.path === '/admin/monitoring/health',
+        );
+        if (failures.length === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        reason: 'Invalid or expired session',
+        attemptedActor: null,
+        actorId: null,
+        path: '/admin/monitoring/health',
+      });
+      expect(typeof failures[0].ipAddress).toBe('string');
+      expect(new Date(failures[0].timestamp as string).getTime()).not.toBeNaN();
     });
   });
 });

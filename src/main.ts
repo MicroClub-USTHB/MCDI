@@ -17,6 +17,9 @@ async function bootstrap() {
     rawBody: true,
   });
   app.enableShutdownHooks();
+  // Webhook avatars arrive as base64 JSON (up to 256KB decoded), which
+  // overflows Express's default 100kb JSON body limit
+  app.useBodyParser('json', { limit: '512kb' });
   const configService = app.get(ConfigService);
 
   const port = configService.get<number>('app.port') || 3000;
@@ -118,6 +121,14 @@ async function bootstrap() {
     .addTag(
       'Servers',
       'Discord server registration and lifecycle management — system admin only',
+    )
+    .addTag(
+      'Channels',
+      'Discord channel listing, message history, and message sending — project API key',
+    )
+    .addTag(
+      'Webhooks',
+      'Discord webhook creation and management, authenticated with a project API key',
     )
     .addTag(
       'Sync',

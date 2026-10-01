@@ -13,9 +13,13 @@ import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { AdminMembersModule } from './modules/admin-members/admin-members.module';
+import { AdminChannelsModule } from './modules/admin-channels/admin-channels.module';
+import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
+import { ChannelsModule } from './modules/channels/channels.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { InboundWebhooksModule } from './modules/inbound-webhooks/inbound-webhooks.module';
@@ -45,6 +49,10 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     ProjectsModule,
     SyncModule,
     AdminMembersModule,
+    ChannelsModule,
+    AdminChannelsModule,
+    AdminSettingsModule,
+    WebhooksModule,
     AuditModule,
     StatsModule,
     InboundWebhooksModule,
@@ -60,6 +68,11 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(MethodNotAllowedMiddleware).forRoutes('*');
-    consumer.apply(AuditLoggingMiddleware).forRoutes('admin/*');
+    // Usage telemetry needs every route; audit rows stay limited to the admin
+    // mutations in the middleware's route map.
+    consumer
+      .apply(AuditLoggingMiddleware)
+      .exclude('health', 'docs', 'docs/{*splat}', 'docs-json', 'docs-yaml')
+      .forRoutes('*');
   }
 }

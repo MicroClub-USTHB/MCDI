@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -31,6 +32,10 @@ import {
 } from './dto/check-permissions-batch.dto';
 import { UpsertInheritanceRuleDto } from './dto/upsert-inheritance-rule.dto';
 import { ListInheritanceRulesDto } from './dto/list-inheritance-rules.dto';
+import { AssignPermissionsDto } from './dto/assign-permissions.dto';
+import { ImpactPreviewDto } from './dto/impact-preview.dto';
+import { RolePermissionsResponseDto } from './dto/role-permissions-response.dto';
+import { ImpactPreviewResponseDto } from './dto/impact-preview-response.dto';
 import { PermissionsService } from './permissions.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -189,5 +194,160 @@ export class PermissionsController {
   @ApiBadRequestResponse({ description: 'Invalid parameter format.' })
   listInheritanceRules(@Query() query: ListInheritanceRulesDto) {
     return this.permissionsService.listInheritanceRules(query);
+  }
+
+  // ─── Role-Permission Management API ────────────────────────────────
+
+  @Get('admin/servers/:serverId/roles/:roleId/permissions')
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Get all permissions assigned to a role',
+    description:
+      'Returns the list of permissions currently assigned to a specific role in a server.',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'Discord role snowflake ID',
+    example: '987654321098765432',
+  })
+  @ApiOkResponse({
+    description: 'Role permissions list returned.',
+    type: RolePermissionsResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid path parameter format.' })
+  getRolePermissions(
+    @Param('serverId') serverId: string,
+    @Param('roleId') roleId: string,
+  ): Promise<RolePermissionsResponseDto> {
+    return this.permissionsService.getRolePermissions(serverId, roleId);
+  }
+
+  @Post('admin/servers/:serverId/roles/:roleId/permissions')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Add permissions to a role',
+    description:
+      'Assigns one or more permissions to a role. ' +
+      'Cache is invalidated immediately after the change.',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'Discord role snowflake ID',
+    example: '987654321098765432',
+  })
+  @ApiBody({ type: AssignPermissionsDto })
+  @ApiOkResponse({
+    description: 'Updated role permissions list returned.',
+    type: RolePermissionsResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  assignPermissionsToRole(
+    @Param('serverId') serverId: string,
+    @Param('roleId') roleId: string,
+    @Body() dto: AssignPermissionsDto,
+  ): Promise<RolePermissionsResponseDto> {
+    return this.permissionsService.assignPermissionsToRole(
+      serverId,
+      roleId,
+      dto,
+    );
+  }
+
+  @Delete('admin/servers/:serverId/roles/:roleId/permissions/:permissionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Remove a permission from a role',
+    description:
+      'Removes a single permission from a role. ' +
+      'Executive roles (global or highest-ranking) are protected from modification. ' +
+      'Cache is invalidated immediately after the change.',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'Discord role snowflake ID',
+    example: '987654321098765432',
+  })
+  @ApiParam({
+    name: 'permissionId',
+    description: 'Permission ID to remove',
+    example: 1,
+  })
+  @ApiOkResponse({ description: 'Permission removed successfully.' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({
+    description:
+      'System Admin access required, or role is protected from modification.',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid path parameter format.' })
+  async removePermissionFromRole(
+    @Param('serverId') serverId: string,
+    @Param('roleId') roleId: string,
+    @Param('permissionId') permissionId: string,
+  ): Promise<void> {
+    await this.permissionsService.removePermissionFromRole(
+      serverId,
+      roleId,
+      parseInt(permissionId, 10),
+    );
+  }
+
+  @Post('admin/servers/:serverId/roles/:roleId/impact')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(SystemAdminGuard)
+  @ApiBearerAuth('session-token')
+  @ApiOperation({
+    summary: 'Preview impact of a permission change on a role',
+    description:
+      'Read-only endpoint that returns how many members would be affected ' +
+      'by adding or removing permissions from a role. Does not modify any data.',
+  })
+  @ApiParam({
+    name: 'serverId',
+    description: 'Discord guild snowflake ID',
+    example: '123456789012345678',
+  })
+  @ApiParam({
+    name: 'roleId',
+    description: 'Discord role snowflake ID',
+    example: '987654321098765432',
+  })
+  @ApiBody({ type: ImpactPreviewDto })
+  @ApiOkResponse({
+    description: 'Impact preview returned.',
+    type: ImpactPreviewResponseDto,
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication required.' })
+  @ApiForbiddenResponse({ description: 'System Admin access required.' })
+  @ApiBadRequestResponse({ description: 'Invalid request body.' })
+  previewImpact(
+    @Param('serverId') serverId: string,
+    @Param('roleId') roleId: string,
+    @Body() dto: ImpactPreviewDto,
+  ): Promise<ImpactPreviewResponseDto> {
+    return this.permissionsService.previewImpact(serverId, roleId, dto);
   }
 }
