@@ -10,10 +10,7 @@ const ctx = (req: Record<string, unknown>): ExecutionContext =>
   }) as unknown as ExecutionContext;
 
 describe('InboundWebhookReadGuard', () => {
-  let repository: {
-    findMemberRoleIds: jest.Mock;
-    isSystemAdmin: jest.Mock;
-  };
+  let repository: { findMemberRoleIds: jest.Mock };
   let service: {
     getAllowedRoleIdsCached: jest.Mock;
     auditReadDenied: jest.Mock;
@@ -21,10 +18,7 @@ describe('InboundWebhookReadGuard', () => {
   let guard: InboundWebhookReadGuard;
 
   beforeEach(() => {
-    repository = {
-      findMemberRoleIds: jest.fn().mockResolvedValue([]),
-      isSystemAdmin: jest.fn().mockResolvedValue(false),
-    };
+    repository = { findMemberRoleIds: jest.fn().mockResolvedValue([]) };
     service = {
       getAllowedRoleIdsCached: jest.fn().mockResolvedValue([]),
       auditReadDenied: jest.fn().mockResolvedValue(undefined),
@@ -69,15 +63,14 @@ describe('InboundWebhookReadGuard', () => {
     expect(service.auditReadDenied).toHaveBeenCalledWith(WEBHOOK, MEMBER);
   });
 
-  it('allows a system admin with no matching role', async () => {
+  it('does not let an admin role bypass the grants', async () => {
     service.getAllowedRoleIdsCached.mockResolvedValue(['role-a']);
-    repository.findMemberRoleIds.mockResolvedValue([]);
-    repository.isSystemAdmin.mockResolvedValue(true);
+    repository.findMemberRoleIds.mockResolvedValue(['role-exec']);
 
-    const req = request();
-    await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
-    expect((req as Record<string, unknown>).matchedViaRoleId).toBeNull();
-    expect(service.auditReadDenied).not.toHaveBeenCalled();
+    await expect(guard.canActivate(ctx(request()))).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(service.auditReadDenied).toHaveBeenCalledWith(WEBHOOK, MEMBER);
   });
 
   it('denies once a role has been revoked', async () => {

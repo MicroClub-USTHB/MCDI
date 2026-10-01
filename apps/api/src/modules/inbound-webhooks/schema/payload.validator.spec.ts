@@ -102,6 +102,47 @@ describe('validatePayload (Layer 2)', () => {
         codes(validatePayload(schema, { step: { s: 42 } }, opts)),
       ).toContain('INVALID_TYPE');
     });
+    it('does not run the pattern on a value that is already too long', () => {
+      expect(
+        codes(validatePayload(schema, { step: { s: 'ABCDEFGH' } }, opts)),
+      ).toEqual(['TOO_LONG']);
+    });
+  });
+
+  describe('string — catastrophic pattern', () => {
+    const schema = build([
+      { key: 's', type: 'string', required: true, pattern: '(a+)+$' },
+      { key: 'n', type: 'number', required: true },
+    ]);
+    const evil = 'a'.repeat(40) + '!';
+
+    it('interrupts the pattern instead of blocking the event loop', () => {
+      const started = Date.now();
+      const r = validatePayload(schema, { step: { s: evil, n: 1 } }, opts);
+      expect(Date.now() - started).toBeLessThan(1000);
+      expect(codes(r)).toEqual(['PATTERN_TIMEOUT']);
+      expect(paths(r)).toEqual(['step.s']);
+    });
+
+    it('stops validating at the timeout but keeps earlier errors', () => {
+      const r = validatePayload(
+        build([
+          { key: 'first', type: 'number', required: true },
+          { key: 's', type: 'string', required: true, pattern: '(a+)+$' },
+          { key: 'last', type: 'number', required: true },
+        ]),
+        { step: { first: 'x', s: evil, last: 'x' } },
+        opts,
+      );
+      expect(codes(r)).toEqual(['INVALID_TYPE', 'PATTERN_TIMEOUT']);
+    });
+
+    it('still validates normally after a timeout', () => {
+      validatePayload(schema, { step: { s: evil, n: 1 } }, opts);
+      expect(
+        validatePayload(schema, { step: { s: 'aaa', n: 1 } }, opts).ok,
+      ).toBe(true);
+    });
   });
 
   describe('number', () => {
@@ -176,6 +217,27 @@ describe('validatePayload (Layer 2)', () => {
       expect(
         codes(validatePayload(schema, { step: { e: 'a@gmail.com' } }, opts)),
       ).toContain('DOMAIN_NOT_ALLOWED');
+    });
+    it('rejects an address longer than 254 characters', () => {
+      const e = `${'a'.repeat(250)}@usthb.dz`;
+      expect(codes(validatePayload(schema, { step: { e } }, opts))).toEqual([
+        'INVALID_EMAIL',
+      ]);
+    });
+    it('rejects an empty domain label', () => {
+      const anyDomain = build([{ key: 'e', type: 'email', required: true }]);
+      for (const e of ['a@b..c', 'a@b.c.']) {
+        expect(
+          codes(validatePayload(anyDomain, { step: { e } }, opts)),
+        ).toEqual(['INVALID_EMAIL']);
+      }
+    });
+    it('accepts a subdomain address', () => {
+      const anyDomain = build([{ key: 'e', type: 'email', required: true }]);
+      expect(
+        validatePayload(anyDomain, { step: { e: 'a.b@mail.usthb.dz' } }, opts)
+          .ok,
+      ).toBe(true);
     });
   });
 

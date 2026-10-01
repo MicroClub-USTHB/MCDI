@@ -13,6 +13,7 @@ import {
   FormStep,
   SCHEMA_LIMITS,
 } from './form-schema.types';
+import { createContext, Script } from 'vm';
 import { evaluateCondition } from './condition.evaluator';
 
 export type FieldError = { path: string; code: string; message: string };
@@ -41,9 +42,39 @@ export type ValidateOptions = {
   now?: Date;
 };
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Domain labels exclude '.', so the match is unambiguous and runs in linear
+// time. Letting '.' into the label class made it quadratic on "a@.....@".
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+/** RFC 5321 caps a forward path at 254 characters. */
+const EMAIL_MAX_LENGTH = 254;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PHONE_RE = /^\+?[0-9 ()-]{6,20}$/;
+
+/** Budget for one admin-authored pattern test. */
+const PATTERN_TIMEOUT_MS = 50;
+const patternSandbox: { re?: RegExp; s?: string } = {};
+const patternContext = createContext(patternSandbox);
+const patternScript = new Script('re.test(s)');
+
+/**
+ * Tests a stored pattern under a time budget. `vm` is used only for its
+ * timeout: a pattern like `(a+)+$` is interrupted instead of blocking the
+ * event loop for every route. Throws on timeout.
+ */
+function testPattern(pattern: string, value: string): boolean {
+  patternSandbox.re = new RegExp(pattern);
+  patternSandbox.s = value;
+  return patternScript.runInContext(patternContext, {
+    timeout: PATTERN_TIMEOUT_MS,
+  }) as boolean;
+}
+
+/** Aborts validation: one request may spend the pattern budget only once. */
+class PatternTimeoutError extends Error {
+  constructor(readonly path: string) {
+    super(`Pattern timed out at ${path}`);
+  }
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -59,6 +90,20 @@ class PayloadChecker {
   ) {}
 
   run(payload: Record<string, unknown>): PayloadValidationResult {
+    try {
+      return this.check(payload);
+    } catch (error) {
+      if (!(error instanceof PatternTimeoutError)) throw error;
+      this.push(
+        error.path,
+        'PATTERN_TIMEOUT',
+        'Value could not be checked against the required format in time',
+      );
+      return { ok: false, errors: this.errors };
+    }
+  }
+
+  private check(payload: Record<string, unknown>): PayloadValidationResult {
     const steps = this.opts.onlyStep
       ? this.schema.steps.filter((s) => s.key === this.opts.onlyStep)
       : this.schema.steps;
@@ -199,18 +244,28 @@ class PayloadChecker {
         }
         if (max !== undefined && v.length > max) {
           this.push(path, 'TOO_LONG', `Must be at most ${max} characters`);
+          return v;
         }
         if (field.type === 'string' && field.pattern) {
+          let matches: boolean;
           try {
-            if (!new RegExp(field.pattern).test(v)) {
-              this.push(
-                path,
-                'PATTERN_MISMATCH',
-                'Value does not match the required format',
-              );
+            matches = testPattern(field.pattern, v);
+          } catch (error) {
+            if (
+              (error as NodeJS.ErrnoException).code ===
+              'ERR_SCRIPT_EXECUTION_TIMEOUT'
+            ) {
+              throw new PatternTimeoutError(path);
             }
-          } catch {
             // Layer 1 guarantees this compiles; ignore defensively.
+            matches = true;
+          }
+          if (!matches) {
+            this.push(
+              path,
+              'PATTERN_MISMATCH',
+              'Value does not match the required format',
+            );
           }
         }
         return v;
@@ -244,7 +299,7 @@ class PayloadChecker {
       case 'email': {
         if (typeof raw !== 'string') return this.typeError(path, 'string');
         const v = raw.trim().toLowerCase();
-        if (!EMAIL_RE.test(v)) {
+        if (v.length > EMAIL_MAX_LENGTH || !EMAIL_RE.test(v)) {
           this.push(path, 'INVALID_EMAIL', 'Not a valid email address');
           return undefined;
         }

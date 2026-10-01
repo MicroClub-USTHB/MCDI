@@ -453,6 +453,13 @@ export class InboundWebhooksService {
     });
 
     if (!result.ok) {
+      const timedOut = result.errors.find((e) => e.code === 'PATTERN_TIMEOUT');
+      if (timedOut) {
+        // The stored pattern is the fault, not the caller: an admin has to fix it.
+        this.logger.warn(
+          `Pattern timed out on webhook ${webhook.id} at ${timedOut.path}`,
+        );
+      }
       throw new UnprocessableEntityException({
         statusCode: 422,
         error: 'ValidationFailed',
@@ -533,8 +540,9 @@ export class InboundWebhooksService {
       });
     }
 
-    // Replay protection: the same signature may be presented only once within
-    // the tolerance window.
+    // Replay protection: the same signature may be presented only once for as
+    // long as it verifies. That is until t + tolerance, and t may itself be up
+    // to `tolerance` ahead of our clock, hence a key that lives twice as long.
     //
     // Deliberately fails OPEN when Redis is unreachable. Treating "no answer"
     // as "already seen" would turn a cache blip into a total ingest outage,
@@ -544,7 +552,7 @@ export class InboundWebhooksService {
     const state = await this.redisService.setIfAbsent(
       key,
       '1',
-      tolerance * 1000,
+      tolerance * 2 * 1000,
     );
     if (state === 'exists') {
       throw new ConflictException('This request has already been processed');

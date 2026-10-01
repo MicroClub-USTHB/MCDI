@@ -304,15 +304,6 @@ export class InboundWebhooksRepository {
     return rows.map((r) => r.roleId);
   }
 
-  async isSystemAdmin(memberId: string): Promise<boolean> {
-    const [row] = await this.db
-      .select({ isSystemAdmin: schema.members.isSystemAdmin })
-      .from(schema.members)
-      .where(eq(schema.members.id, memberId))
-      .limit(1);
-    return row?.isSystemAdmin ?? false;
-  }
-
   // ─── Submissions ────────────────────────────────────────────────────────
 
   async insertSubmission(data: {

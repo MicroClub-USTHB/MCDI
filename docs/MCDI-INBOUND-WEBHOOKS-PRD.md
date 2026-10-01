@@ -188,7 +188,7 @@ Club member (browser, Discord session)
 │ InboundWebhookReadGuard                             │
 │   allowed  = roles granted on this webhook          │
 │   held     = member's roles on the webhook's server │
-│   allowed ∩ held ≠ ∅  OR  system admin   → allow    │
+│   allowed ∩ held ≠ ∅                     → allow    │
 │   otherwise                              → 404      │
 └─────────────────────────────────────────────────────┘
    ▼
@@ -540,7 +540,8 @@ const app = await NestFactory.create<NestExpressApplication>(AppModule, {
 ```
 
 Timestamp tolerance is ±300s. Replay protection is a Redis `SETNX` on the signature
-for the tolerance window.
+for twice the tolerance window: a signature verifies until `t + tolerance`, and `t`
+may itself be up to `tolerance` ahead of the server clock.
 
 ### 9.3 Threat table
 
@@ -611,8 +612,8 @@ new endpoint:
 2. webhookId from params → granted role ids        (Redis-cached)
 3. member's role ids on that webhook's server      (uncached, indexed)
 4. intersection non-empty            → allow
-   else system admin                 → allow
    else                              → 404
+   (a system admin role does not bypass the grant)
 ```
 
 **404, not 403.** A `403` confirms the webhook exists and that the caller merely
@@ -869,7 +870,7 @@ The highest-risk issue in this PRD. A bug here shows one person's submissions to
 another.
 
 - [ ] `findMemberRoleIds(memberId, serverId)` in `permissions.repository.ts`
-- [ ] `InboundWebhookReadGuard`: intersection, admin bypass, **404 on denial**
+- [ ] `InboundWebhookReadGuard`: intersection, no admin bypass, **404 on denial**
 - [ ] Read controller under `SessionGuard` + the read guard
 - [ ] `GET /inbound-webhooks` filters by role **in the query**, so totals do not leak
 - [ ] Granted-role set cached in Redis; member role lookup left uncached

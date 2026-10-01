@@ -17,6 +17,9 @@ export type RequestWithReadAccess = Request & {
 /**
  * Gates submission reads on Discord role membership.
  *
+ * The grant is the only way in: a system admin role does not bypass it. An
+ * admin who needs to read a webhook grants it a role they hold.
+ *
  * Runs after SessionGuard, which populates `req.memberId`.
  *
  * Denial is a 404, never a 403: a 403 would confirm the webhook exists and
@@ -51,11 +54,6 @@ export class InboundWebhookReadGuard implements CanActivate {
 
     if (matched) {
       request.matchedViaRoleId = matched;
-      return true;
-    }
-
-    if (await this.repository.isSystemAdmin(memberId)) {
-      request.matchedViaRoleId = null;
       return true;
     }
 
