@@ -1,0 +1,183 @@
+@import 'tailwindcss';
+
+@theme {
+  /* Brand Colors (Discord Blurple) */
+  --color-brand: #5865f2;
+  --color-brand-hover: #4752c4;
+  --color-brand-active: #3c45a5;
+  --color-brand-light: #8b9cfc;
+  --color-brand-tint: rgba(88, 101, 242, 0.15);
+
+  /* Surface Colors (Layered Dark) */
+  --color-surface-base: #1e1f22;
+  --color-surface-raised: #2b2d31;
+  --color-surface-main: #313338;
+  --color-surface-hover: #35363c;
+  --color-surface-active: #404249;
+  --color-surface-elevated: #4e5058;
+
+  /* Text Hierarchy */
+  --color-text-primary: #f2f3f5;
+  --color-text-normal: #dbdee1;
+  --color-text-muted: #b5bac1;
+  --color-text-subtle: #949ba4;
+  --color-text-faint: #6d6f78;
+
+  /* Semantic Colors */
+  --color-success: #23a559;
+  --color-error: #da373c;
+  --color-warning: #f0b232;
+  --color-info: #5865f2;
+  --color-accent: #eb459e;
+
+  /* Border Colors */
+  --color-border: #3f4147;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-hover: #4e5058;
+  --color-border-focus: #5865f2;
+
+  /* Text on brand-filled surfaces. Pure white, not `text-primary`: on #5865F2
+     white clears WCAG AA at 4.6:1 while #F2F3F5 lands at 4.15:1 and fails for
+     body-size text. */
+  --color-on-brand: #ffffff;
+
+  /* Modal/drawer backdrop scrim. */
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Elevation — named for what they sit on, so the choice is obvious at the
+     call site. "None" is Tailwind's `shadow-none`. */
+  --shadow-divider: 0 1px 2px rgba(0, 0, 0, 0.7);
+  --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.75);
+  --shadow-dropdown: 0 4px 8px rgba(0, 0, 0, 0.8);
+  --shadow-modal: 0 8px 16px rgba(0, 0, 0, 0.85);
+
+  /* Border Radius — buttons 6px (md), cards 8px (lg), avatars 50% (full) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Typography */
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains-mono);
+
+  /* Type scale. Line heights are not specified by the design directive —
+     these are conventional values chosen to keep each role readable. */
+  --text-hero: 22px;
+  --text-hero--font-weight: 800;
+  --text-hero--line-height: 1.2;
+
+  --text-heading: 16px;
+  --text-heading--font-weight: 700;
+  --text-heading--line-height: 1.3;
+
+  --text-subhead: 14px;
+  --text-subhead--font-weight: 600;
+  --text-subhead--line-height: 1.4;
+
+  --text-body: 14px;
+  --text-body--font-weight: 500;
+  --text-body--line-height: 1.5;
+
+  --text-overline: 12px;
+  --text-overline--font-weight: 600;
+  --text-overline--line-height: 1.4;
+  --text-overline--letter-spacing: 0.06em;
+
+  --text-code: 13px;
+  --text-code--font-weight: 500;
+  --text-code--line-height: 1.5;
+
+  /* Layout */
+  --spacing-topbar: 52px;
+  --spacing-sidebar: 240px;
+
+  /* Base tokens */
+  --color-background: #1e1f22;
+  --color-foreground: #f2f3f5;
+
+  /* Animation */
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-sync-indeterminate: sync-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes sync-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: var(--color-brand);
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface-base);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-elevated);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-faint);
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+    background: linear-gradient(
+      90deg,
+      rgba(78, 80, 88, 0.1) 25%,
+      rgba(78, 80, 88, 0.3) 50%,
+      rgba(78, 80, 88, 0.1) 75%
+    );
+    background-size: 200% 100%;
+  }
+}

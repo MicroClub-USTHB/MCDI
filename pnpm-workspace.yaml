@@ -1,0 +1,18 @@
+packages:
+  - apps/*
+  - packages/*
+
+overrides:
+  minimatch: 5.1.6
+  undici: '>=6.27.0 <7.0.0'
+  # jsdom 29 (web tests) needs undici 7; the <7 pin above is for the API's dependency tree
+  jsdom>undici: '^7.25.0'
+  ws: '>=8.21.0'
+  path-to-regexp: '>=8.1.0'
+  # msw (web tests) matches routes like `(.*)/x`, which path-to-regexp 8 rejects
+  msw>path-to-regexp: '^6.3.0'
+  lodash: '>=4.17.21'
+  multer: '>=2.2.0'
+  form-data: '>=4.0.6'
+  picomatch: '>=4.0.4'
+  js-yaml: '>=4.2.0'
