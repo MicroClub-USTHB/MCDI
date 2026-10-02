@@ -296,6 +296,62 @@ export class MemberRepository {
     });
   }
 
+  /**
+   * Drops a departed member's roles in one server. Permission resolution
+   * reads role links without checking membership, so a stale link would keep
+   * granting global and inherited permissions after the member left.
+   */
+  async removeMemberRolesForServer(
+    serverId: string,
+    memberId: string,
+  ): Promise<void> {
+    await this.db
+      .delete(serverMemberRoles)
+      .where(
+        and(
+          eq(serverMemberRoles.memberId, memberId),
+          inArray(
+            serverMemberRoles.roleId,
+            this.db
+              .select({ id: roles.id })
+              .from(roles)
+              .where(eq(roles.serverId, serverId)),
+          ),
+        ),
+      );
+  }
+
+  private async deleteRolesOfInactiveMembers(
+    tx: Pick<NodePgDatabase<typeof schema>, 'delete' | 'select'>,
+    serverId: string,
+  ): Promise<void> {
+    await tx
+      .delete(serverMemberRoles)
+      .where(
+        and(
+          inArray(
+            serverMemberRoles.roleId,
+            tx
+              .select({ id: roles.id })
+              .from(roles)
+              .where(eq(roles.serverId, serverId)),
+          ),
+          inArray(
+            serverMemberRoles.memberId,
+            tx
+              .select({ id: serverMembers.memberId })
+              .from(serverMembers)
+              .where(
+                and(
+                  eq(serverMembers.serverId, serverId),
+                  eq(serverMembers.isActive, false),
+                ),
+              ),
+          ),
+        ),
+      );
+  }
+
   async markInactiveForServer(
     serverId: string,
     syncStart: Date,
@@ -323,6 +379,9 @@ export class MemberRepository {
           })),
         );
       }
+
+      // Covers members deactivated before this fix as well as this run.
+      await this.deleteRolesOfInactiveMembers(tx, serverId);
 
       return deactivated.length;
     });

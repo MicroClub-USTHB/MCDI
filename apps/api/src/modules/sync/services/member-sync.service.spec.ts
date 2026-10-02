@@ -11,6 +11,7 @@ const mockMemberRepo = {
   replaceMemberRoles: jest.fn(),
   markInactiveForServer: jest.fn(),
   recordMemberDeparture: jest.fn(),
+  removeMemberRolesForServer: jest.fn(),
   deleteMemberRolesByRoleId: jest.fn(),
 };
 
@@ -128,6 +129,7 @@ describe('MemberSyncService', () => {
     it('marks membership inactive and records removal', async () => {
       mockMemberRepo.upsertServerMembership.mockResolvedValue(undefined);
       mockMemberRepo.recordMemberDeparture.mockResolvedValue(undefined);
+      mockMemberRepo.removeMemberRolesForServer.mockResolvedValue(undefined);
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleMemberRemove(makeGuildMember());
@@ -138,6 +140,10 @@ describe('MemberSyncService', () => {
         expect.objectContaining({ isActive: false }),
       );
       expect(mockMemberRepo.recordMemberDeparture).toHaveBeenCalledWith(
+        'guild-1',
+        'user-1',
+      );
+      expect(mockMemberRepo.removeMemberRolesForServer).toHaveBeenCalledWith(
         'guild-1',
         'user-1',
       );
