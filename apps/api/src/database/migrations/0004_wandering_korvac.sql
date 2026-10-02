@@ -1,4 +1,4 @@
-CREATE TABLE "inbound_webhook_drafts" (
+CREATE TABLE IF NOT EXISTS "inbound_webhook_drafts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"webhook_id" uuid NOT NULL,
 	"project_id" uuid NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE "inbound_webhook_drafts" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "inbound_webhook_files" (
+CREATE TABLE IF NOT EXISTS "inbound_webhook_files" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"webhook_id" uuid NOT NULL,
 	"draft_id" uuid,
@@ -25,7 +25,7 @@ CREATE TABLE "inbound_webhook_files" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "inbound_webhook_roles" (
+CREATE TABLE IF NOT EXISTS "inbound_webhook_roles" (
 	"webhook_id" uuid NOT NULL,
 	"role_id" varchar(255) NOT NULL,
 	"granted_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE "inbound_webhook_roles" (
 	CONSTRAINT "inbound_webhook_roles_webhook_id_role_id_pk" PRIMARY KEY("webhook_id","role_id")
 );
 --> statement-breakpoint
-CREATE TABLE "inbound_webhook_submissions" (
+CREATE TABLE IF NOT EXISTS "inbound_webhook_submissions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"webhook_id" uuid NOT NULL,
 	"project_id" uuid NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE "inbound_webhook_submissions" (
 	"received_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "inbound_webhooks" (
+CREATE TABLE IF NOT EXISTS "inbound_webhooks" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
 	"name" varchar(255) NOT NULL,
@@ -64,24 +64,79 @@ CREATE TABLE "inbound_webhooks" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "inbound_webhook_drafts" ADD CONSTRAINT "inbound_webhook_drafts_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_drafts" ADD CONSTRAINT "inbound_webhook_drafts_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_draft_id_inbound_webhook_drafts_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."inbound_webhook_drafts"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_submission_id_inbound_webhook_submissions_id_fk" FOREIGN KEY ("submission_id") REFERENCES "public"."inbound_webhook_submissions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_roles" ADD CONSTRAINT "inbound_webhook_roles_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_roles" ADD CONSTRAINT "inbound_webhook_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_draft_id_inbound_webhook_drafts_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."inbound_webhook_drafts"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbound_webhooks" ADD CONSTRAINT "inbound_webhooks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_drafts_webhook" ON "inbound_webhook_drafts" USING btree ("webhook_id");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_drafts_expiry" ON "inbound_webhook_drafts" USING btree ("status","expires_at");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_files_webhook" ON "inbound_webhook_files" USING btree ("webhook_id");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_files_submission" ON "inbound_webhook_files" USING btree ("submission_id");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_files_sweep" ON "inbound_webhook_files" USING btree ("status","expires_at");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_roles_role" ON "inbound_webhook_roles" USING btree ("role_id");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_submissions_webhook" ON "inbound_webhook_submissions" USING btree ("webhook_id","received_at");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhook_submissions_project" ON "inbound_webhook_submissions" USING btree ("project_id");--> statement-breakpoint
-CREATE INDEX "idx_inbound_webhooks_project" ON "inbound_webhooks" USING btree ("project_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "uq_inbound_webhooks_project_slug" ON "inbound_webhooks" USING btree ("project_id","slug");
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_drafts_webhook_id_inbound_webhooks_id_fk' AND conrelid = 'public.inbound_webhook_drafts'::regclass) THEN
+    ALTER TABLE "inbound_webhook_drafts" ADD CONSTRAINT "inbound_webhook_drafts_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_drafts_project_id_projects_id_fk' AND conrelid = 'public.inbound_webhook_drafts'::regclass) THEN
+    ALTER TABLE "inbound_webhook_drafts" ADD CONSTRAINT "inbound_webhook_drafts_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_files_webhook_id_inbound_webhooks_id_fk' AND conrelid = 'public.inbound_webhook_files'::regclass) THEN
+    ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_files_draft_id_inbound_webhook_drafts_id_fk' AND conrelid = 'public.inbound_webhook_files'::regclass) THEN
+    ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_draft_id_inbound_webhook_drafts_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."inbound_webhook_drafts"("id") ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_files_submission_id_inbound_webhook_submissions_id_fk' AND conrelid = 'public.inbound_webhook_files'::regclass) THEN
+    ALTER TABLE "inbound_webhook_files" ADD CONSTRAINT "inbound_webhook_files_submission_id_inbound_webhook_submissions_id_fk" FOREIGN KEY ("submission_id") REFERENCES "public"."inbound_webhook_submissions"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_roles_webhook_id_inbound_webhooks_id_fk' AND conrelid = 'public.inbound_webhook_roles'::regclass) THEN
+    ALTER TABLE "inbound_webhook_roles" ADD CONSTRAINT "inbound_webhook_roles_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_roles_role_id_roles_id_fk' AND conrelid = 'public.inbound_webhook_roles'::regclass) THEN
+    ALTER TABLE "inbound_webhook_roles" ADD CONSTRAINT "inbound_webhook_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_submissions_webhook_id_inbound_webhooks_id_fk' AND conrelid = 'public.inbound_webhook_submissions'::regclass) THEN
+    ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_webhook_id_inbound_webhooks_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."inbound_webhooks"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_submissions_project_id_projects_id_fk' AND conrelid = 'public.inbound_webhook_submissions'::regclass) THEN
+    ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhook_submissions_draft_id_inbound_webhook_drafts_id_fk' AND conrelid = 'public.inbound_webhook_submissions'::regclass) THEN
+    ALTER TABLE "inbound_webhook_submissions" ADD CONSTRAINT "inbound_webhook_submissions_draft_id_inbound_webhook_drafts_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."inbound_webhook_drafts"("id") ON DELETE set null ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'inbound_webhooks_project_id_projects_id_fk' AND conrelid = 'public.inbound_webhooks'::regclass) THEN
+    ALTER TABLE "inbound_webhooks" ADD CONSTRAINT "inbound_webhooks_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_drafts_webhook" ON "inbound_webhook_drafts" USING btree ("webhook_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_drafts_expiry" ON "inbound_webhook_drafts" USING btree ("status","expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_files_webhook" ON "inbound_webhook_files" USING btree ("webhook_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_files_submission" ON "inbound_webhook_files" USING btree ("submission_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_files_sweep" ON "inbound_webhook_files" USING btree ("status","expires_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_roles_role" ON "inbound_webhook_roles" USING btree ("role_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_submissions_webhook" ON "inbound_webhook_submissions" USING btree ("webhook_id","received_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhook_submissions_project" ON "inbound_webhook_submissions" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_inbound_webhooks_project" ON "inbound_webhooks" USING btree ("project_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_inbound_webhooks_project_slug" ON "inbound_webhooks" USING btree ("project_id","slug");
