@@ -325,31 +325,29 @@ export class MemberRepository {
     tx: Pick<NodePgDatabase<typeof schema>, 'delete' | 'select'>,
     serverId: string,
   ): Promise<void> {
-    await tx
-      .delete(serverMemberRoles)
-      .where(
-        and(
-          inArray(
-            serverMemberRoles.roleId,
-            tx
-              .select({ id: roles.id })
-              .from(roles)
-              .where(eq(roles.serverId, serverId)),
-          ),
-          inArray(
-            serverMemberRoles.memberId,
-            tx
-              .select({ id: serverMembers.memberId })
-              .from(serverMembers)
-              .where(
-                and(
-                  eq(serverMembers.serverId, serverId),
-                  eq(serverMembers.isActive, false),
-                ),
-              ),
-          ),
+    await tx.delete(serverMemberRoles).where(
+      and(
+        inArray(
+          serverMemberRoles.roleId,
+          tx
+            .select({ id: roles.id })
+            .from(roles)
+            .where(eq(roles.serverId, serverId)),
         ),
-      );
+        inArray(
+          serverMemberRoles.memberId,
+          tx
+            .select({ id: serverMembers.memberId })
+            .from(serverMembers)
+            .where(
+              and(
+                eq(serverMembers.serverId, serverId),
+                eq(serverMembers.isActive, false),
+              ),
+            ),
+        ),
+      ),
+    );
   }
 
   async markInactiveForServer(

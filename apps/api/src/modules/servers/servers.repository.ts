@@ -251,7 +251,9 @@ export class ServersRepository {
       await tx
         .delete(roleInheritanceRules)
         .where(eq(roleInheritanceRules.sourceRoleId, roleId));
-      await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+      await tx
+        .delete(rolePermissions)
+        .where(eq(rolePermissions.roleId, roleId));
       await tx
         .delete(serverMemberRoles)
         .where(eq(serverMemberRoles.roleId, roleId));
