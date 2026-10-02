@@ -1,7 +1,8 @@
 # Production stack — pulled from CI-built GHCR image (never built on the server).
 # Deployed via dokploy as a Compose stack using this file.
 # All secrets (POSTGRES_PASSWORD, REDIS_PASSWORD, DISCORD_*, MC_*,
-# WEBHOOK_ENCRYPTION_KEY, BASE_URL, CORS_ORIGINS, ADMIN_FRONTEND_URL) are
+# WEBHOOK_ENCRYPTION_KEY, INBOUND_WEBHOOK_ENCRYPTION_KEY, BASE_URL,
+# CORS_ORIGINS, ADMIN_FRONTEND_URL) are
 # injected by the deployment environment (e.g. dokploy env). Never hardcode
 # real secrets here.
 
@@ -23,6 +24,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_KEY_PREFIX: mcdi
       WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY}
+      INBOUND_WEBHOOK_ENCRYPTION_KEY: ${INBOUND_WEBHOOK_ENCRYPTION_KEY}
       MAX_WEBHOOKS_PER_PROJECT: ${MAX_WEBHOOKS_PER_PROJECT:-10}
     # psql applies the migration file baked into the image (no pnpm at runtime);
     # `$$` keeps compose from interpolating DATABASE_URL on the host.

@@ -167,6 +167,100 @@ describe('validateSchema (Layer 1)', () => {
     });
   });
 
+  describe('constraint shapes', () => {
+    const errors = (f: Record<string, unknown>) => {
+      const result = validateSchema(schema([f]));
+      return result.ok ? [] : result.errors.map((e) => `${e.path} ${e.code}`);
+    };
+    const at = (name: string) =>
+      `steps[0].fields[0].${name} INVALID_CONSTRAINT`;
+
+    it('rejects an email allowlist that is not an array of strings', () => {
+      expect(
+        errors(field({ type: 'email', allowedDomains: 'usthb.dz' })),
+      ).toEqual([at('allowedDomains')]);
+      expect(errors(field({ type: 'email', allowedDomains: [1] }))).toEqual([
+        at('allowedDomains'),
+      ]);
+    });
+
+    it('rejects url schemes that are not an array of http/https', () => {
+      expect(errors(field({ type: 'url', allowedSchemes: 'https' }))).toEqual([
+        at('allowedSchemes'),
+      ]);
+      expect(errors(field({ type: 'url', allowedSchemes: ['ftp'] }))).toEqual([
+        at('allowedSchemes'),
+      ]);
+    });
+
+    it('rejects a date bound that is not a real date', () => {
+      expect(errors(field({ type: 'date', min: 'yesterday' }))).toEqual([
+        at('min'),
+      ]);
+      expect(errors(field({ type: 'date', max: '2026-02-31' }))).toEqual([
+        at('max'),
+      ]);
+      expect(
+        errors(field({ type: 'datetime', min: '2026-01-31T09:00:00' })),
+      ).toEqual([at('min')]);
+    });
+
+    it('rejects date bounds in the wrong order', () => {
+      expect(
+        codes(
+          validateSchema(
+            schema([
+              field({ type: 'date', min: '2026-02-01', max: '2026-01-01' }),
+            ]),
+          ),
+        ),
+      ).toEqual(['INVALID_RANGE']);
+    });
+
+    it('rejects lengths, counts and flags of the wrong type', () => {
+      expect(errors(field({ maxLength: '5' }))).toEqual([at('maxLength')]);
+      expect(errors(field({ minLength: -1 }))).toEqual([at('minLength')]);
+      expect(errors(field({ trim: 'yes' }))).toEqual([at('trim')]);
+      expect(errors(field({ type: 'text', maxLength: 1.5 }))).toEqual([
+        at('maxLength'),
+      ]);
+      expect(errors(field({ type: 'number', min: '0' }))).toEqual([at('min')]);
+      expect(errors(field({ type: 'number', integer: 1 }))).toEqual([
+        at('integer'),
+      ]);
+    });
+
+    it('rejects a property the field type does not have', () => {
+      expect(errors(field({ maxlength: 5 }))).toEqual([
+        'steps[0].fields[0].maxlength UNKNOWN_PROPERTY',
+      ]);
+      expect(errors(field({ type: 'boolean', minLength: 5 }))).toEqual([
+        'steps[0].fields[0].minLength UNKNOWN_PROPERTY',
+      ]);
+    });
+
+    it('accepts well-formed constraints on every scalar type', () => {
+      const result = validateSchema(
+        schema([
+          field({ key: 'a', label: 'A', description: 'd', default: 'x' }),
+          field({ key: 'b', type: 'text', maxLength: 500 }),
+          field({ key: 'c', type: 'number', min: 0, max: 9.5, integer: false }),
+          field({ key: 'd', type: 'email', allowedDomains: ['usthb.dz'] }),
+          field({ key: 'e', type: 'url', allowedSchemes: ['https'] }),
+          field({ key: 'f', type: 'phone', region: 'DZ' }),
+          field({
+            key: 'g',
+            type: 'date',
+            min: '2026-01-01',
+            max: '2026-12-31',
+          }),
+          field({ key: 'h', type: 'datetime', min: '2026-01-01T00:00:00Z' }),
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+  });
+
   describe('mandatory caps', () => {
     it('rejects an array without maxItems', () => {
       const result = validateSchema(
@@ -282,6 +376,81 @@ describe('validateSchema (Layer 1)', () => {
         ]),
       );
       expect(codes(result)).toContain('FORWARD_REFERENCE');
+    });
+
+    it('rejects a field whose condition references itself', () => {
+      const result = validateSchema(
+        schema([
+          field({ key: 'a', condition: { op: 'exists', field: 'identity.a' } }),
+        ]),
+      );
+      expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+    });
+
+    it('rejects a reference into an array, which cannot be resolved', () => {
+      const members = {
+        key: 'members',
+        type: 'array',
+        required: true,
+        maxItems: 5,
+        item: {
+          key: 'member',
+          type: 'object',
+          required: true,
+          fields: [
+            field({ key: 'role' }),
+            field({
+              key: 'team',
+              condition: {
+                op: 'eq',
+                field: 'identity.members.member.role',
+                value: 'lead',
+              },
+            }),
+          ],
+        },
+      };
+      expect(codes(validateSchema(schema([members])))).toEqual([
+        'UNRESOLVABLE_REFERENCE',
+      ]);
+    });
+
+    it('lets an array item reference a field outside the array', () => {
+      const result = validateSchema(
+        schema([
+          field({ key: 'kind' }),
+          {
+            key: 'members',
+            type: 'array',
+            required: true,
+            maxItems: 5,
+            item: field({
+              key: 'member',
+              condition: { op: 'eq', field: 'identity.kind', value: 'team' },
+            }),
+          },
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('still lets a condition test the array itself', () => {
+      const result = validateSchema(
+        schema([
+          {
+            key: 'members',
+            type: 'array',
+            required: false,
+            maxItems: 5,
+            item: field({ key: 'member' }),
+          },
+          field({
+            key: 'lead',
+            condition: { op: 'exists', field: 'identity.members' },
+          }),
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
     });
 
     it('rejects a reference to a field that does not exist at all', () => {

@@ -66,8 +66,8 @@ export interface CreateInboundWebhookData {
 export interface ListSubmissionsFilters {
   limit: number;
   offset: number;
-  dateFrom?: string;
-  dateTo?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
 }
 
 @Injectable()
@@ -355,12 +355,12 @@ export class InboundWebhooksRepository {
     ];
     if (filters.dateFrom) {
       conditions.push(
-        gte(inboundWebhookSubmissions.receivedAt, new Date(filters.dateFrom)),
+        gte(inboundWebhookSubmissions.receivedAt, filters.dateFrom),
       );
     }
     if (filters.dateTo) {
       conditions.push(
-        lte(inboundWebhookSubmissions.receivedAt, new Date(filters.dateTo)),
+        lte(inboundWebhookSubmissions.receivedAt, filters.dateTo),
       );
     }
     const where = and(...conditions);

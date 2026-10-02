@@ -141,6 +141,96 @@ describe('buildExamplePayload', () => {
     expect(example.background.university).toBeUndefined();
   });
 
+  describe('stays inside the declared constraints', () => {
+    const single = (fields: Field[]): FormSchema => ({
+      version: 1,
+      steps: [{ key: 'step', fields }],
+    });
+    const expectValid = (fields: Field[]) => {
+      const form = single(fields);
+      const result = validatePayload(form, buildExamplePayload(form), {
+        rejectUnknownFields: true,
+      });
+      expect(result.ok ? [] : result.errors).toEqual([]);
+    };
+
+    it('string and text lengths', () => {
+      expectValid([
+        { key: 'long', type: 'string', required: true, minLength: 12 },
+        { key: 'short', type: 'string', required: true, maxLength: 3 },
+        { key: 'note', type: 'text', required: true, maxLength: 5 },
+      ]);
+    });
+
+    it('a number with only an upper bound', () => {
+      expectValid([
+        { key: 'a', type: 'number', required: true, max: 10 },
+        { key: 'b', type: 'number', required: true, max: 10.5, integer: true },
+        { key: 'c', type: 'number', required: true, min: 0.5, integer: true },
+      ]);
+    });
+
+    it('a date with only an upper bound', () => {
+      expectValid([
+        { key: 'd', type: 'date', required: true, max: '2020-01-01' },
+        {
+          key: 't',
+          type: 'datetime',
+          required: true,
+          max: '2020-01-01T00:00:00Z',
+        },
+      ]);
+    });
+
+    it('conditional fields inside a nested object', () => {
+      expectValid([
+        {
+          key: 'kind',
+          type: 'enum',
+          required: true,
+          options: [{ value: 'team' }],
+        },
+        {
+          key: 'org',
+          type: 'object',
+          required: true,
+          fields: [
+            { key: 'name', type: 'string', required: true },
+            {
+              key: 'lead',
+              type: 'string',
+              required: true,
+              condition: { op: 'eq', field: 'step.kind', value: 'team' },
+            },
+            {
+              key: 'size',
+              type: 'number',
+              required: true,
+              condition: { op: 'exists', field: 'step.org.name' },
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('uses a uuid-shaped file id, the only shape the API can look up', () => {
+      const example = buildExamplePayload(
+        single([
+          {
+            key: 'cv',
+            type: 'file',
+            required: true,
+            accept: ['application/pdf'],
+            maxSizeBytes: 1000,
+          },
+        ]),
+      ) as { step: { cv: { fileId: string } } };
+      expect(example.step.cv.fileId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      );
+    });
+  });
+
   it('skips a step whose condition is not met', () => {
     const stepped: FormSchema = {
       ...schema,
@@ -245,6 +335,99 @@ describe('renderMarkdown', () => {
 
   it('uses a real field name in the 422 example, not a placeholder', () => {
     expect(md).toContain('"path": "identity.firstname"');
+  });
+
+  it('tells the caller what a 409 means and how to resend', () => {
+    expect(md).toMatch(/`409`.*already accepted.*fresh timestamp/);
+  });
+
+  describe('code samples', () => {
+    const withValues = (
+      fields: Field[],
+      over: Partial<WebhookDocsInput> = {},
+    ) =>
+      renderMarkdown({
+        ...input,
+        ...over,
+        schema: { version: 1, steps: [{ key: 'step', fields }] },
+      });
+    const block = (text: string, lang: string) =>
+      text.split('```' + lang + '\n')[1].split('\n```')[0];
+
+    it('writes the Python body as a Python literal, not JSON', () => {
+      const python = block(
+        withValues([
+          { key: 'agree', type: 'boolean', required: true },
+          {
+            key: 'meta',
+            type: 'json',
+            required: true,
+            maxBytes: 100,
+          },
+        ]),
+        'python',
+      );
+      expect(python).toContain('"agree": True');
+      expect(python).not.toMatch(/\btrue\b|\bfalse\b|\bnull\b/);
+    });
+
+    it('escapes a single quote in the curl body', () => {
+      const curl = block(
+        withValues(
+          [
+            {
+              key: 'answer',
+              type: 'enum',
+              required: true,
+              options: [{ value: "it's fine" }],
+            },
+          ],
+          { requireSignature: false },
+        ),
+        'bash',
+      );
+      expect(curl).toContain(`"answer":"it'\\''s fine"`);
+    });
+  });
+
+  describe('example self-check', () => {
+    it('makes no claim to replace values when the example validates', () => {
+      expect(md).not.toContain('Replace before sending');
+    });
+
+    it('lists the fields whose example value is only a placeholder', () => {
+      const flagged = renderMarkdown({
+        ...input,
+        schema: {
+          version: 1,
+          steps: [
+            {
+              key: 'step',
+              fields: [
+                { key: 'name', type: 'string', required: true },
+                {
+                  key: 'code',
+                  type: 'string',
+                  required: true,
+                  pattern: '^[A-Z]{2}\\d{4}$',
+                },
+                {
+                  key: 'cv',
+                  type: 'file',
+                  required: true,
+                  accept: ['application/pdf'],
+                  maxSizeBytes: 1000,
+                },
+              ],
+            },
+          ],
+        },
+      });
+      expect(flagged).toMatch(
+        /Replace before sending.*`step\.code`.*`step\.cv`/,
+      );
+      expect(flagged).not.toMatch(/Replace before sending.*`step\.name`/);
+    });
   });
 });
 

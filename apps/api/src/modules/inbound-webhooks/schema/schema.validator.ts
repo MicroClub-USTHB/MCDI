@@ -14,6 +14,8 @@ import {
   KEY_PATTERN,
   SCHEMA_LIMITS,
 } from './form-schema.types';
+import type { FieldType } from './form-schema.types';
+import { isCalendarDate, isDateTime } from './date-format';
 
 export type SchemaError = { path: string; code: string; message: string };
 
@@ -36,11 +38,91 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
+type Constraint = { ok: (v: unknown) => boolean; expected: string };
+
+const bool: Constraint = {
+  ok: (v) => typeof v === 'boolean',
+  expected: 'a boolean',
+};
+const text: Constraint = {
+  ok: (v) => typeof v === 'string',
+  expected: 'a string',
+};
+const num: Constraint = {
+  ok: (v) => typeof v === 'number' && Number.isFinite(v),
+  expected: 'a number',
+};
+const count: Constraint = {
+  ok: (v) => Number.isInteger(v) && (v as number) >= 0,
+  expected: 'a non-negative integer',
+};
+const strings: Constraint = {
+  ok: (v) =>
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every((x) => typeof x === 'string' && x.length > 0),
+  expected: 'a non-empty array of strings',
+};
+const schemes: Constraint = {
+  ok: (v) =>
+    Array.isArray(v) &&
+    v.length > 0 &&
+    v.every((x) => x === 'http' || x === 'https'),
+  expected: 'a non-empty array of "http" and/or "https"',
+};
+const date: Constraint = {
+  ok: isCalendarDate,
+  expected: 'a real date as YYYY-MM-DD',
+};
+const dateTime: Constraint = {
+  ok: isDateTime,
+  expected: 'an ISO 8601 date-time with a timezone',
+};
+/** Known property whose shape `checkConstraints` validates itself. */
+const own: Constraint = { ok: () => true, expected: '' };
+
+/** Properties every field may carry, whatever its type. */
+const BASE_PROPERTIES = new Set([
+  'key',
+  'type',
+  'label',
+  'description',
+  'required',
+  'condition',
+  'default',
+]);
+
+/**
+ * Every type-specific property, and the shape it must have. Layer 2 trusts
+ * these shapes without re-checking, so a property missing here is rejected
+ * rather than stored and silently ignored.
+ */
+const CONSTRAINTS: Record<FieldType, Record<string, Constraint>> = {
+  string: { minLength: count, maxLength: count, pattern: text, trim: bool },
+  text: { maxLength: count },
+  number: { min: num, max: num, integer: bool },
+  boolean: {},
+  email: { allowedDomains: strings },
+  url: { allowedSchemes: schemes },
+  phone: { region: text },
+  date: { min: date, max: date },
+  datetime: { min: dateTime, max: dateTime },
+  enum: { options: own },
+  multi_enum: { options: own, minSelected: count, maxSelected: count },
+  object: { fields: own },
+  array: { item: own, minItems: count, maxItems: own },
+  file: { accept: own, maxSizeBytes: own },
+  files: { accept: own, maxSizeBytes: own, minCount: count, maxCount: own },
+  json: { maxBytes: own },
+};
+
 class SchemaChecker {
   private readonly errors: SchemaError[] = [];
   private nodeCount = 0;
   /** Field paths declared so far, in declaration order, for condition refs */
   private readonly declared = new Set<string>();
+  /** Paths inside an array item: a dotted path cannot address them. */
+  private readonly insideArray = new Set<string>();
 
   constructor(private readonly schema: unknown) {}
 
@@ -136,6 +218,7 @@ class SchemaChecker {
     prefix: string,
     seen: Set<string>,
     depth: number,
+    inArray = false,
   ): void {
     this.nodeCount += 1;
 
@@ -185,21 +268,48 @@ class SchemaChecker {
       );
     }
 
-    // Published immediately, so an earlier sibling or an earlier step is
-    // referenceable by a condition but a later field is not.
-    this.declared.add(`${prefix}.${key}`);
-
     if (raw.condition !== undefined) {
       this.checkCondition(raw.condition, `${path}.condition`);
     }
 
+    // Published after its own condition and before its children, so an earlier
+    // sibling or an earlier step is referenceable by a condition, but the field
+    // itself and any later field are not.
+    (inArray ? this.insideArray : this.declared).add(`${prefix}.${key}`);
+
+    this.checkProperties(raw, type as FieldType, path);
     this.checkConstraints(
       raw as Field & Record<string, unknown>,
       path,
       prefix,
       key,
       depth,
+      inArray,
     );
+  }
+
+  private checkProperties(
+    raw: Record<string, unknown>,
+    type: FieldType,
+    path: string,
+  ): void {
+    for (const [name, value] of Object.entries(raw)) {
+      if (BASE_PROPERTIES.has(name) || value === undefined) continue;
+      const constraint = CONSTRAINTS[type][name];
+      if (!constraint) {
+        this.push(
+          `${path}.${name}`,
+          'UNKNOWN_PROPERTY',
+          `"${name}" is not a property of a ${type} field`,
+        );
+      } else if (!constraint.ok(value)) {
+        this.push(
+          `${path}.${name}`,
+          'INVALID_CONSTRAINT',
+          `\`${name}\` must be ${constraint.expected}`,
+        );
+      }
+    }
   }
 
   private checkConstraints(
@@ -208,6 +318,7 @@ class SchemaChecker {
     prefix: string,
     key: string,
     depth: number,
+    inArray: boolean,
   ): void {
     switch (f.type) {
       case 'string': {
@@ -241,6 +352,12 @@ class SchemaChecker {
       }
       case 'number':
         this.checkRange(f.min, f.max, path, 'min', 'max');
+        break;
+      case 'date':
+      case 'datetime':
+        if (Date.parse(f.min ?? '') > Date.parse(f.max ?? '')) {
+          this.push(path, 'INVALID_RANGE', 'min must not exceed max');
+        }
         break;
       case 'enum':
       case 'multi_enum': {
@@ -290,6 +407,7 @@ class SchemaChecker {
             `${prefix}.${key}`,
             nested,
             depth + 1,
+            inArray,
           );
         });
         break;
@@ -317,6 +435,7 @@ class SchemaChecker {
           `${prefix}.${key}`,
           new Set(),
           depth + 1,
+          true,
         );
         break;
       }
@@ -426,7 +545,13 @@ class SchemaChecker {
     // A condition may only reference fields already declared — i.e. in an
     // earlier step, or earlier in this same step's enclosing scope. A forward
     // reference could never be satisfied at the moment the step is validated.
-    if (!this.declared.has(raw.field)) {
+    if (this.insideArray.has(raw.field)) {
+      this.push(
+        `${path}.field`,
+        'UNRESOLVABLE_REFERENCE',
+        `Condition references "${raw.field}", which is inside an array and cannot be addressed by a path`,
+      );
+    } else if (!this.declared.has(raw.field)) {
       this.push(
         `${path}.field`,
         'FORWARD_REFERENCE',

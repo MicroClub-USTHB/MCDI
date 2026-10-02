@@ -1,5 +1,4 @@
-import { createHmac, randomBytes } from 'crypto';
-import { timingSafeEqualHex } from './crypto.util';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 /**
  * HMAC request signing for inbound webhooks.
@@ -24,6 +23,16 @@ export type SignatureFailure =
 export type VerifyResult =
   | { ok: true; parsed: ParsedSignature }
   | { ok: false; reason: SignatureFailure };
+
+/** Constant-time comparison of two hex strings of equal expected length. */
+function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
+}
 
 export function generateSigningSecret(): string {
   return `whsec_${randomBytes(32).toString('hex')}`;

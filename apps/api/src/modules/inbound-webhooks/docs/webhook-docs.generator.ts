@@ -16,6 +16,7 @@ import {
   FormStep,
 } from '../schema/form-schema.types';
 import { evaluateCondition } from '../schema/condition.evaluator';
+import { validatePayload } from '../schema/payload.validator';
 
 export interface WebhookDocsInput {
   id: string;
@@ -34,15 +35,46 @@ export interface WebhookDocsInput {
 
 // ─── Example synthesis ────────────────────────────────────────────────────
 
-function exampleFor(field: Field): unknown {
+/** A value cut or padded to sit inside the field's declared length bounds. */
+function fitLength(value: string, min?: number, max?: number): string {
+  const padded = min !== undefined ? value.padEnd(min, 'x') : value;
+  return max !== undefined ? padded.slice(0, max) : padded;
+}
+
+/** `fallback`, unless the declared bounds exclude it. */
+function fitDate(fallback: string, min?: string, max?: string): string {
+  if (min !== undefined) return min;
+  return max !== undefined && Date.parse(max) < Date.parse(fallback)
+    ? max
+    : fallback;
+}
+
+function exampleNumber(field: Field & { type: 'number' }): number {
+  if (field.min !== undefined) {
+    return field.integer ? Math.ceil(field.min) : field.min;
+  }
+  const fallback = field.integer ? 42 : 42.5;
+  if (field.max === undefined || field.max >= fallback) return fallback;
+  return field.integer ? Math.floor(field.max) : field.max;
+}
+
+/** Shaped like a real file id; the caller swaps in one from an upload. */
+const EXAMPLE_FILE_ID = '3f1c0a7e-9b2d-4c1a-8e5f-0a1b2c3d4e5f';
+
+/**
+ * `root` is the example built so far, which nested conditions are evaluated
+ * against — the same paths a real submission would resolve.
+ */
+function exampleFor(field: Field, root: Record<string, unknown>): unknown {
   switch (field.type) {
     case 'string':
-      return field.pattern ? `<matching ${field.pattern}>` : 'example';
+      return field.pattern
+        ? `<matching ${field.pattern}>`
+        : fitLength('example', field.minLength, field.maxLength);
     case 'text':
-      return 'A longer piece of text.';
+      return fitLength('A longer piece of text.', undefined, field.maxLength);
     case 'number':
-      if (field.min !== undefined) return field.min;
-      return field.integer ? 42 : 42.5;
+      return exampleNumber(field);
     case 'boolean':
       return true;
     case 'email':
@@ -54,25 +86,28 @@ function exampleFor(field: Field): unknown {
     case 'phone':
       return '+213 555 123 456';
     case 'date':
-      return field.min ?? '2026-01-31';
+      return fitDate('2026-01-31', field.min, field.max);
     case 'datetime':
-      return field.min ?? '2026-01-31T09:00:00Z';
+      return fitDate('2026-01-31T09:00:00Z', field.min, field.max);
     case 'enum':
       return field.options[0]?.value ?? 'option';
     case 'multi_enum':
       return field.options.slice(0, field.minSelected ?? 1).map((o) => o.value);
-    case 'object':
-      return exampleForFields(field.fields, {});
+    case 'object': {
+      const out: Record<string, unknown> = {};
+      fillExample(field.fields, out, root);
+      return out;
+    }
     case 'array': {
       const count = field.minItems && field.minItems > 0 ? field.minItems : 1;
       return Array.from({ length: Math.min(count, 2) }, () =>
-        exampleFor(field.item),
+        exampleFor(field.item, root),
       );
     }
     case 'file':
-      return { fileId: 'iwf_3f1c0a7e…' };
+      return { fileId: EXAMPLE_FILE_ID };
     case 'files':
-      return [{ fileId: 'iwf_3f1c0a7e…' }];
+      return [{ fileId: EXAMPLE_FILE_ID }];
     case 'json':
       return { any: 'json', under: field.maxBytes };
     default:
@@ -80,19 +115,29 @@ function exampleFor(field: Field): unknown {
   }
 }
 
-function exampleForFields(
+/**
+ * Fills `target` field by field. A conditional field is included only when
+ * the example built so far actually satisfies its condition — otherwise the
+ * example would not validate, and the first thing a developer copies would
+ * return 422.
+ */
+function fillExample(
   fields: Field[],
-  scope: Record<string, unknown>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
+  target: Record<string, unknown>,
+  root: Record<string, unknown>,
+): void {
   for (const field of fields) {
-    // Include a conditional field only when the example built so far actually
-    // satisfies its condition — otherwise the example would not validate, and
-    // the first thing a developer copies would return 422.
-    if (field.condition && !evaluateCondition(field.condition, scope)) continue;
-    out[field.key] = exampleFor(field);
+    if (field.condition && !evaluateCondition(field.condition, root)) continue;
+    if (field.type === 'object') {
+      // Attached before it is filled, so its own children can reference
+      // each other by path.
+      const child: Record<string, unknown> = {};
+      target[field.key] = child;
+      fillExample(field.fields, child, root);
+    } else {
+      target[field.key] = exampleFor(field, root);
+    }
   }
-  return out;
 }
 
 /**
@@ -112,14 +157,39 @@ export function buildExamplePayload(
 
     const stepOut: Record<string, unknown> = {};
     out[step.key] = stepOut;
-
-    for (const field of step.fields) {
-      if (field.condition && !evaluateCondition(field.condition, out)) continue;
-      stepOut[field.key] = exampleFor(field);
-    }
+    fillExample(step.fields, stepOut, out);
   }
 
   return out;
+}
+
+/**
+ * Paths where the generated example does not satisfy the schema — a `pattern`
+ * no generator can match, or a file that has to be uploaded first. The docs
+ * name them rather than claim an example that would return 422.
+ */
+function placeholderPaths(
+  input: WebhookDocsInput,
+  example: Record<string, unknown>,
+): string[] {
+  const result = validatePayload(input.schema, example, {
+    rejectUnknownFields: input.rejectUnknownFields,
+  });
+  return result.ok ? [] : [...new Set(result.errors.map((e) => e.path))];
+}
+
+/** Renders a JSON value as the Python literal that `json.dumps` accepts. */
+function toPython(value: unknown): string {
+  if (value === null || value === undefined) return 'None';
+  if (typeof value === 'boolean') return value ? 'True' : 'False';
+  if (Array.isArray(value)) return `[${value.map(toPython).join(', ')}]`;
+  if (typeof value === 'object') {
+    return `{${Object.entries(value)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${toPython(v)}`)
+      .join(', ')}}`;
+  }
+  // A JSON string or number literal is also a valid Python one.
+  return JSON.stringify(value);
 }
 
 // ─── Human-readable constraints ───────────────────────────────────────────
@@ -409,10 +479,18 @@ export function renderMarkdown(input: WebhookDocsInput): string {
   md.push(exampleJson);
   md.push('```');
   md.push('');
+  const placeholders = placeholderPaths(input, example);
+  if (placeholders.length > 0) {
+    md.push(
+      `> **Replace before sending:** ${placeholders.map((path) => `\`${path}\``).join(', ')}. ` +
+        'These example values are placeholders and do not satisfy the schema as written.',
+    );
+    md.push('');
+  }
   md.push(
-    '> This example satisfies the schema as written: a conditional field appears only because the ' +
-      'branch chosen above activates it. Pick a different branch and a different set of fields ' +
-      'applies — the table below gives every condition.',
+    '> Apart from any placeholders named above, this example satisfies the schema as written: a ' +
+      'conditional field appears only because the branch chosen above activates it. Pick a ' +
+      'different branch and a different set of fields applies — the table below gives every condition.',
   );
   md.push('');
 
@@ -439,7 +517,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     );
     md.push('');
     md.push(
-      'Requests older than 5 minutes are rejected, and a signature may only be used once.',
+      'Requests older than 5 minutes are rejected, and a signature is accepted only once.',
     );
     md.push('');
     md.push('### Node.js');
@@ -469,7 +547,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push('```python');
     md.push('import hmac, hashlib, json, os, time, requests');
     md.push('');
-    md.push(`body = json.dumps(${compactJson}, separators=(",", ":"))`);
+    md.push(`body = json.dumps(${toPython(example)}, separators=(",", ":"))`);
     md.push('t = int(time.time())');
     md.push('v1 = hmac.new(');
     md.push('    os.environ["MCDI_SIGNING_SECRET"].encode(),');
@@ -499,7 +577,8 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push(`curl -X POST '${url}' \\`);
     md.push("  -H 'Content-Type: application/json' \\");
     md.push('  -H "Authorization: Bearer $MCDI_API_KEY" \\');
-    md.push(`  -d '${compactJson}'`);
+    // A single quote would end the shell string; '\\'' closes, escapes, reopens.
+    md.push(`  -d '${compactJson.replace(/'/g, `'\\''`)}'`);
     md.push('```');
     md.push('');
   }
@@ -548,7 +627,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     '| `404` | No such webhook for your project | Check the webhook ID and the API key match |',
   );
   md.push(
-    '| `409` | Signature already used | Generate a fresh timestamp per request |',
+    '| `409` | This exact body and timestamp were already accepted | Do not resend a delivery that succeeded. For a new submission, sign it again with a fresh timestamp |',
   );
   md.push(
     '| `410` | Webhook inactive | Ask an administrator to re-enable it |',

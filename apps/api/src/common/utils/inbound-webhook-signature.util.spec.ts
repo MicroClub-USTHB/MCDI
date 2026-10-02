@@ -83,6 +83,16 @@ describe('inbound-webhook-signature.util', () => {
       expect(r).toEqual({ ok: false, reason: 'SIGNATURE_MISMATCH' });
     });
 
+    it('rejects a truncated signature', () => {
+      const r = verifySignature({
+        header: header.slice(0, -2),
+        secret: SECRET,
+        rawBody: BODY,
+        now: NOW,
+      });
+      expect(r).toEqual({ ok: false, reason: 'SIGNATURE_MISMATCH' });
+    });
+
     it('rejects a stale timestamp outside the tolerance', () => {
       const late = new Date(NOW.getTime() + 301_000);
       expect(

@@ -6,15 +6,20 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { isUUID } from 'class-validator';
 import { AuditRepository } from '../audit/audit.repository';
 import { RedisService } from '../../common/redis/redis.service';
-import { encryptSecret, decryptSecret } from '../../common/utils/crypto.util';
+import {
+  encryptSecret,
+  decryptSecret,
+} from '../../common/utils/encryption.util';
 import {
   generateSigningSecret,
   verifySignature,
@@ -96,7 +101,7 @@ export class InboundWebhooksService {
       slug: dto.slug,
       schema: formSchema,
       acceptedOrigins: dto.acceptedOrigins ?? [],
-      signingSecretEnc: encryptSecret(signingSecret),
+      signingSecretEnc: encryptSecret(signingSecret, this.encryptionKey()),
       requireSignature: dto.requireSignature ?? true,
       rejectUnknownFields: dto.rejectUnknownFields ?? true,
       allowRoleInheritance: dto.allowRoleInheritance ?? false,
@@ -214,7 +219,10 @@ export class InboundWebhooksService {
   async rotateSecret(id: string, actor: string | null): Promise<string> {
     await this.findById(id);
     const signingSecret = generateSigningSecret();
-    await this.repository.updateSecret(id, encryptSecret(signingSecret));
+    await this.repository.updateSecret(
+      id,
+      encryptSecret(signingSecret, this.encryptionKey()),
+    );
     await this.audit({
       action: 'secret.rotated',
       entityId: id,
@@ -440,10 +448,29 @@ export class InboundWebhooksService {
     }
 
     this.assertOriginAllowed(webhook, ctx.origin);
-    await this.assertSignature(webhook, ctx);
-    await this.assertWithinRateLimit(webhookId, ctx.projectId);
+    const replayKey = await this.assertSignature(webhook, ctx);
 
-    const fileIds = collectFileIds(body);
+    try {
+      return await this.store(webhook, body, ctx);
+    } catch (error) {
+      // Nothing was stored, so the same signed request may be sent again.
+      if (replayKey) await this.redisService.delete(replayKey);
+      throw error;
+    }
+  }
+
+  private async store(
+    webhook: InboundWebhookRow,
+    body: Record<string, unknown>,
+    ctx: IngestContext,
+  ) {
+    await this.assertWithinRateLimit(webhook.id, ctx.projectId);
+
+    // The id column is a uuid: anything else cannot match a row, and asking
+    // Postgres about it fails the whole request instead of the one field.
+    const fileIds = [...new Set(collectFileIds(body))].filter((id) =>
+      isUUID(id),
+    );
     const files = await this.loadFileMetas(fileIds);
 
     const result = validatePayload(webhook.schema, body, {
@@ -507,11 +534,12 @@ export class InboundWebhooksService {
     }
   }
 
+  /** Returns the replay key it claimed, so a failed request can release it. */
   private async assertSignature(
     webhook: InboundWebhookRow & { signingSecretEnc: string },
     ctx: IngestContext,
-  ): Promise<void> {
-    if (!webhook.requireSignature) return;
+  ): Promise<string | null> {
+    if (!webhook.requireSignature) return null;
 
     if (!ctx.rawBody) {
       throw new BadRequestException(
@@ -519,7 +547,10 @@ export class InboundWebhooksService {
       );
     }
 
-    const secret = decryptSecret(webhook.signingSecretEnc);
+    const secret = decryptSecret(
+      webhook.signingSecretEnc,
+      this.encryptionKey(),
+    );
     const tolerance = this.configService.get<number>(
       'INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_S',
       300,
@@ -561,7 +592,9 @@ export class InboundWebhooksService {
       this.logger.warn(
         `Replay protection skipped for webhook ${webhook.id}: Redis unavailable`,
       );
+      return null;
     }
+    return key;
   }
 
   private async assertWithinRateLimit(
@@ -629,6 +662,19 @@ export class InboundWebhooksService {
 
     if (!prefix || host.endsWith(`/${prefix}`)) return host;
     return `${host}/${prefix}`;
+  }
+
+  private encryptionKey(): string {
+    const key = this.configService.get<string>(
+      'app.inboundWebhookEncryptionKey',
+    );
+    if (!key) {
+      throw new InternalServerErrorException({
+        code: 'ENCRYPTION_KEY_MISSING',
+        message: 'INBOUND_WEBHOOK_ENCRYPTION_KEY is not configured',
+      });
+    }
+    return key;
   }
 
   private assertValidSchema(raw: unknown): FormSchema {

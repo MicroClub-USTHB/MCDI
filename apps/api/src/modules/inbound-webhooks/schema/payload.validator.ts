@@ -15,6 +15,7 @@ import {
 } from './form-schema.types';
 import { createContext, Script } from 'vm';
 import { evaluateCondition } from './condition.evaluator';
+import { isCalendarDate, isDateTime } from './date-format';
 
 export type FieldError = { path: string; code: string; message: string };
 
@@ -47,7 +48,6 @@ export type ValidateOptions = {
 const EMAIL_RE = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 /** RFC 5321 caps a forward path at 254 characters. */
 const EMAIL_MAX_LENGTH = 254;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PHONE_RE = /^\+?[0-9 ()-]{6,20}$/;
 
 /** Budget for one admin-authored pattern test. */
@@ -197,7 +197,12 @@ class PayloadChecker {
 
     for (const field of active) {
       const fieldPath = `${path}.${field.key}`;
-      const raw = data[field.key];
+      const sent = data[field.key];
+      // Trim before the absent check, so "   " cannot satisfy `required`.
+      const raw =
+        field.type === 'string' && field.trim && typeof sent === 'string'
+          ? sent.trim()
+          : sent;
 
       if (raw === undefined || raw === null || raw === '') {
         if (field.required) {
@@ -352,15 +357,19 @@ class PayloadChecker {
       case 'date':
       case 'datetime': {
         if (typeof raw !== 'string') return this.typeError(path, 'string');
-        if (field.type === 'date' && !DATE_RE.test(raw)) {
-          this.push(path, 'INVALID_DATE', 'Expected format YYYY-MM-DD');
+        if (field.type === 'date' && !isCalendarDate(raw)) {
+          this.push(path, 'INVALID_DATE', 'Expected a real date as YYYY-MM-DD');
+          return undefined;
+        }
+        if (field.type === 'datetime' && !isDateTime(raw)) {
+          this.push(
+            path,
+            'INVALID_DATE',
+            'Expected an ISO 8601 date-time with a timezone, e.g. 2026-01-31T09:00:00Z',
+          );
           return undefined;
         }
         const t = Date.parse(raw);
-        if (Number.isNaN(t)) {
-          this.push(path, 'INVALID_DATE', 'Not a valid date');
-          return undefined;
-        }
         if (field.min !== undefined && t < Date.parse(field.min)) {
           this.push(path, 'OUT_OF_RANGE', `Must be on or after ${field.min}`);
         }

@@ -38,6 +38,21 @@ describe('validatePayload (Layer 2)', () => {
         ['REQUIRED'],
       );
     });
+
+    it('treats a whitespace-only value as absent when the field trims', () => {
+      const trimmed = build([
+        { key: 'a', type: 'string', required: true, trim: true },
+      ]);
+      expect(
+        codes(validatePayload(trimmed, { step: { a: '   ' } }, opts)),
+      ).toEqual(['REQUIRED']);
+    });
+
+    it('keeps a whitespace-only value when the field does not trim', () => {
+      const untrimmed = build([{ key: 'a', type: 'string', required: true }]);
+      const r = validatePayload(untrimmed, { step: { a: '   ' } }, opts);
+      expect(r.ok).toBe(true);
+    });
   });
 
   describe('unknown keys', () => {
@@ -280,6 +295,53 @@ describe('validatePayload (Layer 2)', () => {
       expect(
         codes(validatePayload(schema, { step: { d: '2020-01-01' } }, opts)),
       ).toContain('OUT_OF_RANGE');
+    });
+
+    it('rejects a date that is not on the calendar', () => {
+      const schema = build([{ key: 'd', type: 'date', required: true }]);
+      for (const d of ['2026-02-31', '2025-02-29', '2026-13-01']) {
+        expect(codes(validatePayload(schema, { step: { d } }, opts))).toEqual([
+          'INVALID_DATE',
+        ]);
+      }
+      expect(
+        validatePayload(schema, { step: { d: '2024-02-29' } }, opts).ok,
+      ).toBe(true);
+    });
+
+    it('accepts a datetime only as RFC 3339 with a timezone', () => {
+      const schema = build([
+        {
+          key: 't',
+          type: 'datetime',
+          required: true,
+          min: '2026-01-01T00:00:00Z',
+        },
+      ]);
+      for (const t of ['2026-01-31T09:00:00Z', '2026-01-31T09:00:00.5+01:00']) {
+        expect(validatePayload(schema, { step: { t } }, opts).ok).toBe(true);
+      }
+      for (const t of [
+        '1',
+        'March 7',
+        'foo 1',
+        '2026-01-31',
+        '2026-01-31T09:00:00',
+        '2026-02-31T09:00:00Z',
+      ]) {
+        expect(codes(validatePayload(schema, { step: { t } }, opts))).toEqual([
+          'INVALID_DATE',
+        ]);
+      }
+      expect(
+        codes(
+          validatePayload(
+            schema,
+            { step: { t: '2025-06-01T00:00:00Z' } },
+            opts,
+          ),
+        ),
+      ).toEqual(['OUT_OF_RANGE']);
     });
   });
 

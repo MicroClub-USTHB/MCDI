@@ -218,7 +218,7 @@ src/modules/inbound-webhooks/
   dto/
 
 src/common/utils/
-  crypto.util.ts                          AES-256-GCM encrypt / decrypt
+  encryption.util.ts                      AES-256-GCM encrypt / decrypt (shared with outbound webhooks)
   inbound-webhook-signature.util.ts       sign / verify / parse header
 ```
 
@@ -557,7 +557,7 @@ may itself be up to `tolerance` ahead of the server clock.
 | PII exfiltration | every read audited; denials logged at `warning` |
 | Disguised file upload | magic-byte sniffing, not the client's `Content-Type` |
 | Permanent file URL outliving a grant | downloads are short-lived signed URLs behind the read guard |
-| Secret at rest | AES-256-GCM; boot fails if `INBOUND_WEBHOOK_ENCRYPTION_KEY` is absent |
+| Secret at rest | AES-256-GCM; production boot fails if `INBOUND_WEBHOOK_ENCRYPTION_KEY` is absent |
 
 ---
 
@@ -710,7 +710,7 @@ establishes the `RETENTION_DAYS` + `setInterval` pattern to copy.
 
 | Variable | Required | Description |
 |---|---|---|
-| `INBOUND_WEBHOOK_ENCRYPTION_KEY` | **yes** | 32 bytes, base64. Boot **must fail** if absent — silently falling back to plaintext secrets is exactly the failure that ships |
+| `INBOUND_WEBHOOK_ENCRYPTION_KEY` | **yes** | 64 hex characters (`openssl rand -hex 32`). Production boot **must fail** if absent — silently falling back to plaintext secrets is exactly the failure that ships |
 | `INBOUND_WEBHOOK_MAX_BODY_BYTES` | no (default 1 MiB) | JSON submission cap |
 | `INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_S` | no (default 300) | timestamp window |
 | `INBOUND_WEBHOOK_DRAFT_TTL_H` | no (default 24) | draft expiry |
@@ -762,7 +762,7 @@ trip at a time.
 | Unit | `payload.validator.ts` | table-driven, one case per type × constraint; conditions; nesting; error aggregation |
 | Unit | `condition.evaluator.ts` | every operator, nested and/or/not, missing-path behaviour |
 | Unit | `inbound-webhook-signature.util.ts` | round trip, tampered body, stale timestamp, malformed header |
-| Unit | `crypto.util.ts` | round trip, wrong key fails, ciphertext differs per call (IV) |
+| Unit | `encryption.util.ts` | round trip, wrong key fails, ciphertext differs per call (IV) |
 | Unit | `InboundWebhookReadGuard` | entitled, unentitled, admin, revoked role, role on foreign server |
 | E2E | ingest | happy path, 422 shape, replay, stale signature, origin rejection, rate limit |
 | E2E | read | entitled member sees data; unentitled gets 404; list does not leak counts |
@@ -839,8 +839,8 @@ The core of the feature. Still pure — no Nest, no database.
 ### IW-04 — Crypto and HMAC signature utilities
 **Labels**: `enhancement` · **Estimate**: M · **Depends on**: —
 
-- [ ] `crypto.util.ts`: AES-256-GCM `encrypt`/`decrypt` using `INBOUND_WEBHOOK_ENCRYPTION_KEY`
-- [ ] Boot fails loudly if the key is missing or not 32 bytes
+- [ ] Reuse `encryption.util.ts` (AES-256-GCM) with `INBOUND_WEBHOOK_ENCRYPTION_KEY`
+- [ ] Production boot fails loudly if the key is missing or not 64 hex characters
 - [ ] `inbound-webhook-signature.util.ts`: `sign`, `verify`, `parseSignatureHeader`
 - [ ] `verify` uses `timingSafeEqual`, mirroring `api-key.util.ts:16`
 - [ ] `rawBody: true` added at `src/main.ts:14`
