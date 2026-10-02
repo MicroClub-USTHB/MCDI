@@ -1,0 +1,610 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DISCORD_CLIENT } from './discord.constants';
+import Discord, { ChannelType } from 'discord.js';
+
+export interface DiscordOAuthProfile {
+  id: string;
+  username: string;
+  global_name?: string | null;
+  display_name?: string | null;
+  avatar?: string | null;
+  email?: string | null;
+}
+
+export interface OAuthGuildMemberResult {
+  /** HTTP status returned by Discord (200, 403, 404, etc.) */
+  status: number;
+  /** Whether the user is confirmed to be in the guild. */
+  ok: boolean;
+  /** Discord role IDs held by the member in this guild. */
+  roleIds: string[];
+}
+
+export interface DiscordGuildRole {
+  id: string;
+  name: string;
+  color: number;
+  position: number;
+}
+
+@Injectable()
+export class DiscordService {
+  private readonly logger = new Logger(DiscordService.name);
+  private readonly loginRetryDelayMs: number;
+  private connectPromise: Promise<void> | null = null;
+  private retryTimer: NodeJS.Timeout | null = null;
+  private destroyed = false;
+
+  constructor(
+    @Inject(DISCORD_CLIENT) private readonly client: Discord.Client,
+    private readonly configService: ConfigService,
+  ) {
+    this.loginRetryDelayMs =
+      this.configService.get<number>('discord.loginRetryDelayMs') ?? 30_000;
+  }
+
+  getClient(): Discord.Client {
+    return this.client;
+  }
+
+  isBotReady(): boolean {
+    return this.client.isReady();
+  }
+
+  hasGuildConnection(guildId: string): boolean {
+    return this.isBotReady() && this.client.guilds.cache.has(guildId);
+  }
+
+  onBotReady(callback: () => void): void {
+    if (this.isBotReady()) {
+      callback();
+      return;
+    }
+
+    this.client.once('ready', callback);
+  }
+
+  startBotConnection(): void {
+    if (this.destroyed || this.isBotReady() || this.connectPromise) {
+      return;
+    }
+
+    const token = this.configService.get<string>('discord.token');
+    if (!token) {
+      this.logger.warn(
+        'Discord bot token is not configured - bot features will remain disabled.',
+      );
+      return;
+    }
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+
+    this.connectPromise = this.client
+      .login(token)
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Discord bot login failed - bot features remain unavailable. Retrying in ${this.loginRetryDelayMs}ms. ${message}`,
+        );
+        this.scheduleReconnect();
+      })
+      .finally(() => {
+        this.connectPromise = null;
+      });
+  }
+
+  async destroyBotConnection(): Promise<void> {
+    this.destroyed = true;
+
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
+
+    try {
+      await this.client.destroy();
+    } catch {
+      // ignore errors on shutdown
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.destroyed || this.retryTimer || this.isBotReady()) {
+      return;
+    }
+
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.startBotConnection();
+    }, this.loginRetryDelayMs);
+  }
+
+  async getUserById(userId: string): Promise<Discord.User | null> {
+    if (!this.isBotReady()) return null;
+
+    try {
+      const user = await this.client.users.fetch(userId);
+      return user;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getGuildById(guildId: string): Promise<Discord.Guild | null> {
+    if (!this.isBotReady()) return null;
+
+    try {
+      const guild = await this.client.guilds.fetch(guildId);
+      return guild;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getGuildMember(
+    guildId: string,
+    userId: string,
+  ): Promise<Discord.GuildMember | null> {
+    try {
+      const guild = await this.getGuildById(guildId);
+      if (!guild) return null;
+      const member = await guild.members.fetch(userId);
+      return member;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getAllGuildMembers(
+    guildId: string,
+  ): Promise<Discord.Collection<string, Discord.GuildMember> | null> {
+    try {
+      const guild = await this.getGuildById(guildId);
+      if (!guild) return null;
+      const members = await guild.members.fetch();
+      return members;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getChannelById(channelId: string): Promise<Discord.Channel | null> {
+    if (!this.isBotReady()) return null;
+
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      return channel;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getGuildChannels(
+    guildId: string,
+  ): Promise<Discord.Collection<
+    string,
+    Discord.NonThreadGuildBasedChannel | null
+  > | null> {
+    try {
+      const guild = await this.getGuildById(guildId);
+      if (!guild) return null;
+      const channels = await guild.channels.fetch();
+      return channels;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async createChannel(
+    guildId: string,
+    name: string,
+    options?: Discord.GuildChannelCreateOptions,
+  ): Promise<Discord.GuildChannel | null> {
+    try {
+      const guild = await this.getGuildById(guildId);
+      if (!guild) return null;
+      const channel = await guild.channels.create({ name, ...options });
+      return channel;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async deleteChannel(channelId: string): Promise<boolean> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || channel.isDMBased()) return false;
+      await channel.delete();
+      return true;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  async editChannel(
+    channelId: string,
+    options: Discord.GuildChannelEditOptions,
+  ): Promise<Discord.GuildBasedChannel | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || channel.isDMBased()) return null;
+      const editedChannel = await channel.edit(options);
+      return editedChannel;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getChannelMessages(
+    channelId: string,
+    options?: Discord.FetchMessagesOptions,
+  ): Promise<Discord.Collection<string, Discord.Message> | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || !channel.isTextBased()) return null;
+      const messages = await channel.messages.fetch(options);
+      return messages;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getMessageById(
+    channelId: string,
+    messageId: string,
+  ): Promise<Discord.Message | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || !channel.isTextBased()) return null;
+      const message = await channel.messages.fetch(messageId);
+      return message;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async bulkDeleteMessages(
+    channelId: string,
+    messages:
+      | number
+      | Discord.Collection<string, Discord.Message>
+      | Discord.Message[]
+      | string[],
+    filterOld?: boolean,
+  ) {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || !channel.isTextBased() || channel.isDMBased())
+        return null;
+      const deletedMessages = await channel.bulkDelete(messages, filterOld);
+      return deletedMessages;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async getRoleById(
+    guildId: string,
+    roleId: string,
+  ): Promise<Discord.Role | null> {
+    try {
+      const guild = await this.getGuildById(guildId);
+      if (!guild) return null;
+      const role = await guild.roles.fetch(roleId);
+      return role;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async addRoleToMember(
+    guildId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<boolean> {
+    try {
+      const member = await this.getGuildMember(guildId, userId);
+      if (!member) return false;
+      await member.roles.add(roleId);
+      return true;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  async removeRoleFromMember(
+    guildId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<boolean> {
+    try {
+      const member = await this.getGuildMember(guildId, userId);
+      if (!member) return false;
+      await member.roles.remove(roleId);
+      return true;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  async memberHasRole(
+    guildId: string,
+    userId: string,
+    roleId: string,
+  ): Promise<boolean> {
+    try {
+      const member = await this.getGuildMember(guildId, userId);
+      if (!member) return false;
+      return member.roles.cache.has(roleId);
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  async sendMessage(
+    channelId: string,
+    content: string | Discord.MessageCreateOptions,
+  ): Promise<Discord.Message | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || !channel.isSendable()) return null;
+
+      const message = await channel.send(content);
+      return message;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async editMessage(
+    channelId: string,
+    messageId: string,
+    content: string | Discord.MessageEditOptions,
+  ): Promise<Discord.Message | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (!channel || !channel.isSendable()) return null;
+
+      const message = await channel.messages.fetch(messageId);
+      const editedMessage = await message.edit(content);
+      return editedMessage;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+  async deleteMessage(channelId: string, messageId: string): Promise<boolean> {
+    try {
+      const channel = await this.getChannelById(channelId);
+
+      if (!channel || !channel.isSendable()) return false;
+
+      const message = await channel.messages.fetch(messageId);
+      await message.delete();
+      return true;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  async getWebhooks(
+    channelId: string,
+  ): Promise<Discord.Collection<string, Discord.Webhook> | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (
+        !channel ||
+        channel.isDMBased() ||
+        channel.isThread() ||
+        channel.type === ChannelType.GuildCategory
+      )
+        return null;
+      const webhooks = await channel.fetchWebhooks();
+      return webhooks;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+  async createWebhook(
+    channelId: string,
+    name: string,
+    options?: Discord.ChannelWebhookCreateOptions,
+  ): Promise<Discord.Webhook | null> {
+    try {
+      const channel = await this.getChannelById(channelId);
+      if (
+        !channel ||
+        channel.isDMBased() ||
+        channel.isThread() ||
+        channel.type === ChannelType.GuildCategory
+      )
+        return null;
+      const webhook = await channel.createWebhook({ name, ...options });
+      return webhook;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async executeWebhook(
+    webhookId: string,
+    token: string,
+    options: Discord.WebhookMessageCreateOptions,
+  ): Promise<void> {
+    const webhook = new Discord.WebhookClient({ id: webhookId, token });
+
+    try {
+      await webhook.send(options);
+    } finally {
+      webhook.destroy();
+    }
+  }
+
+  async editWebhook(
+    webhookId: string,
+    options: Discord.WebhookEditOptions,
+  ): Promise<Discord.Webhook | null> {
+    if (!this.isBotReady()) return null;
+
+    try {
+      const webhook = await this.client.fetchWebhook(webhookId);
+      const editedWebhook = await webhook.edit(options);
+      return editedWebhook;
+    } catch (error: unknown) {
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async deleteWebhook(webhookId: string): Promise<boolean> {
+    if (!this.isBotReady()) return false;
+
+    try {
+      const webhook = await this.client.fetchWebhook(webhookId);
+      await webhook.delete();
+      return true;
+    } catch (error: unknown) {
+      if (
+        error instanceof Discord.DiscordAPIError &&
+        error.code === Discord.RESTJSONErrorCodes.UnknownWebhook
+      ) {
+        // Already gone on Discord's side, treat as deleted
+        return true;
+      }
+      this.logger.debug(error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  getCachedChannelName(channelId: string): string | null {
+    if (!this.isBotReady()) return null;
+    const channel = this.client.channels.cache.get(channelId);
+    if (!channel || !('name' in channel)) return null;
+    return channel.name;
+  }
+
+  getCachedGuildName(guildId: string): string | null {
+    if (!this.isBotReady()) return null;
+    return this.client.guilds.cache.get(guildId)?.name ?? null;
+  }
+
+  // ─── OAuth2 / REST helpers (user-facing, not bot-client) ────────────────
+
+  /**
+   * Exchange a Discord authorization code for a user access token.
+   * Uses the configured OAuth2 client credentials.
+   * Returns the access token string, or null if the exchange fails.
+   */
+  async exchangeOAuthCode(
+    code: string,
+    redirectUri: string,
+  ): Promise<string | null> {
+    const clientId = this.configService.get<string>('discord.clientId')!;
+    const clientSecret = this.configService.get<string>(
+      'discord.clientSecret',
+    )!;
+
+    const res = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { access_token: string };
+    return data.access_token;
+  }
+
+  /**
+   * Fetch the authenticated user's Discord profile using their OAuth access token.
+   * Returns the profile, or null if the request fails.
+   */
+  async fetchOAuthProfile(
+    accessToken: string,
+  ): Promise<DiscordOAuthProfile | null> {
+    const res = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    if (!res.ok) return null;
+
+    return res.json() as Promise<DiscordOAuthProfile>;
+  }
+
+  /**
+   * Verify that a user is a member of a Discord guild via their OAuth access
+   * token (requires `guilds.members.read` scope).
+   * Returns membership status and the user's role IDs in that guild.
+   */
+  async fetchOAuthGuildMember(
+    guildId: string,
+    accessToken: string,
+  ): Promise<OAuthGuildMemberResult> {
+    const res = await fetch(
+      `https://discord.com/api/users/@me/guilds/${guildId}/member`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    if (!res.ok) {
+      return { status: res.status, ok: false, roleIds: [] };
+    }
+
+    const data = (await res.json()) as { roles?: string[] };
+    return { status: res.status, ok: true, roleIds: data.roles ?? [] };
+  }
+
+  /**
+   * Fetch all roles defined in a Discord guild via the bot token, then
+   * filter to only those whose IDs appear in `memberRoleIds`.
+   * Returns an empty array if the request fails.
+   */
+  async fetchGuildRolesForMember(
+    guildId: string,
+    memberRoleIds: string[],
+  ): Promise<DiscordGuildRole[]> {
+    if (memberRoleIds.length === 0) return [];
+
+    const botToken = this.configService.get<string>('discord.token')!;
+
+    const res = await fetch(`https://discord.com/api/guilds/${guildId}/roles`, {
+      headers: { Authorization: `Bot ${botToken}` },
+    });
+
+    if (!res.ok) return [];
+
+    const allRoles = (await res.json()) as DiscordGuildRole[];
+    return allRoles.filter((r) => memberRoleIds.includes(r.id));
+  }
+}

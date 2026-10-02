@@ -43,18 +43,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run linter
-        run: pnpm run lint
+      - name: Run linter and type checks
+        run: pnpm turbo run lint typecheck
 
       - name: Run unit tests with coverage
-        run: pnpm run test:ci
+        run: pnpm turbo run test:ci
 
-      - name: Upload coverage report
+      - name: Build all packages
+        run: pnpm turbo run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/api
+          NEXT_PUBLIC_APP_URL: http://localhost:3002
+
+      - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: coverage/
+          path: apps/*/coverage/
           retention-days: 7   # Auto-delete after 7 days to save storage
 
   e2e-tests:
@@ -97,7 +103,7 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          node -e "const { Client } = require('pg'); (async () => {
+          pnpm --filter @mcdi/api exec node -e "const { Client } = require('pg'); (async () => {
             for (let i = 0; i < 30; i++) {
               try {
                 const c = new Client({ connectionString: process.env.DATABASE_URL });
@@ -116,11 +122,22 @@ jobs:
         env:
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
 
+      - name: Check migrations re-apply cleanly
+        # Production re-runs every migration via psql on each boot (see
+        # apps/api/DEPLOY.md), so a second run must succeed.
+        run: |
+          for f in $(ls apps/api/src/database/migrations/*.sql | sort); do cat "$f"; echo; done > /tmp/migration.sql
+          for run in 1 2; do
+            psql "$DATABASE_URL" -q -v ON_ERROR_STOP=1 -f /tmp/migration.sql > /dev/null
+          done
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+
       - name: Run database migrations
         run: |
           for i in 1 2 3; do
             echo "Migration attempt $i"
-            RESET_DB=1 pnpm run db:migrate && exit 0
+            RESET_DB=1 pnpm --filter @mcdi/api run db:migrate && exit 0
             sleep 3
           done
           exit 1
@@ -128,7 +145,7 @@ jobs:
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
 
       - name: Run E2E tests
-        run: pnpm run test:e2e
+        run: pnpm turbo run test:e2e --filter=@mcdi/api
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
@@ -183,7 +200,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          dockerfile: Dockerfile
+          file: apps/api/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

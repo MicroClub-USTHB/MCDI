@@ -1,0 +1,116 @@
+# docker-compose.fuzz.yml
+#
+# Fuzzing stack: NestJS API + PostgreSQL + Schemathesis on an isolated network.
+#
+# Quick-start:
+#   chmod +x scripts/fuzz.sh && ./scripts/fuzz.sh
+#
+# Manual steps:
+#   docker compose -f docker-compose.fuzz.yml up -d database api
+#   # wait until api is healthy, then:
+#   docker compose -f docker-compose.fuzz.yml --profile fuzz run --rm fuzzer \
+#     st run http://api:3000/api/docs-json --base-url http://api:3000/api
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mcdi
+    # No host port binding — only the api / migrate containers need DB access.
+    # Both reach it via the internal hostname "database:5432" on fuzznet.
+    networks:
+      - fuzznet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mcdi"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # ── Schema migration (one-shot) ───────────────────────────────────────────
+  # Runs `drizzle-kit push` inside the fuzznet so no host DB port is needed.
+  # Uses the `builder` Docker stage (has src/, drizzle.config.ts, devDependencies).
+  # Invoked by fuzz.sh via: docker compose run --rm migrate
+  migrate:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+      target: builder          # builder stage has drizzle-kit + entities source
+    environment:
+      DATABASE_URL: postgresql://myuser:mypassword@database:5432/mcdi
+      DISCORD_TOKEN: placeholder
+      DISCORD_CLIENT_ID: placeholder
+      DISCORD_CLIENT_SECRET: placeholder
+      DISCORD_CALLBACK_URL: http://localhost:3000/api/auth/discord/callback
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - fuzznet
+    entrypoint: ["pnpm", "--filter", "@mcdi/api", "exec", "drizzle-kit", "push", "--config", "drizzle.config.ts"]
+    profiles:
+      - fuzz
+
+  # ── NestJS API (production build) ───────────────────────────────────────────
+  api:
+    image: mcdi-api-fuzz:latest
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    container_name: mcdi-api-fuzz
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://myuser:mypassword@database:5432/mcdi
+      # BASE_URL tells Swagger which server to advertise in the spec —
+      # must be reachable by the restler container on the fuzznet network.
+      BASE_URL: http://api:3000
+      # Discord login will fail gracefully (warning logged); OAuth flow
+      # and all other endpoints remain fully available.
+      DISCORD_TOKEN: placeholder
+      DISCORD_CLIENT_ID: placeholder
+      DISCORD_CLIENT_SECRET: placeholder
+      DISCORD_CALLBACK_URL: http://localhost:3000/api/auth/discord/callback
+      DISCORD_ADMIN_CALLBACK_URL: http://localhost:3000/api/auth/admin/discord/callback
+      # Required by the production env validation; throwaway values, fuzz stack only.
+      MC_GUILD_ID: '111111111111111111'
+      MC_EXECUTIVE_ROLE_ID: '222222222222222222'
+      WEBHOOK_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      INBOUND_WEBHOOK_ENCRYPTION_KEY: '1111111111111111111111111111111111111111111111111111111111111111'
+    ports:
+      - "3000:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - fuzznet
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/docs-json > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  # ── Schemathesis API fuzzer ─────────────────────────────────────────────────
+  # Python-based OpenAPI fuzzer — runs natively on ARM & x86.
+  # Invoke via:  docker compose -f docker-compose.fuzz.yml --profile fuzz run --rm fuzzer <args>
+  fuzzer:
+    image: schemathesis/schemathesis:stable
+    container_name: mcdi-fuzzer
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - fuzznet
+    volumes:
+      - ./restler:/workspace
+    working_dir: /workspace
+    profiles:
+      - fuzz
+
+networks:
+  fuzznet:
+    driver: bridge
