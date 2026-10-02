@@ -88,6 +88,26 @@ import redisConfig from './redis.config';
                 'WEBHOOK_ENCRYPTION_KEY must be 64 hex characters',
             }),
         }),
+        INBOUND_WEBHOOK_ENCRYPTION_KEY: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string()
+            .pattern(/^[0-9a-fA-F]{64}$/)
+            .required()
+            .messages({
+              'any.required':
+                'INBOUND_WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32',
+              'string.pattern.base':
+                'INBOUND_WEBHOOK_ENCRYPTION_KEY must be 64 hex characters',
+            }),
+          otherwise: Joi.string()
+            .pattern(/^[0-9a-fA-F]{64}$/)
+            .allow('')
+            .default('')
+            .messages({
+              'string.pattern.base':
+                'INBOUND_WEBHOOK_ENCRYPTION_KEY must be 64 hex characters',
+            }),
+        }),
         MAX_WEBHOOKS_PER_PROJECT: Joi.number().integer().min(1).default(10),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().port().default(6379),

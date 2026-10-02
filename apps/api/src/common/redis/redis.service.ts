@@ -101,6 +101,30 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return result === 'OK';
   }
 
+  /**
+   * Tri-state set-if-absent, for callers that must distinguish "the key was
+   * already there" from "Redis did not answer".
+   *
+   * `setNx` collapses both into `false`, which is dangerous for guards such as
+   * replay protection: an unreachable Redis would otherwise look identical to
+   * a replayed request and reject all legitimate traffic.
+   */
+  async setIfAbsent(
+    key: string,
+    value: string,
+    ttlMs: number,
+  ): Promise<'set' | 'exists' | 'unavailable'> {
+    if (!this.client.isReady) return 'unavailable';
+
+    try {
+      const result = await this.client.set(key, value, { PX: ttlMs, NX: true });
+      return result === 'OK' ? 'set' : 'exists';
+    } catch (error) {
+      this.logRedisError(error);
+      return 'unavailable';
+    }
+  }
+
   async delete(...keys: string[]): Promise<number> {
     if (keys.length === 0) {
       return 0;

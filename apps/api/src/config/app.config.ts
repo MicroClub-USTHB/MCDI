@@ -28,6 +28,8 @@ export default registerAs('app', () => ({
   sessionTtlSec: Number(process.env.SESSION_TTL_SEC) || 30 * 24 * 60 * 60, // 30 days
   // 64 hex chars; encrypts stored Discord webhook tokens at rest
   webhookEncryptionKey: process.env.WEBHOOK_ENCRYPTION_KEY || '',
+  // 64 hex chars; encrypts inbound-webhook signing secrets at rest
+  inboundWebhookEncryptionKey: process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY || '',
   maxWebhooksPerProject: Number(process.env.MAX_WEBHOOKS_PER_PROJECT) || 10,
   // SSO — global browser session shared across projects
   ssoCookieName: process.env.SSO_COOKIE_NAME || 'mcdi_sso',

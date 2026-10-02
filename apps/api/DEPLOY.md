@@ -48,6 +48,8 @@ to resolve the image host:
      `DISCORD_CALLBACK_URL`, `DISCORD_ADMIN_CALLBACK_URL`.
    - `MC_GUILD_ID`, `MC_EXECUTIVE_ROLE_ID`.
    - `WEBHOOK_ENCRYPTION_KEY` (64 hex characters, `openssl rand -hex 32`).
+   - `INBOUND_WEBHOOK_ENCRYPTION_KEY` (64 hex characters, a separate
+     `openssl rand -hex 32`; the API refuses to boot in production without it).
    - `MAX_WEBHOOKS_PER_PROJECT` (optional, defaults to `10`).
    - `BASE_URL`, `CORS_ORIGINS`, `ADMIN_FRONTEND_URL`.
    - `THROTTLER_TTL_MS`, `THROTTLER_LIMIT` (optional).
