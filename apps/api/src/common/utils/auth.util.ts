@@ -1,10 +1,10 @@
 import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
 import { UnauthorizedException } from '@nestjs/common';
-import { inArray } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Request } from 'express';
 import * as schema from '../../database/entities';
-import { getSessionTokenCandidates } from './session-token.util';
+import { hashSessionToken } from './session-token.util';
 
 /**
  * Extracts the Bearer token from the Authorization header.
@@ -56,18 +56,28 @@ export function extractApiKey(request: Request): string | null {
  * Validates a session token against the sessions table.
  * Throws 401 if the token is not found or has expired.
  * Returns the memberId on success.
+ *
+ * `adminOnly` accepts only sessions issued by the admin Discord login
+ * (no project). Project sessions are handed to third-party project backends,
+ * so they must never authenticate admin routes.
  */
 export async function validateSession(
   db: NodePgDatabase<typeof schema>,
   token: string,
+  options: { adminOnly?: boolean } = {},
 ): Promise<string> {
+  const tokenMatch = eq(schema.sessions.token, hashSessionToken(token));
   const [session] = await db
     .select({
       memberId: schema.sessions.memberId,
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
-    .where(inArray(schema.sessions.token, getSessionTokenCandidates(token)))
+    .where(
+      options.adminOnly
+        ? and(tokenMatch, isNull(schema.sessions.projectId))
+        : tokenMatch,
+    )
     .limit(1);
 
   if (!session) {

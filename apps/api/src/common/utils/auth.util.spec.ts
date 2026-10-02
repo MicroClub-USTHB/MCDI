@@ -96,37 +96,37 @@ describe('validateSession', () => {
     expect(result).toBe('user-1');
   });
 
-  it('queries both legacy raw and hashed session tokens', async () => {
+  const collectValues = (node: unknown, seen = new WeakSet<object>()) => {
+    const values: unknown[] = [];
+    const visit = (n: unknown) => {
+      if (!n || typeof n !== 'object' || seen.has(n)) return;
+      seen.add(n);
+      if ('value' in n) values.push((n as { value: unknown }).value);
+      Object.values(n).forEach(visit);
+    };
+    visit(node);
+    return values;
+  };
+
+  it('matches on the hashed token only', async () => {
     const future = new Date(Date.now() + 1_000_000);
     const db = buildMockDb([{ memberId: 'user-1', expiresAt: future }]);
 
     await validateSession(db as any, 'valid-token');
 
-    const whereArg = db.where.mock.calls[0][0];
-    const values: string[] = [];
-    const visit = (node: unknown, seen: WeakSet<object> = new WeakSet()) => {
-      if (!node || typeof node !== 'object') {
-        return;
-      }
-      if (seen.has(node)) {
-        return;
-      }
-      seen.add(node);
-      if ('value' in node && typeof node.value === 'string') {
-        values.push(node.value);
-      }
-      if (Array.isArray(node)) {
-        node.forEach((item) => visit(item, seen));
-        return;
-      }
-      Object.values(node).forEach((item) => visit(item, seen));
-    };
+    const values = collectValues(db.where.mock.calls[0][0]);
+    expect(values).toContain(hashSessionToken('valid-token'));
+    expect(values).not.toContain('valid-token');
+  });
 
-    visit(whereArg);
+  it('restricts to project-less sessions when adminOnly is set', async () => {
+    const future = new Date(Date.now() + 1_000_000);
+    const db = buildMockDb([{ memberId: 'user-1', expiresAt: future }]);
 
-    expect(values).toEqual(
-      expect.arrayContaining(['valid-token', hashSessionToken('valid-token')]),
-    );
+    await validateSession(db as any, 'valid-token', { adminOnly: true });
+
+    const json = JSON.stringify(collectValues(db.where.mock.calls[0][0]));
+    expect(json).toContain('is null');
   });
 
   it('throws UnauthorizedException when session is not found', async () => {
