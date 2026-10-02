@@ -4,6 +4,8 @@ import * as databaseModule from '../../database/database.module';
 import {
   permissions,
   projectServers,
+  roleInheritanceRules,
+  roleInheritanceRuleTargets,
   rolePermissions,
   roles,
   serverMemberRoles,
@@ -232,8 +234,31 @@ export class ServersRepository {
     });
   }
 
+  /**
+   * Deletes a role and every row that references it. role_permissions,
+   * server_member_roles and role_inheritance_rules have no ON DELETE cascade,
+   * so deleting the role alone fails on the foreign key.
+   */
   async deleteRole(roleId: string): Promise<void> {
-    await this.db.delete(roles).where(eq(roles.id, roleId));
+    await this.db.transaction(async (tx) => {
+      const rules = tx
+        .select({ id: roleInheritanceRules.id })
+        .from(roleInheritanceRules)
+        .where(eq(roleInheritanceRules.sourceRoleId, roleId));
+      await tx
+        .delete(roleInheritanceRuleTargets)
+        .where(inArray(roleInheritanceRuleTargets.ruleId, rules));
+      await tx
+        .delete(roleInheritanceRules)
+        .where(eq(roleInheritanceRules.sourceRoleId, roleId));
+      await tx
+        .delete(rolePermissions)
+        .where(eq(rolePermissions.roleId, roleId));
+      await tx
+        .delete(serverMemberRoles)
+        .where(eq(serverMemberRoles.roleId, roleId));
+      await tx.delete(roles).where(eq(roles.id, roleId));
+    });
   }
 
   async findAllActive(): Promise<(typeof servers.$inferSelect)[]> {

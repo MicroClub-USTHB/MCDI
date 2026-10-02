@@ -21,6 +21,7 @@ const mockSyncLog = {
 
 const mockPermissionCache = {
   invalidateServer: jest.fn(),
+  clear: jest.fn(),
 };
 
 // Mirrors discord.js: `role.guild.roles.cache` holds every role in the guild,
@@ -117,18 +118,12 @@ describe('RoleSyncService', () => {
   // ── handleRoleDelete ──────────────────────────────────────────────────
 
   describe('handleRoleDelete', () => {
-    it('deletes member role assignments and the role, then records the event', async () => {
-      mockMemberRepo.deleteMemberRolesByRoleId.mockResolvedValue(undefined);
+    it('deletes the role, flushes the cache, then records the event', async () => {
       mockServersRepo.deleteRole.mockResolvedValue(undefined);
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleRoleDelete(makeRole());
-      expect(mockPermissionCache.invalidateServer).toHaveBeenCalledWith(
-        'guild-1',
-      );
-      expect(mockMemberRepo.deleteMemberRolesByRoleId).toHaveBeenCalledWith(
-        'role-1',
-      );
+      expect(mockPermissionCache.clear).toHaveBeenCalled();
       expect(mockServersRepo.deleteRole).toHaveBeenCalledWith('role-1');
       expect(mockSyncLog.recordEventChange).toHaveBeenCalledWith(
         'guild-1',

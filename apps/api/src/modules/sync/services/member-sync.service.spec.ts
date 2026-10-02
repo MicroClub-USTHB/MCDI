@@ -11,6 +11,7 @@ const mockMemberRepo = {
   replaceMemberRoles: jest.fn(),
   markInactiveForServer: jest.fn(),
   recordMemberDeparture: jest.fn(),
+  removeMemberRolesForServer: jest.fn(),
   deleteMemberRolesByRoleId: jest.fn(),
 };
 
@@ -128,6 +129,7 @@ describe('MemberSyncService', () => {
     it('marks membership inactive and records removal', async () => {
       mockMemberRepo.upsertServerMembership.mockResolvedValue(undefined);
       mockMemberRepo.recordMemberDeparture.mockResolvedValue(undefined);
+      mockMemberRepo.removeMemberRolesForServer.mockResolvedValue(undefined);
       mockSyncLog.recordEventChange.mockResolvedValue(undefined);
 
       await service.handleMemberRemove(makeGuildMember());
@@ -138,6 +140,10 @@ describe('MemberSyncService', () => {
         expect.objectContaining({ isActive: false }),
       );
       expect(mockMemberRepo.recordMemberDeparture).toHaveBeenCalledWith(
+        'guild-1',
+        'user-1',
+      );
+      expect(mockMemberRepo.removeMemberRolesForServer).toHaveBeenCalledWith(
         'guild-1',
         'user-1',
       );
@@ -258,19 +264,9 @@ describe('MemberSyncService', () => {
       const guild: any = {
         id: 'guild-1',
         members: {
-          fetch: jest
-            .fn()
-            .mockResolvedValueOnce({
-              size: 1,
-              [Symbol.iterator]: () => [[member.id, member]][Symbol.iterator](),
-              last: () => member,
-            })
-            .mockResolvedValueOnce({ size: 0 }),
+          list: jest.fn().mockResolvedValueOnce(page([member])),
         },
       };
-      // Make the fetch iterable via for...of (iterator protocol)
-      guild.members.fetch.mockResolvedValueOnce(new Map([[member.id, member]]));
-      guild.members.fetch.mockResolvedValueOnce(new Map());
 
       mockMemberRepo.upsertMember.mockResolvedValue(undefined);
       mockMemberRepo.upsertServerMembership.mockResolvedValue(undefined);
@@ -287,5 +283,40 @@ describe('MemberSyncService', () => {
       );
       expect(mockMemberRepo.markInactiveForServer).toHaveBeenCalled();
     });
+
+    it('pages with `after` until a short page', async () => {
+      const full = Array.from({ length: 1000 }, (_, i) =>
+        makeGuildMember({ id: `m${i}` }),
+      );
+      const tail = makeGuildMember({ id: 'last' });
+      const guild: any = {
+        id: 'guild-1',
+        members: {
+          list: jest
+            .fn()
+            .mockResolvedValueOnce(page(full))
+            .mockResolvedValueOnce(page([tail])),
+        },
+      };
+      mockMemberRepo.markInactiveForServer.mockResolvedValue(0);
+
+      const result = await service.syncAllMembers(guild, 1, new Date(), []);
+
+      expect(result.membersSynced).toBe(1001);
+      expect(guild.members.list).toHaveBeenNthCalledWith(1, {
+        limit: 1000,
+        after: undefined,
+      });
+      expect(guild.members.list).toHaveBeenNthCalledWith(2, {
+        limit: 1000,
+        after: 'm999',
+      });
+    });
   });
 });
+
+/** Minimal stand-in for a discord.js Collection page. */
+function page(members: any[]) {
+  const map = new Map(members.map((m) => [m.id, m]));
+  return Object.assign(map, { last: () => members[members.length - 1] });
+}

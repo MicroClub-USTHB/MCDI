@@ -122,6 +122,17 @@ jobs:
         env:
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
 
+      - name: Check migrations re-apply cleanly
+        # Production re-runs every migration via psql on each boot (see
+        # apps/api/DEPLOY.md), so a second run must succeed.
+        run: |
+          for f in $(ls apps/api/src/database/migrations/*.sql | sort); do cat "$f"; echo; done > /tmp/migration.sql
+          for run in 1 2; do
+            psql "$DATABASE_URL" -q -v ON_ERROR_STOP=1 -f /tmp/migration.sql > /dev/null
+          done
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+
       - name: Run database migrations
         run: |
           for i in 1 2 3; do

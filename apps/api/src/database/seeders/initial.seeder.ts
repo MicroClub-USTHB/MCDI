@@ -1014,7 +1014,8 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     .values({
       id: SEEDED_SESSION_ID,
       memberId: SYSTEM_ADMIN_ID,
-      projectId: projectIdByName.get(internalProject.name)!,
+      // No project: admin routes only accept admin-login sessions
+      projectId: null,
       serverId: MAIN_SERVER_ID,
       token: hashSessionToken('mcdi_seed_admin_session_token'),
       expiresAt: new Date('2099-01-01T00:00:00.000Z'),
@@ -1023,7 +1024,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       target: schema.sessions.id,
       set: {
         memberId: SYSTEM_ADMIN_ID,
-        projectId: projectIdByName.get(internalProject.name)!,
+        projectId: null,
         serverId: MAIN_SERVER_ID,
         token: hashSessionToken('mcdi_seed_admin_session_token'),
         expiresAt: new Date('2099-01-01T00:00:00.000Z'),

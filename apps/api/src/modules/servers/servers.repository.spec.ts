@@ -297,11 +297,13 @@ describe('ServersRepository', () => {
   });
 
   describe('deleteRole', () => {
-    it('calls delete without error', async () => {
+    it('deletes the role and its referencing rows in one transaction', async () => {
       const db = buildDb([]);
       const repo = await buildRepo(db);
       await expect(repo.deleteRole('role-1')).resolves.toBeUndefined();
-      expect(db.delete).toHaveBeenCalledTimes(1);
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+      // rule targets, rules, role_permissions, server_member_roles, roles
+      expect(db.delete).toHaveBeenCalledTimes(5);
     });
   });
 

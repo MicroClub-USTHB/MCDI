@@ -68,7 +68,18 @@ uses `ghcr.io/microclub-usthb/mcdi:${IMAGE_TAG:-latest}`:
   dokploy env panel and redeploy. Switching the tag back is the rollback.
 
 The migration file is baked into each image, so a rolled-back image applies its
-own (idempotent) migrations; it does not undo newer ones.
+own migrations; it does not undo newer ones.
+
+### Migrations must be idempotent
+
+The stack re-applies the whole `/migrations/migration.sql` on **every** boot
+with `psql -v ON_ERROR_STOP=1`; there is no migration journal in production.
+Every migration must therefore be safe to run again on a database that already
+has it: use `CREATE TABLE/INDEX IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, and
+wrap `ADD CONSTRAINT` in a `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint ...)`
+block (see `0001`–`0004`). Plain `drizzle-kit generate` output is not
+idempotent — edit it before committing. CI applies the concatenated file twice
+and fails if the second run errors.
 
 On boot the stack does everything automatically — no manual seed step needed:
 
@@ -88,7 +99,21 @@ After deploy:
 - The system is live with 100% production data — zero seed fixtures, zero
   fake API keys, zero backdoor sessions.
 
-## 4. Postgres backups
+## 4. Moving an existing deployment to the monorepo layout
+
+Deployments created before the monorepo used the repository-root
+`docker-compose.prod.yml`, which no longer exists. Update the **existing**
+dokploy Compose app instead of creating a new one: a new app gets a new compose
+project name and therefore new, empty `pg_data` / `redis_data` volumes.
+
+1. Open the existing app → **General** → set **Compose Path** to
+   `./apps/api/docker-compose.prod.yml`.
+2. Add `WEBHOOK_ENCRYPTION_KEY` and `INBOUND_WEBHOOK_ENCRYPTION_KEY` to the
+   env panel if missing (two different `openssl rand -hex 32` values).
+3. Deploy, then restart the stack once and confirm the API comes back healthy
+   (proves the migrations re-apply cleanly).
+
+## 5. Postgres backups
 
 The database data lives in the `pg_data` volume and **survives redeploys**, but it
 is not backed up by default. Own your backups:

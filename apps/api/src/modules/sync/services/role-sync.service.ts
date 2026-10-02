@@ -185,17 +185,15 @@ export class RoleSyncService {
 
   async handleRoleDelete(role: Role): Promise<void> {
     this.logger.debug(`Role deleted: ${role.id} from ${role.guild.id}`);
-    await withRetry(
-      () => this.memberRepository.deleteMemberRolesByRoleId(role.id),
-      `handleRoleDelete deleteMemberRolesByRoleId(${role.id})`,
-      this.logger,
-    );
+    // deleteRole also removes member links, permissions and inheritance
+    // rules in the same transaction
     await withRetry(
       () => this.serversRepository.deleteRole(role.id),
       `handleRoleDelete deleteRole(${role.id})`,
       this.logger,
     );
-    await this.permissionCache.invalidateServer(role.guild.id);
+    // Inheritance rules from this role granted permissions on other servers
+    await this.permissionCache.clear();
     await this.syncLogService.recordEventChange(
       role.guild.id,
       'role',

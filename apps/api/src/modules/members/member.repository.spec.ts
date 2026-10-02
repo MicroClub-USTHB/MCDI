@@ -269,6 +269,30 @@ describe('MemberRepository (members module)', () => {
       const repo = await buildRepo(db);
       expect(await repo.markInactiveForServer('srv-1', new Date())).toBe(0);
     });
+
+    it('deletes role links of inactive members inside the transaction', async () => {
+      const db = buildDb([], []);
+      let txDelete: jest.Mock | undefined;
+      const original = db.transaction.getMockImplementation();
+      db.transaction.mockImplementation((cb: any) =>
+        original((tx: any) => {
+          txDelete = tx.delete;
+          return cb(tx);
+        }),
+      );
+      const repo = await buildRepo(db);
+      await repo.markInactiveForServer('srv-1', new Date());
+      expect(txDelete).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('removeMemberRolesForServer', () => {
+    it('deletes the member role links for the server', async () => {
+      const db = buildDb([]);
+      const repo = await buildRepo(db);
+      await repo.removeMemberRolesForServer('srv-1', 'm1');
+      expect(db.delete).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ── recordMemberDeparture ───────────────────────────────────────────────────

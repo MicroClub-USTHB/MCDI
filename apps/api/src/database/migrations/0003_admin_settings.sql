@@ -1,4 +1,4 @@
-CREATE TABLE "app_settings" (
+CREATE TABLE IF NOT EXISTS "app_settings" (
 	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
 	"permission_cache_ttl_ms" integer,
 	"stats_cache_ttl_ms" integer,
@@ -9,4 +9,4 @@ CREATE TABLE "app_settings" (
 	CONSTRAINT "app_settings_single_row" CHECK ("app_settings"."id" = 1)
 );
 --> statement-breakpoint
-ALTER TABLE "members" ADD COLUMN "preferred_name" varchar(255);
+ALTER TABLE "members" ADD COLUMN IF NOT EXISTS "preferred_name" varchar(255);

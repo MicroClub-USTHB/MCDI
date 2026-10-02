@@ -102,10 +102,9 @@ export class MemberSyncService {
     let hasMore = true;
 
     while (hasMore) {
-      const fetchOptions: { limit: number; after?: string } = { limit: 1000 };
-      if (lastId) fetchOptions.after = lastId;
-
-      const fetched = await guild.members.fetch(fetchOptions);
+      // members.list pages over REST; members.fetch ignores `after` and would
+      // return the same first 1000 members forever.
+      const fetched = await guild.members.list({ limit: 1000, after: lastId });
       if (fetched.size === 0) break;
 
       for (const [, guildMember] of fetched) {
@@ -207,6 +206,15 @@ export class MemberSyncService {
           guildMember.id,
         ),
       `handleMemberRemove recordMemberDeparture(${guildMember.id})`,
+      this.logger,
+    );
+    await withRetry(
+      () =>
+        this.memberRepository.removeMemberRolesForServer(
+          guildMember.guild.id,
+          guildMember.id,
+        ),
+      `handleMemberRemove removeMemberRolesForServer(${guildMember.id})`,
       this.logger,
     );
     await this.permissionCache.invalidateMember(guildMember.id);
