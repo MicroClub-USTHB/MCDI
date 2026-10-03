@@ -146,6 +146,33 @@ describe('AuditLoggingMiddleware', () => {
     });
   });
 
+  it('audits an admin webhook deletion with the admin as actor', () => {
+    run({
+      method: 'DELETE',
+      url: '/api/admin/webhooks/hook-1',
+      statusCode: 204,
+      memberId: 'admin-1',
+    });
+
+    expect(repo.insert.mock.calls[0][0]).toMatchObject({
+      actorId: 'admin-1',
+      actionType: 'webhook',
+      action: 'deleted',
+      entityType: 'webhook',
+      entityId: 'hook-1',
+    });
+  });
+
+  it('does not audit admin webhook reads', () => {
+    run({ method: 'GET', url: '/api/admin/webhooks/hook-1', statusCode: 200 });
+    run({
+      method: 'GET',
+      url: '/api/admin/projects/proj-1/webhooks',
+      statusCode: 200,
+    });
+    expect(repo.insert).not.toHaveBeenCalled();
+  });
+
   it('audits webhook execution with a trailing slash', () => {
     run({
       method: 'POST',
