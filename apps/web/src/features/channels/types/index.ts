@@ -2,7 +2,8 @@
 export interface ChannelDto {
   id: string;
   name: string;
-  type: 'text' | 'voice' | 'announcement' | 'category';
+  /** The API sends `unknown` for every other Discord type: forum, stage, media, directory. */
+  type: 'text' | 'voice' | 'announcement' | 'category' | 'unknown';
   position: number;
   parentId: string | null;
   topic: string | null;

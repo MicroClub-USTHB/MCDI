@@ -1,6 +1,6 @@
 'use client';
 
-import { Hash, Lock, Megaphone, Volume2 } from 'lucide-react';
+import { CircleHelp, Hash, Lock, Megaphone, Volume2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
@@ -11,6 +11,7 @@ const TYPE_ICON: Record<ChannelNode['type'], LucideIcon> = {
   announcement: Megaphone,
   voice: Volume2,
   category: Hash,
+  unknown: CircleHelp,
 };
 
 interface ChannelTreeProps {
@@ -22,7 +23,10 @@ interface ChannelTreeProps {
 /** Category-grouped channel list (issue AC: "Channels grouped by category in tree view"). */
 export function ChannelTree({ groups, selectedId, onSelect }: ChannelTreeProps) {
   return (
-    <nav className="flex flex-col gap-4 rounded-lg bg-surface-raised p-3" aria-label="Channels">
+    <nav
+      className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-lg bg-surface-raised p-3"
+      aria-label="Channels"
+    >
       {groups.map((group) => (
         <div key={group.id ?? '__uncategorized'} className="flex flex-col gap-1">
           <p className="px-2 text-overline text-text-faint uppercase">{group.name}</p>

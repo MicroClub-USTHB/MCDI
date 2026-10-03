@@ -132,6 +132,10 @@ describe('mapChannelDetail', () => {
     const view = mapChannelDetail({ ...base, overwrites: undefined as never });
     expect(view.overwriteCount).toBe(0);
   });
+
+  it('labels a forum, stage or media channel, which the API sends as unknown', () => {
+    expect(mapChannelDetail({ ...base, type: 'unknown' }).typeLabel).toBe('Other channel');
+  });
 });
 
 describe('mapMessage', () => {
