@@ -1,37 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, KeyRound, Trash2 } from 'lucide-react';
+import { KeyRound, Trash2 } from 'lucide-react';
 
-import {
-  useApiKeyInfoQuery,
-  useAccessMatrixQuery,
-  useProjectQuery,
-} from '@/features/projects/api/queries';
+import { useApiKeyInfoQuery, useProjectQuery } from '@/features/projects/api/queries';
 import {
   useDeleteProjectMutation,
   useReactivateProjectMutation,
   useDeactivateProjectMutation,
   useRegenerateApiKeyMutation,
-  useSetServerAccessMutation,
-  useRevokeServerAccessMutation,
   useUpdateProjectMutation,
   useUpdateRedirectUriMutation,
 } from '@/features/projects/api/mutations';
 import { mapApiKeyResponse, mapProjectResponse } from '@/features/projects/api/mappers';
-import { useServersQuery } from '@/features/servers';
 import {
-  AccessAuditLog,
   ApiKeyDisplay,
   ApiKeyRevealModal,
   ApiKeyRotationModal,
   ProjectForm,
   RedirectUriManager,
-  ServerAccessMatrix,
-  type ServerAccessChange,
 } from '@/features/projects/components';
-import type { AccessMatrixEntry, ProjectFormValues } from '@/features/projects/types';
+import type { ProjectFormValues } from '@/features/projects/types';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
@@ -53,11 +43,7 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   const router = useRouter();
   const projectQuery = useProjectQuery(id);
   const apiKeyQuery = useApiKeyInfoQuery(id);
-  const matrixQuery = useAccessMatrixQuery(id);
-  const { data: servers = [] } = useServersQuery();
 
-  const setAccessMutation = useSetServerAccessMutation(id);
-  const revokeAccessMutation = useRevokeServerAccessMutation(id);
   const updateProjectMutation = useUpdateProjectMutation();
   const updateRedirectMutation = useUpdateRedirectUriMutation();
   const deactivateMutation = useDeactivateProjectMutation();
@@ -72,14 +58,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uris, setUris] = useState<string[]>([]);
-
-  const accessMap = useMemo(() => {
-    const map: Record<string, AccessMatrixEntry> = {};
-    for (const entry of matrixQuery.data ?? []) {
-      map[entry.serverId] = entry;
-    }
-    return map;
-  }, [matrixQuery.data]);
 
   if (projectQuery.isPending) {
     return (
@@ -102,7 +80,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
           onClick={() => {
             void projectQuery.refetch();
             void apiKeyQuery.refetch();
-            void matrixQuery.refetch();
           }}
         >
           Retry
@@ -112,17 +89,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   }
 
   const project = mapProjectResponse(projectQuery.data);
-
-  function handleServerAccessChange(serverId: string, change: ServerAccessChange) {
-    if (change.revoke) {
-      revokeAccessMutation.mutate(serverId);
-    } else if (change.operations) {
-      setAccessMutation.mutate({
-        serverId,
-        payload: { operations: change.operations, scopes: change.scopes },
-      });
-    }
-  }
 
   function handleAddRedirectUri(uri: string) {
     const next = [...uris, uri];
@@ -160,21 +126,10 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   }
 
   const apiKeyInfo = apiKeyQuery.data ? mapApiKeyResponse(apiKeyQuery.data) : null;
-  const matrixMutating = setAccessMutation.isPending || revokeAccessMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard/projects')}
-          className="-ml-2 mb-2"
-        >
-          <ArrowLeft aria-hidden="true" />
-          Projects
-        </Button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
@@ -233,27 +188,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
       </section>
 
       <section
-        aria-labelledby="server-access-heading"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 id="server-access-heading" className="text-heading">
-            Server access
-          </h2>
-          <p className="text-overline text-text-subtle">
-            Grant or revoke access per server and tune which operations and scopes are allowed.
-          </p>
-        </div>
-        <ServerAccessMatrix
-          projectId={id}
-          servers={servers}
-          accessMap={accessMap}
-          isMutating={matrixMutating}
-          onChange={handleServerAccessChange}
-        />
-      </section>
-
-      <section
         aria-labelledby="redirect-heading"
         className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
       >
@@ -272,21 +206,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
           onRemove={handleRemoveRedirectUri}
           isSubmitting={updateRedirectMutation.isPending}
         />
-      </section>
-
-      <section
-        aria-labelledby="audit-heading"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 id="audit-heading" className="text-heading">
-            Access audit log
-          </h2>
-          <p className="text-overline text-text-subtle">
-            Every grant, update, and revocation for this project.
-          </p>
-        </div>
-        <AccessAuditLog projectId={id} />
       </section>
 
       <div className="flex justify-end border-t border-border pt-4">

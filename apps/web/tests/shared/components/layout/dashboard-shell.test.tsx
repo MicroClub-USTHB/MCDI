@@ -1,9 +1,17 @@
+import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
+
+function wrapper({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 vi.mock('@/features/auth/components/LogoutButton', () => ({
   LogoutButton: () => <button type="button">Log out</button>,
@@ -16,7 +24,8 @@ describe('DashboardShell', () => {
     render(
       <DashboardShell>
         <div>page content</div>
-      </DashboardShell>
+      </DashboardShell>,
+      { wrapper }
     );
 
     expect(screen.getByRole('main')).toHaveTextContent('page content');
@@ -27,7 +36,8 @@ describe('DashboardShell', () => {
     render(
       <DashboardShell>
         <div>page content</div>
-      </DashboardShell>
+      </DashboardShell>,
+      { wrapper }
     );
 
     const toggle = screen.getByRole('button', { name: /open sidebar/i });
@@ -42,7 +52,8 @@ describe('DashboardShell', () => {
     render(
       <DashboardShell>
         <div>page content</div>
-      </DashboardShell>
+      </DashboardShell>,
+      { wrapper }
     );
 
     const toggle = screen.getByRole('button', { name: /open sidebar/i });

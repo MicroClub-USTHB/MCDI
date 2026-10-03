@@ -17,6 +17,8 @@ interface MemberFiltersProps {
   filters: MemberFilters;
   onFilterChange: (next: Partial<MemberFilters>) => void;
   onClearFilters: () => void;
+  /** A server's own roster: its server is fixed by the URL, so the server picker is hidden. */
+  lockServer?: boolean;
 }
 
 interface PickerOption {
@@ -262,7 +264,12 @@ function memberRoleQueries(serverIds: string[]) {
   }));
 }
 
-export function MemberFilters({ filters, onFilterChange, onClearFilters }: MemberFiltersProps) {
+export function MemberFilters({
+  filters,
+  onFilterChange,
+  onClearFilters,
+  lockServer = false,
+}: MemberFiltersProps) {
   const { data: servers = [], isPending: serversPending } = useServersQuery();
   const roleQueries = useQueries({ queries: memberRoleQueries(filters.serverIds) });
 
@@ -337,24 +344,26 @@ export function MemberFilters({ filters, onFilterChange, onClearFilters }: Membe
           />
         </div>
 
-        <div className="min-w-0 space-y-1">
-          <span className="text-overline text-text-subtle">Servers</span>
-          <MultiSelectPicker
-            label="Servers"
-            selectionType="server"
-            options={serverOptions}
-            selectedIds={selectedServerIds}
-            searchPlaceholder="Search servers..."
-            emptyMessage="No servers available."
-            loading={serversPending}
-            onToggle={(serverId) =>
-              onFilterChange({
-                serverIds: toggleSelection(selectedServerIds, serverId),
-                page: 1,
-              })
-            }
-          />
-        </div>
+        {!lockServer && (
+          <div className="min-w-0 space-y-1">
+            <span className="text-overline text-text-subtle">Servers</span>
+            <MultiSelectPicker
+              label="Servers"
+              selectionType="server"
+              options={serverOptions}
+              selectedIds={selectedServerIds}
+              searchPlaceholder="Search servers..."
+              emptyMessage="No servers available."
+              loading={serversPending}
+              onToggle={(serverId) =>
+                onFilterChange({
+                  serverIds: toggleSelection(selectedServerIds, serverId),
+                  page: 1,
+                })
+              }
+            />
+          </div>
+        )}
 
         <div className="min-w-0 space-y-1">
           <span className="text-overline text-text-subtle">Roles</span>

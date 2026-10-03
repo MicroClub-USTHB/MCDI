@@ -24,6 +24,10 @@ import {
   type ServerStatusFilter,
   type ServerTypeFilter,
 } from '@/features/servers';
+import { useSyncStatusAllQuery } from '@/features/sync/api/queries';
+import { useTriggerSyncMutation } from '@/features/sync/api/mutations';
+import { isSyncActive } from '@/features/sync/api/mappers';
+import { SyncProgressIndicator, SyncTriggerButton } from '@/features/sync/components';
 
 const PAGE_SIZE = 20;
 
@@ -45,6 +49,10 @@ function ServersView() {
   const disableMutation = useDisableServerMutation();
   const enableMutation = useEnableServerMutation();
   const deleteMutation = useDeleteServerMutation();
+  // Syncing a single server lives on that server's Sync page; syncing all of them lives here.
+  const syncStatusQuery = useSyncStatusAllQuery();
+  const syncMutation = useTriggerSyncMutation();
+  const anySyncActive = isSyncActive(syncStatusQuery.data ?? []);
 
   const filtered = useMemo(() => {
     if (!servers) return [];
@@ -99,8 +107,18 @@ function ServersView() {
             setPageIndex(0);
           }}
         />
-        <CreateServerButton onClick={() => setCreateOpen(true)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SyncTriggerButton
+            target="all"
+            onTrigger={(payload) => syncMutation.mutate(payload)}
+            isPending={syncMutation.isPending}
+            disabled={anySyncActive || !servers || servers.length === 0}
+          />
+          <CreateServerButton onClick={() => setCreateOpen(true)} />
+        </div>
       </div>
+
+      <SyncProgressIndicator inProgress={anySyncActive} />
 
       {isError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg bg-error/12 p-4 text-error">
