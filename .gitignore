@@ -9,6 +9,8 @@ build
 
 # Logs
 logs
+# ...but a Next.js route segment named `logs` is source code, not a log folder
+!apps/web/src/app/**/logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
