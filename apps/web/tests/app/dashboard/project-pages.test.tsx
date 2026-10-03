@@ -64,6 +64,13 @@ describe('project pages', () => {
     expect(screen.queryByRole('heading', { name: 'Access audit log' })).toBeNull();
   });
 
+  it('has no back button; the sidebar and breadcrumbs lead back to the list', async () => {
+    render(<ProjectDetailView id="proj_1" />, { wrapper });
+
+    await screen.findByRole('heading', { name: 'Website' });
+    expect(screen.queryByRole('button', { name: 'Projects' })).toBeNull();
+  });
+
   it('gives server access and its audit log their own page', async () => {
     render(<ProjectAccessView projectId="proj_1" />, { wrapper });
 

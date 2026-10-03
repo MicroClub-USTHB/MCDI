@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, KeyRound, Trash2 } from 'lucide-react';
+import { KeyRound, Trash2 } from 'lucide-react';
 
 import { useApiKeyInfoQuery, useProjectQuery } from '@/features/projects/api/queries';
 import {
@@ -130,16 +130,6 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push('/dashboard/projects')}
-          className="-ml-2 mb-2"
-        >
-          <ArrowLeft aria-hidden="true" />
-          Projects
-        </Button>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
