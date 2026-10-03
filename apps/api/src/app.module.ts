@@ -20,6 +20,7 @@ import { ServerActiveGuard } from './modules/servers/server.guard';
 import { SyncModule } from './modules/sync/sync.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { AdminWebhooksModule } from './modules/admin-webhooks/admin-webhooks.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { StatsModule } from './modules/stats/stats.module';
 import { InboundWebhooksModule } from './modules/inbound-webhooks/inbound-webhooks.module';
@@ -53,6 +54,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     AdminChannelsModule,
     AdminSettingsModule,
     WebhooksModule,
+    AdminWebhooksModule,
     AuditModule,
     StatsModule,
     InboundWebhooksModule,

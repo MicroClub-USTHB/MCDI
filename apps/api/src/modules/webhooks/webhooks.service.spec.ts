@@ -218,6 +218,104 @@ describe('WebhooksService', () => {
     });
   });
 
+  // A System Admin is not a project: these skip the ownership check, and
+  // still never expose the token.
+  describe('admin access', () => {
+    it("lists any project's webhooks with the project-facing shape", async () => {
+      mockRepository.findByProject.mockResolvedValue({ rows: [row], total: 1 });
+
+      const result = await service.listWebhooksForAdmin('proj-1', {
+        serverId: 'srv-1',
+        limit: 10,
+        offset: 5,
+      });
+
+      expect(mockRepository.findByProject).toHaveBeenCalledWith({
+        projectId: 'proj-1',
+        serverId: 'srv-1',
+        limit: 10,
+        offset: 5,
+      });
+      expect(result).toEqual({
+        webhooks: [
+          expect.objectContaining({
+            id: WEBHOOK_ID,
+            usageCount: 0,
+            lastUsedAt: null,
+          }),
+        ],
+        total: 1,
+        limit: 10,
+        offset: 5,
+      });
+      expect(result.webhooks[0]).not.toHaveProperty('encryptedToken');
+    });
+
+    it('defaults the page to 50 from offset 0', async () => {
+      mockRepository.findByProject.mockResolvedValue({ rows: [], total: 0 });
+
+      await expect(service.listWebhooksForAdmin('proj-1', {})).resolves.toEqual(
+        { webhooks: [], total: 0, limit: 50, offset: 0 },
+      );
+    });
+
+    it('returns the detail of a webhook owned by any project', async () => {
+      mockRepository.findById.mockResolvedValue({
+        ...row,
+        projectId: 'someone-else',
+      });
+
+      const detail = await service.getWebhookForAdmin(WEBHOOK_ID);
+
+      expect(detail).toEqual(
+        expect.objectContaining({ id: WEBHOOK_ID, avatar: null }),
+      );
+      expect(detail).not.toHaveProperty('encryptedToken');
+      expect(detail).not.toHaveProperty('projectId');
+    });
+
+    it('deletes a webhook owned by any project, on Discord then in storage', async () => {
+      mockRepository.findById.mockResolvedValue({
+        ...row,
+        projectId: 'someone-else',
+      });
+      mockDiscordService.deleteWebhook.mockResolvedValue(true);
+
+      await service.deleteWebhookForAdmin(WEBHOOK_ID);
+
+      expect(mockDiscordService.deleteWebhook).toHaveBeenCalledWith('dw-1');
+      expect(mockRepository.delete).toHaveBeenCalledWith(WEBHOOK_ID);
+    });
+
+    it('keeps the row when the Discord delete fails', async () => {
+      mockRepository.findById.mockResolvedValue(row);
+      mockDiscordService.deleteWebhook.mockResolvedValue(false);
+
+      await expect(service.deleteWebhookForAdmin(WEBHOOK_ID)).rejects.toThrow(
+        BadGatewayException,
+      );
+      expect(mockRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for an unknown webhook', async () => {
+      mockRepository.findById.mockResolvedValue(null);
+
+      await expect(service.getWebhookForAdmin(WEBHOOK_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.deleteWebhookForAdmin(WEBHOOK_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('returns 404 for a non-uuid webhook id without querying', async () => {
+      await expect(service.getWebhookForAdmin('nope')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(mockRepository.findById).not.toHaveBeenCalled();
+    });
+  });
+
   describe('executeWebhook', () => {
     const executableRow = {
       ...row,

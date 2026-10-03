@@ -142,6 +142,11 @@ const ROUTE_MAP: [RegExp, string, RouteAction][] = [
     'POST',
     { actionType: 'webhook', action: 'executed', entityType: 'webhook' },
   ],
+  [
+    /^\/admin\/webhooks\/[^/]+\/?$/,
+    'DELETE',
+    { actionType: 'webhook', action: 'deleted', entityType: 'webhook' },
+  ],
 ];
 
 function resolveRouteAction(path: string, method: string): RouteAction | null {
@@ -158,7 +163,7 @@ function extractEntityId(path: string): string | null {
   if (webhookMatch) return webhookMatch[1];
 
   const adminMatch = path.match(
-    /\/admin\/(?:projects|servers|permissions)\/([^/]+)/,
+    /\/admin\/(?:projects|servers|permissions|webhooks)\/([^/]+)/,
   );
   return adminMatch?.[1] ?? null;
 }

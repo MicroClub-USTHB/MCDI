@@ -107,6 +107,7 @@ const TYPE_LABEL: Record<string, string> = {
   voice: 'Voice channel',
   announcement: 'Announcement channel',
   category: 'Category',
+  unknown: 'Other channel',
 };
 
 export interface ChannelDetailView {
