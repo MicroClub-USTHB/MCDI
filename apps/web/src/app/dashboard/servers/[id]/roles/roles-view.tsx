@@ -10,22 +10,22 @@ import {
 } from '@/features/roles/api/queries';
 import { useCreateInheritanceRuleMutation } from '@/features/roles/api/mutations';
 import { mapRoleStatsResponse, mapInheritanceRule } from '@/features/roles/api/mappers';
-import { ServerSelector, RoleTable, InheritanceRuleForm } from '@/features/roles/components';
+import { RoleTable, InheritanceRuleForm } from '@/features/roles/components';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
 import { Button } from '@/shared/components/ui/button';
 import { Shield, Plus } from 'lucide-react';
 import type { CreateInheritanceRulePayload } from '@/features/roles/types';
 
-function RolesPage() {
+/** Roles of the server in the URL; the sidebar's server switcher picks the server. */
+export function RolesView({ serverId }: { serverId: string }) {
   const router = useRouter();
-  const [selectedServerId, setSelectedServerId] = useState('');
   const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
   // Bumped on every close so the form remounts with fresh state instead of
   // using an effect-based reset (which would trip the compiler rule).
   const [formKey, setFormKey] = useState(0);
 
-  const statsQuery = useRoleStatsQuery(selectedServerId);
+  const statsQuery = useRoleStatsQuery(serverId);
 
   const stats = useMemo(
     () => (statsQuery.data ? mapRoleStatsResponse(statsQuery.data) : null),
@@ -33,11 +33,9 @@ function RolesPage() {
   );
 
   const roleIds = useMemo(() => stats?.roles.map((r) => r.roleId) ?? [], [stats?.roles]);
-  const allPermsQuery = useAllRolePermissionsQuery(selectedServerId, roleIds);
+  const allPermsQuery = useAllRolePermissionsQuery(serverId, roleIds);
 
-  const inheritanceQuery = useInheritanceRulesQuery(
-    selectedServerId ? { serverId: selectedServerId } : undefined
-  );
+  const inheritanceQuery = useInheritanceRulesQuery(serverId ? { serverId: serverId } : undefined);
   const createRuleMutation = useCreateInheritanceRuleMutation();
 
   const inheritanceRules = useMemo(
@@ -61,7 +59,7 @@ function RolesPage() {
         <div>
           <h1 className="text-hero">Roles &amp; Permissions</h1>
           <p className="mt-1 text-body text-text-muted">
-            Manage role-permission mappings and configure inheritance rules across servers.
+            Manage this server&apos;s role-permission mappings and inheritance rules.
           </p>
         </div>
         {stats && stats.roles.length > 0 && (
@@ -77,13 +75,6 @@ function RolesPage() {
         )}
       </div>
 
-      <ServerSelector
-        selected={selectedServerId}
-        onChange={(id) => {
-          setSelectedServerId(id);
-        }}
-      />
-
       {statsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
           <p className="text-body text-error">Failed to load roles.</p>
@@ -97,7 +88,7 @@ function RolesPage() {
         </div>
       )}
 
-      {statsQuery.isPending && selectedServerId && <SkeletonCard lines={4} />}
+      {statsQuery.isPending && <SkeletonCard lines={4} />}
 
       {!statsQuery.isPending && stats && stats.roles.length === 0 && (
         <EmptyState
@@ -122,7 +113,7 @@ function RolesPage() {
               permissionCounts={allPermsQuery.permissionCounts}
               isLoadingPermissions={allPermsQuery.isLoading}
               onSelectRole={(roleId) => {
-                router.push(`/dashboard/roles/${roleId}?server=${selectedServerId}`);
+                router.push(`/dashboard/servers/${serverId}/roles/${roleId}`);
               }}
             />
           </div>
@@ -171,5 +162,3 @@ function RolesPage() {
     </div>
   );
 }
-
-export default RolesPage;

@@ -22,13 +22,7 @@ export type {
   MessageView,
   MessageEmbedView,
 } from './api/mappers';
-export {
-  ServerContextSelector,
-  ChannelTree,
-  ChannelDetail,
-  MessageHistory,
-  type ServerOption,
-} from './components';
+export { ChannelTree, ChannelDetail, MessageHistory } from './components';
 export type {
   ChannelDto,
   ChannelCategoryDto,

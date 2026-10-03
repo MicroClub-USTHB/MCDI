@@ -59,12 +59,19 @@ function mergeRoleNames(member: MemberListItem): string[] {
   return Array.from(new Set(member.servers.flatMap((server) => server.roleNames)));
 }
 
-export default function MembersPage() {
+/**
+ * The member directory. Without `serverId` it spans every server (Overview ›
+ * Members); with it, it is that server's roster and the server filter is fixed.
+ */
+export function MembersView({ serverId }: { serverId?: string } = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
+  const filters = useMemo(() => {
+    const parsed = parseFilters(searchParams);
+    return serverId ? { ...parsed, serverIds: [serverId] } : parsed;
+  }, [searchParams, serverId]);
   const query = useMembersQuery(filters);
 
   const columns = useMemo<DataTableColumn<MemberListItem>[]>(
@@ -139,9 +146,12 @@ export default function MembersPage() {
   const updateFilters = useCallback(
     (next: Partial<MemberFiltersState>) => {
       const nextFilters = { ...filters, ...next };
-      router.replace(writeFiltersToUrl(nextFilters, pathname));
+      // A roster's server comes from the path, so it never goes into the query string.
+      router.replace(
+        writeFiltersToUrl(serverId ? { ...nextFilters, serverIds: [] } : nextFilters, pathname)
+      );
     },
-    [filters, pathname, router]
+    [filters, pathname, router, serverId]
   );
 
   const clearFilters = useCallback(() => {
@@ -158,7 +168,7 @@ export default function MembersPage() {
 
   const hasActiveFilters =
     filters.filter === 'club' ||
-    filters.serverIds.length > 0 ||
+    (!serverId && filters.serverIds.length > 0) ||
     filters.roleIds.length > 0 ||
     Boolean(filters.search) ||
     filters.page !== 1 ||
@@ -171,7 +181,9 @@ export default function MembersPage() {
           <div>
             <h1 className="text-hero">Members</h1>
             <p className="mt-1 max-w-2xl text-body text-text-muted">
-              Search club members, narrow by server or role, and export the filtered dataset.
+              {serverId
+                ? 'Search this server’s members, narrow by role, and export the filtered dataset.'
+                : 'Search club members, narrow by server or role, and export the filtered dataset.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -185,6 +197,7 @@ export default function MembersPage() {
         filters={filters}
         onFilterChange={updateFilters}
         onClearFilters={clearFilters}
+        lockServer={Boolean(serverId)}
       />
 
       {query.isPending ? (

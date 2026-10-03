@@ -20,7 +20,6 @@ import {
   getExecutiveRoleId,
 } from '@/features/roles/api/mappers';
 import {
-  ServerSelector,
   RoleTable,
   PermissionMatrix,
   ImpactPreview,
@@ -70,10 +69,9 @@ function Panel({
 function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   const router = useRouter();
   const toast = useToastStore((s) => s.show);
-  const [selectedServerId, setSelectedServerId] = useState(serverId);
 
-  const statsQuery = useRoleStatsQuery(selectedServerId);
-  const rolePermissionsQuery = useRolePermissionsQuery(selectedServerId, roleId);
+  const statsQuery = useRoleStatsQuery(serverId);
+  const rolePermissionsQuery = useRolePermissionsQuery(serverId, roleId);
 
   const stats = useMemo(
     () => (statsQuery.data ? mapRoleStatsResponse(statsQuery.data) : null),
@@ -81,7 +79,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   );
 
   const roleIds = useMemo(() => stats?.roles.map((r) => r.roleId) ?? [], [stats?.roles]);
-  const allPermsQuery = useAllRolePermissionsQuery(selectedServerId, roleIds);
+  const allPermsQuery = useAllRolePermissionsQuery(serverId, roleIds);
 
   const currentRolePerms = useMemo(
     () =>
@@ -89,8 +87,8 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
     [rolePermissionsQuery.data]
   );
 
-  const addMutation = useAddPermissionsMutation(selectedServerId, roleId);
-  const removeMutation = useRemovePermissionMutation(selectedServerId, roleId);
+  const addMutation = useAddPermissionsMutation(serverId, roleId);
+  const removeMutation = useRemovePermissionMutation(serverId, roleId);
 
   // Bulk edit: checkbox clicks stage a diff against current assignments;
   // nothing is written until the user confirms.
@@ -107,11 +105,11 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
     return { addIds: add.sort((a, b) => a - b), removeIds: remove.sort((a, b) => a - b) };
   }, [staged]);
 
-  const addImpact = useImpactPreviewQuery(selectedServerId, roleId, {
+  const addImpact = useImpactPreviewQuery(serverId, roleId, {
     permissionIds: addIds,
     action: 'add',
   });
-  const removeImpact = useImpactPreviewQuery(selectedServerId, roleId, {
+  const removeImpact = useImpactPreviewQuery(serverId, roleId, {
     permissionIds: removeIds,
     action: 'remove',
   });
@@ -172,14 +170,14 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => router.push('/dashboard/roles')}
+        onClick={() => router.push(`/dashboard/servers/${serverId}/roles`)}
         className="-ml-2 w-fit"
       >
         <ArrowLeft aria-hidden="true" />
         Roles
       </Button>
 
-      {!stats && selectedServerId && statsQuery.isPending && <SkeletonCard lines={4} />}
+      {!stats && statsQuery.isPending && <SkeletonCard lines={4} />}
 
       {statsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-6">
@@ -195,33 +193,10 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
         </div>
       )}
 
-      {!selectedServerId && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5">
-          <p className="text-body text-text-muted">
-            Select a server to view this role&apos;s permissions.
-          </p>
-          <ServerSelector
-            selected={selectedServerId}
-            onChange={(id) => {
-              setSelectedServerId(id);
-              router.replace(`/dashboard/roles/${roleId}?server=${id}`);
-            }}
-          />
-        </div>
-      )}
-
       {stats && stats.roles.length > 0 && (
         <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100dvh-11rem)] lg:min-h-[34rem] lg:grid-cols-[19rem_minmax(0,1fr)]">
-          {/* ── Left rail: server + role list + hierarchy ── */}
+          {/* ── Left rail: role list + hierarchy ── */}
           <aside className="flex min-h-0 flex-col gap-4 lg:overflow-hidden">
-            <ServerSelector
-              selected={selectedServerId}
-              onChange={(id) => {
-                setSelectedServerId(id);
-                if (id !== serverId) router.replace(`/dashboard/roles/${roleId}?server=${id}`);
-              }}
-            />
-
             <Panel title="Roles" count={stats.roles.length} className="flex-1">
               {roleIds.length === 0 ? (
                 <div className="p-3">
@@ -234,7 +209,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                   permissionCounts={allPermsQuery.permissionCounts}
                   isLoadingPermissions={allPermsQuery.isLoading}
                   onSelectRole={(nextRoleId) =>
-                    router.push(`/dashboard/roles/${nextRoleId}?server=${selectedServerId}`)
+                    router.push(`/dashboard/servers/${serverId}/roles/${nextRoleId}`)
                   }
                 />
               )}
