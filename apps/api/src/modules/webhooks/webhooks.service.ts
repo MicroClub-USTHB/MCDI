@@ -157,6 +157,14 @@ export class WebhooksService {
       });
     }
 
+    return this.listWebhooksForAdmin(projectId, query);
+  }
+
+  /** Any project's webhooks. Admin-session only: no ownership check. */
+  async listWebhooksForAdmin(
+    projectId: string,
+    query: ListWebhooksQueryDto,
+  ): Promise<WebhookListResponseDto> {
     const limit = query.limit ?? 50;
     const offset = query.offset ?? 0;
 
@@ -181,6 +189,13 @@ export class WebhooksService {
   ): Promise<WebhookDetailResponseDto> {
     const row = await this.findOwnedWebhook(webhookId, projectId);
     return this.toDetail(row);
+  }
+
+  /** A webhook owned by any project. Admin-session only: no ownership check. */
+  async getWebhookForAdmin(
+    webhookId: string,
+  ): Promise<WebhookDetailResponseDto> {
+    return this.toDetail(await this.findWebhook(webhookId));
   }
 
   async updateWebhook(
@@ -231,8 +246,16 @@ export class WebhooksService {
   }
 
   async deleteWebhook(webhookId: string, projectId: string): Promise<void> {
-    const row = await this.findOwnedWebhook(webhookId, projectId);
+    await this.removeWebhook(await this.findOwnedWebhook(webhookId, projectId));
+  }
 
+  /** Moderation and cleanup. Admin-session only: no ownership check. */
+  async deleteWebhookForAdmin(webhookId: string): Promise<void> {
+    await this.removeWebhook(await this.findWebhook(webhookId));
+  }
+
+  /** Deletes on Discord first, so a failure there leaves the row in place. */
+  private async removeWebhook(row: WebhookRow): Promise<void> {
     const deleted = await this.discordService.deleteWebhook(
       row.discordWebhookId,
     );
@@ -340,18 +363,25 @@ export class WebhooksService {
     webhookId: string,
     projectId: string,
   ): Promise<WebhookRow> {
+    const row = await this.findWebhook(webhookId);
+    // Another project's webhook gets the same 404 as a missing one.
+    if (row.projectId !== projectId) throw this.webhookNotFound();
+    return row;
+  }
+
+  private async findWebhook(webhookId: string): Promise<WebhookRow> {
     const row = isUUID(webhookId)
       ? await this.webhooksRepository.findById(webhookId)
       : null;
-
-    if (!row || row.projectId !== projectId) {
-      throw new NotFoundException({
-        code: 'WEBHOOK_NOT_FOUND',
-        message: 'Webhook not found',
-      });
-    }
-
+    if (!row) throw this.webhookNotFound();
     return row;
+  }
+
+  private webhookNotFound(): NotFoundException {
+    return new NotFoundException({
+      code: 'WEBHOOK_NOT_FOUND',
+      message: 'Webhook not found',
+    });
   }
 
   private toSummary(row: WebhookRow): WebhookSummaryDto {
