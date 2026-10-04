@@ -35,6 +35,19 @@ const CONDITION_OPS = new Set([
   'exists',
 ]);
 
+/** Property names every field may carry, for the editor's catalog test. */
+export function baseFieldPropertyNames(): string[] {
+  return [...BASE_PROPERTIES];
+}
+
+/** Property names specific to one field type, for the editor's catalog test. */
+export function fieldPropertyNames(type: FieldType): string[] {
+  return Object.keys(CONSTRAINTS[type]);
+}
+
+/** Comparison operators a condition accepts (the combinators are separate). */
+export const CONDITION_OPERATOR_NAMES: readonly string[] = [...CONDITION_OPS];
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
