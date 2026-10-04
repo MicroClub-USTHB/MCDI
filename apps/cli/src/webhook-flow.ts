@@ -1,6 +1,7 @@
+import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
 import { configDir, configPath, loadConfig, resolveProfileName } from './config.js';
-import { defaultKeyProvider, type KeyProvider } from './crypto-store.js';
+import { decrypt, defaultKeyProvider, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import {
   getInboundWebhook,
@@ -17,6 +18,12 @@ export interface WebhookDeps {
   keys: KeyProvider;
   /** Results (stdout, so they stay pipeable/scriptable). */
   out: (line: string) => void;
+  /** Prompts and hints (stderr, PRD §11). Never given a plaintext secret. */
+  info: (line: string) => void;
+  /** Whether a human can answer a prompt; when false, nothing may block on input. */
+  isInteractive: boolean;
+  /** Asks a question on stderr and resolves with the answer. */
+  ask: (question: string) => Promise<string>;
 }
 
 export function defaultWebhookDeps(): WebhookDeps {
@@ -24,6 +31,16 @@ export function defaultWebhookDeps(): WebhookDeps {
     configPath: configPath(),
     keys: defaultKeyProvider(join(configDir(), 'key')),
     out: (line) => process.stdout.write(`${line}\n`),
+    info: (line) => process.stderr.write(`${line}\n`),
+    isInteractive: Boolean(process.stdin.isTTY && process.stderr.isTTY),
+    ask: async (question) => {
+      const rl = createInterface({ input: process.stdin, output: process.stderr });
+      try {
+        return await rl.question(question);
+      } finally {
+        rl.close();
+      }
+    },
   };
 }
 
@@ -167,4 +184,59 @@ export async function webhookRolesSet(id: string, options: WebhookRolesSetOption
   const session = await loadSession(options.profile, deps);
   const stored = await setInboundWebhookRoles(session, id, roleIds);
   deps.out(`Allowed reader roles for ${id} on ${session.profileName}: ${stored.join(', ')}`);
+}
+
+export interface WebhookSecretGetOptions {
+  profile?: string;
+  reveal?: boolean;
+}
+
+/** Shows only the last 4 characters, so the secret can be recognised but not used. */
+function maskSecret(secret: string): string {
+  return secret.length > 8 ? `${'*'.repeat(8)}${secret.slice(-4)}` : '*'.repeat(8);
+}
+
+export async function webhookSecretGet(options: WebhookSecretGetOptions, deps: WebhookDeps): Promise<void> {
+  const config = await loadConfig(deps.configPath);
+  const profileName = resolveProfileName(config, options.profile);
+  const stored = Object.entries(config.profiles[profileName]?.webhookSecrets ?? {});
+  if (stored.length === 0) {
+    throw new CliError(
+      `no signing secret is stored locally for profile "${profileName}"; ` +
+        `MCDI never re-issues one, so run \`mcdi-cli webhook rotate-secret <id> --profile ${profileName}\` to get a new one`,
+      ExitCode.NotFound,
+    );
+  }
+
+  let picked = stored[0]!;
+  if (stored.length > 1) {
+    if (!deps.isInteractive) {
+      throw new CliError(
+        `${stored.length} signing secrets are stored for profile "${profileName}" and there is no interactive terminal to pick one`,
+        ExitCode.PrecheckFailed,
+      );
+    }
+    deps.info(`Signing secrets stored for profile "${profileName}":`);
+    stored.forEach(([, entry], i) => deps.info(`  ${i + 1}) ${entry.name} (${entry.slug})`));
+    const answer = (await deps.ask(`Pick one [1-${stored.length}]: `)).trim();
+    const choice = /^\d+$/.test(answer) ? stored[Number(answer) - 1] : undefined;
+    if (!choice) throw new CliError(`"${answer}" is not one of 1-${stored.length}`, ExitCode.PrecheckFailed);
+    picked = choice;
+  }
+
+  const [, entry] = picked;
+  let secret: string;
+  try {
+    secret = await decrypt(entry.secret, deps.keys);
+  } catch {
+    throw new CliError(`could not decrypt the stored signing secret for ${entry.name} (${entry.slug})`, ExitCode.Unexpected);
+  }
+  if (options.reveal) {
+    // Alone on stdout so it can be piped straight into an env file.
+    deps.info(`Signing secret for ${entry.name} (${entry.slug}):`);
+    deps.out(secret);
+  } else {
+    deps.out(`Signing secret for ${entry.name} (${entry.slug}): ${maskSecret(secret)}`);
+    deps.info('Pass --reveal to print it in plain text.');
+  }
 }
