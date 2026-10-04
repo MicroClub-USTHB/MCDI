@@ -37,6 +37,7 @@ import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
 import { UpdateInboundWebhookDto } from './dto/update-inbound-webhook.dto';
 import { SetAllowedRolesDto } from './dto/set-allowed-roles.dto';
 import { UpdateInboundWebhookSettingsDto } from './dto/update-inbound-webhook-settings.dto';
+import { PreviewInboundWebhookSchemaDto } from './dto/preview-inbound-webhook-schema.dto';
 
 type RequestWithUser = Request & {
   memberId?: string;
@@ -114,6 +115,25 @@ export class InboundWebhooksController {
       dto.defaultReaderRoleIds,
       this.actor(req),
     );
+  }
+
+  @Post('schema/preview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Check a schema and preview its docs',
+    description:
+      'Runs the same validator as create without saving anything, for the admin schema editor. ' +
+      'An invalid schema is a normal 200 with `ok: false` and every problem with its path; a ' +
+      'valid one returns the generated developer docs and an example payload, with placeholders ' +
+      'for what only exists once the webhook is saved (its ID and readers). Nothing is stored or audited.',
+  })
+  @ApiOkResponse({
+    description:
+      '`{ ok: false, errors: [{ path, code, message }] }` or `{ ok: true, markdown, examplePayload }`.',
+  })
+  @ApiBadRequestResponse({ description: 'The request itself is malformed.' })
+  previewSchema(@Body() dto: PreviewInboundWebhookSchemaDto) {
+    return this.service.previewSchema(dto);
   }
 
   @Get(':id')

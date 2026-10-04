@@ -13,6 +13,8 @@ describe('InboundWebhooksController settings routes', () => {
     getSettings: jest.fn(),
     updateSettings: jest.fn(),
     findById: jest.fn(),
+    previewSchema: jest.fn(),
+    rotateSecret: jest.fn(),
   };
 
   beforeAll(async () => {
@@ -103,5 +105,71 @@ describe('InboundWebhooksController settings routes', () => {
 
     expect(service.findById).toHaveBeenCalledWith('wh-1');
     expect(service.getSettings).not.toHaveBeenCalled();
+  });
+
+  describe('POST /schema/preview', () => {
+    const schema = { version: 1, steps: [] };
+
+    it('previews a schema and answers 200, since nothing is created', async () => {
+      service.previewSchema.mockResolvedValue({ ok: false, errors: [] });
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/inbound-webhooks/schema/preview')
+        .send({ schema, name: 'Recruitment' })
+        .expect(200);
+
+      expect(res.body).toEqual({ ok: false, errors: [] });
+      expect(service.previewSchema).toHaveBeenCalledWith({
+        schema,
+        name: 'Recruitment',
+      });
+    });
+
+    it('passes the options the docs depend on', async () => {
+      service.previewSchema.mockResolvedValue({ ok: true });
+
+      await request(app.getHttpServer())
+        .post('/admin/inbound-webhooks/schema/preview')
+        .send({
+          schema,
+          requireSignature: false,
+          rejectUnknownFields: false,
+          acceptedOrigins: ['https://app.microclub.dz'],
+        })
+        .expect(200);
+
+      expect(service.previewSchema).toHaveBeenCalledWith({
+        schema,
+        requireSignature: false,
+        rejectUnknownFields: false,
+        acceptedOrigins: ['https://app.microclub.dz'],
+      });
+    });
+
+    it.each([
+      [{}],
+      [{ schema: 'nope' }],
+      [{ schema: [] }],
+      [{ schema, name: 5 }],
+      [{ schema, requireSignature: 'yes' }],
+      [{ schema, extra: true }],
+    ])('rejects a malformed request %j with 400', async (body) => {
+      await request(app.getHttpServer())
+        .post('/admin/inbound-webhooks/schema/preview')
+        .send(body)
+        .expect(400);
+      expect(service.previewSchema).not.toHaveBeenCalled();
+    });
+
+    it('is not mistaken for another webhook route', async () => {
+      service.previewSchema.mockResolvedValue({ ok: false, errors: [] });
+
+      await request(app.getHttpServer())
+        .post('/admin/inbound-webhooks/schema/preview')
+        .send({ schema })
+        .expect(200);
+
+      expect(service.rotateSecret).not.toHaveBeenCalled();
+    });
   });
 });
