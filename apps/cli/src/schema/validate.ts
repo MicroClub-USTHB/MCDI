@@ -127,8 +127,9 @@ export function validateSchema(value: unknown): ValidationResult {
     if (field.type === FIELD_TYPE.FILES && !hasLimit(field, [LIMIT.MAX_COUNT])) {
       add(path, ERROR_CODE.MISSING_MAX_COUNT, `Files fields require ${LIMIT.MAX_COUNT}`);
     }
-    if (field.type === FIELD_TYPE.JSON && !hasLimit(field, [LIMIT.MAX_BYTES, LIMIT.MAX_SIZE_BYTES])) {
-      add(path, ERROR_CODE.MISSING_MAX_BYTES, `JSON fields require ${LIMIT.MAX_BYTES} or ${LIMIT.MAX_SIZE_BYTES}`);
+    // UNVERIFIED: PRD examples pair JSON fields with maxBytes; confirm against MCDI §6.4.
+    if (field.type === FIELD_TYPE.JSON && !hasLimit(field, [LIMIT.MAX_BYTES])) {
+      add(path, ERROR_CODE.MISSING_MAX_BYTES, `JSON fields require ${LIMIT.MAX_BYTES}`);
     }
     if ((field.type === FIELD_TYPE.FILE || field.type === FIELD_TYPE.FILES) && !hasLimit(field, [LIMIT.MAX_SIZE_BYTES])) {
       add(path, ERROR_CODE.MISSING_MAX_SIZE_BYTES, `${field.type} fields require ${LIMIT.MAX_SIZE_BYTES}`);

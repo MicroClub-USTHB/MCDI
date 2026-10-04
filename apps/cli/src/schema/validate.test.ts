@@ -34,6 +34,7 @@ describe('validateSchema', () => {
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'array' }] }] })).toContain('MISSING_MAX_ITEMS');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'files' }] }] })).toContain('MISSING_MAX_COUNT');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'json' }] }] })).toContain('MISSING_MAX_BYTES');
+    expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'json', maxSizeBytes: 100 }] }] })).toContain('MISSING_MAX_BYTES');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'file' }] }] })).toContain('MISSING_MAX_SIZE_BYTES');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [{ key: 'x', type: 'files', maxCount: 2 }] }] })).toContain('MISSING_MAX_SIZE_BYTES');
   });
