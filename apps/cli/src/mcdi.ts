@@ -53,25 +53,47 @@ export async function getAdminLoginUrl(baseUrl: string, redirectUri: string): Pr
   return body.url;
 }
 
-/** GET /auth/admin/me → the admin behind a session token. */
-export async function getAdminMe(baseUrl: string, token: string): Promise<AdminMe> {
+export interface AdminMeResponse {
+  status: number;
+  body: unknown;
+}
+
+/**
+ * The raw GET /auth/admin/me request, for callers (e.g. `whoami --json`) that
+ * need the exact body MCDI sent and their own 401/403 messages. A 401/403 body
+ * is not read (it may not even be JSON behind a proxy); any other non-2xx
+ * status is an unexpected error.
+ */
+export async function getAdminMeRaw(baseUrl: string, token: string): Promise<AdminMeResponse> {
   const res = await request(baseUrl, '/auth/admin/me', {
     headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
   });
-  if (res.status === 401) {
-    throw new CliError('MCDI rejected the session token (invalid or expired)', ExitCode.Auth);
-  }
-  if (res.status === 403) {
-    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
-  }
+  if (res.status === 401 || res.status === 403) return { status: res.status, body: undefined };
   if (!res.ok) {
     throw new CliError(`MCDI returned HTTP ${res.status} for the admin profile`, ExitCode.Unexpected);
   }
-  const me = (await readJson(res, 'the admin profile')) as Partial<AdminMe> | null;
+  return { status: res.status, body: await readJson(res, 'the admin profile') };
+}
+
+/** Validates the shape of a successful /auth/admin/me body. */
+export function parseAdminMe(body: unknown): AdminMe {
+  const me = body as Partial<AdminMe> | null;
   if (typeof me?.id !== 'string' || typeof me.username !== 'string' || typeof me.sessionExpiresAt !== 'string') {
     throw new CliError('MCDI admin profile response has an unexpected shape', ExitCode.Unexpected);
   }
   return me as AdminMe;
+}
+
+/** GET /auth/admin/me → the admin behind a session token. */
+export async function getAdminMe(baseUrl: string, token: string): Promise<AdminMe> {
+  const { status, body } = await getAdminMeRaw(baseUrl, token);
+  if (status === 401) {
+    throw new CliError('MCDI rejected the session token (invalid or expired)', ExitCode.Auth);
+  }
+  if (status === 403) {
+    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
+  }
+  return parseAdminMe(body);
 }
 
 export function adminDisplayName(me: AdminMe): string {
