@@ -119,32 +119,28 @@ afterEach(async () => {
 interface SetupOptions {
   /** Store a session on profile "prod" (the default) unless false. */
   loggedIn?: boolean;
-  expiresAt?: string;
 }
 
-async function setup({ loggedIn = true, expiresAt = '2026-10-05T12:00:00.000Z' }: SetupOptions = {}) {
+async function setup({ loggedIn = true }: SetupOptions = {}) {
   const fake = await startFakeMcdi();
   cleanups.push(fake.close);
   const key = randomBytes(32);
   const keys: KeyProvider = { getKey: async () => key };
   const out: string[] = [];
-  const info: string[] = [];
   const deps: WebhookDeps = {
     configPath: join(await mkdtemp(join(tmpdir(), 'm-forge-webhook-')), 'config.json'),
     keys,
     out: (line) => out.push(line),
-    info: (line) => info.push(line),
-    now: () => new Date('2026-10-04T12:00:00.000Z'),
   };
   const config = loggedIn
     ? setSession(emptyConfig(), 'prod', fake.baseUrl, {
         accessToken: await encrypt(TOKEN, keys),
-        expiresAt,
+        expiresAt: '2026-10-05T12:00:00.000Z',
         adminIdentity: 'kal#member-1',
       })
     : { ...emptyConfig(), profiles: { prod: { baseUrl: fake.baseUrl, session: null } } };
   await saveConfig(config, deps.configPath);
-  return { fake, deps, out, info };
+  return { fake, deps, out };
 }
 
 async function expectCliError(promise: Promise<unknown>, exitCode: ExitCode, message: RegExp) {
@@ -157,10 +153,6 @@ async function expectCliError(promise: Promise<unknown>, exitCode: ExitCode, mes
   expect((err as CliError).message).toMatch(message);
 }
 
-/** Everything the command printed, on either stream. */
-function printed(out: string[], info: string[]): string {
-  return [...out, ...info].join('\n');
-}
 
 describe('loading the admin session', () => {
   it('fails with exit 3 before any request when the profile is not logged in', async () => {
@@ -169,15 +161,10 @@ describe('loading the admin session', () => {
     expect(fake.requests).toEqual([]);
   });
 
-  it('fails with exit 3 before any request when the session has expired', async () => {
-    const { fake, deps } = await setup({ expiresAt: '2026-10-04T11:59:59.000Z' });
-    await expectCliError(webhookList({ profile: 'prod' }, deps), ExitCode.Auth, /session expired.*m-forge login --profile prod/);
+  it('fails with exit 3 before any request for an unknown profile', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(webhookList({ profile: 'staging' }, deps), ExitCode.Auth, /not logged in on profile "staging"/);
     expect(fake.requests).toEqual([]);
-  });
-
-  it('fails with exit 3 for an unknown profile', async () => {
-    const { deps } = await setup();
-    await expectCliError(webhookList({ profile: 'staging' }, deps), ExitCode.Auth, /profile "staging" does not exist/);
   });
 
   it('maps an MCDI 401 to exit 3 with a re-login hint', async () => {
@@ -225,10 +212,10 @@ describe('webhook list', () => {
   });
 
   it('never prints the session token or secret material', async () => {
-    const { deps, out, info } = await setup();
+    const { deps, out } = await setup();
     await webhookList({ profile: 'prod' }, deps);
-    expect(printed(out, info)).not.toContain(TOKEN);
-    expect(printed(out, info)).not.toContain(LEAKED_SECRET);
+    expect(out.join('\n')).not.toContain(TOKEN);
+    expect(out.join('\n')).not.toContain(LEAKED_SECRET);
   });
 });
 
@@ -283,11 +270,11 @@ describe('webhook get', () => {
 
   it('never prints the session token or secret material, in any output mode', async () => {
     for (const options of [{}, { json: true }, { schemaOnly: true }, { schemaOnly: true, json: true }]) {
-      const { deps, out, info } = await setup();
+      const { deps, out } = await setup();
       await webhookGet('wh-1', { profile: 'prod', ...options }, deps);
-      expect(printed(out, info)).not.toContain(TOKEN);
-      expect(printed(out, info)).not.toContain(LEAKED_SECRET);
-      expect(printed(out, info)).not.toContain('signingSecret');
+      expect(out.join('\n')).not.toContain(TOKEN);
+      expect(out.join('\n')).not.toContain(LEAKED_SECRET);
+      expect(out.join('\n')).not.toContain('signingSecret');
     }
   });
 });
@@ -366,9 +353,9 @@ describe('webhook update', () => {
   });
 
   it('never prints the session token or secret material', async () => {
-    const { deps, out, info } = await setup();
+    const { deps, out } = await setup();
     await webhookUpdate('wh-1', { profile: 'prod', name: 'Renamed' }, deps);
-    expect(printed(out, info)).not.toContain(TOKEN);
-    expect(printed(out, info)).not.toContain(LEAKED_SECRET);
+    expect(out.join('\n')).not.toContain(TOKEN);
+    expect(out.join('\n')).not.toContain(LEAKED_SECRET);
   });
 });

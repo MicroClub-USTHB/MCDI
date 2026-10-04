@@ -1,4 +1,5 @@
 import { CliError, ExitCode } from './errors.js';
+import type { Session } from './session.js';
 
 /**
  * Thin client for the MCDI admin auth endpoints (docs/endpoints/login/).
@@ -204,15 +205,8 @@ async function adminRequest(
   throw new CliError(`MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`, ExitCode.Unexpected);
 }
 
-/** Where to reach MCDI and as whom, for the admin inbound-webhooks calls. */
-export interface AdminSession {
-  profileName: string;
-  baseUrl: string;
-  token: string;
-}
-
 /** GET /admin/inbound-webhooks[?projectId=] → webhooks, newest first. */
-export async function listInboundWebhooks(session: AdminSession, projectId?: string): Promise<InboundWebhook[]> {
+export async function listInboundWebhooks(session: Session, projectId?: string): Promise<InboundWebhook[]> {
   const query = projectId ? `?${new URLSearchParams({ projectId })}` : '';
   const body = await adminRequest(
     session.baseUrl,
@@ -230,7 +224,7 @@ export async function listInboundWebhooks(session: AdminSession, projectId?: str
 const webhookPath = (id: string) => `/admin/inbound-webhooks/${encodeURIComponent(id)}`;
 
 /** GET /admin/inbound-webhooks/:id → the webhook (404 → exit 4). */
-export async function getInboundWebhook(session: AdminSession, id: string): Promise<InboundWebhook> {
+export async function getInboundWebhook(session: Session, id: string): Promise<InboundWebhook> {
   return toInboundWebhook(
     await adminRequest(session.baseUrl, session.token, session.profileName, 'GET', webhookPath(id)),
   );
@@ -244,7 +238,7 @@ export interface InboundWebhookPatch {
 
 /** PATCH /admin/inbound-webhooks/:id → the updated webhook (400 → exit 2, 404 → exit 4). */
 export async function updateInboundWebhook(
-  session: AdminSession,
+  session: Session,
   id: string,
   patch: InboundWebhookPatch,
 ): Promise<InboundWebhook> {
