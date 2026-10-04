@@ -1,6 +1,4 @@
 import { randomBytes } from 'node:crypto';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,79 +6,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { emptyConfig, loadConfig, saveConfig } from './config.js';
 import { decrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
+import { consent, FAKE_MCDI_TOKEN as TOKEN, startFakeMcdi, type FakeMcdi } from './fake-mcdi.js';
 import { extractState, login, readCallback, startCallbackListener, type LoginDeps } from './login-flow.js';
 import { getAdminLoginUrl, getAdminMe } from './mcdi.js';
-
-/**
- * A stand-in for MCDI's admin auth endpoints, with response shapes copied from
- * MicroClub-USTHB/MCDI apps/api/src/modules/auth (auth.controller.ts,
- * admin-auth.service.ts). It also plays the part issue #2 will add: once the
- * "browser" consents, it redirects to the CLI's redirect_uri with the token.
- */
-interface FakeMcdi {
-  baseUrl: string;
-  /** redirect_uri the CLI sent to /auth/admin/discord. */
-  lastRedirectUri: string | undefined;
-  meStatus: number;
-  loginStatus: number;
-  close(): Promise<void>;
-}
-
-const TOKEN = 'a'.repeat(64);
-
-async function startFakeMcdi(): Promise<FakeMcdi> {
-  const fake: FakeMcdi = {
-    baseUrl: '',
-    lastRedirectUri: undefined,
-    meStatus: 200,
-    loginStatus: 200,
-    close: async () => {},
-  };
-  const server: Server = createServer((req, res) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
-    const json = (status: number, body: unknown) =>
-      res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
-
-    if (url.pathname === '/api/auth/admin/discord') {
-      fake.lastRedirectUri = url.searchParams.get('redirect_uri') ?? undefined;
-      if (fake.loginStatus !== 200) return json(fake.loginStatus, { statusCode: fake.loginStatus, message: 'boom' });
-      const state = randomBytes(32).toString('hex');
-      return json(200, {
-        url: `https://discord.com/oauth2/authorize?client_id=1&redirect_uri=x&response_type=code&scope=identify&state=${state}`,
-      });
-    }
-    if (url.pathname === '/api/auth/admin/me') {
-      if (req.headers.authorization !== `Bearer ${TOKEN}`) {
-        return json(401, { statusCode: 401, message: 'Invalid or expired session', error: 'Unauthorized' });
-      }
-      if (fake.meStatus !== 200) return json(fake.meStatus, { statusCode: fake.meStatus, message: 'Forbidden' });
-      return json(200, {
-        id: 'member-1',
-        username: 'kal',
-        globalName: 'Kal',
-        displayName: null,
-        preferredName: null,
-        avatar: null,
-        email: null,
-        isSystemAdmin: true,
-        sessionExpiresAt: '2026-10-05T12:00:00.000Z',
-      });
-    }
-    json(404, { statusCode: 404, message: 'Not Found' });
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  fake.baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  fake.close = () => new Promise((resolve) => server.close(() => resolve()));
-  return fake;
-}
-
-/** What a browser does after Discord consent once #2 lands: follow MCDI's redirect to the loopback URL. */
-function consent(fake: FakeMcdi, discordUrl: string, params: Record<string, string> = {}) {
-  const state = new URL(discordUrl).searchParams.get('state')!;
-  const target = new URL(fake.lastRedirectUri!);
-  for (const [k, v] of Object.entries({ token: TOKEN, state, ...params })) target.searchParams.set(k, v);
-  return fetch(target);
-}
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {

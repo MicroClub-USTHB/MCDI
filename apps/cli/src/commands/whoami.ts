@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { notImplemented } from '../not-implemented.js';
+import { exitWithError } from '../errors.js';
+import { defaultWhoamiDeps, whoami } from '../whoami.js';
 
 export function registerWhoamiCommand(program: Command): void {
   program
@@ -7,5 +8,11 @@ export function registerWhoamiCommand(program: Command): void {
     .description("Print the authenticated admin's identity")
     .option('--profile <name>', 'profile to inspect')
     .option('--json', 'emit machine-readable JSON')
-    .action(() => notImplemented('whoami', 3));
+    .action(async (options: { profile?: string; json?: boolean }) => {
+      try {
+        await whoami(options, defaultWhoamiDeps());
+      } catch (err) {
+        exitWithError('whoami', err);
+      }
+    });
 }
