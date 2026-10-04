@@ -53,8 +53,11 @@ docs only — no CLI code yet. Milestones (from the PRD):
 - m-forge never re-implements MCDI's validation rules as a second source of
   truth; its local "pre-check" only mirrors known server-side rules plus
   house rules, and can only ever be *stricter* than the server, never looser.
-- Tokens are encrypted at rest (OS keychain, falling back to a local key
-  file); never write a plaintext token to disk, a log, or `--json` output.
+- Session tokens and webhook signing secrets are encrypted at rest (OS
+  keychain, falling back to a local key file); never write a plaintext token
+  or secret to disk unencrypted, to a log, or to `--json` output. MCDI never
+  re-issues a signing secret once rotated, so m-forge's encrypted local copy
+  is the only retrievable record of it — see `m-forge webhook secret get`.
 - Every state-changing command takes `--profile <name>` explicitly — no
   command should rely on hidden local/active-profile state for scripts or CI.
 - Config file: `~/.m-forge/config.json` (override via `MFORGE_CONFIG_PATH`),
