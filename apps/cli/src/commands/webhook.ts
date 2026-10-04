@@ -5,9 +5,11 @@ import {
   defaultWebhookDeps,
   webhookGet,
   webhookList,
+  webhookRolesSet,
   webhookUpdate,
   type WebhookGetOptions,
   type WebhookListOptions,
+  type WebhookRolesSetOptions,
   type WebhookUpdateOptions,
 } from '../webhook-flow.js';
 
@@ -79,7 +81,14 @@ export function registerWebhookCommand(program: Command): void {
     .command('set <id>')
     .description('Replace the allowed-reader role list')
     .requiredOption('--roles <roleIds>', 'comma-separated Discord role ids')
-    .action(() => notImplemented('webhook roles set', 10));
+    .requiredOption('--profile <name>', 'profile to update on')
+    .action(async (id: string, options: WebhookRolesSetOptions) => {
+      try {
+        await webhookRolesSet(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook roles set', err);
+      }
+    });
 
   webhook
     .command('rotate-secret <id>')

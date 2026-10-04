@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { emptyConfig, saveConfig, setSession } from './config.js';
 import { encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { webhookGet, webhookList, webhookUpdate, type WebhookDeps } from './webhook-flow.js';
+import { webhookGet, webhookList, webhookRolesSet, webhookUpdate, type WebhookDeps } from './webhook-flow.js';
 
 /**
  * A stand-in for MCDI's `/api/admin/inbound-webhooks` routes, with shapes from
@@ -90,6 +90,13 @@ async function startFakeMcdi(): Promise<FakeMcdi> {
       if (url.pathname === '/api/admin/inbound-webhooks' && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId');
         return json(200, projectId ? fake.webhooks.filter((w) => w.projectId === projectId) : fake.webhooks);
+      }
+      const roles = url.pathname.match(/^\/api\/admin\/inbound-webhooks\/([^/]+)\/roles$/);
+      if (roles && req.method === 'PUT') {
+        if (!fake.webhooks.some((w) => w.id === decodeURIComponent(roles[1]!))) {
+          return json(404, { statusCode: 404, message: 'Inbound webhook not found', error: 'Not Found' });
+        }
+        return json(200, { roleIds: (fake.requests.at(-1)!.body as { roleIds: string[] }).roleIds });
       }
       const one = url.pathname.match(/^\/api\/admin\/inbound-webhooks\/([^/]+)$/);
       if (one) {
@@ -357,5 +364,77 @@ describe('webhook update', () => {
     await webhookUpdate('wh-1', { profile: 'prod', name: 'Renamed' }, deps);
     expect(out.join('\n')).not.toContain(TOKEN);
     expect(out.join('\n')).not.toContain(LEAKED_SECRET);
+  });
+});
+
+describe('webhook roles set', () => {
+  const ROLE_A = '123456789012345678';
+  const ROLE_B = '234567890123456789';
+
+  it('PUTs the full replacement set, trimmed', async () => {
+    const { fake, deps, out } = await setup();
+    await webhookRolesSet('wh-1', { profile: 'prod', roles: ` ${ROLE_A} , ${ROLE_B} ` }, deps);
+
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({
+      method: 'PUT',
+      path: '/api/admin/inbound-webhooks/wh-1/roles',
+      authorization: `Bearer ${TOKEN}`,
+      body: { roleIds: [ROLE_A, ROLE_B] },
+    });
+    expect(out).toEqual([`Allowed reader roles for wh-1 on prod: ${ROLE_A}, ${ROLE_B}`]);
+  });
+
+  it('rejects an empty --roles before any network call', async () => {
+    for (const roles of ['', '   ', ',', ' , , ']) {
+      const { fake, deps } = await setup();
+      await expectCliError(
+        webhookRolesSet('wh-1', { profile: 'prod', roles }, deps),
+        ExitCode.PrecheckFailed,
+        /at least one Discord role id/,
+      );
+      expect(fake.requests).toEqual([]);
+    }
+  });
+
+  it("surfaces MCDI's 400 for unknown roles as exit 2", async () => {
+    const { fake, deps } = await setup();
+    fake.fail = { status: 400, body: { statusCode: 400, message: `Unknown role IDs: ${ROLE_B}`, error: 'Bad Request' } };
+    await expectCliError(
+      webhookRolesSet('wh-1', { profile: 'prod', roles: ROLE_B }, deps),
+      ExitCode.Rejected,
+      new RegExp(`HTTP 400.*Unknown role IDs: ${ROLE_B}`),
+    );
+  });
+
+  it("surfaces MCDI's 400 for foreign roles and malformed ids as exit 2", async () => {
+    const { fake, deps } = await setup();
+    fake.fail = {
+      status: 400,
+      body: { statusCode: 400, message: `These roles belong to servers this project cannot access: Mod (${ROLE_A})`, error: 'Bad Request' },
+    };
+    await expectCliError(
+      webhookRolesSet('wh-1', { profile: 'prod', roles: ROLE_A }, deps),
+      ExitCode.Rejected,
+      /servers this project cannot access/,
+    );
+
+    fake.fail = { status: 400, body: { statusCode: 400, message: ['each role must be a Discord snowflake'], error: 'Bad Request' } };
+    await expectCliError(
+      webhookRolesSet('wh-1', { profile: 'prod', roles: 'not-a-role' }, deps),
+      ExitCode.Rejected,
+      /each role must be a Discord snowflake/,
+    );
+  });
+
+  it('maps a 404 to exit 4', async () => {
+    const { deps } = await setup();
+    await expectCliError(webhookRolesSet('missing', { profile: 'prod', roles: ROLE_A }, deps), ExitCode.NotFound, /not found/);
+  });
+
+  it('never prints the session token', async () => {
+    const { deps, out } = await setup();
+    await webhookRolesSet('wh-1', { profile: 'prod', roles: ROLE_A }, deps);
+    expect(out.join('\n')).not.toContain(TOKEN);
   });
 });

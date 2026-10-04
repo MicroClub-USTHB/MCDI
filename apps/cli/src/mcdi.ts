@@ -246,3 +246,14 @@ export async function updateInboundWebhook(
     await adminRequest(session.baseUrl, session.token, session.profileName, 'PATCH', webhookPath(id), patch),
   );
 }
+
+/** PUT /admin/inbound-webhooks/:id/roles → the stored replacement set (400 → exit 2, 404 → exit 4). */
+export async function setInboundWebhookRoles(session: Session, id: string, roleIds: string[]): Promise<string[]> {
+  const body = (await adminRequest(session.baseUrl, session.token, session.profileName, 'PUT', `${webhookPath(id)}/roles`, {
+    roleIds,
+  })) as { roleIds?: unknown } | null;
+  if (!Array.isArray(body?.roleIds) || !body.roleIds.every((r) => typeof r === 'string')) {
+    throw new CliError('MCDI roles response has an unexpected shape', ExitCode.Unexpected);
+  }
+  return body.roleIds;
+}
