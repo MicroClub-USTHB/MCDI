@@ -334,3 +334,23 @@ export async function createInboundWebhook(session: Session, body: CreateInbound
 export async function deleteInboundWebhook(session: Session, id: string): Promise<void> {
   await adminRequest(session.baseUrl, session.token, session.profileName, 'DELETE', webhookPath(id));
 }
+
+/** Validates MCDI's rotate-secret response shape; factored out so it's testable without a network call. */
+export function parseRotatedSecret(body: unknown): string {
+  const b = body as { signingSecret?: unknown } | null;
+  if (typeof b?.signingSecret !== 'string') {
+    throw new CliError('MCDI rotate-secret response has an unexpected shape', ExitCode.Unexpected);
+  }
+  return b.signingSecret;
+}
+
+/**
+ * POST /admin/inbound-webhooks/:id/rotate-secret → the new signing secret.
+ * MCDI returns it exactly once and never re-issues it; the old secret stops
+ * verifying immediately (404 → exit 4).
+ */
+export async function rotateInboundWebhookSecret(session: Session, id: string): Promise<string> {
+  return parseRotatedSecret(
+    await adminRequest(session.baseUrl, session.token, session.profileName, 'POST', `${webhookPath(id)}/rotate-secret`),
+  );
+}

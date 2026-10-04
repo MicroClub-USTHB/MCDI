@@ -8,6 +8,7 @@ import {
   webhookGet,
   webhookList,
   webhookRolesSet,
+  webhookRotateSecret,
   webhookSecretGet,
   webhookUpdate,
   type WebhookCreateOptions,
@@ -15,6 +16,7 @@ import {
   type WebhookGetOptions,
   type WebhookListOptions,
   type WebhookRolesSetOptions,
+  type WebhookRotateSecretOptions,
   type WebhookSecretGetOptions,
   type WebhookUpdateOptions,
 } from '../webhook-flow.js';
@@ -116,7 +118,15 @@ export function registerWebhookCommand(program: Command): void {
     .command('rotate-secret <id>')
     .description("Rotate a webhook's signing secret")
     .option('--reveal', 'print the secret in plain text')
-    .action(() => notImplemented('webhook rotate-secret', 8));
+    .option('--yes', 'skip the confirmation prompt')
+    .requiredOption('--profile <name>', 'profile to rotate on')
+    .action(async (id: string, options: WebhookRotateSecretOptions) => {
+      try {
+        await webhookRotateSecret(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook rotate-secret', err);
+      }
+    });
 
   const secret = webhook.command('secret').description('Read a locally stored signing secret');
   secret
