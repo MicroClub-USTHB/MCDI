@@ -1,5 +1,7 @@
 import { Command } from 'commander';
+import { exitWithError } from '../errors.js';
 import { notImplemented } from '../not-implemented.js';
+import { defaultWebhookDeps, webhookList, type WebhookListOptions } from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
   const webhook = program
@@ -28,7 +30,14 @@ export function registerWebhookCommand(program: Command): void {
     .command('list')
     .description('List webhooks')
     .option('--project <projectId>', 'filter by project id')
-    .action(() => notImplemented('webhook list', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (options: WebhookListOptions) => {
+      try {
+        await webhookList(options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook list', err);
+      }
+    });
 
   webhook
     .command('get <id>')

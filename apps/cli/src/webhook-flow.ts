@@ -1,0 +1,81 @@
+import { join } from 'node:path';
+import { configDir, configPath, loadConfig, normalizeBaseUrl, resolveProfileName } from './config.js';
+import { DefaultKeyProvider, FileKeyProvider, KeychainKeyProvider, decrypt, type KeyProvider } from './crypto-store.js';
+import { CliError, ExitCode } from './errors.js';
+import { listInboundWebhooks, type AdminSession, type InboundWebhook } from './mcdi.js';
+
+export interface WebhookDeps {
+  configPath: string;
+  keys: KeyProvider;
+  /** Results (stdout). */
+  out: (line: string) => void;
+  /** Progress and hints (stderr, so stdout stays pipeable). */
+  info: (line: string) => void;
+  now: () => Date;
+}
+
+export function defaultWebhookDeps(): WebhookDeps {
+  return {
+    configPath: configPath(),
+    keys: new DefaultKeyProvider(new KeychainKeyProvider(), new FileKeyProvider(join(configDir(), 'key'))),
+    out: (line) => process.stdout.write(`${line}\n`),
+    info: (line) => process.stderr.write(`${line}\n`),
+    now: () => new Date(),
+  };
+}
+
+/** Loads the profile's base URL and decrypts its session token. There is no refresh for admin sessions. */
+export async function loadAdminSession(profileFlag: string | undefined, deps: WebhookDeps): Promise<AdminSession> {
+  const config = await loadConfig(deps.configPath);
+  const profileName = resolveProfileName(config, profileFlag);
+  const relogin = `run \`m-forge login --profile ${profileName}\``;
+  const profile = config.profiles[profileName];
+  if (!profile) {
+    throw new CliError(`profile "${profileName}" does not exist; ${relogin} --base-url <url>`, ExitCode.Auth);
+  }
+  if (!profile.session) throw new CliError(`not logged in on profile "${profileName}"; ${relogin}`, ExitCode.Auth);
+  const expiresAt = Date.parse(profile.session.expiresAt);
+  if (!Number.isNaN(expiresAt) && expiresAt <= deps.now().getTime()) {
+    throw new CliError(`session expired on profile "${profileName}"; ${relogin}`, ExitCode.Auth);
+  }
+  let token: string;
+  try {
+    token = await decrypt(profile.session.accessToken, deps.keys);
+  } catch {
+    throw new CliError(`could not decrypt the stored session for profile "${profileName}"; ${relogin}`, ExitCode.Auth);
+  }
+  return { profileName, baseUrl: normalizeBaseUrl(profile.baseUrl), token };
+}
+
+function formatTable(header: string[], rows: string[][]): string[] {
+  const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)));
+  const line = (cells: string[]) =>
+    cells
+      .map((c, i) => c.padEnd(widths[i] ?? 0))
+      .join('  ')
+      .trimEnd();
+  return [line(header), ...rows.map(line)];
+}
+
+export interface WebhookListOptions {
+  profile?: string;
+  project?: string;
+}
+
+export async function webhookList(options: WebhookListOptions, deps: WebhookDeps): Promise<void> {
+  const session = await loadAdminSession(options.profile, deps);
+  const webhooks = await listInboundWebhooks(session, options.project);
+  if (webhooks.length === 0) {
+    deps.out(options.project ? `No inbound webhooks in project ${options.project}.` : 'No inbound webhooks.');
+    return;
+  }
+  const rows = webhooks.map((w: InboundWebhook) => [
+    w.id,
+    w.name,
+    w.slug,
+    w.projectId,
+    w.isActive ? 'active' : 'inactive',
+    String(w.submissionCount),
+  ]);
+  for (const line of formatTable(['ID', 'NAME', 'SLUG', 'PROJECT', 'STATUS', 'SUBMISSIONS'], rows)) deps.out(line);
+}
