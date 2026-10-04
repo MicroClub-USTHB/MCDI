@@ -19,6 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "class-validator": "^0.14.4",
     "commander": "^13.1.0"
   },
   "devDependencies": {
