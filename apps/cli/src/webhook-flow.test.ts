@@ -1,14 +1,21 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { emptyConfig, saveConfig, setSession } from './config.js';
+import { emptyConfig, loadConfig, saveConfig, setSession } from './config.js';
 import { encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { webhookGet, webhookList, webhookRolesSet, webhookUpdate, type WebhookDeps } from './webhook-flow.js';
+import {
+  webhookGet,
+  webhookList,
+  webhookRolesSet,
+  webhookSecretGet,
+  webhookUpdate,
+  type WebhookDeps,
+} from './webhook-flow.js';
 
 /**
  * A stand-in for MCDI's `/api/admin/inbound-webhooks` routes, with shapes from
@@ -126,18 +133,29 @@ afterEach(async () => {
 interface SetupOptions {
   /** Store a session on profile "prod" (the default) unless false. */
   loggedIn?: boolean;
+  isInteractive?: boolean;
+  /** Answers handed out, in order, to prompts. */
+  answers?: string[];
 }
 
-async function setup({ loggedIn = true }: SetupOptions = {}) {
+async function setup({ loggedIn = true, isInteractive = true, answers = [] }: SetupOptions = {}) {
   const fake = await startFakeMcdi();
   cleanups.push(fake.close);
   const key = randomBytes(32);
   const keys: KeyProvider = { getKey: async () => key };
   const out: string[] = [];
+  const info: string[] = [];
+  const questions: string[] = [];
   const deps: WebhookDeps = {
     configPath: join(await mkdtemp(join(tmpdir(), 'mcdi-cli-webhook-')), 'config.json'),
     keys,
     out: (line) => out.push(line),
+    info: (line) => info.push(line),
+    isInteractive,
+    ask: async (question) => {
+      questions.push(question);
+      return answers.shift() ?? '';
+    },
   };
   const config = loggedIn
     ? setSession(emptyConfig(), 'prod', fake.baseUrl, {
@@ -147,7 +165,7 @@ async function setup({ loggedIn = true }: SetupOptions = {}) {
       })
     : { ...emptyConfig(), profiles: { prod: { baseUrl: fake.baseUrl, session: null } } };
   await saveConfig(config, deps.configPath);
-  return { fake, deps, out };
+  return { fake, deps, out, info, questions, keys };
 }
 
 async function expectCliError(promise: Promise<unknown>, exitCode: ExitCode, message: RegExp) {
@@ -436,5 +454,119 @@ describe('webhook roles set', () => {
     const { deps, out } = await setup();
     await webhookRolesSet('wh-1', { profile: 'prod', roles: ROLE_A }, deps);
     expect(out.join('\n')).not.toContain(TOKEN);
+  });
+});
+
+describe('webhook secret get', () => {
+  const SECRET_A = 'whsec_recruitment_aaaaaaaaaaaaaaaa1111';
+  const SECRET_B = 'whsec_feedback_bbbbbbbbbbbbbbbbbbbb2222';
+
+  /** Stores encrypted secrets on profile "prod", the way `webhook create` / `rotate-secret` will. */
+  async function storeSecrets(deps: WebhookDeps, keys: KeyProvider, entries: Array<[string, string, string, string]>) {
+    const config = await loadConfig(deps.configPath);
+    const webhookSecrets: Record<string, { secret: string; name: string; slug: string }> = {};
+    for (const [id, name, slug, secret] of entries) webhookSecrets[id] = { secret: await encrypt(secret, keys), name, slug };
+    config.profiles.prod = { ...config.profiles.prod!, webhookSecrets };
+    await saveConfig(config, deps.configPath);
+  }
+
+  it('fails with rotate-secret guidance when nothing is stored, without any network call', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(
+      webhookSecretGet({ profile: 'prod' }, deps),
+      ExitCode.NotFound,
+      /no signing secret is stored locally for profile "prod".*mcdi-cli webhook rotate-secret <id> --profile prod/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('fails the same way for a profile that does not exist', async () => {
+    const { deps } = await setup();
+    await expectCliError(webhookSecretGet({ profile: 'staging' }, deps), ExitCode.NotFound, /profile "staging"/);
+  });
+
+  it('uses the only stored secret without prompting, masked by default', async () => {
+    const { fake, deps, out, info, questions, keys } = await setup();
+    await storeSecrets(deps, keys, [['wh-1', 'Recruitment form', 'recruitment', SECRET_A]]);
+    await webhookSecretGet({ profile: 'prod' }, deps);
+
+    expect(questions).toEqual([]);
+    expect(out).toEqual(['Signing secret for Recruitment form (recruitment): ********1111']);
+    expect(info).toEqual(['Pass --reveal to print it in plain text.']);
+    expect([...out, ...info].join('\n')).not.toContain(SECRET_A);
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('prints only the plain secret on stdout with --reveal', async () => {
+    const { deps, out, info, keys } = await setup();
+    await storeSecrets(deps, keys, [['wh-1', 'Recruitment form', 'recruitment', SECRET_A]]);
+    await webhookSecretGet({ profile: 'prod', reveal: true }, deps);
+
+    expect(out).toEqual([SECRET_A]);
+    expect(info.join('\n')).not.toContain(SECRET_A);
+  });
+
+  it('reads the active profile when --profile is omitted', async () => {
+    const { deps, out, keys } = await setup();
+    await storeSecrets(deps, keys, [['wh-1', 'Recruitment form', 'recruitment', SECRET_A]]);
+    await webhookSecretGet({}, deps);
+    expect(out[0]).toMatch(/^Signing secret for Recruitment form/);
+  });
+
+  it('lists several secrets by name/slug, not id, and uses the one picked', async () => {
+    const { deps, out, info, questions, keys } = await setup({ answers: ['2'] });
+    await storeSecrets(deps, keys, [
+      ['wh-1', 'Recruitment form', 'recruitment', SECRET_A],
+      ['wh-2', 'Feedback', 'feedback', SECRET_B],
+    ]);
+    await webhookSecretGet({ profile: 'prod', reveal: true }, deps);
+
+    expect(info.slice(0, 3)).toEqual([
+      'Signing secrets stored for profile "prod":',
+      '  1) Recruitment form (recruitment)',
+      '  2) Feedback (feedback)',
+    ]);
+    expect(info.join('\n')).not.toMatch(/wh-1|wh-2/);
+    expect(questions).toEqual(['Pick one [1-2]: ']);
+    expect(out).toEqual([SECRET_B]);
+  });
+
+  it('rejects an answer that is not one of the choices', async () => {
+    for (const answer of ['', '0', '3', 'x', '1.5']) {
+      const { deps, out, keys } = await setup({ answers: [answer] });
+      await storeSecrets(deps, keys, [
+        ['wh-1', 'Recruitment form', 'recruitment', SECRET_A],
+        ['wh-2', 'Feedback', 'feedback', SECRET_B],
+      ]);
+      await expectCliError(webhookSecretGet({ profile: 'prod' }, deps), ExitCode.PrecheckFailed, /is not one of 1-2/);
+      expect(out).toEqual([]);
+    }
+  });
+
+  it('never blocks on a prompt without an interactive terminal', async () => {
+    const { deps, questions, keys } = await setup({ isInteractive: false });
+    await storeSecrets(deps, keys, [
+      ['wh-1', 'Recruitment form', 'recruitment', SECRET_A],
+      ['wh-2', 'Feedback', 'feedback', SECRET_B],
+    ]);
+    await expectCliError(webhookSecretGet({ profile: 'prod' }, deps), ExitCode.PrecheckFailed, /no interactive terminal/);
+    expect(questions).toEqual([]);
+  });
+
+  it('reports an undecryptable secret without echoing it', async () => {
+    const { deps, keys } = await setup();
+    await storeSecrets(deps, keys, [['wh-1', 'Recruitment form', 'recruitment', SECRET_A]]);
+    const otherKey = randomBytes(32);
+    const err = await webhookSecretGet({ profile: 'prod' }, { ...deps, keys: { getKey: async () => otherKey } }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CliError);
+    expect((err as CliError).exitCode).toBe(ExitCode.Unexpected);
+    expect((err as CliError).message).toMatch(/could not decrypt/);
+    expect((err as CliError).message).not.toContain(SECRET_A);
+  });
+
+  it('keeps secrets encrypted on disk', async () => {
+    const { deps, keys } = await setup();
+    await storeSecrets(deps, keys, [['wh-1', 'Recruitment form', 'recruitment', SECRET_A]]);
+    expect(await readFile(deps.configPath, 'utf8')).not.toContain(SECRET_A);
   });
 });
