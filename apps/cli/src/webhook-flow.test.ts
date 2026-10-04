@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { emptyConfig, loadConfig, saveConfig, setSession } from './config.js';
 import { decrypt, encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
+import { parseRuleFile } from './schema/rules.js';
 import {
   slugFromName,
   webhookCreate,
@@ -405,6 +406,20 @@ describe('webhook update', () => {
     expect(fake.requests).toEqual([]);
   });
 
+  it('applies custom rules (#6) to --schema and does not send the PATCH when one fails', async () => {
+    const { fake, deps } = await setup();
+    deps.loadRules = async () =>
+      parseRuleFile(
+        JSON.stringify({ rules: [{ id: 'snake-keys', type: 'key-pattern', appliesTo: '*', pattern: '^[a-z_]+$', message: 'snake_case' }] }),
+        '/team/rules.json',
+      );
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, JSON.stringify({ version: 1, steps: [{ key: 'default', fields: [{ key: 'Email', type: 'email', required: true }] }] }));
+
+    await expectCliError(webhookUpdate('wh-1', { profile: 'prod', schema: path }, deps), ExitCode.PrecheckFailed, /SNAKE_KEYS {2}snake_case/);
+    expect(fake.requests).toEqual([]);
+  });
+
   it('does not send the PATCH when the schema file is unreadable or not JSON', async () => {
     const { fake, deps } = await setup();
     const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
@@ -657,6 +672,32 @@ describe('webhook create', () => {
     roles: ROLE_A,
     acceptOrigin: [] as string[],
     ...overrides,
+  });
+
+  it('applies custom rules (#6) and sends nothing when one fails', async () => {
+    const { fake, deps } = await setup();
+    deps.loadRules = async () =>
+      parseRuleFile(
+        JSON.stringify({ rules: [{ id: 'require-label', type: 'require-present', appliesTo: '*', field: 'label', message: 'Needs a label' }] }),
+        '/team/rules.json',
+      );
+
+    await expectCliError(
+      webhookCreate(await schemaFile(), options(), deps),
+      ExitCode.PrecheckFailed,
+      /nothing was sent\n {2}steps\[0\]\.fields\[0\]\.label {2}REQUIRE_LABEL {2}Needs a label/,
+    );
+    expect(fake.requests).toEqual([]);
+
+    await webhookCreate(await schemaFile(JSON.stringify({ version: 1, steps: [{ key: 'default', fields: [{ key: 'email', type: 'email', required: true, label: 'Email' }] }] })), options(), deps);
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it('stops before any request when a rule file is broken', async () => {
+    const { fake, deps } = await setup();
+    deps.loadRules = async () => parseRuleFile('{ "rules": [{ "id": "x", "type": "eval" }] }', '/team/rules.json');
+    await expectCliError(webhookCreate(await schemaFile(), options(), deps), ExitCode.PrecheckFailed, /\/team\/rules\.json: rules\[0\]/);
+    expect(fake.requests).toEqual([]);
   });
 
   it('POSTs the schema with a slug derived from the name', async () => {

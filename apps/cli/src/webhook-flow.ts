@@ -23,7 +23,9 @@ import {
   type CreateInboundWebhookBody,
   type InboundWebhookPatch,
 } from './mcdi.js';
-import { validateSchema, type ValidationError } from './schema/validate.js';
+import { precheckSchema } from './schema/custom-rules.js';
+import { defaultRuleLocations, loadCustomRules, type CustomRule } from './schema/rules.js';
+import type { ValidationError } from './schema/validate.js';
 import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {
@@ -37,6 +39,8 @@ export interface WebhookDeps {
   isInteractive: boolean;
   /** Asks a question on stderr and resolves with the answer. */
   ask: (question: string) => Promise<string>;
+  /** Custom validation rules (#6) for the schema pre-check; none when omitted. */
+  loadRules?: () => Promise<readonly CustomRule[]>;
 }
 
 export function defaultWebhookDeps(): WebhookDeps {
@@ -54,6 +58,7 @@ export function defaultWebhookDeps(): WebhookDeps {
         rl.close();
       }
     },
+    loadRules: () => loadCustomRules(defaultRuleLocations()),
   };
 }
 
@@ -162,7 +167,7 @@ export async function webhookUpdate(id: string, options: WebhookUpdateOptions, d
   checkUpdateFlags(options);
   const patch: InboundWebhookPatch = {};
   if (options.name !== undefined) patch.name = options.name;
-  if (options.schema !== undefined) patch.schema = await readCheckedSchema(options.schema);
+  if (options.schema !== undefined) patch.schema = await readCheckedSchema(options.schema, deps);
   if (options.active) patch.isActive = true;
   if (options.inactive) patch.isActive = false;
 
@@ -303,8 +308,8 @@ function formatLocalErrors(errors: Pick<ValidationError, 'path' | 'code' | 'mess
   ].join('\n');
 }
 
-/** Reads a schema file and runs the issue #5 local pre-check on it; any failure stops before a network call. */
-async function readCheckedSchema(path: string): Promise<Record<string, unknown>> {
+/** Reads a schema file and runs the local pre-check (#5 built-ins + #6 custom rules); any failure stops before a network call. */
+async function readCheckedSchema(path: string, deps: WebhookDeps): Promise<Record<string, unknown>> {
   let contents: string;
   try {
     contents = await readFile(path, 'utf8');
@@ -319,7 +324,8 @@ async function readCheckedSchema(path: string): Promise<Record<string, unknown>>
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(formatLocalErrors([{ path, code: 'INVALID_JSON', message: reason }]), ExitCode.PrecheckFailed);
   }
-  const result = validateSchema(parsed);
+  const rules = deps.loadRules ? await deps.loadRules() : [];
+  const result = precheckSchema(parsed, rules);
   if (!result.valid) throw new CliError(formatLocalErrors(result.errors), ExitCode.PrecheckFailed);
   return parsed as Record<string, unknown>;
 }
@@ -327,7 +333,7 @@ async function readCheckedSchema(path: string): Promise<Record<string, unknown>>
 export async function webhookCreate(schemaPath: string, options: WebhookCreateOptions, deps: WebhookDeps): Promise<void> {
   const allowedRoleIds = parseRoleIds(options.roles, 'MCDI requires at least one role allowed to read submissions');
   const slug = resolveSlug(options);
-  const schema = await readCheckedSchema(schemaPath);
+  const schema = await readCheckedSchema(schemaPath, deps);
 
   const session = await loadSession(options.profile, deps);
   const body: CreateInboundWebhookBody = { projectId: options.project, name: options.name, slug, schema, allowedRoleIds };
