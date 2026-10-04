@@ -68,7 +68,8 @@ async function loadSession(profileFlag: string | undefined, deps: WebhookDeps): 
   return resolveSession(config, resolveProfileName(config, profileFlag), deps.keys);
 }
 
-function formatTable(header: string[], rows: string[][]): string[] {
+/** An aligned, two-space-separated text table (header first). */
+export function formatTable(header: string[], rows: string[][]): string[] {
   const widths = header.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)));
   const line = (cells: string[]) =>
     cells

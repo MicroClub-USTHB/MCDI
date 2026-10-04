@@ -3,14 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  addProfile,
   clearSession,
   configPath,
   emptyConfig,
+  isValidProfileName,
   loadConfig,
   normalizeBaseUrl,
+  removeProfile,
   resolveBaseUrl,
   resolveProfileName,
   saveConfig,
+  setActiveProfile,
   setSession,
   setWebhookSecret,
   removeWebhookSecret,
@@ -167,5 +171,83 @@ describe('removeWebhookSecret', () => {
     expect(removeWebhookSecret(base, 'prod', 'wh-9')).toBeNull();
     expect(removeWebhookSecret(base, 'staging', 'wh-1')).toBeNull();
     expect(removeWebhookSecret(emptyConfig(), 'prod', 'wh-1')).toBeNull();
+  });
+});
+
+describe('isValidProfileName', () => {
+  it('accepts letters, digits, "_" and "-", 1-64 characters', () => {
+    expect(isValidProfileName('prod')).toBe(true);
+    expect(isValidProfileName('staging-2')).toBe(true);
+    expect(isValidProfileName('a_b')).toBe(true);
+    expect(isValidProfileName('x'.repeat(64))).toBe(true);
+  });
+
+  it('rejects empty, overlong, or specially-charactered names', () => {
+    expect(isValidProfileName('')).toBe(false);
+    expect(isValidProfileName('x'.repeat(65))).toBe(false);
+    expect(isValidProfileName('has space')).toBe(false);
+    expect(isValidProfileName('has/slash')).toBe(false);
+    expect(isValidProfileName('has.dot')).toBe(false);
+  });
+});
+
+describe('addProfile', () => {
+  it('adds a profile with no session, becoming active only when none is active yet', () => {
+    const first = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
+    expect(first.profiles.prod).toEqual({ baseUrl: 'https://a.example.com', session: null });
+    expect(first.activeProfile).toBe('prod');
+
+    const second = addProfile(first, 'staging', 'https://b.example.com');
+    expect(second.activeProfile).toBe('prod');
+    expect(second.profiles.staging).toEqual({ baseUrl: 'https://b.example.com', session: null });
+    expect(second.profiles.prod).toEqual(first.profiles.prod);
+  });
+
+  it('rejects an invalid name before touching the config', () => {
+    expect(() => addProfile(emptyConfig(), 'has space', 'https://a.example.com')).toThrow(CliError);
+    expect(() => addProfile(emptyConfig(), '', 'https://a.example.com')).toThrow(CliError);
+  });
+
+  it('refuses a name that already exists, leaving the existing profile untouched', () => {
+    const config = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
+    expect(() => addProfile(config, 'prod', 'https://different.example.com')).toThrow('already exists');
+  });
+});
+
+describe('setActiveProfile', () => {
+  it('switches the active profile without touching any profile data', () => {
+    let config = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
+    config = addProfile(config, 'staging', 'https://b.example.com');
+    const updated = setActiveProfile(config, 'staging');
+    expect(updated.activeProfile).toBe('staging');
+    expect(updated.profiles).toEqual(config.profiles);
+  });
+
+  it('throws "no profile named" for an unknown profile', () => {
+    expect(() => setActiveProfile(emptyConfig(), 'ghost')).toThrow('no profile named "ghost"');
+  });
+});
+
+describe('removeProfile', () => {
+  it('removes the profile and leaves others and activeProfile untouched when it was not active', () => {
+    let config = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
+    config = addProfile(config, 'staging', 'https://b.example.com');
+    config = setActiveProfile(config, 'prod');
+
+    const updated = removeProfile(config, 'staging');
+    expect(Object.keys(updated.profiles)).toEqual(['prod']);
+    expect(updated.activeProfile).toBe('prod');
+    expect(updated.profiles.prod).toEqual(config.profiles.prod);
+  });
+
+  it('nulls activeProfile when the removed profile was active', () => {
+    const config = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
+    const updated = removeProfile(config, 'prod');
+    expect(updated.profiles).toEqual({});
+    expect(updated.activeProfile).toBeNull();
+  });
+
+  it('throws "no profile named" for an unknown profile', () => {
+    expect(() => removeProfile(emptyConfig(), 'ghost')).toThrow('no profile named "ghost"');
   });
 });
