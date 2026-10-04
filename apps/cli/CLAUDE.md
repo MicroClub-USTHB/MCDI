@@ -39,7 +39,7 @@ docs only — no CLI code yet. Milestones (from the PRD):
 
 | Phase | Scope |
 |---|---|
-| M0 | Blocked on MCDI's Inbound Webhooks feature merging to `main` (branch `feat/inbound-webhooks`) |
+| M0 | Done — MCDI's Inbound Webhooks feature is merged to `main` and live in prod |
 | M1 | Auth (`login`/`logout`/`whoami`/`profile *`), config file, built-in local validation engine, `schema init`/`validate` |
 | M2 | `webhook create`/`get`/`list`/`update`/`delete`, `webhook roles set`, `webhook rotate-secret` |
 | M3 | Interactive `schema build` wizard |
