@@ -209,23 +209,30 @@ leave me scrambling if I miss copying it down.
 
 ---
 
-### 9. `webhook secret get <id>` retrieves a stored signing secret
+### 9. `webhook secret get` retrieves a stored signing secret
 
 **Labels:** `feature`, `webhook`, `security`, `M2`
 
 As a developer who needs to re-wire a signing secret into a project's
 environment variables (or just forgot to copy it the first time), I want a
-command to pull it back up locally, since MCDI itself never re-issues it
-once created/rotated.
+simple command — no id to look up or paste — that shows me what's stored
+locally and lets me grab the one I need.
 
 **Acceptance criteria**
-- [ ] `mcdi-cli webhook secret get <id> [--reveal] [--profile <name>]` reads
-      the secret from the local encrypted store (issues #7/#8) and prints it
-      masked by default, plain text with `--reveal`.
-- [ ] If no secret is stored locally for that id (e.g. a fresh machine, or
-      the webhook was created before this command existed), fails clearly
-      with guidance to run `mcdi-cli webhook rotate-secret <id>` instead —
-      there is no server-side fallback.
+- [ ] `mcdi-cli webhook secret get [--reveal] [--profile <name>]` takes no
+      positional argument. It lists the webhooks that have a secret stored
+      locally for the active (or given) profile — by name/slug, not raw id —
+      and prompts interactively to pick one.
+- [ ] If exactly one secret is stored locally, skip the prompt and use it
+      directly.
+- [ ] If none are stored locally for that profile, fails clearly with
+      guidance to run `mcdi-cli webhook rotate-secret <id>` instead — there is
+      no server-side fallback (MCDI never re-issues a secret).
+- [ ] Prints the selected secret masked by default, plain text with
+      `--reveal`.
+- [ ] `--json` (non-interactive/CI use) skips the picker and requires
+      disambiguating another way — flag this as an open question rather than
+      guessing the shape.
 - [ ] Never logs the secret in plain text regardless of flags (only stdout,
       on explicit `--reveal`).
 
