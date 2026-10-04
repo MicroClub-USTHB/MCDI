@@ -162,11 +162,16 @@ class PayloadChecker {
       : { ok: false, errors: this.errors };
   }
 
+  /**
+   * `item` is the array item being validated, which `./` references read
+   * from; absent outside an array. Like absolute paths, it is read as sent.
+   */
   private isActive(
     node: { condition?: Condition },
     scope: Record<string, unknown>,
+    item?: Record<string, unknown>,
   ): boolean {
-    return evaluateCondition(node.condition, scope);
+    return evaluateCondition(node.condition, scope, item);
   }
 
   private checkFields(
@@ -175,9 +180,10 @@ class PayloadChecker {
     path: string,
     scope: Record<string, unknown>,
     depth: number,
+    item?: Record<string, unknown>,
   ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    const active = fields.filter((f) => this.isActive(f, scope));
+    const active = fields.filter((f) => this.isActive(f, scope, item));
     const activeKeys = new Set(active.map((f) => f.key));
 
     if (this.opts.rejectUnknownFields) {
@@ -213,7 +219,7 @@ class PayloadChecker {
         continue;
       }
 
-      const value = this.checkField(field, raw, fieldPath, scope, depth);
+      const value = this.checkField(field, raw, fieldPath, scope, depth, item);
       if (value !== undefined) out[field.key] = value;
     }
 
@@ -228,6 +234,7 @@ class PayloadChecker {
     path: string,
     scope: Record<string, unknown>,
     depth: number,
+    item?: Record<string, unknown>,
   ): unknown {
     if (depth > SCHEMA_LIMITS.MAX_DEPTH) {
       this.push(path, 'TOO_DEEP', 'Payload nesting is too deep');
@@ -440,7 +447,14 @@ class PayloadChecker {
 
       case 'object': {
         if (!isRecord(raw)) return this.typeError(path, 'object');
-        return this.checkFields(field.fields, raw, path, scope, depth + 1);
+        return this.checkFields(
+          field.fields,
+          raw,
+          path,
+          scope,
+          depth + 1,
+          item,
+        );
       }
 
       case 'array': {
@@ -460,8 +474,16 @@ class PayloadChecker {
             `At least ${field.minItems} items are required`,
           );
         }
-        return raw.map((item, i) =>
-          this.checkField(field.item, item, `${path}[${i}]`, scope, depth + 1),
+        // Every element is the `./` scope of the conditions inside it.
+        return raw.map((element, i) =>
+          this.checkField(
+            field.item,
+            element,
+            `${path}[${i}]`,
+            scope,
+            depth + 1,
+            isRecord(element) ? element : undefined,
+          ),
         );
       }
 

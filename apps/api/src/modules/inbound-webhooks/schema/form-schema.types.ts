@@ -18,6 +18,11 @@ export type ConditionOp =
  * A deliberately tiny AST. Never `eval`, never a JS expression string.
  * `field` is a dotted path into the accumulated submission data,
  * e.g. "identity.status".
+ *
+ * Inside an array of objects a path cannot say which entry it means, so a
+ * `field` starting with `./` is relative to the nearest enclosing array item:
+ * `./role` is the `role` of this same entry, `./address.city` a nested path
+ * inside it. It may only name a field declared earlier in the same item.
  */
 export type Condition =
   | { op: ConditionOp; field: string; value?: unknown }

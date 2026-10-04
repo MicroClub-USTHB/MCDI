@@ -281,6 +281,111 @@ describe('describeType / describeConstraints / describeCondition', () => {
       }),
     ).toBe('`a.b` is `1` AND NOT (`a.c` is present)');
   });
+
+  it('describes a ./ reference as a field of the same entry', () => {
+    expect(
+      describeCondition({ op: 'eq', field: './role', value: 'lead' }),
+    ).toBe('this entry\'s `role` is `"lead"`');
+    expect(describeCondition({ op: 'exists', field: './address.city' })).toBe(
+      "this entry's `address.city` is present",
+    );
+    expect(
+      describeCondition({
+        op: 'and',
+        of: [
+          { op: 'eq', field: './role', value: 'lead' },
+          { op: 'eq', field: 'identity.kind', value: 'team' },
+        ],
+      }),
+    ).toBe('this entry\'s `role` is `"lead"` AND `identity.kind` is `"team"`');
+  });
+});
+
+describe('conditions between fields of the same array item', () => {
+  const formWith = (roleOptions: string[]): FormSchema => ({
+    version: 1,
+    steps: [
+      {
+        key: 'step',
+        fields: [
+          {
+            key: 'members',
+            type: 'array',
+            required: true,
+            minItems: 2,
+            maxItems: 5,
+            item: {
+              key: 'member',
+              type: 'object',
+              required: true,
+              fields: [
+                {
+                  key: 'role',
+                  type: 'enum',
+                  required: true,
+                  options: roleOptions.map((value) => ({ value })),
+                },
+                {
+                  key: 'team',
+                  type: 'string',
+                  required: true,
+                  condition: { op: 'eq', field: './role', value: 'lead' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  });
+  const members = (example: Record<string, unknown>) =>
+    (example.step as { members: Record<string, unknown>[] }).members;
+
+  it('includes the conditional field in the examples where its condition holds', () => {
+    const entries = members(buildExamplePayload(formWith(['lead', 'member'])));
+
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      expect(entry.role).toBe('lead');
+      expect(entry.team).toBeDefined();
+    }
+  });
+
+  it('leaves it out where the condition does not hold', () => {
+    const entries = members(buildExamplePayload(formWith(['member', 'lead'])));
+
+    for (const entry of entries) {
+      expect(entry.role).toBe('member');
+      expect(entry).not.toHaveProperty('team');
+    }
+  });
+
+  it.each([
+    ['lead', 'member'],
+    ['member', 'lead'],
+  ])(
+    'produces an example that passes validation (first option: %s)',
+    (...options) => {
+      const form = formWith(options);
+
+      const result = validatePayload(form, buildExamplePayload(form), {
+        rejectUnknownFields: true,
+      });
+
+      expect(result.ok ? [] : result.errors).toEqual([]);
+    },
+  );
+
+  it("documents the condition on the field's row", () => {
+    const md = renderMarkdown({
+      ...input,
+      schema: formWith(['lead', 'member']),
+    });
+
+    expect(md).toMatch(
+      /`members\[\]\.team`.*only when this entry's `role` is `"lead"`/,
+    );
+  });
 });
 
 describe('renderMarkdown', () => {

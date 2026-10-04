@@ -19,6 +19,82 @@ describe('readPath', () => {
   });
 });
 
+describe('evaluateCondition with ./ item references', () => {
+  const root = { identity: { kind: 'team' } };
+  const lead = { role: 'lead', address: { city: 'Algiers' } };
+  const member = { role: 'member' };
+
+  it("reads ./field from the array item, not from the submission's root", () => {
+    const condition: Condition = { op: 'eq', field: './role', value: 'lead' };
+
+    expect(evaluateCondition(condition, root, lead)).toBe(true);
+    expect(evaluateCondition(condition, root, member)).toBe(false);
+  });
+
+  it('reads a nested path inside the item', () => {
+    const condition: Condition = {
+      op: 'eq',
+      field: './address.city',
+      value: 'Algiers',
+    };
+
+    expect(evaluateCondition(condition, root, lead)).toBe(true);
+    expect(evaluateCondition(condition, root, member)).toBe(false);
+  });
+
+  it('still reads absolute paths from the root while inside an item', () => {
+    const condition: Condition = {
+      op: 'eq',
+      field: 'identity.kind',
+      value: 'team',
+    };
+
+    expect(evaluateCondition(condition, root, member)).toBe(true);
+  });
+
+  it('combines item and root references', () => {
+    const condition: Condition = {
+      op: 'and',
+      of: [
+        { op: 'eq', field: './role', value: 'lead' },
+        { op: 'eq', field: 'identity.kind', value: 'team' },
+      ],
+    };
+
+    expect(evaluateCondition(condition, root, lead)).toBe(true);
+    expect(evaluateCondition(condition, root, member)).toBe(false);
+  });
+
+  it('works under not, or and exists', () => {
+    expect(
+      evaluateCondition(
+        { op: 'not', of: { op: 'eq', field: './role', value: 'lead' } },
+        root,
+        member,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateCondition({ op: 'exists', field: './address.city' }, root, lead),
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { op: 'exists', field: './address.city' },
+        root,
+        member,
+      ),
+    ).toBe(false);
+  });
+
+  it('is false, never an error, when there is no item to read from', () => {
+    expect(
+      evaluateCondition({ op: 'eq', field: './role', value: 'lead' }, root),
+    ).toBe(false);
+    expect(
+      evaluateCondition({ op: 'ne', field: './role', value: 'lead' }, root),
+    ).toBe(true);
+  });
+});
+
 describe('evaluateCondition', () => {
   it('treats an absent condition as always active', () => {
     expect(evaluateCondition(undefined, data)).toBe(true);
