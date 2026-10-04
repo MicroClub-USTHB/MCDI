@@ -610,3 +610,64 @@ describe('fieldToJsonSchema', () => {
     });
   });
 });
+
+describe('a schema without steps', () => {
+  const flatSchema: FormSchema = {
+    version: 1,
+    fields: [
+      { key: 'title', type: 'string', required: true, maxLength: 80 },
+      {
+        key: 'kind',
+        type: 'enum',
+        required: true,
+        options: [{ value: 'talk' }, { value: 'workshop' }],
+      },
+      {
+        key: 'room',
+        type: 'string',
+        required: true,
+        maxLength: 20,
+        condition: { op: 'eq', field: 'kind', value: 'workshop' },
+      },
+    ],
+  };
+  const flatInput: WebhookDocsInput = { ...input, schema: flatSchema };
+
+  it('builds a flat example that passes validation', () => {
+    const example = buildExamplePayload(flatSchema);
+
+    expect(Object.keys(example).sort()).toEqual(['kind', 'title']);
+    expect(
+      validatePayload(flatSchema, example, { rejectUnknownFields: true }).ok,
+    ).toBe(true);
+  });
+
+  it('explains a flat payload, with one table and no step headings', () => {
+    const markdown = renderMarkdown(flatInput);
+
+    expect(markdown).toContain('flat JSON object');
+    expect(markdown).not.toContain('keyed by **step**');
+    expect(markdown).not.toMatch(/^### 1\./m);
+    expect(markdown).toContain('| `title` |');
+    expect(markdown).toContain('| `room` |');
+  });
+
+  it('still describes a stepped payload by step', () => {
+    expect(renderMarkdown(input)).toContain('keyed by **step**');
+  });
+
+  it('puts the fields at the root of the OpenAPI body', () => {
+    const spec = renderOpenApi(flatInput) as Record<string, any>;
+    const body =
+      spec.paths['/inbound-webhooks/wh-1/submit'].post.requestBody.content[
+        'application/json'
+      ];
+
+    expect(Object.keys(body.schema.properties)).toEqual([
+      'title',
+      'kind',
+      'room',
+    ]);
+    expect(body.schema.required).toEqual(['title', 'kind']);
+  });
+});

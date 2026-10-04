@@ -3,6 +3,7 @@ import {
   INBOUND_CONDITION_OPERATORS,
   INBOUND_FIELD_PROPERTIES,
   INBOUND_FIELD_TYPES,
+  INBOUND_SCHEMA_PROPERTIES,
   INBOUND_WEBHOOK_TEMPLATES,
 } from '@mcdi/contracts';
 import { buildExamplePayload } from '../docs/webhook-docs.generator';
@@ -57,14 +58,33 @@ describe('@mcdi/contracts inbound webhook catalog', () => {
   });
 });
 
+describe('@mcdi/contracts schema properties', () => {
+  it('offers steps and fields at the top level, the two ways to describe a payload', () => {
+    expect(INBOUND_SCHEMA_PROPERTIES.map((p) => p.name)).toEqual([
+      'version',
+      'steps',
+      'fields',
+    ]);
+  });
+});
+
 describe('@mcdi/contracts starter templates', () => {
-  it('offers the four starting points', () => {
+  it('offers the starting points, forms first and the flat one before blank', () => {
     expect(INBOUND_WEBHOOK_TEMPLATES.map((t) => t.id)).toEqual([
       'recruitment',
       'workshop',
       'event',
+      'project-event',
       'blank',
     ]);
+  });
+
+  it('has one template without steps, to show a payload that is not a form', () => {
+    const flat = INBOUND_WEBHOOK_TEMPLATES.filter(
+      (t) => 'fields' in t.schema,
+    ).map((t) => t.id);
+
+    expect(flat).toEqual(['project-event']);
   });
 
   it.each(INBOUND_WEBHOOK_TEMPLATES.map((t) => [t.id, t] as const))(

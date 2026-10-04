@@ -14,6 +14,10 @@ import {
   Field,
   FormSchema,
   FormStep,
+  ROOT_STEP_KEY,
+  dotPath,
+  isFlatSchema,
+  normalizeSchema,
 } from '../schema/form-schema.types';
 import {
   evaluateCondition,
@@ -165,9 +169,13 @@ export function buildExamplePayload(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
 
-  for (const step of schema.steps) {
+  for (const step of normalizeSchema(schema).steps) {
     if (step.condition && !evaluateCondition(step.condition, out)) continue;
 
+    if (step.key === ROOT_STEP_KEY) {
+      fillExample(step.fields, out, out);
+      continue;
+    }
     const stepOut: Record<string, unknown> = {};
     out[step.key] = stepOut;
     fillExample(step.fields, stepOut, out);
@@ -382,10 +390,12 @@ function fieldRows(fields: Field[], prefix: string, out: string[]): void {
 
 function stepSection(step: FormStep, index: number): string {
   const lines: string[] = [];
-  lines.push(
-    `### ${index + 1}. \`${step.key}\`${step.title ? ` — ${step.title}` : ''}`,
-  );
-  lines.push('');
+  if (step.key !== ROOT_STEP_KEY) {
+    lines.push(
+      `### ${index + 1}. \`${step.key}\`${step.title ? ` — ${step.title}` : ''}`,
+    );
+    lines.push('');
+  }
   if (step.description) {
     lines.push(step.description);
     lines.push('');
@@ -408,14 +418,15 @@ function stepSection(step: FormStep, index: number): string {
 
 /** Picks a real required field, so the 422 example is not a placeholder. */
 function sampleErrorPath(schema: FormSchema): string {
-  for (const step of schema.steps) {
+  const { steps } = normalizeSchema(schema);
+  for (const step of steps) {
     for (const field of step.fields) {
-      if (field.required) return `${step.key}.${field.key}`;
+      if (field.required) return dotPath(step.key, field.key);
     }
   }
-  const step = schema.steps[0];
+  const step = steps[0];
   const field = step?.fields[0];
-  return step && field ? `${step.key}.${field.key}` : 'step.field';
+  return step && field ? dotPath(step.key, field.key) : 'step.field';
 }
 
 export function renderMarkdown(input: WebhookDocsInput): string {
@@ -487,8 +498,10 @@ export function renderMarkdown(input: WebhookDocsInput): string {
   md.push('## 2. The payload');
   md.push('');
   md.push(
-    `The body is a JSON object keyed by **step**, then by **field**. ` +
-      `This webhook declares ${input.schema.steps.length} step${input.schema.steps.length === 1 ? '' : 's'}.`,
+    isFlatSchema(input.schema)
+      ? 'The body is a **flat JSON object**: one property per field, listed below.'
+      : `The body is a JSON object keyed by **step**, then by **field**. ` +
+          `This webhook declares ${input.schema.steps.length} step${input.schema.steps.length === 1 ? '' : 's'}.`,
   );
   md.push('');
   md.push('```json');
@@ -512,7 +525,9 @@ export function renderMarkdown(input: WebhookDocsInput): string {
 
   md.push('## 3. Fields');
   md.push('');
-  input.schema.steps.forEach((step, i) => md.push(stepSection(step, i)));
+  normalizeSchema(input.schema).steps.forEach((step, i) =>
+    md.push(stepSection(step, i)),
+  );
 
   if (input.requireSignature) {
     md.push('## 4. Signing the request');
@@ -800,7 +815,13 @@ export function renderOpenApi(
 
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
-  for (const step of input.schema.steps) {
+  for (const step of normalizeSchema(input.schema).steps) {
+    if (step.key === ROOT_STEP_KEY) {
+      const root = fieldsToJsonSchema(step.fields);
+      Object.assign(properties, root.properties);
+      required.push(...((root.required as string[] | undefined) ?? []));
+      continue;
+    }
     properties[step.key] = fieldsToJsonSchema(step.fields);
     if (!step.condition) required.push(step.key);
   }
