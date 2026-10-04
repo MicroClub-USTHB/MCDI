@@ -35,6 +35,7 @@ export * from './inbound-webhook-role.entity';
 export * from './inbound-webhook-draft.entity';
 export * from './inbound-webhook-submission.entity';
 export * from './inbound-webhook-file.entity';
+export * from './inbound-webhook-settings.entity';
 export * from './app-settings.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {

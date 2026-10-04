@@ -36,6 +36,7 @@ import type { DocsFormat } from './inbound-webhooks.service';
 import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
 import { UpdateInboundWebhookDto } from './dto/update-inbound-webhook.dto';
 import { SetAllowedRolesDto } from './dto/set-allowed-roles.dto';
+import { UpdateInboundWebhookSettingsDto } from './dto/update-inbound-webhook-settings.dto';
 
 type RequestWithUser = Request & {
   memberId?: string;
@@ -58,8 +59,9 @@ export class InboundWebhooksController {
   @ApiOperation({
     summary: 'Create an inbound webhook',
     description:
-      'The schema is validated up front. At least one allowed Discord role is required — ' +
-      'unlike project_roles, an empty role set means nobody, not everybody. ' +
+      'The schema is validated up front. Name the Discord roles that may read submissions, or omit ' +
+      '`allowedRoleIds` to use the default reader roles (MC Executive unless changed in the settings). ' +
+      'At least one role must result — unlike project_roles, an empty role set means nobody, not everybody. ' +
       'The signing secret is returned exactly once.',
   })
   @ApiCreatedResponse({ description: 'Created; signingSecret returned once.' })
@@ -80,6 +82,38 @@ export class InboundWebhooksController {
   @ApiOkResponse({ description: 'Webhooks, newest first.' })
   async list(@Query('projectId') projectId?: string) {
     return this.service.listAll(projectId);
+  }
+
+  // Declared before `:id` so "settings" is never read as a webhook id.
+  @Get('settings')
+  @ApiOperation({
+    summary: 'Get the inbound webhook settings',
+    description:
+      'The default reader roles new webhooks get when their creator names none. ' +
+      '`source` is `environment` until the setting is first saved, when it falls back to the executive role.',
+  })
+  @ApiOkResponse({ description: 'The effective settings.' })
+  async getSettings() {
+    return this.service.getSettings();
+  }
+
+  @Put('settings')
+  @ApiOperation({
+    summary: 'Replace the default reader roles',
+    description:
+      'Applies to webhooks created afterwards; existing webhooks keep their roles. ' +
+      'An empty list means no defaults.',
+  })
+  @ApiOkResponse({ description: 'The settings after the change.' })
+  @ApiBadRequestResponse({ description: 'Unknown role IDs.' })
+  async updateSettings(
+    @Body() dto: UpdateInboundWebhookSettingsDto,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.service.updateSettings(
+      dto.defaultReaderRoleIds,
+      this.actor(req),
+    );
   }
 
   @Get(':id')

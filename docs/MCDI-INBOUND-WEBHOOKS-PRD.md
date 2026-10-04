@@ -493,8 +493,10 @@ Three controllers, separated by **audience**, never mixed.
 ### 8.1 Management — `SystemAdminGuard`
 
 ```
-POST   /admin/inbound-webhooks                      create (allowedRoleIds required)
+POST   /admin/inbound-webhooks                      create (allowedRoleIds optional: defaults to the default readers)
 GET    /admin/inbound-webhooks                      list, filterable by project
+GET    /admin/inbound-webhooks/settings             default reader roles (declared before :id)
+PUT    /admin/inbound-webhooks/settings             replace the default reader roles
 GET    /admin/inbound-webhooks/:id                  detail (secret never returned)
 PATCH  /admin/inbound-webhooks/:id                  schema, origins, isActive
 PUT    /admin/inbound-webhooks/:id/roles            replace grants (non-empty)
@@ -612,22 +614,32 @@ Three checks, before the webhook row is written:
 2. **Roles belong to a server the project can access.** Every role carries a
    `server_id` (`role.entity.ts:17`). Without this check, a grant via a role from an
    unrelated guild is a privilege-escalation path. Cross-reference `project_servers`.
+   The configured **default reader roles** (below) are exempt: the executive role lives
+   on the main server, which projects don't normally have access to.
 3. **Roles are not `managed`.** `role.entity.ts:22` flags bot-managed roles.
    Granting data access via a role Discord hands out on bot-install is rarely
    intended. **Warn, do not block.**
 
-The DTO enforces the non-empty invariant:
+The non-empty invariant is enforced on the **resulting** set:
 
-```ts
-@IsArray()
-@ArrayNotEmpty()
-@IsString({ each: true })
-@Matches(/^\d{17,20}$/, { each: true })
-allowedRoleIds!: string[];
-```
+- `allowedRoleIds` omitted → the webhook gets the **default reader roles** (below);
+- `allowedRoleIds` sent → exactly those roles, so a default can be left out of one
+  webhook. An explicit empty list is an error, not "use the defaults";
+- if no role results (no defaults configured, or every default role was deleted) the
+  create is a `400`: *name a reader role, or configure default reader roles*.
 
-`PUT /roles` applies the same rule. Emptying the set is a deletion of the webhook,
-not an edit of it.
+`PUT /roles` still requires a non-empty list. Emptying the set is a deletion of the
+webhook, not an edit of it.
+
+**Default reader roles (IW-19).** A setting holds the roles a new webhook gets when its
+creator names none. Until it is first saved it is the executive role
+(`MC_EXECUTIVE_ROLE_ID`), the way the admin settings override env defaults; an empty
+saved list means "no defaults". It lives in the single-row table
+`inbound_webhook_settings` (`default_reader_role_ids`, `NULL` = not configured) and is
+managed through `GET` and `PUT /admin/inbound-webhooks/settings` (the inbound webhooks
+settings screen), audited as `settings.updated`. The defaults are stored as ordinary
+grants, so the read path (10.3) knows nothing about them. They are removable per
+webhook, and changing the setting affects **new** webhooks only.
 
 ### 10.3 Enforcement
 
