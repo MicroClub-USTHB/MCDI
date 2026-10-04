@@ -101,11 +101,20 @@ Maps to `mcdi-cli webhook roles set <id> --roles <roleId>[,<roleId>...]`.
 
 ## `POST /admin/inbound-webhooks/:id/rotate-secret` — rotate signing secret
 
-`200` with `{ signingSecret: string }` — **returned exactly once**;
-previously issued signatures stop verifying immediately. Maps to
-`mcdi-cli webhook rotate-secret <id>`; mcdi-cli must honor PRD §12.2 (masked
-by default, `--reveal` to print, never written to the config file, a log, or
-shell history by default).
+`200` with `{ signingSecret: string }` — **MCDI returns it exactly once and
+never re-issues it.** It's stored server-side as a hash, same as session
+tokens, so there's no "show it to me again" endpoint — a later `GET
+/admin/inbound-webhooks/:id` will not include the plaintext secret. Maps to
+`mcdi-cli webhook rotate-secret <id>`.
+
+Because the server never re-exposes it, **mcdi-cli is the only place that can
+answer "what's the secret for webhook X?" after creation.** Current design
+decision: mcdi-cli persists it locally, encrypted at rest using the same
+mechanism as the session token (PRD §12.1 — OS keychain, falling back to
+`~/.mcdi-cli/key`), and exposes it again via `mcdi-cli webhook secret get <id>`
+(see issue tracking this). This is a deliberate departure from the PRD's
+original §12.2 ("never persisted anywhere, shown once") — update §12.2 in
+the MCDI-side PRD copy if this design sticks, so the two docs don't drift.
 
 ## `DELETE /admin/inbound-webhooks/:id` — delete
 

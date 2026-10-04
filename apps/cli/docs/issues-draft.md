@@ -162,8 +162,9 @@ needing MCDI itself to enforce them for everyone.
 
 As a developer, I want `mcdi-cli webhook create <schema-path> --name <name>
 --project <id> --roles <roleId>[,...]` to pre-check my schema locally, then
-create the webhook on MCDI and show me the signing secret exactly once, so I
-never have to go dig it out of a database.
+create the webhook on MCDI and store the signing secret so I never have to
+go dig it out of a database — or go through rotate-secret just because I
+closed my terminal.
 
 **Acceptance criteria**
 - [ ] Runs the local pre-check from issue #5 (built-in rules, plus any custom
@@ -172,8 +173,14 @@ never have to go dig it out of a database.
 - [ ] On pass, calls `POST /admin/inbound-webhooks` with `projectId`, `name`,
       `slug` (derived or `--slug` flag — TBD), `schema`, `allowedRoleIds`,
       and optional `--accept-origin` values.
-- [ ] Prints the returned `signingSecret` once, clearly marked as
-      non-repeatable, and never writes it to the config file or any log.
+- [ ] Stores the returned `signingSecret` locally, encrypted at rest under
+      the webhook's id in the active profile (same encryption mechanism as
+      the session token, PRD §12.1) — never written unencrypted to disk, a
+      log, or default `--json` output.
+- [ ] Prints the secret once at creation time as a convenience, masked by
+      default (`--reveal` to show in plain text) — but losing that output is
+      no longer fatal; it's retrievable via `mcdi-cli webhook secret get`
+      (issue #9).
 - [ ] Surfaces MCDI's `400`/`409` errors (invalid schema/roles, slug
       conflict) in the CLI's `path`/`code`/`message` shape with `source:
       "mcdi"` — same shape as the local pre-check, different `source`, so the
@@ -181,25 +188,50 @@ never have to go dig it out of a database.
 
 ---
 
-### 8. `webhook rotate-secret` never persists or re-displays the secret
+### 8. `webhook rotate-secret` stores the new secret and invalidates the old one
 
 **Labels:** `feature`, `webhook`, `security`, `M2`
 
 As a developer rotating a webhook's signing secret, I want the new secret
-shown to me exactly once and masked by default, so it can't leak through
-shell history or logs by accident.
+stored locally (not just flashed on screen once), so a rotation doesn't
+leave me scrambling if I miss copying it down.
 
 **Acceptance criteria**
 - [ ] `mcdi-cli webhook rotate-secret <id>` calls `POST
       /admin/inbound-webhooks/:id/rotate-secret`.
-- [ ] Output is masked by default; `--reveal` is required to print it in
-      plain text.
-- [ ] Never written to the config file, a log file, or `--json` output
-      without `--reveal`.
+- [ ] Overwrites the locally stored encrypted secret for that webhook id with
+      the new one (old one is already dead server-side — previously issued
+      signatures stop verifying immediately).
+- [ ] Printed output is masked by default; `--reveal` is required to print it
+      in plain text.
+- [ ] Never written unencrypted to disk, a log file, or default `--json`
+      output.
 
 ---
 
-### 9. `webhook roles set` refuses to accept an empty role list
+### 9. `webhook secret get <id>` retrieves a stored signing secret
+
+**Labels:** `feature`, `webhook`, `security`, `M2`
+
+As a developer who needs to re-wire a signing secret into a project's
+environment variables (or just forgot to copy it the first time), I want a
+command to pull it back up locally, since MCDI itself never re-issues it
+once created/rotated.
+
+**Acceptance criteria**
+- [ ] `mcdi-cli webhook secret get <id> [--reveal] [--profile <name>]` reads
+      the secret from the local encrypted store (issues #7/#8) and prints it
+      masked by default, plain text with `--reveal`.
+- [ ] If no secret is stored locally for that id (e.g. a fresh machine, or
+      the webhook was created before this command existed), fails clearly
+      with guidance to run `mcdi-cli webhook rotate-secret <id>` instead —
+      there is no server-side fallback.
+- [ ] Never logs the secret in plain text regardless of flags (only stdout,
+      on explicit `--reveal`).
+
+---
+
+### 10. `webhook roles set` refuses to accept an empty role list
 
 **Labels:** `feature`, `webhook`, `M2`
 
@@ -216,7 +248,7 @@ read access, not as "allow everyone".
 
 ---
 
-### 10. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
+### 11. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
 
 **Labels:** `feature`, `webhook`, `M2`
 
@@ -234,4 +266,6 @@ webhooks day-to-day without leaving the terminal.
 - [ ] `mcdi-cli webhook delete <id> [--yes]` → `DELETE
       /admin/inbound-webhooks/:id`; refuses to call the API without `--yes`
       or an interactive confirmation (deletion also removes all
-      submissions — no undo).
+      submissions — no undo). On success, also removes the locally stored
+      encrypted secret for that id (issues #7/#8/#9) — nothing left behind
+      for a webhook that no longer exists.
