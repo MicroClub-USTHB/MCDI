@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  clearSession,
   configPath,
   emptyConfig,
   loadConfig,
@@ -94,5 +95,24 @@ describe('setSession', () => {
     expect(second.activeProfile).toBe('prod');
     expect(Object.keys(second.profiles).sort()).toEqual(['local', 'prod', 'staging']);
     expect(second.profiles.local).toEqual({ baseUrl: 'http://localhost:3000', session: null });
+  });
+});
+
+describe('clearSession', () => {
+  it('nulls out the named profile\'s session, keeping its baseUrl and other profiles/activeProfile untouched', () => {
+    let config = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
+    config = setSession(config, 'staging', 'https://b.example.com', session);
+    config = { ...config, activeProfile: 'staging' };
+
+    const cleared = clearSession(config, 'prod');
+
+    expect(cleared.profiles.prod).toEqual({ baseUrl: 'https://a.example.com', session: null });
+    expect(cleared.profiles.staging).toEqual(config.profiles.staging);
+    expect(cleared.activeProfile).toBe('staging');
+  });
+
+  it('is a no-op when the profile does not exist', () => {
+    const config = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
+    expect(clearSession(config, 'ghost')).toEqual(config);
   });
 });

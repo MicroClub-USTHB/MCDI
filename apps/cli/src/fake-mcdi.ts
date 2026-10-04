@@ -22,6 +22,10 @@ export interface FakeMcdi {
   meRequestCount: number;
   /** Answer /auth/admin/me errors with an HTML body, like a reverse proxy might. */
   meErrorsAsHtml: boolean;
+  /** Status /auth/admin/logout returns. */
+  logoutStatus: number;
+  /** Counts every /auth/admin/logout request, so tests can prove there's exactly one per run. */
+  logoutRequestCount: number;
   close(): Promise<void>;
 }
 
@@ -35,6 +39,8 @@ export async function startFakeMcdi(): Promise<FakeMcdi> {
     loginStatus: 200,
     meRequestCount: 0,
     meErrorsAsHtml: false,
+    logoutStatus: 200,
+    logoutRequestCount: 0,
     meBody: {
       id: 'member-1',
       username: 'kal',
@@ -48,10 +54,12 @@ export async function startFakeMcdi(): Promise<FakeMcdi> {
     },
     close: async () => {},
   };
+  const revokedTokens = new Set<string>();
   const server: Server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
     const json = (status: number, body: unknown) =>
       res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
+    const bearer = req.headers.authorization === `Bearer ${FAKE_MCDI_TOKEN}` && !revokedTokens.has(FAKE_MCDI_TOKEN);
 
     if (url.pathname === '/api/auth/admin/discord') {
       fake.lastRedirectUri = url.searchParams.get('redirect_uri') ?? undefined;
@@ -63,15 +71,26 @@ export async function startFakeMcdi(): Promise<FakeMcdi> {
     }
     if (url.pathname === '/api/auth/admin/me') {
       fake.meRequestCount += 1;
-      const status = req.headers.authorization !== `Bearer ${FAKE_MCDI_TOKEN}` ? 401 : fake.meStatus;
+      const status = !bearer ? 401 : fake.meStatus;
       if (status !== 200 && fake.meErrorsAsHtml) {
         return res.writeHead(status, { 'Content-Type': 'text/html' }).end('<html><body>Unauthorized</body></html>');
       }
-      if (req.headers.authorization !== `Bearer ${FAKE_MCDI_TOKEN}`) {
+      if (!bearer) {
         return json(401, { statusCode: 401, message: 'Invalid or expired session', error: 'Unauthorized' });
       }
       if (fake.meStatus !== 200) return json(fake.meStatus, { statusCode: fake.meStatus, message: 'Forbidden' });
       return json(200, fake.meBody);
+    }
+    if (url.pathname === '/api/auth/admin/logout') {
+      fake.logoutRequestCount += 1;
+      if (!bearer) {
+        return json(401, { statusCode: 401, message: 'Invalid or expired session', error: 'Unauthorized' });
+      }
+      if (fake.logoutStatus !== 200) {
+        return json(fake.logoutStatus, { statusCode: fake.logoutStatus, message: 'logout failed' });
+      }
+      revokedTokens.add(FAKE_MCDI_TOKEN);
+      return json(200, { success: true });
     }
     json(404, { statusCode: 404, message: 'Not Found' });
   });
