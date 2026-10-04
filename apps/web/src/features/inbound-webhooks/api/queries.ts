@@ -3,6 +3,7 @@
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 
 import { useAccessMatrixQuery } from '@/features/projects/api/queries';
+import { useServersQuery } from '@/features/servers/api/queries';
 import { fetchServerRoles } from '@/features/members/api/service';
 import { memberKeys } from '@/features/members/api/keys';
 import { inboundWebhookKeys } from '@/features/inbound-webhooks/api/keys';
@@ -25,13 +26,11 @@ export function useInboundWebhooksQuery(projectId: string) {
   });
 }
 
-/** The reader roles of several webhooks, for the list's roles column. */
-export function useAllowedRolesQueries(webhookIds: string[]) {
-  return useQueries({
-    queries: webhookIds.map((id) => ({
-      queryKey: inboundWebhookKeys.roles(id),
-      queryFn: async () => (await fetchAllowedRoles(id)).data,
-    })),
+/** The reader roles of one webhook. */
+export function useAllowedRolesQuery(webhookId: string) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.roles(webhookId),
+    queryFn: async () => (await fetchAllowedRoles(webhookId)).data,
   });
 }
 
@@ -58,17 +57,8 @@ export function useSchemaPreviewQuery(payload: PreviewSchemaPayload | null) {
   });
 }
 
-/**
- * The roles an admin can grant for a project: those of the servers the project
- * can access, plus the default reader roles (which the API exempts from that
- * rule).
- */
-export function useProjectRoleOptions(projectId: string) {
-  const matrix = useAccessMatrixQuery(projectId);
-  const settings = useInboundSettingsQuery();
-
-  const serverIds = [...new Set((matrix.data ?? []).map((entry) => entry.serverId))];
-  const roleQueries = useQueries({
+function useServerRoles(serverIds: string[]) {
+  const queries = useQueries({
     queries: serverIds.map((serverId) => ({
       queryKey: memberKeys.roles(serverId),
       queryFn: async () => (await fetchServerRoles(serverId)).data,
@@ -76,7 +66,7 @@ export function useProjectRoleOptions(projectId: string) {
     })),
   });
 
-  const servers = roleQueries.flatMap((query) =>
+  const servers = queries.flatMap((query) =>
     query.data
       ? [
           {
@@ -90,11 +80,36 @@ export function useProjectRoleOptions(projectId: string) {
         ]
       : []
   );
+  return { servers, isPending: queries.some((query) => query.isPending) };
+}
+
+/**
+ * The roles an admin can grant for a project: those of the servers the project
+ * can access, plus the default reader roles (which the API exempts from that
+ * rule).
+ */
+export function useProjectRoleOptions(projectId: string) {
+  const matrix = useAccessMatrixQuery(projectId);
+  const settings = useInboundSettingsQuery();
+  const serverIds = [...new Set((matrix.data ?? []).map((entry) => entry.serverId))];
+  const roles = useServerRoles(serverIds);
 
   return {
-    options: buildRoleOptions(servers, settings.data?.defaultReaderRoles ?? []),
+    options: buildRoleOptions(roles.servers, settings.data?.defaultReaderRoles ?? []),
     defaultRoleIds: settings.data?.defaultReaderRoleIds ?? [],
-    isLoading: matrix.isPending || settings.isPending || roleQueries.some((q) => q.isPending),
+    isLoading: matrix.isPending || settings.isPending || roles.isPending,
     isError: matrix.isError || settings.isError,
+  };
+}
+
+/** Every role of every server, for choosing the default readers. */
+export function useAllRoleOptions() {
+  const servers = useServersQuery();
+  const settings = useInboundSettingsQuery();
+  const roles = useServerRoles((servers.data ?? []).map((server) => server.id));
+
+  return {
+    options: buildRoleOptions(roles.servers, settings.data?.defaultReaderRoles ?? []),
+    isLoading: servers.isPending || roles.isPending,
   };
 }

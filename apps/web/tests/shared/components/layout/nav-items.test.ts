@@ -33,6 +33,7 @@ describe('nav groups', () => {
       'Keys & settings',
       'Server access',
       'Webhooks',
+      'Inbound webhooks',
     ]);
   });
 });
