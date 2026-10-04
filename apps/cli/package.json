@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
+    "class-validator": "^0.14.4",
     "commander": "^13.1.0"
   },
   "devDependencies": {
