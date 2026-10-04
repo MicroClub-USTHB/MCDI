@@ -226,3 +226,12 @@ export async function listInboundWebhooks(session: AdminSession, projectId?: str
   }
   return body.map(toInboundWebhook);
 }
+
+const webhookPath = (id: string) => `/admin/inbound-webhooks/${encodeURIComponent(id)}`;
+
+/** GET /admin/inbound-webhooks/:id → the webhook (404 → exit 4). */
+export async function getInboundWebhook(session: AdminSession, id: string): Promise<InboundWebhook> {
+  return toInboundWebhook(
+    await adminRequest(session.baseUrl, session.token, session.profileName, 'GET', webhookPath(id)),
+  );
+}

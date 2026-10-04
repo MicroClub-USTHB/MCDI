@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { emptyConfig, saveConfig, setSession } from './config.js';
 import { encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { webhookList, type WebhookDeps } from './webhook-flow.js';
+import { webhookGet, webhookList, type WebhookDeps } from './webhook-flow.js';
 
 /**
  * A stand-in for MCDI's `/api/admin/inbound-webhooks` routes, with shapes from
@@ -90,6 +90,13 @@ async function startFakeMcdi(): Promise<FakeMcdi> {
       if (url.pathname === '/api/admin/inbound-webhooks' && req.method === 'GET') {
         const projectId = url.searchParams.get('projectId');
         return json(200, projectId ? fake.webhooks.filter((w) => w.projectId === projectId) : fake.webhooks);
+      }
+      const one = url.pathname.match(/^\/api\/admin\/inbound-webhooks\/([^/]+)$/);
+      if (one) {
+        const id = decodeURIComponent(one[1]!);
+        const index = fake.webhooks.findIndex((w) => w.id === id);
+        if (index === -1) return json(404, { statusCode: 404, message: 'Inbound webhook not found', error: 'Not Found' });
+        if (req.method === 'GET') return json(200, fake.webhooks[index]);
       }
       json(404, { statusCode: 404, message: 'Not Found' });
     });
@@ -218,5 +225,65 @@ describe('webhook list', () => {
     await webhookList({ profile: 'prod' }, deps);
     expect(printed(out, info)).not.toContain(TOKEN);
     expect(printed(out, info)).not.toContain(LEAKED_SECRET);
+  });
+});
+
+describe('webhook get', () => {
+  it('prints the webhook with its schema', async () => {
+    const { fake, deps, out } = await setup();
+    await webhookGet('wh-1', { profile: 'prod' }, deps);
+
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({ method: 'GET', path: '/api/admin/inbound-webhooks/wh-1' });
+    const text = out.join('\n');
+    expect(text).toMatch(/^Name:\s+Recruitment form$/m);
+    expect(text).toMatch(/^Slug:\s+recruitment$/m);
+    expect(text).toMatch(/^Status:\s+active$/m);
+    expect(text).toMatch(/^Accepted origins:\s+\(any\)$/m);
+    expect(text).toContain('Schema:');
+    expect(text).toContain('"key": "email"');
+  });
+
+  it('prints only the schema with --schema-only', async () => {
+    const { deps, out } = await setup();
+    await webhookGet('wh-1', { profile: 'prod', schemaOnly: true }, deps);
+    expect(JSON.parse(out.join('\n'))).toEqual(webhookRow().schema);
+  });
+
+  it('emits the PRD §11 envelope with --json', async () => {
+    const { deps, out } = await setup();
+    await webhookGet('wh-1', { profile: 'prod', json: true }, deps);
+
+    const parsed = JSON.parse(out.join('\n'));
+    const expected = webhookRow();
+    delete expected.signingSecretEnc;
+    expect(parsed).toEqual({ ok: true, data: expected, source: 'mcdi' });
+  });
+
+  it('combines --schema-only and --json', async () => {
+    const { deps, out } = await setup();
+    await webhookGet('wh-1', { profile: 'prod', schemaOnly: true, json: true }, deps);
+    expect(JSON.parse(out.join('\n'))).toEqual({ ok: true, data: webhookRow().schema, source: 'mcdi' });
+  });
+
+  it('URL-encodes the id', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(webhookGet('a/b?c', { profile: 'prod' }, deps), ExitCode.NotFound, /not found/);
+    expect(fake.requests[0]!.path).toBe('/api/admin/inbound-webhooks/a%2Fb%3Fc');
+  });
+
+  it('maps a 404 to exit 4', async () => {
+    const { deps } = await setup();
+    await expectCliError(webhookGet('missing', { profile: 'prod' }, deps), ExitCode.NotFound, /Inbound webhook not found/);
+  });
+
+  it('never prints the session token or secret material, in any output mode', async () => {
+    for (const options of [{}, { json: true }, { schemaOnly: true }, { schemaOnly: true, json: true }]) {
+      const { deps, out, info } = await setup();
+      await webhookGet('wh-1', { profile: 'prod', ...options }, deps);
+      expect(printed(out, info)).not.toContain(TOKEN);
+      expect(printed(out, info)).not.toContain(LEAKED_SECRET);
+      expect(printed(out, info)).not.toContain('signingSecret');
+    }
   });
 });

@@ -1,7 +1,13 @@
 import { Command } from 'commander';
 import { exitWithError } from '../errors.js';
 import { notImplemented } from '../not-implemented.js';
-import { defaultWebhookDeps, webhookList, type WebhookListOptions } from '../webhook-flow.js';
+import {
+  defaultWebhookDeps,
+  webhookGet,
+  webhookList,
+  type WebhookGetOptions,
+  type WebhookListOptions,
+} from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
   const webhook = program
@@ -44,7 +50,14 @@ export function registerWebhookCommand(program: Command): void {
     .description('Inspect one webhook')
     .option('--schema-only', 'print only the schema')
     .option('--json', 'emit machine-readable JSON')
-    .action(() => notImplemented('webhook get', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (id: string, options: WebhookGetOptions) => {
+      try {
+        await webhookGet(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook get', err);
+      }
+    });
 
   webhook
     .command('delete <id>')

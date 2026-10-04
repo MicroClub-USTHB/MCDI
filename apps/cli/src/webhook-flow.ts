@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { configDir, configPath, loadConfig, normalizeBaseUrl, resolveProfileName } from './config.js';
 import { DefaultKeyProvider, FileKeyProvider, KeychainKeyProvider, decrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { listInboundWebhooks, type AdminSession, type InboundWebhook } from './mcdi.js';
+import { getInboundWebhook, listInboundWebhooks, type AdminSession, type InboundWebhook } from './mcdi.js';
 
 export interface WebhookDeps {
   configPath: string;
@@ -78,4 +78,48 @@ export async function webhookList(options: WebhookListOptions, deps: WebhookDeps
     String(w.submissionCount),
   ]);
   for (const line of formatTable(['ID', 'NAME', 'SLUG', 'PROJECT', 'STATUS', 'SUBMISSIONS'], rows)) deps.out(line);
+}
+
+export interface WebhookGetOptions {
+  profile?: string;
+  schemaOnly?: boolean;
+  json?: boolean;
+}
+
+const yesNo = (value: boolean) => (value ? 'yes' : 'no');
+
+function describeWebhook(w: InboundWebhook): string[] {
+  return [
+    `Name:                   ${w.name}`,
+    `ID:                     ${w.id}`,
+    `Slug:                   ${w.slug}`,
+    `Project:                ${w.projectId}`,
+    `Status:                 ${w.isActive ? 'active' : 'inactive'}`,
+    `Require signature:      ${yesNo(w.requireSignature)}`,
+    `Reject unknown fields:  ${yesNo(w.rejectUnknownFields)}`,
+    `Allow role inheritance: ${yesNo(w.allowRoleInheritance)}`,
+    `Accepted origins:       ${w.acceptedOrigins.length > 0 ? w.acceptedOrigins.join(', ') : '(any)'}`,
+    `Submissions:            ${w.submissionCount}`,
+    `Last submission:        ${w.lastSubmissionAt ?? 'never'}`,
+    `Created:                ${w.createdAt}`,
+    `Updated:                ${w.updatedAt}`,
+    'Schema:',
+    ...JSON.stringify(w.schema, null, 2)
+      .split('\n')
+      .map((line) => `  ${line}`),
+  ];
+}
+
+export async function webhookGet(id: string, options: WebhookGetOptions, deps: WebhookDeps): Promise<void> {
+  const session = await loadAdminSession(options.profile, deps);
+  const webhook = await getInboundWebhook(session, id);
+  const data = options.schemaOnly ? webhook.schema : webhook;
+  if (options.json) {
+    // PRD §11 envelope.
+    deps.out(JSON.stringify({ ok: true, data, source: 'mcdi' }, null, 2));
+  } else if (options.schemaOnly) {
+    deps.out(JSON.stringify(data, null, 2));
+  } else {
+    for (const line of describeWebhook(webhook)) deps.out(line);
+  }
 }
