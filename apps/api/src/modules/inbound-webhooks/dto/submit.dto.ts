@@ -1,5 +1,6 @@
 /**
- * The submission body is shaped entirely by the webhook's own FormSchema, so
+ * The submission body is shaped entirely by the webhook's own schema (keyed by
+ * step, or a flat object of fields), so
  * there is nothing meaningful for class-validator to assert here — the real
  * work is the Layer-2 payload validator. Declared as a type (not a DTO class
  * with decorators) so the global ValidationPipe does not strip unknown keys

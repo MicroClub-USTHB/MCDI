@@ -566,6 +566,237 @@ describe('validatePayload (Layer 2)', () => {
     });
   });
 
+  describe('conditions between fields of the same array item', () => {
+    const role: Field = {
+      key: 'role',
+      type: 'enum',
+      required: true,
+      options: [{ value: 'lead' }, { value: 'member' }],
+    };
+    const team: Field = {
+      key: 'team',
+      type: 'string',
+      required: true,
+      condition: { op: 'eq', field: './role', value: 'lead' },
+    };
+    const members = (itemFields: Field[]): Field => ({
+      key: 'members',
+      type: 'array',
+      required: true,
+      maxItems: 5,
+      item: {
+        key: 'member',
+        type: 'object',
+        required: true,
+        fields: itemFields,
+      },
+    });
+    const schema = build([members([role, team])]);
+
+    it('evaluates each item against its own values', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member' },
+              { role: 'lead', team: 'Web' },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member' },
+              { role: 'lead', team: 'Web' },
+            ],
+          },
+        });
+      }
+    });
+
+    it('requires the field only in the items where its condition holds', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'lead' }, { role: 'member' }] } },
+        opts,
+      );
+      expect(codes(r)).toEqual(['REQUIRED']);
+      expect(paths(r)).toEqual(['step.members[0].team']);
+    });
+
+    it('reports every item that breaks the rule, by index', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [{ role: 'lead' }, { role: 'member' }, { role: 'lead' }],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual([
+        'step.members[0].team',
+        'step.members[2].team',
+      ]);
+    });
+
+    it('strips a value sent for an item where the condition does not hold', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'member', team: 'ignored' }] } },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({ step: { members: [{ role: 'member' }] } });
+      }
+    });
+
+    it('does not report a stripped field as unknown', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'member', team: 'x' }] } },
+        { rejectUnknownFields: true },
+      );
+      expect(r.ok).toBe(true);
+    });
+
+    it('still lets an item field depend on a field outside the array', () => {
+      const withKind = build([
+        { key: 'kind', type: 'string', required: true },
+        members([
+          role,
+          {
+            key: 'note',
+            type: 'string',
+            required: true,
+            condition: { op: 'eq', field: 'step.kind', value: 'team' },
+          },
+        ]),
+      ]);
+
+      const asTeam = validatePayload(
+        withKind,
+        { step: { kind: 'team', members: [{ role: 'member' }] } },
+        opts,
+      );
+      expect(paths(asTeam)).toEqual(['step.members[0].note']);
+
+      const asSolo = validatePayload(
+        withKind,
+        { step: { kind: 'solo', members: [{ role: 'member' }] } },
+        opts,
+      );
+      expect(asSolo.ok).toBe(true);
+    });
+
+    it('resolves ./ for a field inside a nested object of the item', () => {
+      const nested = build([
+        members([
+          role,
+          {
+            key: 'extra',
+            type: 'object',
+            required: false,
+            fields: [
+              {
+                key: 'team',
+                type: 'string',
+                required: true,
+                condition: { op: 'eq', field: './role', value: 'lead' },
+              },
+            ],
+          },
+        ]),
+      ]);
+
+      const r = validatePayload(
+        nested,
+        {
+          step: {
+            members: [
+              { role: 'lead', extra: {} },
+              { role: 'member', extra: {} },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual(['step.members[0].extra.team']);
+    });
+
+    it('gives each nested array its own item', () => {
+      const tasks: Field = {
+        key: 'tasks',
+        type: 'array',
+        required: false,
+        maxItems: 5,
+        item: {
+          key: 'task',
+          type: 'object',
+          required: true,
+          fields: [
+            { key: 'done', type: 'string', required: true },
+            {
+              key: 'why',
+              type: 'string',
+              required: true,
+              condition: { op: 'eq', field: './done', value: 'no' },
+            },
+          ],
+        },
+      };
+      const nested = build([members([role, tasks])]);
+
+      const r = validatePayload(
+        nested,
+        {
+          step: {
+            members: [
+              {
+                role: 'lead',
+                tasks: [{ done: 'yes' }, { done: 'no' }],
+              },
+              { role: 'member', tasks: [{ done: 'no', why: 'busy' }] },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual(['step.members[0].tasks[1].why']);
+    });
+
+    it('does not let an inactive field leak into another item', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member', team: 'carried over' },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({
+          step: {
+            members: [{ role: 'lead', team: 'Robotics' }, { role: 'member' }],
+          },
+        });
+      }
+    });
+  });
+
   describe('files', () => {
     const schema = build([
       {
@@ -718,5 +949,129 @@ describe('validatePayload (Layer 2)', () => {
       'OUT_OF_RANGE',
       'REQUIRED',
     ]);
+  });
+
+  describe('a schema without steps', () => {
+    const flat = (fields: Field[]): FormSchema => ({ version: 1, fields });
+
+    it('takes a flat payload and returns a flat value', () => {
+      const schema = flat([
+        { key: 'a', type: 'string', required: true },
+        { key: 'b', type: 'number', required: false, default: 7 },
+      ]);
+      const r = validatePayload(schema, { a: 'x' }, opts);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value).toEqual({ a: 'x', b: 7 });
+    });
+
+    it('names a missing field by its own key', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: true }]),
+        {},
+        opts,
+      );
+      expect(codes(r)).toEqual(['REQUIRED']);
+      expect(paths(r)).toEqual(['a']);
+    });
+
+    it('reports nested and listed errors without a step prefix', () => {
+      const schema = flat([
+        {
+          key: 'place',
+          type: 'object',
+          required: true,
+          fields: [{ key: 'city', type: 'string', required: true }],
+        },
+        {
+          key: 'tags',
+          type: 'array',
+          required: true,
+          maxItems: 3,
+          item: { key: 'tag', type: 'string', required: true, maxLength: 3 },
+        },
+      ]);
+      const r = validatePayload(
+        schema,
+        { place: {}, tags: ['ok', 'toolong'] },
+        opts,
+      );
+      expect(paths(r).sort()).toEqual(['place.city', 'tags[1]']);
+    });
+
+    it('rejects an unknown field when asked to', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: false }]),
+        { a: 'x', extra: 1 },
+        opts,
+      );
+      expect(codes(r)).toEqual(['UNKNOWN_FIELD']);
+      expect(paths(r)).toEqual(['extra']);
+    });
+
+    it('strips an unknown field when not asked to reject', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: false }]),
+        { a: 'x', extra: 1 },
+        { rejectUnknownFields: false },
+      );
+      expect(r.ok && r.value).toEqual({ a: 'x' });
+    });
+
+    it('evaluates a condition against fields at the root', () => {
+      const schema = flat([
+        { key: 'status', type: 'string', required: true },
+        {
+          key: 'school',
+          type: 'string',
+          required: true,
+          condition: { op: 'eq', field: 'status', value: 'student' },
+        },
+      ]);
+      expect(
+        codes(validatePayload(schema, { status: 'student' }, opts)),
+      ).toEqual(['REQUIRED']);
+      const pro = validatePayload(schema, { status: 'pro' }, opts);
+      expect(pro.ok && pro.value).toEqual({ status: 'pro' });
+    });
+
+    it('evaluates a condition between fields of one array entry', () => {
+      const schema = flat([
+        {
+          key: 'guests',
+          type: 'array',
+          required: true,
+          maxItems: 2,
+          item: {
+            key: 'guest',
+            type: 'object',
+            required: true,
+            fields: [
+              { key: 'is_member', type: 'boolean', required: true },
+              {
+                key: 'member_id',
+                type: 'string',
+                required: true,
+                condition: { op: 'eq', field: './is_member', value: true },
+              },
+            ],
+          },
+        },
+      ]);
+      const r = validatePayload(
+        schema,
+        { guests: [{ is_member: true }, { is_member: false }] },
+        opts,
+      );
+      expect(paths(r)).toEqual(['guests[0].member_id']);
+    });
+
+    it('does not read a stepped payload', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: true }]),
+        { step: { a: 'x' } },
+        opts,
+      );
+      expect(codes(r).sort()).toEqual(['REQUIRED', 'UNKNOWN_FIELD']);
+    });
   });
 });

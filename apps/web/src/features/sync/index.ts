@@ -39,11 +39,9 @@ export {
   SyncStatusCard,
   SyncTriggerButton,
   SyncProgressIndicator,
-  ServerSelector,
   SyncLogTable,
   SyncChangeDetail,
 } from './components';
-export type { ServerSelectorOption } from './components';
 export type {
   SyncStatusDto,
   SyncLogDto,

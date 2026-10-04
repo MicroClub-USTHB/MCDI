@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 
 import { server } from '../../setup';
-import { RoleDetailView } from '@/app/dashboard/roles/[roleId]/role-detail-view';
+import { RoleDetailView } from '@/app/dashboard/servers/[id]/roles/[roleId]/role-detail-view';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),

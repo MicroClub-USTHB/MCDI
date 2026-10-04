@@ -5,6 +5,8 @@ import { useAuthStore } from '@/features/auth/stores/auth';
 
 interface CustomRequestInit extends RequestInit {
   requiresAuth?: boolean;
+  /** `text` for an endpoint that answers with a document, not JSON. */
+  responseType?: 'json' | 'text';
 }
 
 function toErrorCode(error: string | undefined, status: number): string {
@@ -28,7 +30,7 @@ class ApiClient {
     endpoint: string,
     options: CustomRequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const { requiresAuth = true, ...fetchOptions } = options;
+    const { requiresAuth = true, responseType = 'json', ...fetchOptions } = options;
     const headers = new Headers(fetchOptions.headers);
 
     // Only on requests that actually carry a body — a bare `Content-Type` on
@@ -68,7 +70,12 @@ class ApiClient {
     // The backend returns resource bodies verbatim — there is no
     // `{ data, message, status }` envelope on the wire. Wrapping here keeps
     // `ApiResponse<T>` as the single shape every caller consumes.
-    const data = response.status === 204 ? null : ((await response.json()) as unknown);
+    const data =
+      response.status === 204
+        ? null
+        : responseType === 'text'
+          ? await response.text()
+          : ((await response.json()) as unknown);
 
     return { data: data as T, status: response.status };
   }
@@ -77,6 +84,14 @@ class ApiClient {
     return this.request<T>(endpoint, {
       ...options,
       method: 'GET',
+    });
+  }
+
+  async getText(endpoint: string, options?: CustomRequestInit): Promise<ApiResponse<string>> {
+    return this.request<string>(endpoint, {
+      ...options,
+      method: 'GET',
+      responseType: 'text',
     });
   }
 

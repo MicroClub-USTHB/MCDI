@@ -14,8 +14,15 @@ import {
   Field,
   FormSchema,
   FormStep,
+  ROOT_STEP_KEY,
+  dotPath,
+  isFlatSchema,
+  normalizeSchema,
 } from '../schema/form-schema.types';
-import { evaluateCondition } from '../schema/condition.evaluator';
+import {
+  evaluateCondition,
+  ITEM_REF_PREFIX,
+} from '../schema/condition.evaluator';
 import { validatePayload } from '../schema/payload.validator';
 
 export interface WebhookDocsInput {
@@ -63,9 +70,16 @@ const EXAMPLE_FILE_ID = '3f1c0a7e-9b2d-4c1a-8e5f-0a1b2c3d4e5f';
 
 /**
  * `root` is the example built so far, which nested conditions are evaluated
- * against — the same paths a real submission would resolve.
+ * against — the same paths a real submission would resolve. `item` is the
+ * array entry being built, which `./` references read; `isItem` marks `field`
+ * as that entry itself (an array element), which starts a new `./` scope.
  */
-function exampleFor(field: Field, root: Record<string, unknown>): unknown {
+function exampleFor(
+  field: Field,
+  root: Record<string, unknown>,
+  item?: Record<string, unknown>,
+  isItem = false,
+): unknown {
   switch (field.type) {
     case 'string':
       return field.pattern
@@ -95,13 +109,13 @@ function exampleFor(field: Field, root: Record<string, unknown>): unknown {
       return field.options.slice(0, field.minSelected ?? 1).map((o) => o.value);
     case 'object': {
       const out: Record<string, unknown> = {};
-      fillExample(field.fields, out, root);
+      fillExample(field.fields, out, root, isItem ? out : item);
       return out;
     }
     case 'array': {
       const count = field.minItems && field.minItems > 0 ? field.minItems : 1;
       return Array.from({ length: Math.min(count, 2) }, () =>
-        exampleFor(field.item, root),
+        exampleFor(field.item, root, item, true),
       );
     }
     case 'file':
@@ -125,17 +139,20 @@ function fillExample(
   fields: Field[],
   target: Record<string, unknown>,
   root: Record<string, unknown>,
+  item?: Record<string, unknown>,
 ): void {
   for (const field of fields) {
-    if (field.condition && !evaluateCondition(field.condition, root)) continue;
+    if (field.condition && !evaluateCondition(field.condition, root, item)) {
+      continue;
+    }
     if (field.type === 'object') {
       // Attached before it is filled, so its own children can reference
       // each other by path.
       const child: Record<string, unknown> = {};
       target[field.key] = child;
-      fillExample(field.fields, child, root);
+      fillExample(field.fields, child, root, item);
     } else {
-      target[field.key] = exampleFor(field, root);
+      target[field.key] = exampleFor(field, root, item);
     }
   }
 }
@@ -152,9 +169,13 @@ export function buildExamplePayload(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
 
-  for (const step of schema.steps) {
+  for (const step of normalizeSchema(schema).steps) {
     if (step.condition && !evaluateCondition(step.condition, out)) continue;
 
+    if (step.key === ROOT_STEP_KEY) {
+      fillExample(step.fields, out, out);
+      continue;
+    }
     const stepOut: Record<string, unknown> = {};
     out[step.key] = stepOut;
     fillExample(step.fields, stepOut, out);
@@ -326,8 +347,11 @@ export function describeCondition(condition: Condition): string {
     exists: 'is present',
   };
   const verb = verbs[condition.op] ?? condition.op;
-  if (condition.op === 'exists') return `\`${condition.field}\` ${verb}`;
-  return `\`${condition.field}\` ${verb} \`${JSON.stringify(condition.value)}\``;
+  const subject = condition.field.startsWith(ITEM_REF_PREFIX)
+    ? `this entry's \`${condition.field.slice(ITEM_REF_PREFIX.length)}\``
+    : `\`${condition.field}\``;
+  if (condition.op === 'exists') return `${subject} ${verb}`;
+  return `${subject} ${verb} \`${JSON.stringify(condition.value)}\``;
 }
 
 function formatBytes(n: number): string {
@@ -366,10 +390,12 @@ function fieldRows(fields: Field[], prefix: string, out: string[]): void {
 
 function stepSection(step: FormStep, index: number): string {
   const lines: string[] = [];
-  lines.push(
-    `### ${index + 1}. \`${step.key}\`${step.title ? ` — ${step.title}` : ''}`,
-  );
-  lines.push('');
+  if (step.key !== ROOT_STEP_KEY) {
+    lines.push(
+      `### ${index + 1}. \`${step.key}\`${step.title ? ` — ${step.title}` : ''}`,
+    );
+    lines.push('');
+  }
   if (step.description) {
     lines.push(step.description);
     lines.push('');
@@ -392,14 +418,15 @@ function stepSection(step: FormStep, index: number): string {
 
 /** Picks a real required field, so the 422 example is not a placeholder. */
 function sampleErrorPath(schema: FormSchema): string {
-  for (const step of schema.steps) {
+  const { steps } = normalizeSchema(schema);
+  for (const step of steps) {
     for (const field of step.fields) {
-      if (field.required) return `${step.key}.${field.key}`;
+      if (field.required) return dotPath(step.key, field.key);
     }
   }
-  const step = schema.steps[0];
+  const step = steps[0];
   const field = step?.fields[0];
-  return step && field ? `${step.key}.${field.key}` : 'step.field';
+  return step && field ? dotPath(step.key, field.key) : 'step.field';
 }
 
 export function renderMarkdown(input: WebhookDocsInput): string {
@@ -471,8 +498,10 @@ export function renderMarkdown(input: WebhookDocsInput): string {
   md.push('## 2. The payload');
   md.push('');
   md.push(
-    `The body is a JSON object keyed by **step**, then by **field**. ` +
-      `This webhook declares ${input.schema.steps.length} step${input.schema.steps.length === 1 ? '' : 's'}.`,
+    isFlatSchema(input.schema)
+      ? 'The body is a **flat JSON object**: one property per field, listed below.'
+      : `The body is a JSON object keyed by **step**, then by **field**. ` +
+          `This webhook declares ${input.schema.steps.length} step${input.schema.steps.length === 1 ? '' : 's'}.`,
   );
   md.push('');
   md.push('```json');
@@ -496,7 +525,9 @@ export function renderMarkdown(input: WebhookDocsInput): string {
 
   md.push('## 3. Fields');
   md.push('');
-  input.schema.steps.forEach((step, i) => md.push(stepSection(step, i)));
+  normalizeSchema(input.schema).steps.forEach((step, i) =>
+    md.push(stepSection(step, i)),
+  );
 
   if (input.requireSignature) {
     md.push('## 4. Signing the request');
@@ -784,7 +815,13 @@ export function renderOpenApi(
 
   const properties: Record<string, unknown> = {};
   const required: string[] = [];
-  for (const step of input.schema.steps) {
+  for (const step of normalizeSchema(input.schema).steps) {
+    if (step.key === ROOT_STEP_KEY) {
+      const root = fieldsToJsonSchema(step.fields);
+      Object.assign(properties, root.properties);
+      required.push(...((root.required as string[] | undefined) ?? []));
+      continue;
+    }
     properties[step.key] = fieldsToJsonSchema(step.fields);
     if (!step.condition) required.push(step.key);
   }

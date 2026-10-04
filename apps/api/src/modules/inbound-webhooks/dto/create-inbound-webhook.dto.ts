@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  ArrayNotEmpty,
   IsArray,
   IsBoolean,
   IsObject,
@@ -33,7 +32,10 @@ export class CreateInboundWebhookDto {
   slug!: string;
 
   @ApiProperty({
-    description: 'A FormSchema. Validated by the Layer-1 schema validator.',
+    description:
+      'The shape of what callers send. Either `steps` (a multi-step form; the payload is keyed by step) ' +
+      'or `fields` (a flat payload, for an event or any non-form data), not both. ' +
+      'Validated by the Layer-1 schema validator.',
     example: {
       version: 1,
       steps: [
@@ -55,19 +57,21 @@ export class CreateInboundWebhookDto {
    * means "anyone authenticated" — an inbound webhook with no roles would
    * expose submissions to every logged-in member. Fail closed.
    */
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'Discord role IDs permitted to READ submissions. At least one is required.',
+      'Discord role IDs permitted to READ submissions. When omitted, the configured default reader ' +
+      'roles are used (MC Executive unless changed in the inbound webhook settings); when given, ' +
+      'exactly these roles are used. At least one role must result.',
     example: ['1234567890123456789'],
   })
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty({ message: 'at least one allowed role is required' })
   @IsString({ each: true })
   @Matches(/^\d{17,20}$/, {
     each: true,
     message: 'each role must be a Discord snowflake',
   })
-  allowedRoleIds!: string[];
+  allowedRoleIds?: string[];
 
   @ApiPropertyOptional({
     description: 'Origins permitted to call this webhook. Empty = no check.',
@@ -91,7 +95,10 @@ export class CreateInboundWebhookDto {
   @ApiPropertyOptional({
     default: false,
     description:
-      'Whether role inheritance rules grant read access. Off by default: data access should be explicit.',
+      "When true, a member can also read this webhook's submissions through role inheritance: " +
+      'a role they hold on the main server that is the source of an enabled inheritance rule covering the ' +
+      'server of a granted role counts as that granted role, matched by role name. ' +
+      'Off by default: data access should be explicit.',
   })
   @IsOptional()
   @IsBoolean()

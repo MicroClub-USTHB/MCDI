@@ -246,6 +246,30 @@ export type FormStep = {
 A single-step form is `steps: [{ key: 'default', fields: [...] }]`. There is one
 code path; "simple" is the degenerate case of "multi-step", never a separate one.
 
+**Schemas without steps (IW-23).** The same language describes data that is not a
+form, such as one kind of project event. A schema may declare `fields` at the top
+level instead of `steps`:
+
+```ts
+export type FlatFormSchema = {
+  version: 1;
+  fields: Field[];   // the payload is a flat object of these fields
+};
+```
+
+- `steps` and `fields` are mutually exclusive: declaring both is `AMBIGUOUS_SCHEMA`,
+  neither is `NO_STEPS`.
+- The payload has no step key: `{ "title": "...", "online": false }`, and error
+  paths carry none either (`place.city`, `tags[1]`).
+- Every field type, constraint and condition works as before. Condition paths are
+  written from the root (`online`, `place.city`), and `./` still works inside an
+  array item.
+- Internally a flat schema is read as one step with an empty key (`ROOT_STEP_KEY`),
+  so there is still one validation code path. Stored schemas and submissions of
+  stepped webhooks are unchanged.
+- One webhook describes one kind of event or one form. Several event kinds are
+  several webhooks.
+
 ### 6.2 Field types
 
 Fields are a **discriminated union on `type`**, not a flat bag of optional
@@ -302,7 +326,7 @@ A deliberately tiny AST. Never `eval`, never a JS expression string.
 ```ts
 type Condition =
   | { op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'contains' | 'exists';
-      field: string;              // dotted path: "identity.status"
+      field: string;              // dotted path: "identity.status", or "./role" inside an array item
       value?: unknown }
   | { op: 'and' | 'or'; of: Condition[] }
   | { op: 'not'; of: Condition };
@@ -312,6 +336,33 @@ type Condition =
 the active field set first, then validates only that set. A `required` field inside
 a false condition must not block submission, and any value sent for it is stripped.
 Getting this backwards makes every branching form unsubmittable.
+
+#### Referencing a field of the same array item
+
+A dotted path cannot say *which* entry of a list it means, so a field inside an array
+of objects can't be made conditional on a sibling with an absolute path. A `field`
+starting with `./` is relative to the **nearest enclosing array item** instead:
+
+```json
+{ "key": "members", "type": "array", "required": true, "maxItems": 5,
+  "item": { "key": "member", "type": "object", "required": true, "fields": [
+    { "key": "role", "type": "enum", "required": true,
+      "options": [{ "value": "lead" }, { "value": "member" }] },
+    { "key": "team_name", "type": "string", "required": true,
+      "condition": { "op": "eq", "field": "./role", "value": "lead" } }
+  ] } }
+```
+
+| Rule | |
+|---|---|
+| Meaning | `./role` is the `role` of this same entry; `./address.city` is a nested path inside it |
+| Allowed on | a field inside an array item that is an object (also inside an `object` field within that item) |
+| Target | must be declared **earlier in the same item**; a forward reference, a reference to itself, or a field the item doesn't have is rejected (`FORWARD_REFERENCE`) |
+| Elsewhere | `./` on a step condition, on a field outside any array, or on the item's own condition is rejected (`RELATIVE_REFERENCE_OUTSIDE_ITEM`); an empty `./` is `INVALID_CONDITION` |
+| Nested arrays | each array has its own scope: an inner item can't see the outer item's fields |
+| Absolute paths | unchanged: an item field may still reference a field outside the array, and an absolute path *into* an array is still rejected (`UNRESOLVABLE_REFERENCE`) |
+| At submission | each item is evaluated against **its own values**, read as sent (like absolute paths); one entry can need `team_name` while the next doesn't, and a value sent for an inactive field is stripped |
+| Generated docs | the field's row reads "only when this entry's `role` is `"lead"`", and the example payload evaluates each entry against itself |
 
 ### 6.4 Two validation layers
 
@@ -393,7 +444,7 @@ Five new tables. Naming follows the `inbound_webhook*` prefix throughout.
 | `accepted_origins` | jsonb `string[]` | allowlist; empty = no origin check |
 | `signing_secret_enc` | text | AES-256-GCM ciphertext — **not** a hash |
 | `require_signature` | boolean, default `true` | |
-| `allow_role_inheritance` | boolean, default `false` | see [15](#15-open-decisions) |
+| `allow_role_inheritance` | boolean, default `false` | when `true`, role inheritance rules also grant read access; see [10.3](#103-enforcement) and [15](#15-open-decisions) |
 | `is_active` | boolean, default `true` | |
 | `submission_count` | integer, default `0` | |
 | `last_submission_at` | timestamptz null | |
@@ -466,14 +517,25 @@ Three controllers, separated by **audience**, never mixed.
 ### 8.1 Management — `SystemAdminGuard`
 
 ```
-POST   /admin/inbound-webhooks                      create (allowedRoleIds required)
+POST   /admin/inbound-webhooks                      create (allowedRoleIds optional: defaults to the default readers)
 GET    /admin/inbound-webhooks                      list, filterable by project
+POST   /admin/inbound-webhooks/schema/preview        check a schema and preview its docs (stores nothing)
+GET    /admin/inbound-webhooks/settings             default reader roles (declared before :id)
+PUT    /admin/inbound-webhooks/settings             replace the default reader roles
 GET    /admin/inbound-webhooks/:id                  detail (secret never returned)
 PATCH  /admin/inbound-webhooks/:id                  schema, origins, isActive
 PUT    /admin/inbound-webhooks/:id/roles            replace grants (non-empty)
 POST   /admin/inbound-webhooks/:id/rotate-secret    returns the secret once
 DELETE /admin/inbound-webhooks/:id
 ```
+
+`POST /schema/preview` (IW-20) runs the same Layer-1 validator as create, for the admin
+schema editor. An invalid schema is a normal `200` with `{ ok: false, errors: [{ path, code,
+message }] }` listing every problem; a valid one returns `{ ok: true, markdown, examplePayload }`,
+the generated developer docs and an example that passes the schema. What only exists once the
+webhook is saved is a placeholder (`<webhook-id>`, no readers). It accepts optional `name`,
+`requireSignature`, `rejectUnknownFields` and `acceptedOrigins`, so the docs reflect the options
+being chosen, and it stores and audits nothing.
 
 ### 8.2 Ingest — `ApiKeyGuard` + HMAC (write only)
 
@@ -585,22 +647,32 @@ Three checks, before the webhook row is written:
 2. **Roles belong to a server the project can access.** Every role carries a
    `server_id` (`role.entity.ts:17`). Without this check, a grant via a role from an
    unrelated guild is a privilege-escalation path. Cross-reference `project_servers`.
+   The configured **default reader roles** (below) are exempt: the executive role lives
+   on the main server, which projects don't normally have access to.
 3. **Roles are not `managed`.** `role.entity.ts:22` flags bot-managed roles.
    Granting data access via a role Discord hands out on bot-install is rarely
    intended. **Warn, do not block.**
 
-The DTO enforces the non-empty invariant:
+The non-empty invariant is enforced on the **resulting** set:
 
-```ts
-@IsArray()
-@ArrayNotEmpty()
-@IsString({ each: true })
-@Matches(/^\d{17,20}$/, { each: true })
-allowedRoleIds!: string[];
-```
+- `allowedRoleIds` omitted → the webhook gets the **default reader roles** (below);
+- `allowedRoleIds` sent → exactly those roles, so a default can be left out of one
+  webhook. An explicit empty list is an error, not "use the defaults";
+- if no role results (no defaults configured, or every default role was deleted) the
+  create is a `400`: *name a reader role, or configure default reader roles*.
 
-`PUT /roles` applies the same rule. Emptying the set is a deletion of the webhook,
-not an edit of it.
+`PUT /roles` still requires a non-empty list. Emptying the set is a deletion of the
+webhook, not an edit of it.
+
+**Default reader roles (IW-19).** A setting holds the roles a new webhook gets when its
+creator names none. Until it is first saved it is the executive role
+(`MC_EXECUTIVE_ROLE_ID`), the way the admin settings override env defaults; an empty
+saved list means "no defaults". It lives in the single-row table
+`inbound_webhook_settings` (`default_reader_role_ids`, `NULL` = not configured) and is
+managed through `GET` and `PUT /admin/inbound-webhooks/settings` (the inbound webhooks
+settings screen), audited as `settings.updated`. The defaults are stored as ordinary
+grants, so the read path (10.3) knows nothing about them. They are removable per
+webhook, and changing the setting affects **new** webhooks only.
 
 ### 10.3 Enforcement
 
@@ -612,9 +684,14 @@ new endpoint:
 2. webhookId from params → granted role ids        (Redis-cached)
 3. member's role ids on that webhook's server      (uncached, indexed)
 4. intersection non-empty            → allow
+5. else, if the webhook has allow_role_inheritance and the member holds a main-server
+   role that inherits a granted role (see D1)       → allow
    else                              → 404
    (a system admin role does not bypass the grant)
 ```
+
+The inheritance check in step 5 is uncached like step 3, and the same rule decides which
+webhooks `GET /inbound-webhooks` lists.
 
 **404, not 403.** A `403` confirms the webhook exists and that the caller merely
 lacks permission — an enumeration oracle over the org's forms.
@@ -778,7 +855,7 @@ follow.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Does `role_inheritance_rules` apply to submission reads? | **No.** Data access should be explicit. "The president inherits everything" is a surprise when the form holds phone numbers. Exposed as the per-webhook `allow_role_inheritance` flag, default `false`, so it is visible per form rather than global |
+| D1 | Does `role_inheritance_rules` apply to submission reads? | **No by default.** Data access should be explicit. "The president inherits everything" is a surprise when the form holds phone numbers. Exposed as the per-webhook `allow_role_inheritance` flag, default `false`, so it is visible per form rather than global. **Implemented (IW-17):** with the flag on, a role the member holds on the main server that is the source of an enabled rule covering the granted role's server counts as the same-named role there (the rule permissions already use). A role granted on the main server itself is never inherited |
 | D2 | Submission retention period | 365 days default, configurable. Decide **before** the table has ten million rows |
 | D3 | Per-role field-level redaction | v2. Would become `inbound_webhook_roles.visible_fields jsonb` |
 | D4 | Public (no-API-key) ingest mode | Out of scope for v1; would be token-in-URL plus strict rate limiting |

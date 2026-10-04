@@ -39,4 +39,5 @@ export { Select, SelectValue, SelectTrigger, SelectContent, SelectItem } from '.
 export { Skeleton } from './skeleton';
 export { StatCard, StatCardSkeleton, StatCardError, type StatCardProps } from './stat-card';
 export { Switch } from './switch';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 export { Textarea } from './textarea';

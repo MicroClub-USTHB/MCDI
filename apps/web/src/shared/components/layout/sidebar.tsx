@@ -8,7 +8,8 @@ import { X } from 'lucide-react';
 
 import { LogoutButton } from '@/features/auth/components/LogoutButton';
 import { useAuthStore } from '@/features/auth/stores/auth';
-import { NAV_ITEMS } from '@/shared/components/layout/nav-items';
+import { ProjectContextNav, ServerContextNav } from '@/shared/components/layout/context-nav';
+import { NAV_GROUPS, isLinkActive } from '@/shared/components/layout/nav-items';
 import { cn } from '@/shared/lib/utils';
 
 interface SidebarProps {
@@ -100,29 +101,47 @@ function Sidebar({ open, onClose }: SidebarProps) {
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.route === '/dashboard'
-                ? pathname === item.route
-                : pathname.startsWith(item.route);
-            const Icon = item.icon;
-
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+          {NAV_GROUPS.map((group) => {
+            const headingId = `nav-group-${group.label.toLowerCase()}`;
             return (
-              <Link
-                key={item.route}
-                href={item.route}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-body transition-colors',
-                  isActive
-                    ? 'bg-surface-active text-text-primary'
-                    : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
-                )}
+              <div
+                key={group.label}
+                role="group"
+                aria-labelledby={headingId}
+                className="flex flex-col gap-1"
               >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
-                <span>{item.name}</span>
-              </Link>
+                <p id={headingId} className="px-3 text-overline text-text-faint uppercase">
+                  {group.label}
+                </p>
+                {group.items.map((item) => {
+                  const isActive = isLinkActive(pathname, item);
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.route}
+                      href={item.route}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md px-3 py-2 text-body transition-colors',
+                        isActive
+                          ? 'bg-surface-active text-text-primary'
+                          : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+                {group.context?.kind === 'server' && (
+                  <ServerContextNav context={group.context} pathname={pathname} />
+                )}
+                {group.context?.kind === 'project' && (
+                  <ProjectContextNav context={group.context} pathname={pathname} />
+                )}
+              </div>
             );
           })}
         </nav>

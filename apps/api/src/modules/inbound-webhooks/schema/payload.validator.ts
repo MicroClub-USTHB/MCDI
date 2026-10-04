@@ -12,6 +12,10 @@ import {
   FormSchema,
   FormStep,
   SCHEMA_LIMITS,
+  SteppedFormSchema,
+  dotPath,
+  isFlatSchema,
+  normalizeSchema,
 } from './form-schema.types';
 import { createContext, Script } from 'vm';
 import { evaluateCondition } from './condition.evaluator';
@@ -85,8 +89,9 @@ class PayloadChecker {
   private readonly fileIds: string[] = [];
 
   constructor(
-    private readonly schema: FormSchema,
+    private readonly schema: SteppedFormSchema,
     private readonly opts: ValidateOptions,
+    private readonly flat: boolean,
   ) {}
 
   run(payload: Record<string, unknown>): PayloadValidationResult {
@@ -121,7 +126,9 @@ class PayloadChecker {
       };
     }
 
-    if (this.opts.rejectUnknownFields) {
+    // A flat schema has no steps to name; its unknown keys are caught as
+    // unknown fields below.
+    if (this.opts.rejectUnknownFields && !this.flat) {
       const known = new Set(this.schema.steps.map((s) => s.key));
       for (const key of Object.keys(payload)) {
         if (!known.has(key)) {
@@ -140,7 +147,7 @@ class PayloadChecker {
       const scope = { ...payload, ...out };
       if (!this.isActive(step, scope)) continue;
 
-      const raw = payload[step.key];
+      const raw = this.flat ? payload : payload[step.key];
       if (raw !== undefined && !isRecord(raw)) {
         this.push(step.key, 'NOT_AN_OBJECT', 'Step payload must be an object');
         continue;
@@ -154,7 +161,8 @@ class PayloadChecker {
         scope,
         1,
       );
-      out[step.key] = result;
+      if (this.flat) Object.assign(out, result);
+      else out[step.key] = result;
     }
 
     return this.errors.length === 0
@@ -162,11 +170,16 @@ class PayloadChecker {
       : { ok: false, errors: this.errors };
   }
 
+  /**
+   * `item` is the array item being validated, which `./` references read
+   * from; absent outside an array. Like absolute paths, it is read as sent.
+   */
   private isActive(
     node: { condition?: Condition },
     scope: Record<string, unknown>,
+    item?: Record<string, unknown>,
   ): boolean {
-    return evaluateCondition(node.condition, scope);
+    return evaluateCondition(node.condition, scope, item);
   }
 
   private checkFields(
@@ -175,9 +188,10 @@ class PayloadChecker {
     path: string,
     scope: Record<string, unknown>,
     depth: number,
+    item?: Record<string, unknown>,
   ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
-    const active = fields.filter((f) => this.isActive(f, scope));
+    const active = fields.filter((f) => this.isActive(f, scope, item));
     const activeKeys = new Set(active.map((f) => f.key));
 
     if (this.opts.rejectUnknownFields) {
@@ -187,7 +201,7 @@ class PayloadChecker {
         const declared = fields.some((f) => f.key === key);
         if (!declared) {
           this.push(
-            `${path}.${key}`,
+            dotPath(path, key),
             'UNKNOWN_FIELD',
             `Unknown field "${key}"`,
           );
@@ -196,7 +210,7 @@ class PayloadChecker {
     }
 
     for (const field of active) {
-      const fieldPath = `${path}.${field.key}`;
+      const fieldPath = dotPath(path, field.key);
       const sent = data[field.key];
       // Trim before the absent check, so "   " cannot satisfy `required`.
       const raw =
@@ -213,7 +227,7 @@ class PayloadChecker {
         continue;
       }
 
-      const value = this.checkField(field, raw, fieldPath, scope, depth);
+      const value = this.checkField(field, raw, fieldPath, scope, depth, item);
       if (value !== undefined) out[field.key] = value;
     }
 
@@ -228,6 +242,7 @@ class PayloadChecker {
     path: string,
     scope: Record<string, unknown>,
     depth: number,
+    item?: Record<string, unknown>,
   ): unknown {
     if (depth > SCHEMA_LIMITS.MAX_DEPTH) {
       this.push(path, 'TOO_DEEP', 'Payload nesting is too deep');
@@ -440,7 +455,14 @@ class PayloadChecker {
 
       case 'object': {
         if (!isRecord(raw)) return this.typeError(path, 'object');
-        return this.checkFields(field.fields, raw, path, scope, depth + 1);
+        return this.checkFields(
+          field.fields,
+          raw,
+          path,
+          scope,
+          depth + 1,
+          item,
+        );
       }
 
       case 'array': {
@@ -460,8 +482,16 @@ class PayloadChecker {
             `At least ${field.minItems} items are required`,
           );
         }
-        return raw.map((item, i) =>
-          this.checkField(field.item, item, `${path}[${i}]`, scope, depth + 1),
+        // Every element is the `./` scope of the conditions inside it.
+        return raw.map((element, i) =>
+          this.checkField(
+            field.item,
+            element,
+            `${path}[${i}]`,
+            scope,
+            depth + 1,
+            isRecord(element) ? element : undefined,
+          ),
         );
       }
 
@@ -585,7 +615,11 @@ export function validatePayload(
   payload: Record<string, unknown>,
   opts: ValidateOptions,
 ): PayloadValidationResult {
-  return new PayloadChecker(schema, opts).run(payload);
+  return new PayloadChecker(
+    normalizeSchema(schema),
+    opts,
+    isFlatSchema(schema),
+  ).run(payload);
 }
 
 export type { FormStep };

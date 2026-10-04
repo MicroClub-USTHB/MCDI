@@ -68,7 +68,7 @@ function DashboardShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <main id="main-content" className="flex-1 overflow-y-auto bg-surface-base p-6">
+        <main id="main-content" className="relative flex-1 overflow-y-auto bg-surface-base p-6">
           <Breadcrumb items={breadcrumbItems} className="mb-4" />
           {children}
         </main>

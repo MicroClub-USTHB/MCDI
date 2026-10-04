@@ -2,7 +2,8 @@
  * The schema definition language for inbound webhooks.
  *
  * A schema is a list of steps; each step is a list of fields. A single-step
- * form is the degenerate case, never a separate code path.
+ * form is the degenerate case, never a separate code path. A schema may
+ * instead list fields directly, for a payload that is not a form.
  *
  * Fields are a discriminated union on `type` rather than a flat bag of
  * optional constraints, so `{ type: 'boolean', minLength: 5 }` is a compile
@@ -18,6 +19,11 @@ export type ConditionOp =
  * A deliberately tiny AST. Never `eval`, never a JS expression string.
  * `field` is a dotted path into the accumulated submission data,
  * e.g. "identity.status".
+ *
+ * Inside an array of objects a path cannot say which entry it means, so a
+ * `field` starting with `./` is relative to the nearest enclosing array item:
+ * `./role` is the `role` of this same entry, `./address.city` a nested path
+ * inside it. It may only name a field declared earlier in the same item.
  */
 export type Condition =
   | { op: ConditionOp; field: string; value?: unknown }
@@ -144,10 +150,43 @@ export type FormStep = {
   fields: Field[];
 };
 
-export type FormSchema = {
+export type SteppedFormSchema = {
   version: 1;
   steps: FormStep[];
 };
+
+/**
+ * Fields at the top level, no steps: the payload is a flat object of those
+ * fields. For data that is not a form, such as one kind of event.
+ */
+export type FlatFormSchema = {
+  version: 1;
+  fields: Field[];
+};
+
+export type FormSchema = SteppedFormSchema | FlatFormSchema;
+
+/**
+ * The key of the single step a flat schema is read as. A step with this key
+ * has no name in the payload or in paths: its fields sit at the root.
+ */
+export const ROOT_STEP_KEY = '';
+
+export function isFlatSchema(schema: FormSchema): schema is FlatFormSchema {
+  return 'fields' in schema;
+}
+
+/** One shape for the code that walks steps; a flat schema becomes one root step. */
+export function normalizeSchema(schema: FormSchema): SteppedFormSchema {
+  return isFlatSchema(schema)
+    ? { version: 1, steps: [{ key: ROOT_STEP_KEY, fields: schema.fields }] }
+    : schema;
+}
+
+/** `a` + `b` is `a.b`; with nothing before it, just `b`. */
+export function dotPath(prefix: string, key: string): string {
+  return prefix ? `${prefix}.${key}` : key;
+}
 
 // ─── Limits (enforced by the Layer-1 schema validator) ───────────────────
 

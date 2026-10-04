@@ -12,9 +12,12 @@ import {
   FormSchema,
   FormStep,
   KEY_PATTERN,
+  ROOT_STEP_KEY,
   SCHEMA_LIMITS,
+  dotPath,
 } from './form-schema.types';
 import type { FieldType } from './form-schema.types';
+import { ITEM_REF_PREFIX } from './condition.evaluator';
 import { isCalendarDate, isDateTime } from './date-format';
 
 export type SchemaError = { path: string; code: string; message: string };
@@ -33,6 +36,19 @@ const CONDITION_OPS = new Set([
   'contains',
   'exists',
 ]);
+
+/** Property names every field may carry, for the editor's catalog test. */
+export function baseFieldPropertyNames(): string[] {
+  return [...BASE_PROPERTIES];
+}
+
+/** Property names specific to one field type, for the editor's catalog test. */
+export function fieldPropertyNames(type: FieldType): string[] {
+  return Object.keys(CONSTRAINTS[type]);
+}
+
+/** Comparison operators a condition accepts (the combinators are separate). */
+export const CONDITION_OPERATOR_NAMES: readonly string[] = [...CONDITION_OPS];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -123,6 +139,17 @@ class SchemaChecker {
   private readonly declared = new Set<string>();
   /** Paths inside an array item: a dotted path cannot address them. */
   private readonly insideArray = new Set<string>();
+  /**
+   * The array item being checked, for `./` references: the fields it has
+   * declared so far, as paths relative to the item. `awaitingRoot` is true
+   * until the item's own definition has been checked, since a condition on
+   * the item itself has no entry to refer to yet.
+   */
+  private itemScope: {
+    declared: Set<string>;
+    path: string[];
+    awaitingRoot: boolean;
+  } | null = null;
 
   constructor(private readonly schema: unknown) {}
 
@@ -139,11 +166,22 @@ class SchemaChecker {
         'Only version 1 is supported',
       );
     }
+    if (s.steps !== undefined && s.fields !== undefined) {
+      return this.fail(
+        '',
+        'AMBIGUOUS_SCHEMA',
+        'Declare either `steps` or `fields`, not both',
+      );
+    }
+    if (s.fields !== undefined) {
+      this.checkRootFields(s.fields);
+      return this.finish();
+    }
     if (!Array.isArray(s.steps) || s.steps.length === 0) {
       return this.fail(
         'steps',
         'NO_STEPS',
-        'Schema must declare at least one step',
+        'Schema must declare `fields`, or at least one step',
       );
     }
     if (s.steps.length > SCHEMA_LIMITS.MAX_STEPS) {
@@ -159,6 +197,10 @@ class SchemaChecker {
       this.checkStep(rawStep, `steps[${i}]`, stepKeys);
     });
 
+    return this.finish();
+  }
+
+  private finish(): SchemaValidationResult {
     if (this.nodeCount > SCHEMA_LIMITS.MAX_NODES) {
       this.push(
         '',
@@ -170,6 +212,21 @@ class SchemaChecker {
     return this.errors.length === 0
       ? { ok: true }
       : { ok: false, errors: this.errors };
+  }
+
+  private checkRootFields(fields: unknown): void {
+    if (!Array.isArray(fields) || fields.length === 0) {
+      this.push(
+        'fields',
+        'NO_FIELDS',
+        'Schema must declare at least one field',
+      );
+      return;
+    }
+    const fieldKeys = new Set<string>();
+    (fields as unknown[]).forEach((rawField, i) => {
+      this.checkField(rawField, `fields[${i}]`, ROOT_STEP_KEY, fieldKeys, 1);
+    });
   }
 
   private checkStep(raw: unknown, path: string, seen: Set<string>): void {
@@ -268,14 +325,22 @@ class SchemaChecker {
       );
     }
 
+    const itemScope = this.itemScope;
+    const isItemRoot = itemScope?.awaitingRoot === true;
+
     if (raw.condition !== undefined) {
       this.checkCondition(raw.condition, `${path}.condition`);
     }
+    if (itemScope) itemScope.awaitingRoot = false;
 
     // Published after its own condition and before its children, so an earlier
     // sibling or an earlier step is referenceable by a condition, but the field
     // itself and any later field are not.
-    (inArray ? this.insideArray : this.declared).add(`${prefix}.${key}`);
+    (inArray ? this.insideArray : this.declared).add(dotPath(prefix, key));
+    // The item itself is the `./` root, not a field of it.
+    if (itemScope && !isItemRoot) {
+      itemScope.declared.add([...itemScope.path, key].join('.'));
+    }
 
     this.checkProperties(raw, type as FieldType, path);
     this.checkConstraints(
@@ -285,6 +350,7 @@ class SchemaChecker {
       key,
       depth,
       inArray,
+      isItemRoot,
     );
   }
 
@@ -319,6 +385,7 @@ class SchemaChecker {
     key: string,
     depth: number,
     inArray: boolean,
+    isItemRoot: boolean,
   ): void {
     switch (f.type) {
       case 'string': {
@@ -400,16 +467,19 @@ class SchemaChecker {
           break;
         }
         const nested = new Set<string>();
+        const descend = this.itemScope && !isItemRoot ? this.itemScope : null;
+        descend?.path.push(key);
         (f.fields as unknown[]).forEach((child, i) => {
           this.checkField(
             child,
             `${path}.fields[${i}]`,
-            `${prefix}.${key}`,
+            dotPath(prefix, key),
             nested,
             depth + 1,
             inArray,
           );
         });
+        descend?.path.pop();
         break;
       }
       case 'array': {
@@ -429,14 +499,19 @@ class SchemaChecker {
           );
           break;
         }
+        // Each array starts its own `./` scope, so a nested array's items can't
+        // see the outer item's fields.
+        const outerItem = this.itemScope;
+        this.itemScope = { declared: new Set(), path: [], awaitingRoot: true };
         this.checkField(
           f.item,
           `${path}.item`,
-          `${prefix}.${key}`,
+          dotPath(prefix, key),
           new Set(),
           depth + 1,
           true,
         );
+        this.itemScope = outerItem;
         break;
       }
       case 'file':
@@ -545,11 +620,14 @@ class SchemaChecker {
     // A condition may only reference fields already declared — i.e. in an
     // earlier step, or earlier in this same step's enclosing scope. A forward
     // reference could never be satisfied at the moment the step is validated.
-    if (this.insideArray.has(raw.field)) {
+    if (raw.field.startsWith(ITEM_REF_PREFIX)) {
+      this.checkItemReference(raw.field, `${path}.field`);
+    } else if (this.insideArray.has(raw.field)) {
       this.push(
         `${path}.field`,
         'UNRESOLVABLE_REFERENCE',
-        `Condition references "${raw.field}", which is inside an array and cannot be addressed by a path`,
+        `Condition references "${raw.field}", which is inside an array and cannot be addressed by a path. ` +
+          'To use a field of the same array item, write it relative to the item, for example ./role',
       );
     } else if (!this.declared.has(raw.field)) {
       this.push(
@@ -570,6 +648,35 @@ class SchemaChecker {
         `${path}.value`,
         'INVALID_VALUE',
         '"in" requires an array `value`',
+      );
+    }
+  }
+
+  /** `./field`: a field declared earlier in the same array item. */
+  private checkItemReference(field: string, path: string): void {
+    const scope = this.itemScope;
+    if (!scope || scope.awaitingRoot) {
+      this.push(
+        path,
+        'RELATIVE_REFERENCE_OUTSIDE_ITEM',
+        `"${field}" is only valid on a field inside an array of objects: elsewhere there is no entry for ./ to point at`,
+      );
+      return;
+    }
+    const relative = field.slice(ITEM_REF_PREFIX.length);
+    if (relative === '') {
+      this.push(
+        path,
+        'INVALID_CONDITION',
+        'A ./ reference needs a field name after it, for example ./role',
+      );
+      return;
+    }
+    if (!scope.declared.has(relative)) {
+      this.push(
+        path,
+        'FORWARD_REFERENCE',
+        `Condition references "${field}", which is not declared earlier in the same array item`,
       );
     }
   }

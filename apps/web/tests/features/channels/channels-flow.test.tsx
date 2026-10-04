@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { server } from '../../setup';
-import ChannelsPage from '@/app/dashboard/channels/page';
+import { ChannelsView } from '@/app/dashboard/servers/[id]/channels/channels-view';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -86,7 +86,7 @@ describe('channels flow (read-only)', () => {
       )
     );
 
-    render(<ChannelsPage />, { wrapper });
+    render(<ChannelsView serverId="s-main" />, { wrapper });
 
     await screen.findByText('Text Channels');
     const generalButton = screen.getByRole('button', { name: /general/ });
@@ -127,7 +127,7 @@ describe('channels flow (read-only)', () => {
     );
 
     const user = userEvent.setup();
-    render(<ChannelsPage />, { wrapper });
+    render(<ChannelsView serverId="s-main" />, { wrapper });
 
     await screen.findByText('Text Channels');
     expect(historyHits).toBe(0);
@@ -139,4 +139,17 @@ describe('channels flow (read-only)', () => {
     expect(screen.getByText(/older messages aren’t shown/)).toBeInTheDocument();
     expect(historyHits).toBe(1);
   }, 15000);
+
+  it('shows the channels of the server in the URL, with no server picker of its own', async () => {
+    server.use(
+      http.get(`${BASE_URL}/admin/servers/s-events/channels`, () =>
+        HttpResponse.json({ channels: [], categories: [] })
+      )
+    );
+
+    render(<ChannelsView serverId="s-events" />, { wrapper });
+
+    expect(await screen.findByText('No channels')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Select a server' })).toBeNull();
+  });
 });

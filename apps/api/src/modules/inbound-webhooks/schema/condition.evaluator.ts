@@ -6,6 +6,9 @@
  */
 import { Condition } from './form-schema.types';
 
+/** A condition `field` starting with this reads from the current array item. */
+export const ITEM_REF_PREFIX = './';
+
 /** Reads a dotted path, e.g. "identity.status". Returns undefined if absent. */
 export function readPath(data: Record<string, unknown>, path: string): unknown {
   let cursor: unknown = data;
@@ -51,23 +54,31 @@ function compare(op: string, left: unknown, right: unknown): boolean {
   }
 }
 
+/**
+ * `data` is the submission, which absolute paths read from. `item` is the
+ * array item the field lives in, which `./path` references read from; outside
+ * an array item there is none, and such a reference reads as absent.
+ */
 export function evaluateCondition(
   condition: Condition | undefined,
   data: Record<string, unknown>,
+  item?: Record<string, unknown>,
 ): boolean {
   // No condition means always active.
   if (condition === undefined) return true;
 
   if (condition.op === 'and') {
-    return condition.of.every((c) => evaluateCondition(c, data));
+    return condition.of.every((c) => evaluateCondition(c, data, item));
   }
   if (condition.op === 'or') {
-    return condition.of.some((c) => evaluateCondition(c, data));
+    return condition.of.some((c) => evaluateCondition(c, data, item));
   }
   if (condition.op === 'not') {
-    return !evaluateCondition(condition.of, data);
+    return !evaluateCondition(condition.of, data, item);
   }
 
-  const left = readPath(data, condition.field);
+  const left = condition.field.startsWith(ITEM_REF_PREFIX)
+    ? readPath(item ?? {}, condition.field.slice(ITEM_REF_PREFIX.length))
+    : readPath(data, condition.field);
   return compare(condition.op, left, condition.value);
 }
