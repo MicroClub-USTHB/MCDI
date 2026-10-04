@@ -5,6 +5,7 @@ import { CliError, ExitCode } from './errors.js';
 import {
   getInboundWebhook,
   listInboundWebhooks,
+  setInboundWebhookRoles,
   updateInboundWebhook,
   type InboundWebhook,
   type InboundWebhookPatch,
@@ -143,4 +144,27 @@ export async function webhookUpdate(id: string, options: WebhookUpdateOptions, d
   const session = await loadSession(options.profile, deps);
   const webhook = await updateInboundWebhook(session, id, patch);
   deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
+}
+
+export interface WebhookRolesSetOptions {
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
+  roles: string;
+}
+
+export async function webhookRolesSet(id: string, options: WebhookRolesSetOptions, deps: WebhookDeps): Promise<void> {
+  const roleIds = options.roles
+    .split(',')
+    .map((role) => role.trim())
+    .filter((role) => role !== '');
+  // MCDI treats an empty set as removing all read access, not "allow everyone", so refuse it here first.
+  if (roleIds.length === 0) {
+    throw new CliError(
+      '--roles needs at least one Discord role id; an empty set would remove all read access (delete the webhook instead)',
+      ExitCode.PrecheckFailed,
+    );
+  }
+  const session = await loadSession(options.profile, deps);
+  const stored = await setInboundWebhookRoles(session, id, roleIds);
+  deps.out(`Allowed reader roles for ${id} on ${session.profileName}: ${stored.join(', ')}`);
 }
