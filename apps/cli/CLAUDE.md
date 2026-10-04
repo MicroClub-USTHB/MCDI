@@ -38,7 +38,7 @@ The command surface is mostly scaffolded. `schema init` and `schema validate`
 are implemented, including a local validator aligned with MCDI's Layer 1
 schema validator. The remaining commands and milestones are tracked in the
 PRD:
-h
+
 | Phase | Scope |
 |---|---|
 | M0 | Done — MCDI's Inbound Webhooks feature is merged to `main` and live in prod |
