@@ -17,6 +17,7 @@ import {
   deleteInboundWebhook,
   getInboundWebhook,
   listInboundWebhooks,
+  rotateInboundWebhookSecret,
   setInboundWebhookRoles,
   updateInboundWebhook,
   type InboundWebhook,
@@ -213,7 +214,7 @@ export interface WebhookSecretGetOptions {
 }
 
 /** Shows only the last 4 characters, so the secret can be recognised but not used. */
-function maskSecret(secret: string): string {
+export function maskSecret(secret: string): string {
   return secret.length > 8 ? `${'*'.repeat(8)}${secret.slice(-4)}` : '*'.repeat(8);
 }
 
@@ -409,5 +410,59 @@ export async function webhookDelete(id: string, options: WebhookDeleteOptions, d
   deps.out(
     `Deleted inbound webhook ${id} on ${session.profileName}` +
       (removedSecret ? '; removed its locally stored signing secret' : ''),
+  );
+}
+
+export interface WebhookRotateSecretOptions {
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
+  reveal?: boolean;
+  yes?: boolean;
+}
+
+export async function webhookRotateSecret(id: string, options: WebhookRotateSecretOptions, deps: WebhookDeps): Promise<void> {
+  const session = await loadSession(options.profile, deps);
+
+  // Asked before any network call, like delete, so the confirmation is testable without a server.
+  if (!options.yes) {
+    if (!deps.isInteractive) {
+      throw new CliError(
+        'refusing to rotate without confirmation and there is no interactive terminal to ask; pass --yes to confirm',
+        ExitCode.PrecheckFailed,
+      );
+    }
+    deps.info(
+      `Rotating the signing secret for inbound webhook ${id} on ${session.profileName} immediately breaks every ` +
+        'integration still signing with the current secret.',
+    );
+    const answer = (await deps.ask('Rotate it? [y/N] ')).trim().toLowerCase();
+    if (answer !== 'y' && answer !== 'yes') throw new CliError('aborted; nothing was rotated', ExitCode.PrecheckFailed);
+  }
+
+  // Fetched first so a 404 (unknown id) exits before anything is rotated, and so the
+  // name/slug are available for the local store without MCDI having to echo them back.
+  const webhook = await getInboundWebhook(session, id);
+  const signingSecret = await rotateInboundWebhookSecret(session, id);
+
+  // MCDI never shows this secret again, so it has to land in the local store now.
+  try {
+    const latest = await loadConfig(deps.configPath);
+    const entry = { secret: await encrypt(signingSecret, deps.keys), name: webhook.name, slug: webhook.slug };
+    await saveConfig(setWebhookSecret(latest, session.profileName, webhook.id, entry), deps.configPath);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(
+      `the signing secret for ${webhook.name} (${webhook.id}) was rotated on MCDI, but could not be stored locally ` +
+        `(${reason}); the old secret no longer works; run \`mcdi-cli webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` ` +
+        'again to get a new one',
+      ExitCode.Unexpected,
+    );
+  }
+
+  deps.out(`Rotated the signing secret for ${webhook.name} (${webhook.slug}) on ${session.profileName}`);
+  deps.out(`Signing secret: ${options.reveal ? signingSecret : maskSecret(signingSecret)}`);
+  deps.info(
+    `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
+      (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
   );
 }

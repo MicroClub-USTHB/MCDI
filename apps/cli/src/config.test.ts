@@ -126,6 +126,28 @@ describe('clearSession', () => {
   });
 });
 
+describe('setWebhookSecret', () => {
+  it('overwrites an existing entry for the same webhook id, keeping the session and other secrets', () => {
+    const other = { secret: 'v1:other', name: 'Other', slug: 'other' };
+    const original = { secret: 'v1:old', name: 'Recruitment', slug: 'recruitment' };
+    const rotated = { secret: 'v1:new', name: 'Recruitment', slug: 'recruitment' };
+
+    let config = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
+    config = setWebhookSecret(config, 'prod', 'wh-1', original);
+    config = setWebhookSecret(config, 'prod', 'wh-2', other);
+    const after = setWebhookSecret(config, 'prod', 'wh-1', rotated);
+
+    expect(after.profiles.prod!.webhookSecrets).toEqual({ 'wh-1': rotated, 'wh-2': other });
+    expect(after.profiles.prod!.session).toEqual(session);
+  });
+
+  it('errors when the profile does not exist', () => {
+    expect(() => setWebhookSecret(emptyConfig(), 'ghost', 'wh-1', { secret: 'v1:x', name: 'N', slug: 's' })).toThrow(
+      CliError,
+    );
+  });
+});
+
 describe('removeWebhookSecret', () => {
   const entry = { secret: 'v1:enc', name: 'Recruitment', slug: 'recruitment' };
   const base = setWebhookSecret(
