@@ -1,0 +1,75 @@
+import { Command } from 'commander';
+import { notImplemented } from '../not-implemented.js';
+
+export function registerWebhookCommand(program: Command): void {
+  const webhook = program
+    .command('webhook')
+    .description('Manage MCDI Inbound Webhooks');
+
+  webhook
+    .command('create <schema-path>')
+    .description('Pre-check a schema, then create the webhook on MCDI')
+    .requiredOption('--name <name>', 'webhook display name')
+    .requiredOption('--project <projectId>', 'owning MCDI project id')
+    .requiredOption('--roles <roleIds>', 'comma-separated allowed Discord role ids')
+    .option('--accept-origin <origin>', 'accepted origin (repeatable)', collect, [])
+    .action(() => notImplemented('webhook create', 7));
+
+  webhook
+    .command('update <id>')
+    .description('Update an existing webhook')
+    .option('--schema <path>', 'replacement schema file')
+    .option('--name <name>', 'new display name')
+    .option('--active', 'mark the webhook active')
+    .option('--inactive', 'mark the webhook inactive')
+    .action(() => notImplemented('webhook update', 11));
+
+  webhook
+    .command('list')
+    .description('List webhooks')
+    .option('--project <projectId>', 'filter by project id')
+    .action(() => notImplemented('webhook list', 11));
+
+  webhook
+    .command('get <id>')
+    .description('Inspect one webhook')
+    .option('--schema-only', 'print only the schema')
+    .option('--json', 'emit machine-readable JSON')
+    .action(() => notImplemented('webhook get', 11));
+
+  webhook
+    .command('delete <id>')
+    .description('Delete a webhook and all its submissions')
+    .option('--yes', 'skip the confirmation prompt')
+    .action(() => notImplemented('webhook delete', 11));
+
+  const roles = webhook.command('roles').description('Manage allowed reader roles');
+  roles
+    .command('set <id>')
+    .description('Replace the allowed-reader role list')
+    .requiredOption('--roles <roleIds>', 'comma-separated Discord role ids')
+    .action(() => notImplemented('webhook roles set', 10));
+
+  webhook
+    .command('rotate-secret <id>')
+    .description("Rotate a webhook's signing secret")
+    .option('--reveal', 'print the secret in plain text')
+    .action(() => notImplemented('webhook rotate-secret', 8));
+
+  const secret = webhook.command('secret').description('Read a locally stored signing secret');
+  secret
+    .command('get')
+    .description('Retrieve a stored signing secret (prompts if more than one is stored)')
+    .option('--reveal', 'print the secret in plain text')
+    .option('--profile <name>', 'profile to read from')
+    .action(() => notImplemented('webhook secret get', 9));
+
+  webhook
+    .command('diff <id> <schema-path>')
+    .description("Pre-check a schema file and diff it against the webhook's live schema")
+    .action(() => notImplemented('webhook diff'));
+}
+
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
