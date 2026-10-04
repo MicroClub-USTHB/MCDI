@@ -762,4 +762,148 @@ describe('validateSchema (Layer 1)', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.length).toBeGreaterThanOrEqual(3);
   });
+
+  describe('a schema without steps', () => {
+    const flat = (fields: unknown[], over: Record<string, unknown> = {}) => ({
+      version: 1,
+      fields,
+      ...over,
+    });
+
+    it('accepts fields at the top level', () => {
+      expect(validateSchema(flat([field()]))).toEqual({ ok: true });
+    });
+
+    it('rejects a schema that declares both steps and fields', () => {
+      const result = validateSchema(
+        flat([field()], { steps: [{ key: 's', fields: [field()] }] }),
+      );
+      expect(codes(result)).toEqual(['AMBIGUOUS_SCHEMA']);
+    });
+
+    it('rejects a schema that declares neither', () => {
+      const result = validateSchema({ version: 1 });
+      expect(codes(result)).toEqual(['NO_STEPS']);
+      expect(result.ok ? '' : result.errors[0]?.message).toMatch(/fields/);
+    });
+
+    it('rejects an empty field list', () => {
+      const result = validateSchema(flat([]));
+      expect(result).toEqual({
+        ok: false,
+        errors: [
+          expect.objectContaining({ path: 'fields', code: 'NO_FIELDS' }),
+        ],
+      });
+    });
+
+    it('reports a bad field at its place under fields', () => {
+      const result = validateSchema(flat([field({ type: 'nope' })]));
+      expect(result).toEqual({
+        ok: false,
+        errors: [
+          expect.objectContaining({
+            path: 'fields[0].type',
+            code: 'UNKNOWN_TYPE',
+          }),
+        ],
+      });
+    });
+
+    it('rejects a duplicate field key', () => {
+      expect(codes(validateSchema(flat([field(), field()])))).toEqual([
+        'DUPLICATE_KEY',
+      ]);
+    });
+
+    it('lets a condition name an earlier field by its own key', () => {
+      const result = validateSchema(
+        flat([
+          field({ key: 'status' }),
+          field({
+            key: 'school',
+            condition: { op: 'eq', field: 'status', value: 'student' },
+          }),
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('lets a condition name a field inside an earlier object', () => {
+      const result = validateSchema(
+        flat([
+          {
+            key: 'who',
+            type: 'object',
+            required: true,
+            fields: [field({ key: 'role' })],
+          },
+          field({
+            key: 'badge',
+            condition: { op: 'eq', field: 'who.role', value: 'lead' },
+          }),
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('rejects a condition on a field declared later', () => {
+      const result = validateSchema(
+        flat([
+          field({
+            key: 'school',
+            condition: { op: 'eq', field: 'status', value: 'student' },
+          }),
+          field({ key: 'status' }),
+        ]),
+      );
+      expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+    });
+
+    it('does not accept the stepped spelling of a path', () => {
+      const result = validateSchema(
+        flat([
+          field({ key: 'status' }),
+          field({
+            key: 'school',
+            condition: { op: 'eq', field: 'identity.status', value: 'x' },
+          }),
+        ]),
+      );
+      expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+    });
+
+    it('supports conditions between fields of one array item', () => {
+      const result = validateSchema(
+        flat([
+          {
+            key: 'guests',
+            type: 'array',
+            required: false,
+            maxItems: 3,
+            item: {
+              key: 'guest',
+              type: 'object',
+              required: true,
+              fields: [
+                field({ key: 'is_member', type: 'boolean' }),
+                field({
+                  key: 'member_id',
+                  condition: { op: 'eq', field: './is_member', value: true },
+                }),
+              ],
+            },
+          },
+        ]),
+      );
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('applies the same limits as a stepped schema', () => {
+      const tooMany = Array.from({ length: 201 }, (_, i) =>
+        field({ key: `f${i}` }),
+      );
+      expect(codes(validateSchema(flat(tooMany)))).toContain('TOO_MANY_NODES');
+    });
+  });
 });

@@ -234,4 +234,39 @@ describe('InboundWebhooksService.previewSchema', () => {
     expect(result.ok).toBe(true);
     expect(Date.now() - started).toBeLessThan(2000);
   });
+
+  describe('a schema without steps', () => {
+    const FLAT: FormSchema = {
+      version: 1,
+      fields: [
+        { key: 'title', type: 'string', required: true, maxLength: 80 },
+        { key: 'seats', type: 'number', required: false, integer: true },
+      ],
+    };
+
+    it('renders a flat example that the schema accepts, and docs for it', () => {
+      const result = service.previewSchema({ schema: FLAT });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(Object.keys(result.examplePayload)).toContain('title');
+      expect(result.markdown).toContain('flat JSON object');
+      expect(
+        validatePayload(FLAT, result.examplePayload, {
+          rejectUnknownFields: true,
+        }).ok,
+      ).toBe(true);
+    });
+
+    it('reports a problem at its place under fields', () => {
+      const result = service.previewSchema({
+        schema: { version: 1, fields: [{ key: 'a', type: 'nope' }] },
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        errors: [expect.objectContaining({ path: 'fields[0].type' })],
+      });
+    });
+  });
 });

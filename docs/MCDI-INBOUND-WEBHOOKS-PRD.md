@@ -246,6 +246,30 @@ export type FormStep = {
 A single-step form is `steps: [{ key: 'default', fields: [...] }]`. There is one
 code path; "simple" is the degenerate case of "multi-step", never a separate one.
 
+**Schemas without steps (IW-23).** The same language describes data that is not a
+form, such as one kind of project event. A schema may declare `fields` at the top
+level instead of `steps`:
+
+```ts
+export type FlatFormSchema = {
+  version: 1;
+  fields: Field[];   // the payload is a flat object of these fields
+};
+```
+
+- `steps` and `fields` are mutually exclusive: declaring both is `AMBIGUOUS_SCHEMA`,
+  neither is `NO_STEPS`.
+- The payload has no step key: `{ "title": "...", "online": false }`, and error
+  paths carry none either (`place.city`, `tags[1]`).
+- Every field type, constraint and condition works as before. Condition paths are
+  written from the root (`online`, `place.city`), and `./` still works inside an
+  array item.
+- Internally a flat schema is read as one step with an empty key (`ROOT_STEP_KEY`),
+  so there is still one validation code path. Stored schemas and submissions of
+  stepped webhooks are unchanged.
+- One webhook describes one kind of event or one form. Several event kinds are
+  several webhooks.
+
 ### 6.2 Field types
 
 Fields are a **discriminated union on `type`**, not a flat bag of optional

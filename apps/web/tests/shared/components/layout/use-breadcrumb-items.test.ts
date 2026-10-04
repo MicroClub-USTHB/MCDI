@@ -59,6 +59,15 @@ describe('getBreadcrumbItems', () => {
     ]);
   });
 
+  it('keeps the create page under the inbound webhooks crumb', () => {
+    expect(getBreadcrumbItems('/dashboard/projects/proj_1/inbound-webhooks/new', names)).toEqual([
+      { label: 'Dashboard', href: '/dashboard' },
+      { label: 'Projects', href: '/dashboard/projects' },
+      { label: 'Website', href: '/dashboard/projects/proj_1' },
+      { label: 'Inbound webhooks' },
+    ]);
+  });
+
   it('falls back to a generic name until the server list has loaded', () => {
     expect(getBreadcrumbItems('/dashboard/servers/srv_9/sync')[2]).toEqual({
       label: 'Server',

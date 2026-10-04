@@ -31,6 +31,20 @@ describe('DashboardShell', () => {
     expect(screen.getByRole('main')).toHaveTextContent('page content');
   });
 
+  it('positions the scrolling main, so form controls cannot stretch the page', () => {
+    render(
+      <DashboardShell>
+        <div>page content</div>
+      </DashboardShell>,
+      { wrapper }
+    );
+
+    // Radix renders a hidden absolutely positioned input beside each checkbox and switch
+    // in a form. Without a positioned ancestor those escape the shell's overflow and
+    // make the whole window scroll.
+    expect(screen.getByRole('main')).toHaveClass('relative', 'overflow-y-auto');
+  });
+
   it('opens the sidebar when the mobile menu button is clicked', async () => {
     const { default: userEvent } = await import('@testing-library/user-event');
     render(

@@ -12,7 +12,9 @@ import {
   FormSchema,
   FormStep,
   KEY_PATTERN,
+  ROOT_STEP_KEY,
   SCHEMA_LIMITS,
+  dotPath,
 } from './form-schema.types';
 import type { FieldType } from './form-schema.types';
 import { ITEM_REF_PREFIX } from './condition.evaluator';
@@ -34,6 +36,19 @@ const CONDITION_OPS = new Set([
   'contains',
   'exists',
 ]);
+
+/** Property names every field may carry, for the editor's catalog test. */
+export function baseFieldPropertyNames(): string[] {
+  return [...BASE_PROPERTIES];
+}
+
+/** Property names specific to one field type, for the editor's catalog test. */
+export function fieldPropertyNames(type: FieldType): string[] {
+  return Object.keys(CONSTRAINTS[type]);
+}
+
+/** Comparison operators a condition accepts (the combinators are separate). */
+export const CONDITION_OPERATOR_NAMES: readonly string[] = [...CONDITION_OPS];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -151,11 +166,22 @@ class SchemaChecker {
         'Only version 1 is supported',
       );
     }
+    if (s.steps !== undefined && s.fields !== undefined) {
+      return this.fail(
+        '',
+        'AMBIGUOUS_SCHEMA',
+        'Declare either `steps` or `fields`, not both',
+      );
+    }
+    if (s.fields !== undefined) {
+      this.checkRootFields(s.fields);
+      return this.finish();
+    }
     if (!Array.isArray(s.steps) || s.steps.length === 0) {
       return this.fail(
         'steps',
         'NO_STEPS',
-        'Schema must declare at least one step',
+        'Schema must declare `fields`, or at least one step',
       );
     }
     if (s.steps.length > SCHEMA_LIMITS.MAX_STEPS) {
@@ -171,6 +197,10 @@ class SchemaChecker {
       this.checkStep(rawStep, `steps[${i}]`, stepKeys);
     });
 
+    return this.finish();
+  }
+
+  private finish(): SchemaValidationResult {
     if (this.nodeCount > SCHEMA_LIMITS.MAX_NODES) {
       this.push(
         '',
@@ -182,6 +212,21 @@ class SchemaChecker {
     return this.errors.length === 0
       ? { ok: true }
       : { ok: false, errors: this.errors };
+  }
+
+  private checkRootFields(fields: unknown): void {
+    if (!Array.isArray(fields) || fields.length === 0) {
+      this.push(
+        'fields',
+        'NO_FIELDS',
+        'Schema must declare at least one field',
+      );
+      return;
+    }
+    const fieldKeys = new Set<string>();
+    (fields as unknown[]).forEach((rawField, i) => {
+      this.checkField(rawField, `fields[${i}]`, ROOT_STEP_KEY, fieldKeys, 1);
+    });
   }
 
   private checkStep(raw: unknown, path: string, seen: Set<string>): void {
@@ -291,7 +336,7 @@ class SchemaChecker {
     // Published after its own condition and before its children, so an earlier
     // sibling or an earlier step is referenceable by a condition, but the field
     // itself and any later field are not.
-    (inArray ? this.insideArray : this.declared).add(`${prefix}.${key}`);
+    (inArray ? this.insideArray : this.declared).add(dotPath(prefix, key));
     // The item itself is the `./` root, not a field of it.
     if (itemScope && !isItemRoot) {
       itemScope.declared.add([...itemScope.path, key].join('.'));
@@ -428,7 +473,7 @@ class SchemaChecker {
           this.checkField(
             child,
             `${path}.fields[${i}]`,
-            `${prefix}.${key}`,
+            dotPath(prefix, key),
             nested,
             depth + 1,
             inArray,
@@ -461,7 +506,7 @@ class SchemaChecker {
         this.checkField(
           f.item,
           `${path}.item`,
-          `${prefix}.${key}`,
+          dotPath(prefix, key),
           new Set(),
           depth + 1,
           true,
