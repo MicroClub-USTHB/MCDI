@@ -169,15 +169,18 @@ function toInboundWebhook(raw: unknown): InboundWebhook {
   return picked as unknown as InboundWebhook;
 }
 
-/** Turns a NestJS error body (`message` string or list, or MCDI's `errors: [{path, code, message}]`) into one line. */
+/**
+ * Turns a NestJS error body into text: MCDI's `errors: [{path, code, message}]`
+ * (schema rejections) one per line in the same `path  code  message` layout as
+ * the local pre-check, otherwise the `message` string or list on one line.
+ */
 function describeError(body: unknown): string | undefined {
   const b = body as { message?: unknown; errors?: unknown } | null;
   if (Array.isArray(b?.errors) && b.errors.length > 0) {
-    return b.errors
-      .map((e: { path?: unknown; code?: unknown; message?: unknown }) =>
-        [e.path, e.code, e.message].filter((part) => typeof part === 'string' && part).join(' '),
-      )
-      .join('; ');
+    const lines = b.errors.map((e: { path?: unknown; code?: unknown; message?: unknown }) =>
+      [e.path, e.code, e.message].filter((part) => typeof part === 'string' && part).join('  '),
+    );
+    return lines.map((line) => `\n  ${line}`).join('');
   }
   if (Array.isArray(b?.message)) return b.message.join('; ');
   if (typeof b?.message === 'string') return b.message;
@@ -217,8 +220,12 @@ async function adminRequest(
     throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
   }
   if (res.status === 404) throw new CliError(`not found${suffix}`, ExitCode.NotFound);
-  if (res.status === 400 || res.status === 422) {
-    throw new CliError(`MCDI rejected the request (HTTP ${res.status})${suffix}`, ExitCode.Rejected);
+  if (res.status === 400 || res.status === 409 || res.status === 422) {
+    const separator = detail?.startsWith('\n') ? '' : ': ';
+    throw new CliError(
+      `MCDI rejected the request (HTTP ${res.status}, source: mcdi)${detail ? `${separator}${detail}` : ''}`,
+      ExitCode.Rejected,
+    );
   }
   throw new CliError(`MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`, ExitCode.Unexpected);
 }
@@ -274,4 +281,50 @@ export async function setInboundWebhookRoles(session: Session, id: string, roleI
     throw new CliError('MCDI roles response has an unexpected shape', ExitCode.Unexpected);
   }
   return body.roleIds;
+}
+
+/** The `CreateInboundWebhookDto` fields m-forge sends. */
+export interface CreateInboundWebhookBody {
+  projectId: string;
+  name: string;
+  slug: string;
+  schema: Record<string, unknown>;
+  allowedRoleIds: string[];
+  acceptedOrigins?: string[];
+}
+
+/** MCDI's `CreateInboundWebhookResult`; `signingSecret` is returned this once and never again. */
+export interface CreatedInboundWebhook {
+  webhook: InboundWebhook;
+  signingSecret: string;
+  allowedRoleIds: string[];
+  submitUrl: string;
+  docsUrl: string;
+}
+
+/** POST /admin/inbound-webhooks → the new webhook and its signing secret (400/409 → exit 2). */
+export async function createInboundWebhook(session: Session, body: CreateInboundWebhookBody): Promise<CreatedInboundWebhook> {
+  const res = (await adminRequest(
+    session.baseUrl,
+    session.token,
+    session.profileName,
+    'POST',
+    '/admin/inbound-webhooks',
+    body,
+  )) as Partial<Record<keyof CreatedInboundWebhook, unknown>> | null;
+  if (
+    typeof res?.signingSecret !== 'string' ||
+    typeof res.submitUrl !== 'string' ||
+    typeof res.docsUrl !== 'string' ||
+    !Array.isArray(res.allowedRoleIds)
+  ) {
+    throw new CliError('MCDI create response has an unexpected shape', ExitCode.Unexpected);
+  }
+  return {
+    webhook: toInboundWebhook(res.webhook),
+    signingSecret: res.signingSecret,
+    allowedRoleIds: res.allowedRoleIds as string[],
+    submitUrl: res.submitUrl,
+    docsUrl: res.docsUrl,
+  };
 }

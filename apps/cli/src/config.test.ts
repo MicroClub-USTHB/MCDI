@@ -12,6 +12,7 @@ import {
   resolveProfileName,
   saveConfig,
   setSession,
+  setWebhookSecret,
   type Config,
 } from './config.js';
 import { CliError } from './errors.js';
@@ -83,6 +84,13 @@ describe('resolveBaseUrl', () => {
 });
 
 describe('setSession', () => {
+  it('keeps stored webhook secrets when logging in again', () => {
+    const secrets = { 'wh-1': { secret: 'v1:enc', name: 'Recruitment', slug: 'recruitment' } };
+    const before = setWebhookSecret(setSession(emptyConfig(), 'prod', 'https://a.example.com', session), 'prod', 'wh-1', secrets['wh-1']);
+    const after = setSession(before, 'prod', 'https://a.example.com', { ...session, accessToken: 'v1:new' });
+    expect(after.profiles.prod).toEqual({ baseUrl: 'https://a.example.com', session: { ...session, accessToken: 'v1:new' }, webhookSecrets: secrets });
+  });
+
   it('makes the first profile active without touching the others', () => {
     const first = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
     const second = setSession(
