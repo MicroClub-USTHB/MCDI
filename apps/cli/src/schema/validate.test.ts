@@ -18,6 +18,8 @@ describe('validateSchema', () => {
     expect(codes(badVersion)).toContain('INVALID_VERSION');
     expect(codes({ version: 1, steps: [] })).toContain('INVALID_STEPS');
     expect(codes({ version: 1, steps: [null] })).toContain('INVALID_STEP');
+    expect(codes({ version: 1, steps: [{ fields: [] }] })).toContain('INVALID_STEP_KEY');
+    expect(codes({ version: 1, steps: [{ key: 1, fields: [] }] })).toContain('INVALID_STEP_KEY');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: {} }] })).toContain('INVALID_FIELDS');
     expect(codes({ version: 1, steps: [{ key: 'one', fields: [null] }] })).toContain('INVALID_FIELD');
   });
