@@ -206,4 +206,35 @@ describe('ApiClient', () => {
 
     expect(contentType).toBeNull();
   });
+
+  it('reads a plain text body as text, still with the session cookie', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    server.use(
+      http.get(`${BASE_URL}/docs`, () =>
+        HttpResponse.text('# Docs\n\nhello', { headers: { 'Content-Type': 'text/markdown' } })
+      )
+    );
+
+    const { ApiClient } = await import('@/shared/lib/api-client');
+    const response = await new ApiClient(BASE_URL).getText('/docs');
+    const cookieMode = (fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.credentials;
+
+    expect(response.data).toBe('# Docs\n\nhello');
+    expect(cookieMode).toBe('include');
+  });
+
+  it('reports a failed text request like any other failure', async () => {
+    server.use(
+      http.get(`${BASE_URL}/docs`, () =>
+        HttpResponse.json({ message: 'No such webhook', error: 'Not Found' }, { status: 404 })
+      )
+    );
+
+    const { ApiClient } = await import('@/shared/lib/api-client');
+
+    await expect(new ApiClient(BASE_URL).getText('/docs')).rejects.toMatchObject({
+      status: 404,
+      message: 'No such webhook',
+    });
+  });
 });
