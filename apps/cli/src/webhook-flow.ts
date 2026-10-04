@@ -1,60 +1,34 @@
 import { join } from 'node:path';
-import { configDir, configPath, loadConfig, normalizeBaseUrl, resolveProfileName } from './config.js';
-import { DefaultKeyProvider, FileKeyProvider, KeychainKeyProvider, decrypt, type KeyProvider } from './crypto-store.js';
+import { configDir, configPath, loadConfig, resolveProfileName } from './config.js';
+import { defaultKeyProvider, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import {
   getInboundWebhook,
   listInboundWebhooks,
   updateInboundWebhook,
-  type AdminSession,
   type InboundWebhook,
   type InboundWebhookPatch,
 } from './mcdi.js';
+import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {
   configPath: string;
   keys: KeyProvider;
-  /** Results (stdout). */
+  /** Results (stdout, so they stay pipeable/scriptable). */
   out: (line: string) => void;
-  /** Progress and hints (stderr, so stdout stays pipeable). */
-  info: (line: string) => void;
-  now: () => Date;
 }
 
 export function defaultWebhookDeps(): WebhookDeps {
   return {
     configPath: configPath(),
-    keys: new DefaultKeyProvider(new KeychainKeyProvider(), new FileKeyProvider(join(configDir(), 'key'))),
+    keys: defaultKeyProvider(join(configDir(), 'key')),
     out: (line) => process.stdout.write(`${line}\n`),
-    info: (line) => process.stderr.write(`${line}\n`),
-    now: () => new Date(),
   };
 }
 
-/** Loads the profile's base URL and decrypts its session token. There is no refresh for admin sessions. */
-export async function loadAdminSession(profileFlag: string | undefined, deps: WebhookDeps): Promise<AdminSession> {
+async function loadSession(profileFlag: string | undefined, deps: WebhookDeps): Promise<Session> {
   const config = await loadConfig(deps.configPath);
-  const profileName = resolveProfileName(config, profileFlag);
-  const relogin = `run \`mcdi-cli login --profile ${profileName}\``;
-  const profile = config.profiles[profileName];
-  if (!profile) {
-    throw new CliError(
-      `profile "${profileName}" does not exist; run \`mcdi-cli login --profile ${profileName} --base-url <url>\``,
-      ExitCode.Auth,
-    );
-  }
-  if (!profile.session) throw new CliError(`not logged in on profile "${profileName}"; ${relogin}`, ExitCode.Auth);
-  const expiresAt = Date.parse(profile.session.expiresAt);
-  if (!Number.isNaN(expiresAt) && expiresAt <= deps.now().getTime()) {
-    throw new CliError(`session expired on profile "${profileName}"; ${relogin}`, ExitCode.Auth);
-  }
-  let token: string;
-  try {
-    token = await decrypt(profile.session.accessToken, deps.keys);
-  } catch {
-    throw new CliError(`could not decrypt the stored session for profile "${profileName}"; ${relogin}`, ExitCode.Auth);
-  }
-  return { profileName, baseUrl: normalizeBaseUrl(profile.baseUrl), token };
+  return resolveSession(config, resolveProfileName(config, profileFlag), deps.keys);
 }
 
 function formatTable(header: string[], rows: string[][]): string[] {
@@ -73,7 +47,7 @@ export interface WebhookListOptions {
 }
 
 export async function webhookList(options: WebhookListOptions, deps: WebhookDeps): Promise<void> {
-  const session = await loadAdminSession(options.profile, deps);
+  const session = await loadSession(options.profile, deps);
   const webhooks = await listInboundWebhooks(session, options.project);
   if (webhooks.length === 0) {
     deps.out(options.project ? `No inbound webhooks in project ${options.project}.` : 'No inbound webhooks.');
@@ -121,7 +95,7 @@ function describeWebhook(w: InboundWebhook): string[] {
 }
 
 export async function webhookGet(id: string, options: WebhookGetOptions, deps: WebhookDeps): Promise<void> {
-  const session = await loadAdminSession(options.profile, deps);
+  const session = await loadSession(options.profile, deps);
   const webhook = await getInboundWebhook(session, id);
   const data = options.schemaOnly ? webhook.schema : webhook;
   if (options.json) {
@@ -166,7 +140,7 @@ function buildPatch(options: WebhookUpdateOptions): InboundWebhookPatch {
 
 export async function webhookUpdate(id: string, options: WebhookUpdateOptions, deps: WebhookDeps): Promise<void> {
   const patch = buildPatch(options);
-  const session = await loadAdminSession(options.profile, deps);
+  const session = await loadSession(options.profile, deps);
   const webhook = await updateInboundWebhook(session, id, patch);
   deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
 }
