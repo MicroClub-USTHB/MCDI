@@ -96,7 +96,67 @@ live session around.
 
 ---
 
-### 5. `webhook create` sends a validated schema and shows the signing secret once
+### 5. `schema init`/`validate` implement the built-in (Layer-1-mirroring) pre-check
+
+**Labels:** `feature`, `validation`, `M1`
+
+As a developer, I want `m-forge schema validate <path>` to catch the same
+schema mistakes MCDI's server would reject, entirely offline, so a bad
+schema fails in milliseconds instead of as a `400`/`422` from the API.
+
+**Acceptance criteria**
+- [ ] `m-forge schema init [<path>] [--template <name>]` scaffolds a minimal
+      valid `FormSchema` JSON file (and a fuller one per named template, e.g.
+      `--template recruitment`).
+- [ ] `m-forge schema validate <path>` runs a local, offline pre-check — no
+      network call — and exits `0` on pass, `1` on failure.
+- [ ] The built-in rule set mirrors MCDI's server-side Layer 1 exactly and
+      can never be disabled: unknown field `type`, duplicate keys within a
+      step/object, nesting depth > 5, node count > 200, missing mandatory
+      `maxItems`/`maxCount` (array/files) or `maxBytes`/`maxSizeBytes`
+      (json/file/files), an uncompilable or >200-char `pattern`, and a
+      `condition` referencing an unknown field or a field defined in a later
+      step.
+- [ ] Failures print in the same `path` / `code` / `message` shape as MCDI's
+      own `422` response, tagged `source: "local"` so it's distinguishable
+      from a server-side rejection.
+- [ ] `webhook create`/`update` (issue #7) reuse this same pre-check before
+      making any network call.
+
+(docs/MCDI-INBOUND-WEBHOOKS-PRD.md §6.4 is the server-side rule source of
+truth this must mirror — re-verify against it, not just the m-forge PRD's
+summary, since it can drift.)
+
+---
+
+### 6. Custom validation rule engine (`.m-forge/rules/*.json`)
+
+**Labels:** `feature`, `validation`, `M4`
+
+As a team lead, I want to add house rules on top of MCDI's own validation
+(e.g. "every field needs a `label`", "field keys must be `snake_case`"), so
+my team catches team-specific mistakes before they ever reach MCDI, without
+needing MCDI itself to enforce them for everyone.
+
+**Acceptance criteria**
+- [ ] Custom rules are loaded from `.m-forge/rules/*.json` (project-local) and
+      `~/.m-forge/rules/*.json` (global), merged with the built-ins from
+      issue #5.
+- [ ] Supported rule `type`s: `forbid-pattern` (regex on a named field's
+      value), `require-present` (a named property must be set), `max-value`
+      (numeric ceiling on a named constraint), `key-pattern` (regex the
+      field `key` must match). No embedded scripting/`eval` — a closed set
+      only.
+- [ ] Custom rules are strictly additive — they can only make local
+      validation *stricter* than MCDI's Layer 1, never looser; a custom rule
+      can't disable or relax a built-in rule.
+- [ ] Rule files are read as plain JSON and never executed as code.
+- [ ] Failing a custom rule reports in the same `path`/`code`/`message`
+      shape as a built-in failure, still tagged `source: "local"`.
+
+---
+
+### 7. `webhook create` sends a validated schema and shows the signing secret once
 
 **Labels:** `feature`, `webhook`, `M2`
 
@@ -106,8 +166,9 @@ create the webhook on MCDI and show me the signing secret exactly once, so I
 never have to go dig it out of a database.
 
 **Acceptance criteria**
-- [ ] Runs the local pre-check (built-in rules) before any network call;
-      exits non-zero with per-field errors if it fails.
+- [ ] Runs the local pre-check from issue #5 (built-in rules, plus any custom
+      rules from issue #6) before any network call; exits non-zero with
+      per-field errors if it fails — no call is made on failure.
 - [ ] On pass, calls `POST /admin/inbound-webhooks` with `projectId`, `name`,
       `slug` (derived or `--slug` flag — TBD), `schema`, `allowedRoleIds`,
       and optional `--accept-origin` values.
@@ -115,11 +176,12 @@ never have to go dig it out of a database.
       non-repeatable, and never writes it to the config file or any log.
 - [ ] Surfaces MCDI's `400`/`409` errors (invalid schema/roles, slug
       conflict) in the CLI's `path`/`code`/`message` shape with `source:
-      "mcdi"`.
+      "mcdi"` — same shape as the local pre-check, different `source`, so the
+      two are easy to tell apart and reconcile.
 
 ---
 
-### 6. `webhook rotate-secret` never persists or re-displays the secret
+### 8. `webhook rotate-secret` never persists or re-displays the secret
 
 **Labels:** `feature`, `webhook`, `security`, `M2`
 
@@ -137,7 +199,7 @@ shell history or logs by accident.
 
 ---
 
-### 7. `webhook roles set` refuses to accept an empty role list
+### 9. `webhook roles set` refuses to accept an empty role list
 
 **Labels:** `feature`, `webhook`, `M2`
 
@@ -154,7 +216,7 @@ read access, not as "allow everyone".
 
 ---
 
-### 8. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
+### 10. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
 
 **Labels:** `feature`, `webhook`, `M2`
 
@@ -168,7 +230,7 @@ webhooks day-to-day without leaving the terminal.
       /admin/inbound-webhooks/:id`.
 - [ ] `m-forge webhook update <id> [--schema <path>] [--name <name>]
       [--active|--inactive]` → `PATCH /admin/inbound-webhooks/:id`,
-      re-running the local pre-check if `--schema` is given.
+      re-running the local pre-check from issue #5 if `--schema` is given.
 - [ ] `m-forge webhook delete <id> [--yes]` → `DELETE
       /admin/inbound-webhooks/:id`; refuses to call the API without `--yes`
       or an interactive confirmation (deletion also removes all
