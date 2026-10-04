@@ -258,6 +258,7 @@ export async function getInboundWebhook(session: Session, id: string): Promise<I
 /** The `UpdateInboundWebhookDto` fields mcdi-cli sends; only the ones being changed are included. */
 export interface InboundWebhookPatch {
   name?: string;
+  schema?: Record<string, unknown>;
   isActive?: boolean;
 }
 
@@ -327,4 +328,9 @@ export async function createInboundWebhook(session: Session, body: CreateInbound
     submitUrl: res.submitUrl,
     docsUrl: res.docsUrl,
   };
+}
+
+/** DELETE /admin/inbound-webhooks/:id → 204; MCDI also deletes every submission (404 → exit 4). */
+export async function deleteInboundWebhook(session: Session, id: string): Promise<void> {
+  await adminRequest(session.baseUrl, session.token, session.profileName, 'DELETE', webhookPath(id));
 }

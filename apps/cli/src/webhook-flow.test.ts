@@ -11,6 +11,7 @@ import { CliError, ExitCode } from './errors.js';
 import {
   slugFromName,
   webhookCreate,
+  webhookDelete,
   webhookGet,
   webhookList,
   webhookRolesSet,
@@ -138,6 +139,10 @@ async function startFakeMcdi(): Promise<FakeMcdi> {
         const index = fake.webhooks.findIndex((w) => w.id === id);
         if (index === -1) return json(404, { statusCode: 404, message: 'Inbound webhook not found', error: 'Not Found' });
         if (req.method === 'GET') return json(200, fake.webhooks[index]);
+        if (req.method === 'DELETE') {
+          fake.webhooks.splice(index, 1);
+          return json(204);
+        }
         if (req.method === 'PATCH') {
           fake.webhooks[index] = { ...fake.webhooks[index], ...(fake.requests.at(-1)!.body as object) };
           return json(200, fake.webhooks[index]);
@@ -376,12 +381,49 @@ describe('webhook update', () => {
     expect(fake.requests).toEqual([]);
   });
 
-  it('refuses --schema without sending the PATCH while the issue #5 pre-check is missing', async () => {
+  it('sends a schema that passes the local pre-check', async () => {
+    const { fake, deps } = await setup();
+    const schema = { version: 1, steps: [{ key: 'default', fields: [{ key: 'email', type: 'email', required: true }] }] };
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, JSON.stringify(schema));
+
+    await webhookUpdate('wh-1', { profile: 'prod', schema: path, inactive: true }, deps);
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({ method: 'PATCH', body: { schema, isActive: false } });
+  });
+
+  it('does not send the PATCH when the schema fails the local pre-check', async () => {
+    const { fake, deps } = await setup();
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, JSON.stringify({ version: 1, steps: [{ key: 'default', fields: [{ key: 'x', type: 'colour' }] }] }));
+
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', schema: path, name: 'Renamed' }, deps),
+      ExitCode.PrecheckFailed,
+      /validation errors? \(source: local\); nothing was sent\n  steps\[0\]\.fields\[0\]/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('does not send the PATCH when the schema file is unreadable or not JSON', async () => {
+    const { fake, deps } = await setup();
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, '{ nope');
+    await expectCliError(webhookUpdate('wh-1', { profile: 'prod', schema: path }, deps), ExitCode.PrecheckFailed, /INVALID_JSON/);
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', schema: '/nonexistent/schema.json' }, deps),
+      ExitCode.Unexpected,
+      /could not read schema/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('checks --active/--inactive before reading the schema file', async () => {
     const { fake, deps } = await setup();
     await expectCliError(
-      webhookUpdate('wh-1', { profile: 'prod', schema: 'schema.json', name: 'x' }, deps),
-      ExitCode.Unexpected,
-      /issue #5.*nothing was sent/,
+      webhookUpdate('wh-1', { profile: 'prod', schema: '/nonexistent/schema.json', active: true, inactive: true }, deps),
+      ExitCode.PrecheckFailed,
+      /--active and --inactive/,
     );
     expect(fake.requests).toEqual([]);
   });
@@ -779,5 +821,99 @@ describe('slugFromName', () => {
     expect(slugFromName('  Événement — Été!! ')).toBe('evenement-ete');
     expect(slugFromName('x'.repeat(80))).toHaveLength(64);
     expect(slugFromName('!!')).toBe('');
+  });
+});
+
+describe('webhook delete', () => {
+  const SECRET = 'whsec_to_be_deleted_dddddddddddddddd4444';
+
+  /** Stores encrypted secrets for wh-1 and wh-2 on profile "prod". */
+  async function storeTwoSecrets(deps: WebhookDeps, keys: KeyProvider) {
+    const config = await loadConfig(deps.configPath);
+    config.profiles.prod!.webhookSecrets = {
+      'wh-1': { secret: await encrypt(SECRET, keys), name: 'Recruitment form', slug: 'recruitment' },
+      'wh-2': { secret: await encrypt('other', keys), name: 'Feedback', slug: 'feedback' },
+    };
+    await saveConfig(config, deps.configPath);
+  }
+
+  const storedIds = async (deps: WebhookDeps) =>
+    Object.keys((await loadConfig(deps.configPath)).profiles.prod!.webhookSecrets ?? {}).sort();
+
+  it('deletes with --yes without prompting, then removes only that local secret', async () => {
+    const { fake, deps, out, questions, keys } = await setup({ isInteractive: false });
+    await storeTwoSecrets(deps, keys);
+    await webhookDelete('wh-1', { profile: 'prod', yes: true }, deps);
+
+    expect(questions).toEqual([]);
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({ method: 'DELETE', path: '/api/admin/inbound-webhooks/wh-1', authorization: `Bearer ${TOKEN}` });
+    expect(await storedIds(deps)).toEqual(['wh-2']);
+    expect(out).toEqual(['Deleted inbound webhook wh-1 on prod; removed its locally stored signing secret']);
+  });
+
+  it('deletes after an interactive "y", warning about submissions and no undo', async () => {
+    for (const answer of ['y', 'YES', ' yes ']) {
+      const { fake, deps, info, questions, keys } = await setup({ answers: [answer] });
+      await storeTwoSecrets(deps, keys);
+      await webhookDelete('wh-1', { profile: 'prod' }, deps);
+
+      expect(info.join('\n')).toMatch(/AND ALL OF ITS SUBMISSIONS/);
+      expect(info.join('\n')).toMatch(/no undo/);
+      expect(questions).toEqual(['Delete it? [y/N] ']);
+      expect(fake.requests.map((r) => r.method)).toEqual(['DELETE']);
+      expect(await storedIds(deps)).toEqual(['wh-2']);
+    }
+  });
+
+  it('does not call the API or touch the secret when the user declines', async () => {
+    for (const answer of ['', 'n', 'no', 'whatever']) {
+      const { fake, deps, keys } = await setup({ answers: [answer] });
+      await storeTwoSecrets(deps, keys);
+      await expectCliError(webhookDelete('wh-1', { profile: 'prod' }, deps), ExitCode.PrecheckFailed, /aborted; nothing was deleted/);
+      expect(fake.requests).toEqual([]);
+      expect(await storedIds(deps)).toEqual(['wh-1', 'wh-2']);
+    }
+  });
+
+  it('fails without --yes and without a terminal instead of waiting for input', async () => {
+    const { fake, deps, questions, keys } = await setup({ isInteractive: false });
+    await storeTwoSecrets(deps, keys);
+    await expectCliError(webhookDelete('wh-1', { profile: 'prod' }, deps), ExitCode.PrecheckFailed, /pass --yes/);
+    expect(questions).toEqual([]);
+    expect(fake.requests).toEqual([]);
+    expect(await storedIds(deps)).toEqual(['wh-1', 'wh-2']);
+  });
+
+  it('keeps the local secret when MCDI does not delete the webhook', async () => {
+    const notFound = await setup();
+    await storeTwoSecrets(notFound.deps, notFound.keys);
+    await expectCliError(webhookDelete('wh-1-typo', { profile: 'prod', yes: true }, notFound.deps), ExitCode.NotFound, /not found/);
+    expect(await storedIds(notFound.deps)).toEqual(['wh-1', 'wh-2']);
+
+    const broken = await setup();
+    await storeTwoSecrets(broken.deps, broken.keys);
+    broken.fake.fail = { status: 500, body: { statusCode: 500, message: 'Internal server error' } };
+    await expectCliError(webhookDelete('wh-1', { profile: 'prod', yes: true }, broken.deps), ExitCode.Unexpected, /HTTP 500/);
+    expect(await storedIds(broken.deps)).toEqual(['wh-1', 'wh-2']);
+
+    const loggedOut = await setup();
+    loggedOut.fake.fail = { status: 401, body: { statusCode: 401, message: 'Invalid or expired session' } };
+    await expectCliError(webhookDelete('wh-1', { profile: 'prod', yes: true }, loggedOut.deps), ExitCode.Auth, /mcdi-cli login/);
+  });
+
+  it('works when no secret was stored for that webhook', async () => {
+    const { deps, out } = await setup();
+    await webhookDelete('wh-1', { profile: 'prod', yes: true }, deps);
+    expect(out).toEqual(['Deleted inbound webhook wh-1 on prod']);
+  });
+
+  it('never prints the session token or the stored secret', async () => {
+    const { deps, out, info, keys } = await setup({ answers: ['y'] });
+    await storeTwoSecrets(deps, keys);
+    await webhookDelete('wh-1', { profile: 'prod' }, deps);
+    const printed = [...out, ...info].join('\n');
+    expect(printed).not.toContain(TOKEN);
+    expect(printed).not.toContain(SECRET);
   });
 });

@@ -1,11 +1,20 @@
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
-import { configDir, configPath, loadConfig, resolveProfileName, saveConfig, setWebhookSecret } from './config.js';
+import {
+  configDir,
+  configPath,
+  loadConfig,
+  removeWebhookSecret,
+  resolveProfileName,
+  saveConfig,
+  setWebhookSecret,
+} from './config.js';
 import { readFile } from 'node:fs/promises';
 import { decrypt, defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import {
   createInboundWebhook,
+  deleteInboundWebhook,
   getInboundWebhook,
   listInboundWebhooks,
   setInboundWebhookRoles,
@@ -139,29 +148,24 @@ export interface WebhookUpdateOptions {
   inactive?: boolean;
 }
 
-/** Argument checks that must pass before any config read or network call. */
-function buildPatch(options: WebhookUpdateOptions): InboundWebhookPatch {
+/** Argument checks that must pass before any file read, config read, or network call. */
+function checkUpdateFlags(options: WebhookUpdateOptions): void {
   if (options.active && options.inactive) {
     throw new CliError('--active and --inactive cannot be used together', ExitCode.PrecheckFailed);
   }
-  if (options.schema !== undefined) {
-    throw new CliError(
-      '--schema needs the local pre-check from issue #5, which is not implemented yet; nothing was sent',
-      ExitCode.Unexpected,
-    );
+  if (options.schema === undefined && options.name === undefined && !options.active && !options.inactive) {
+    throw new CliError('nothing to update; pass --schema, --name, --active, or --inactive', ExitCode.PrecheckFailed);
   }
-  const patch: InboundWebhookPatch = {};
-  if (options.name !== undefined) patch.name = options.name;
-  if (options.active) patch.isActive = true;
-  if (options.inactive) patch.isActive = false;
-  if (Object.keys(patch).length === 0) {
-    throw new CliError('nothing to update; pass --name, --active, or --inactive', ExitCode.PrecheckFailed);
-  }
-  return patch;
 }
 
 export async function webhookUpdate(id: string, options: WebhookUpdateOptions, deps: WebhookDeps): Promise<void> {
-  const patch = buildPatch(options);
+  checkUpdateFlags(options);
+  const patch: InboundWebhookPatch = {};
+  if (options.name !== undefined) patch.name = options.name;
+  if (options.schema !== undefined) patch.schema = await readCheckedSchema(options.schema);
+  if (options.active) patch.isActive = true;
+  if (options.inactive) patch.isActive = false;
+
   const session = await loadSession(options.profile, deps);
   const webhook = await updateInboundWebhook(session, id, patch);
   deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
@@ -353,5 +357,51 @@ export async function webhookCreate(schemaPath: string, options: WebhookCreateOp
   deps.info(
     `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
       (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
+  );
+}
+
+export interface WebhookDeleteOptions {
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
+  yes?: boolean;
+}
+
+export async function webhookDelete(id: string, options: WebhookDeleteOptions, deps: WebhookDeps): Promise<void> {
+  const session = await loadSession(options.profile, deps);
+
+  if (!options.yes) {
+    if (!deps.isInteractive) {
+      throw new CliError(
+        'refusing to delete without confirmation and there is no interactive terminal to ask; pass --yes to confirm',
+        ExitCode.PrecheckFailed,
+      );
+    }
+    deps.info(`This permanently deletes inbound webhook ${id} on ${session.profileName} AND ALL OF ITS SUBMISSIONS.`);
+    deps.info('There is no undo.');
+    const answer = (await deps.ask('Delete it? [y/N] ')).trim().toLowerCase();
+    if (answer !== 'y' && answer !== 'yes') throw new CliError('aborted; nothing was deleted', ExitCode.PrecheckFailed);
+  }
+
+  await deleteInboundWebhook(session, id);
+
+  // Only now that MCDI confirmed the deletion: a secret for a webhook that no longer exists is useless.
+  let removedSecret = false;
+  try {
+    const latest = await loadConfig(deps.configPath);
+    const updated = removeWebhookSecret(latest, session.profileName, id);
+    if (updated) {
+      await saveConfig(updated, deps.configPath);
+      removedSecret = true;
+    }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(
+      `webhook ${id} was deleted on MCDI, but its locally stored signing secret could not be removed (${reason})`,
+      ExitCode.Unexpected,
+    );
+  }
+  deps.out(
+    `Deleted inbound webhook ${id} on ${session.profileName}` +
+      (removedSecret ? '; removed its locally stored signing secret' : ''),
   );
 }
