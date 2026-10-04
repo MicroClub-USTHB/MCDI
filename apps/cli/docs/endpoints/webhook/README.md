@@ -7,16 +7,12 @@
 used to post *into* Discord). Don't confuse the two when reading MCDI's
 source — m-forge never touches the Discord-channel webhooks surface.
 
-## Status: not yet on `main`
+## Status: merged, live on `main`
 
-The admin inbound-webhooks controller lives on MCDI's unmerged
-`feat/inbound-webhooks` branch
-(`apps/api/src/modules/inbound-webhooks/inbound-webhooks.controller.ts`), not
-on `dev`/`main`. **m-forge's `webhook` commands have nothing to call until
-that branch merges** — this is PRD §13 "D1", and it's a hard blocker, not a
-documentation gap. Everything below documents the branch as it stands today;
-re-verify against MCDI before relying on it, since it can still change before
-merging.
+The admin inbound-webhooks controller
+(`apps/api/src/modules/inbound-webhooks/inbound-webhooks.controller.ts`) is
+merged into MCDI's `main` and deployed to prod. PRD §13 "D1" is resolved —
+everything below is current against `main`, not a feature branch.
 
 All routes are under `/admin/inbound-webhooks`, guarded by MCDI's
 `SystemAdminGuard` (Bearer session token from the [login flow](../login/)).
@@ -128,9 +124,6 @@ sufficient.
 
 ## Gaps for m-forge
 
-1. **Blocking: branch not merged** (PRD §13 "D1"). Nothing here is callable
-   against `main` yet. Track MCDI's `feat/inbound-webhooks` merge before
-   starting `m-forge webhook` implementation (M2).
-2. Confirm whether `GET /:id/docs` should be wired into any m-forge command,
+1. Confirm whether `GET /:id/docs` should be wired into any m-forge command,
    or left purely for direct browser/API use — not currently in the PRD's
    command surface (§7).

@@ -96,28 +96,9 @@ live session around.
 
 ---
 
-### 5. `webhook create` is blocked on MCDI's Inbound Webhooks feature merging
+### 5. `webhook create` sends a validated schema and shows the signing secret once
 
-**Labels:** `blocked`, `dependency`, `mcdi`, `M2`
-
-As the m-forge team, we can't start building any `m-forge webhook ...`
-command because the `/admin/inbound-webhooks` API only exists on MCDI's
-unmerged `feat/inbound-webhooks` branch.
-
-**Acceptance criteria**
-- [ ] Tracking issue only — closes when MCDI's Inbound Webhooks feature
-      merges to `main`.
-- [ ] Once merged, re-verify `docs/endpoints/webhook/README.md` against the
-      merged source before starting implementation (the branch can still
-      change before merge).
-
-(docs/endpoints/webhook/ — "Status: not yet on main")
-
----
-
-### 6. `webhook create` sends a validated schema and shows the signing secret once
-
-**Labels:** `feature`, `webhook`, `M2`, `blocked`
+**Labels:** `feature`, `webhook`, `M2`
 
 As a developer, I want `m-forge webhook create <schema-path> --name <name>
 --project <id> --roles <roleId>[,...]` to pre-check my schema locally, then
@@ -135,13 +116,12 @@ never have to go dig it out of a database.
 - [ ] Surfaces MCDI's `400`/`409` errors (invalid schema/roles, slug
       conflict) in the CLI's `path`/`code`/`message` shape with `source:
       "mcdi"`.
-- [ ] Blocked on issue #5.
 
 ---
 
-### 7. `webhook rotate-secret` never persists or re-displays the secret
+### 6. `webhook rotate-secret` never persists or re-displays the secret
 
-**Labels:** `feature`, `webhook`, `security`, `M2`, `blocked`
+**Labels:** `feature`, `webhook`, `security`, `M2`
 
 As a developer rotating a webhook's signing secret, I want the new secret
 shown to me exactly once and masked by default, so it can't leak through
@@ -154,13 +134,12 @@ shell history or logs by accident.
       plain text.
 - [ ] Never written to the config file, a log file, or `--json` output
       without `--reveal`.
-- [ ] Blocked on issue #5.
 
 ---
 
-### 8. `webhook roles set` refuses to accept an empty role list
+### 7. `webhook roles set` refuses to accept an empty role list
 
-**Labels:** `feature`, `webhook`, `M2`, `blocked`
+**Labels:** `feature`, `webhook`, `M2`
 
 As a developer, I want `m-forge webhook roles set <id> --roles
 <roleId>[,...]` to fail fast locally if I pass an empty list, since MCDI
@@ -172,13 +151,12 @@ read access, not as "allow everyone".
 - [ ] Calls `PUT /admin/inbound-webhooks/:id/roles` with the full replacement
       set.
 - [ ] Surfaces MCDI's `400` (empty set / unknown or foreign roles) clearly.
-- [ ] Blocked on issue #5.
 
 ---
 
-### 9. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
+### 8. `webhook list` / `get` / `update` / `delete` round out the CRUD surface
 
-**Labels:** `feature`, `webhook`, `M2`, `blocked`
+**Labels:** `feature`, `webhook`, `M2`
 
 As a developer, I want the remaining basic CRUD commands so I can manage
 webhooks day-to-day without leaving the terminal.
@@ -195,4 +173,3 @@ webhooks day-to-day without leaving the terminal.
       /admin/inbound-webhooks/:id`; refuses to call the API without `--yes`
       or an interactive confirmation (deletion also removes all
       submissions — no undo).
-- [ ] Blocked on issue #5.
