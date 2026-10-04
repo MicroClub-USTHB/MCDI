@@ -68,6 +68,8 @@ interface SchemaEditorProps {
   onChange: (text: string) => void;
   /** What the API's preview found, placed in the text by its path. */
   serverProblems?: SchemaProblemDto[];
+  /** Fixed when the editor is created: give it a different `key` to switch modes. */
+  readOnly?: boolean;
   className?: string;
 }
 
@@ -79,6 +81,7 @@ export function SchemaEditor({
   value,
   onChange,
   serverProblems = [],
+  readOnly = false,
   className,
 }: SchemaEditorProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -108,6 +111,8 @@ export function SchemaEditor({
           keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
           EditorView.contentAttributes.of({ 'aria-label': 'Schema JSON' }),
           theme,
+          EditorState.readOnly.of(readOnly),
+          EditorView.editable.of(!readOnly),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) onChangeRef.current(update.state.doc.toString());
           }),

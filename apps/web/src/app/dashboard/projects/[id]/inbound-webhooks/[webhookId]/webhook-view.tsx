@@ -5,7 +5,11 @@ import { AlertCircle, SearchX } from 'lucide-react';
 import { useUpdateInboundWebhookMutation } from '@/features/inbound-webhooks/api/mutations';
 import { useInboundWebhookQuery } from '@/features/inbound-webhooks/api/queries';
 import { SubmissionsSection } from '@/features/inbound-webhooks/components/submissions-section';
+import { WebhookDeleteSection } from '@/features/inbound-webhooks/components/webhook-delete-section';
 import { WebhookDocs } from '@/features/inbound-webhooks/components/webhook-docs';
+import { WebhookReadersSection } from '@/features/inbound-webhooks/components/webhook-readers-section';
+import { WebhookSchemaSection } from '@/features/inbound-webhooks/components/webhook-schema-section';
+import { WebhookSecretSection } from '@/features/inbound-webhooks/components/webhook-secret-section';
 import { WebhookSettingsForm } from '@/features/inbound-webhooks/components/webhook-settings-form';
 import { Badge } from '@/shared/components/ui/badge';
 import { EmptyState } from '@/shared/components/ui/empty-state';
@@ -79,14 +83,24 @@ export function WebhookView({ webhookId }: { webhookId: string }) {
       <Tabs defaultValue="submissions" className="flex flex-col gap-4">
         <TabsList aria-label="Webhook sections">
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
+          <TabsTrigger value="schema">Schema</TabsTrigger>
+          <TabsTrigger value="readers">Readers</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="docs">Developer docs</TabsTrigger>
         </TabsList>
         <TabsContent value="submissions">
-          <SubmissionsSection webhookId={webhook.id} schema={webhook.schema} />
+          <SubmissionsSection webhookId={webhook.id} slug={webhook.slug} schema={webhook.schema} />
         </TabsContent>
-        <TabsContent value="settings">
+        <TabsContent value="schema">
+          <WebhookSchemaSection webhook={webhook} />
+        </TabsContent>
+        <TabsContent value="readers">
+          <WebhookReadersSection webhook={webhook} />
+        </TabsContent>
+        <TabsContent value="settings" className="flex flex-col gap-8">
           <WebhookSettingsForm key={webhook.updatedAt} webhook={webhook} />
+          <WebhookSecretSection webhookId={webhook.id} />
+          <WebhookDeleteSection webhook={webhook} />
         </TabsContent>
         <TabsContent value="docs">
           <WebhookDocs webhookId={webhook.id} />

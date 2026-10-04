@@ -1,9 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, Inbox, X } from 'lucide-react';
+import { AlertCircle, Download, Inbox, X } from 'lucide-react';
 
+import {
+  ExportCancelled,
+  exportSubmissions,
+} from '@/features/inbound-webhooks/api/export-submissions';
 import { formatDate } from '@/features/inbound-webhooks/api/mappers';
 import { useSubmissionsQuery } from '@/features/inbound-webhooks/api/queries';
 import {
@@ -21,6 +25,8 @@ import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Pagination } from '@/shared/components/ui/pagination';
+import { downloadTextFile } from '@/shared/lib/download';
+import { useToastStore } from '@/shared/stores/toast';
 import type { ApiError } from '@/shared/types';
 
 const PAGE_SIZE = 50;
@@ -55,11 +61,17 @@ const statusOf = (error: unknown): number | null =>
 
 interface SubmissionsSectionProps {
   webhookId: string;
+  slug: string;
   schema: Record<string, unknown>;
 }
 
 /** What the webhook has received, as the role-gated read API returns it. */
-export function SubmissionsSection({ webhookId, schema }: SubmissionsSectionProps) {
+export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSectionProps) {
+  const showToast = useToastStore((state) => state.show);
+  const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(
+    null
+  );
+  const exportController = useRef<AbortController | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [pageIndex, setPageIndex] = useState(0);
@@ -121,6 +133,31 @@ export function SubmissionsSection({ webhookId, schema }: SubmissionsSectionProp
     writeStored(webhookId, paths);
   }
 
+  async function exportCsv() {
+    const controller = new AbortController();
+    exportController.current = controller;
+    setExportProgress({ done: 0, total: query.data?.total ?? 0 });
+    try {
+      const csv = await exportSubmissions({
+        webhookId,
+        schema,
+        filters: { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined },
+        signal: controller.signal,
+        onProgress: (done, total) => setExportProgress({ done, total }),
+      });
+      const today = new Date().toISOString().slice(0, 10);
+      downloadTextFile(`${slug}-submissions-${today}.csv`, csv, 'text/csv');
+      showToast('Export ready', 'success');
+    } catch (error) {
+      if (!(error instanceof ExportCancelled)) {
+        showToast((error as Partial<ApiError>).message || 'The export failed', 'error');
+      }
+    } finally {
+      exportController.current = null;
+      setExportProgress(null);
+    }
+  }
+
   const filtered = dateFrom !== '' || dateTo !== '';
   const total = query.data?.total ?? 0;
   const status = statusOf(query.error);
@@ -163,19 +200,48 @@ export function SubmissionsSection({ webhookId, schema }: SubmissionsSectionProp
             </Button>
           ) : null}
         </div>
-        <ColumnsMenu
-          available={available}
-          selected={selected}
-          onChange={chooseColumns}
-          onReset={() => {
-            setStored(null);
-            try {
-              localStorage.removeItem(storageKey(webhookId));
-            } catch {
-              // Nothing stored to forget.
-            }
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {exportProgress ? (
+            <>
+              <span role="status" className="text-body text-text-muted">
+                Exporting {exportProgress.done.toLocaleString()} of{' '}
+                {exportProgress.total.toLocaleString()}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => exportController.current?.abort()}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={total === 0}
+              onClick={() => void exportCsv()}
+            >
+              <Download aria-hidden="true" />
+              Export CSV
+            </Button>
+          )}
+          <ColumnsMenu
+            available={available}
+            selected={selected}
+            onChange={chooseColumns}
+            onReset={() => {
+              setStored(null);
+              try {
+                localStorage.removeItem(storageKey(webhookId));
+              } catch {
+                // Nothing stored to forget.
+              }
+            }}
+          />
+        </div>
       </div>
 
       {query.isError ? (

@@ -14,15 +14,17 @@ import { MaskedInput } from '@/shared/components/ui/masked-input';
 
 interface SigningSecretDialogProps {
   secret: string | null;
-  webhookName: string;
-  submitUrl: string;
+  /** What this secret is for, shown under the title. */
+  description: string;
+  /** Shown beside the secret when the caller needs it too, as after creating a webhook. */
+  submitUrl?: string;
   onDone: () => void;
 }
 
 /** The signing secret is shown here once; the API never returns it again. */
 export function SigningSecretDialog({
   secret,
-  webhookName,
+  description,
   submitUrl,
   onDone,
 }: SigningSecretDialogProps) {
@@ -36,9 +38,7 @@ export function SigningSecretDialog({
       >
         <DialogHeader>
           <DialogTitle>Signing secret</DialogTitle>
-          <DialogDescription>
-            {webhookName} is ready. Callers sign every request with this secret.
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
@@ -50,10 +50,12 @@ export function SigningSecretDialog({
           {secret ? (
             <MaskedInput value={secret} secret aria-label="Signing secret" autoFocus />
           ) : null}
-          <div>
-            <p className="text-overline text-text-subtle">Submit URL</p>
-            <MaskedInput value={submitUrl} aria-label="Submit URL" />
-          </div>
+          {submitUrl ? (
+            <div>
+              <p className="text-overline text-text-subtle">Submit URL</p>
+              <MaskedInput value={submitUrl} aria-label="Submit URL" />
+            </div>
+          ) : null}
           <Button type="button" onClick={onDone} className="self-end">
             I&apos;ve saved the secret
           </Button>

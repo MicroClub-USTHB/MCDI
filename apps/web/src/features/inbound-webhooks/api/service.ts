@@ -101,3 +101,26 @@ export function fetchSubmission(
     `${READ_BASE}/${encodeURIComponent(webhookId)}/submissions/${encodeURIComponent(submissionId)}`
   );
 }
+
+/** The new secret is in this response and nowhere else; the old one stops verifying at once. */
+export function rotateSigningSecret(
+  webhookId: string
+): Promise<ApiResponse<{ signingSecret: string }>> {
+  return apiClient.post<{ signingSecret: string }>(
+    `${BASE}/${encodeURIComponent(webhookId)}/rotate-secret`
+  );
+}
+
+export function deleteInboundWebhook(webhookId: string): Promise<ApiResponse<null>> {
+  return apiClient.delete<null>(`${BASE}/${encodeURIComponent(webhookId)}`);
+}
+
+/** Replaces the whole list of reader roles; it must not be empty. */
+export function replaceAllowedRoles(
+  webhookId: string,
+  roleIds: string[]
+): Promise<ApiResponse<{ roleIds: string[] }>> {
+  return apiClient.put<{ roleIds: string[] }>(`${BASE}/${encodeURIComponent(webhookId)}/roles`, {
+    roleIds,
+  });
+}

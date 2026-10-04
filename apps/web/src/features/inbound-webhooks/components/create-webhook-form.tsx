@@ -8,12 +8,10 @@ import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
 
 import { isValidSlug, slugify, toCreatePayload } from '@/features/inbound-webhooks/api/mappers';
 import { useCreateInboundWebhookMutation } from '@/features/inbound-webhooks/api/mutations';
-import {
-  useProjectRoleOptions,
-  useSchemaPreviewQuery,
-} from '@/features/inbound-webhooks/api/queries';
+import { useProjectRoleOptions } from '@/features/inbound-webhooks/api/queries';
 import { PreviewPane } from '@/features/inbound-webhooks/components/preview-pane';
 import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
+import { useSchemaPreview } from '@/features/inbound-webhooks/components/use-schema-preview';
 import { SigningSecretDialog } from '@/features/inbound-webhooks/components/signing-secret-dialog';
 import { parseDocument } from '@/features/inbound-webhooks/schema/json-tree';
 import { findFileWarnings } from '@/features/inbound-webhooks/schema/problems';
@@ -23,7 +21,6 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { useToastStore } from '@/shared/stores/toast';
 
 const SchemaEditor = dynamic(
@@ -37,20 +34,8 @@ const SchemaEditor = dynamic(
   }
 );
 
-const PREVIEW_DELAY_MS = 600;
 const BLANK = INBOUND_WEBHOOK_TEMPLATES.find((template) => template.id === 'blank');
 const stringify = (schema: Record<string, unknown>) => JSON.stringify(schema, null, 2);
-
-function parseSchema(text: string): Record<string, unknown> | null {
-  try {
-    const value: unknown = JSON.parse(text);
-    return value !== null && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 export function CreateWebhookForm({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -69,14 +54,9 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
   const [created, setCreated] = useState<CreateInboundWebhookResponse | null>(null);
 
   const selectedRoles = pickedRoles ?? roles.defaultRoleIds;
-  const schema = useMemo(() => parseSchema(text), [text]);
-  const debouncedSchema = useDebouncedValue(schema, PREVIEW_DELAY_MS);
-  const preview = useSchemaPreviewQuery(
-    debouncedSchema ? { schema: debouncedSchema, name: name.trim() || undefined } : null
-  );
+  const { schema, preview, serverProblems } = useSchemaPreview(text, name);
   const hasFileWarning = useMemo(() => findFileWarnings(parseDocument(text)).length > 0, [text]);
 
-  const serverProblems = preview.data && !preview.data.ok ? preview.data.errors : undefined;
   const slugProblem = slug !== '' && !isValidSlug(slug);
   const canSubmit =
     name.trim() !== '' &&
@@ -255,7 +235,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
 
       <SigningSecretDialog
         secret={created?.signingSecret ?? null}
-        webhookName={created?.webhook.name ?? ''}
+        description={`${created?.webhook.name ?? 'The webhook'} is ready. Callers sign every request with this secret.`}
         submitUrl={created?.submitUrl ?? ''}
         onDone={() =>
           router.push(`/dashboard/projects/${encodeURIComponent(projectId)}/inbound-webhooks`)
