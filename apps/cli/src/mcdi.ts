@@ -102,6 +102,24 @@ export function adminDisplayName(me: AdminMe): string {
 }
 
 /**
+ * POST /auth/admin/logout → invalidates the session server-side. Returns the
+ * raw status for 2xx/401/403 without reading the body (same reasoning as
+ * getAdminMeRaw: a 401/403 body may not even be JSON behind a proxy); any
+ * other non-2xx status is unexpected.
+ */
+export async function postAdminLogout(baseUrl: string, token: string): Promise<number> {
+  const res = await request(baseUrl, '/auth/admin/logout', {
+    method: 'POST',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401 || res.status === 403) return res.status;
+  if (!res.ok) {
+    throw new CliError(`MCDI returned HTTP ${res.status} for logout`, ExitCode.Unexpected);
+  }
+  return res.status;
+}
+
+/**
  * An inbound webhook as `/admin/inbound-webhooks` returns it — MCDI's
  * `InboundWebhookRow` (inbound-webhooks.repository.ts, `PUBLIC_COLUMNS`).
  * The signing secret is never part of it.
