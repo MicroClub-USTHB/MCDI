@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import type { InboundWebhookView } from '@/features/inbound-webhooks/api/mappers';
@@ -24,7 +25,12 @@ const columns: ColumnDef<InboundWebhookView>[] = [
     header: 'Name',
     cell: ({ row }) => (
       <div className="flex flex-col">
-        <span className="font-medium text-text-primary">{row.original.name}</span>
+        <Link
+          href={`/dashboard/projects/${encodeURIComponent(row.original.projectId)}/inbound-webhooks/${encodeURIComponent(row.original.id)}`}
+          className="rounded-sm font-medium text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus"
+        >
+          {row.original.name}
+        </Link>
         <span className="font-mono text-code text-text-subtle">{row.original.slug}</span>
       </div>
     ),

@@ -2,6 +2,7 @@ import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 
 export interface InboundWebhookView {
   id: string;
+  projectId: string;
   name: string;
   slug: string;
   isActive: boolean;
@@ -10,7 +11,7 @@ export interface InboundWebhookView {
   lastSubmissionLabel: string;
 }
 
-function formatDate(value: string | null): string | null {
+export function formatDate(value: string | null): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
@@ -21,6 +22,7 @@ function formatDate(value: string | null): string | null {
 export function mapInboundWebhook(dto: InboundWebhookDto): InboundWebhookView {
   return {
     id: dto.id,
+    projectId: dto.projectId,
     name: dto.name,
     slug: dto.slug,
     isActive: dto.isActive,

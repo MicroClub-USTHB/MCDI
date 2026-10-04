@@ -11,10 +11,14 @@ import { buildRoleOptions, mapInboundWebhook } from '@/features/inbound-webhooks
 import {
   fetchAllowedRoles,
   fetchInboundSettings,
+  fetchInboundWebhook,
   fetchInboundWebhooks,
+  fetchSubmission,
+  fetchSubmissions,
+  fetchWebhookDocs,
   previewSchema,
 } from '@/features/inbound-webhooks/api/service';
-import type { PreviewSchemaPayload } from '@/features/inbound-webhooks/types';
+import type { PreviewSchemaPayload, SubmissionFilters } from '@/features/inbound-webhooks/types';
 
 export function useInboundWebhooksQuery(projectId: string) {
   return useQuery({
@@ -112,4 +116,38 @@ export function useAllRoleOptions() {
     options: buildRoleOptions(roles.servers, settings.data?.defaultReaderRoles ?? []),
     isLoading: servers.isPending || roles.isPending,
   };
+}
+
+export function useInboundWebhookQuery(webhookId: string) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.detail(webhookId),
+    queryFn: async () => (await fetchInboundWebhook(webhookId)).data,
+  });
+}
+
+export function useWebhookDocsQuery(webhookId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.docs(webhookId),
+    queryFn: async () => (await fetchWebhookDocs(webhookId)).data,
+    enabled,
+  });
+}
+
+/** The previous page stays on screen while the next one loads, so paging never flashes empty. */
+export function useSubmissionsQuery(webhookId: string, filters: SubmissionFilters) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.submissions(webhookId, filters),
+    queryFn: async () => (await fetchSubmissions(webhookId, filters)).data,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
+export function useSubmissionQuery(webhookId: string, submissionId: string | null) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.submission(webhookId, submissionId ?? ''),
+    queryFn: async () => (await fetchSubmission(webhookId, submissionId ?? '')).data,
+    enabled: submissionId !== null,
+    retry: false,
+  });
 }

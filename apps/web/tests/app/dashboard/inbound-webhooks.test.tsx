@@ -140,6 +140,10 @@ describe('Inbound webhooks list', () => {
     render(<InboundWebhooksView projectId="proj_1" />, { wrapper });
 
     const row = (await screen.findByText('Recruitment')).closest('tr') as HTMLElement;
+    expect(within(row).getByRole('link', { name: 'Recruitment' })).toHaveAttribute(
+      'href',
+      '/dashboard/projects/proj_1/inbound-webhooks/wh_1'
+    );
     expect(within(row).getByText('Signed')).toBeInTheDocument();
     expect(within(row).getByText('1,204')).toBeInTheDocument();
     expect(await within(row).findByText('MC Executive')).toBeInTheDocument();
