@@ -30,14 +30,17 @@ import {
   ListSubmissionsFilters,
 } from './inbound-webhooks.repository';
 import { validateSchema } from './schema/schema.validator';
+import type { SchemaError } from './schema/schema.validator';
 import { validatePayload, FileMeta } from './schema/payload.validator';
 import type { FormSchema } from './schema/form-schema.types';
 import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
 import {
+  buildExamplePayload,
   renderMarkdown,
   renderOpenApi,
   WebhookDocsInput,
 } from './docs/webhook-docs.generator';
+import { PreviewInboundWebhookSchemaDto } from './dto/preview-inbound-webhook-schema.dto';
 import { UpdateInboundWebhookDto } from './dto/update-inbound-webhook.dto';
 
 export interface CreateInboundWebhookResult {
@@ -52,6 +55,14 @@ export interface CreateInboundWebhookResult {
 }
 
 export type DocsFormat = 'markdown' | 'openapi';
+
+export type SchemaPreviewResult =
+  | { ok: false; errors: SchemaError[] }
+  | {
+      ok: true;
+      markdown: string;
+      examplePayload: Record<string, unknown>;
+    };
 
 export interface InboundWebhookSettingsView {
   /** The effective default reader roles; may include roles that no longer exist. */
@@ -693,6 +704,40 @@ export class InboundWebhooksService {
 
     if (!prefix || host.endsWith(`/${prefix}`)) return host;
     return `${host}/${prefix}`;
+  }
+
+  // ─── Schema preview ─────────────────────────────────────────────────────
+
+  /**
+   * Checks a schema and renders its docs without saving anything, for the
+   * admin editor. It runs the same `validateSchema` as `create`, so a preview
+   * and a create can never disagree. What only exists once the webhook is
+   * saved (its ID, its readers) is a placeholder.
+   */
+  previewSchema(dto: PreviewInboundWebhookSchemaDto): SchemaPreviewResult {
+    const checked = validateSchema(dto.schema);
+    if (!checked.ok) return { ok: false, errors: checked.errors };
+
+    const schema = dto.schema as unknown as FormSchema;
+    const input: WebhookDocsInput = {
+      id: '<webhook-id>',
+      name: dto.name?.trim() || 'Inbound webhook',
+      slug: '<slug>',
+      schema,
+      acceptedOrigins: dto.acceptedOrigins ?? [],
+      requireSignature: dto.requireSignature ?? true,
+      rejectUnknownFields: dto.rejectUnknownFields ?? true,
+      isActive: true,
+      createdAt: new Date(),
+      allowedRoles: [],
+      baseUrl: this.baseUrl(),
+    };
+
+    return {
+      ok: true,
+      markdown: renderMarkdown(input),
+      examplePayload: buildExamplePayload(schema),
+    };
   }
 
   // ─── Settings ───────────────────────────────────────────────────────────

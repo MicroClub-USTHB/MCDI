@@ -495,6 +495,7 @@ Three controllers, separated by **audience**, never mixed.
 ```
 POST   /admin/inbound-webhooks                      create (allowedRoleIds optional: defaults to the default readers)
 GET    /admin/inbound-webhooks                      list, filterable by project
+POST   /admin/inbound-webhooks/schema/preview        check a schema and preview its docs (stores nothing)
 GET    /admin/inbound-webhooks/settings             default reader roles (declared before :id)
 PUT    /admin/inbound-webhooks/settings             replace the default reader roles
 GET    /admin/inbound-webhooks/:id                  detail (secret never returned)
@@ -503,6 +504,14 @@ PUT    /admin/inbound-webhooks/:id/roles            replace grants (non-empty)
 POST   /admin/inbound-webhooks/:id/rotate-secret    returns the secret once
 DELETE /admin/inbound-webhooks/:id
 ```
+
+`POST /schema/preview` (IW-20) runs the same Layer-1 validator as create, for the admin
+schema editor. An invalid schema is a normal `200` with `{ ok: false, errors: [{ path, code,
+message }] }` listing every problem; a valid one returns `{ ok: true, markdown, examplePayload }`,
+the generated developer docs and an example that passes the schema. What only exists once the
+webhook is saved is a placeholder (`<webhook-id>`, no readers). It accepts optional `name`,
+`requireSignature`, `rejectUnknownFields` and `acceptedOrigins`, so the docs reflect the options
+being chosen, and it stores and audits nothing.
 
 ### 8.2 Ingest — `ApiKeyGuard` + HMAC (write only)
 
