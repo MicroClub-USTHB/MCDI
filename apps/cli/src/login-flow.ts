@@ -11,7 +11,7 @@ import {
   saveConfig,
   setSession,
 } from './config.js';
-import { DefaultKeyProvider, FileKeyProvider, KeychainKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
+import { defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { adminDisplayName, getAdminLoginUrl, getAdminMe } from './mcdi.js';
 
@@ -37,7 +37,7 @@ export interface LoginDeps {
 export function defaultLoginDeps(): LoginDeps {
   return {
     configPath: configPath(),
-    keys: new DefaultKeyProvider(new KeychainKeyProvider(), new FileKeyProvider(join(configDir(), 'key'))),
+    keys: defaultKeyProvider(join(configDir(), 'key')),
     openBrowser: (url) => openBrowser(url),
     info: (line) => process.stderr.write(`${line}\n`),
     out: (line) => process.stdout.write(`${line}\n`),

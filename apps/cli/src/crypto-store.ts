@@ -72,6 +72,11 @@ export class DefaultKeyProvider implements KeyProvider {
   }
 }
 
+/** Keychain first, falling back to a local key file only when the keychain is unavailable. */
+export function defaultKeyProvider(keyFilePath: string): KeyProvider {
+  return new DefaultKeyProvider(new KeychainKeyProvider(), new FileKeyProvider(keyFilePath));
+}
+
 function decodeKey(encoded: string, source: string): Buffer {
   const key = Buffer.from(encoded.trim(), 'base64');
   if (key.length !== 32) throw new Error(`encryption key in ${source} is malformed`);
