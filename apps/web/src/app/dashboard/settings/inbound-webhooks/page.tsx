@@ -6,8 +6,8 @@ export default function InboundWebhookSettingsPage() {
       <header>
         <h1 className="text-hero">Inbound webhook settings</h1>
         <p className="mt-1 text-body text-text-muted">
-          The roles that can read the submissions of every new inbound webhook by default. They are
-          granted when a webhook is created and can be removed there or later.
+          The roles that can read the data of every new inbound webhook by default. They are granted
+          when a webhook is created and can be removed there or later.
         </p>
       </header>
       <DefaultReadersSettings />

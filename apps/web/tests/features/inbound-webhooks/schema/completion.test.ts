@@ -146,3 +146,35 @@ describe('values', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('a schema with fields at the top level', () => {
+  it('suggests the properties of a top-level field by its type', () => {
+    const { result } = complete('{ "fields": [ { "key": "a", "type": "string", "m|" } ] }');
+
+    expect(labels(result)).toEqual(['minLength', 'maxLength']);
+  });
+
+  it('suggests field types for a top-level field', () => {
+    const { result } = complete('{ "fields": [ { "key": "a", "type": "em|" } ] }');
+
+    expect(labels(result)).toEqual(['email']);
+  });
+
+  it('offers fields beside version, but not steps once fields is there', () => {
+    const { result } = complete('{ "version": 1, "fields": [], "|" }', true);
+
+    expect(labels(result)).toEqual([]);
+  });
+
+  it('offers steps and fields while neither is there', () => {
+    const { result } = complete('{ "version": 1, "|" }', true);
+
+    expect(labels(result)).toEqual(['steps', 'fields']);
+  });
+
+  it('does not offer fields once steps is there', () => {
+    const { result } = complete('{ "version": 1, "steps": [], "|" }', true);
+
+    expect(labels(result)).toEqual([]);
+  });
+});

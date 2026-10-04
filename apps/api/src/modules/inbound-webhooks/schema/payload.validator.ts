@@ -12,6 +12,10 @@ import {
   FormSchema,
   FormStep,
   SCHEMA_LIMITS,
+  SteppedFormSchema,
+  dotPath,
+  isFlatSchema,
+  normalizeSchema,
 } from './form-schema.types';
 import { createContext, Script } from 'vm';
 import { evaluateCondition } from './condition.evaluator';
@@ -85,8 +89,9 @@ class PayloadChecker {
   private readonly fileIds: string[] = [];
 
   constructor(
-    private readonly schema: FormSchema,
+    private readonly schema: SteppedFormSchema,
     private readonly opts: ValidateOptions,
+    private readonly flat: boolean,
   ) {}
 
   run(payload: Record<string, unknown>): PayloadValidationResult {
@@ -121,7 +126,9 @@ class PayloadChecker {
       };
     }
 
-    if (this.opts.rejectUnknownFields) {
+    // A flat schema has no steps to name; its unknown keys are caught as
+    // unknown fields below.
+    if (this.opts.rejectUnknownFields && !this.flat) {
       const known = new Set(this.schema.steps.map((s) => s.key));
       for (const key of Object.keys(payload)) {
         if (!known.has(key)) {
@@ -140,7 +147,7 @@ class PayloadChecker {
       const scope = { ...payload, ...out };
       if (!this.isActive(step, scope)) continue;
 
-      const raw = payload[step.key];
+      const raw = this.flat ? payload : payload[step.key];
       if (raw !== undefined && !isRecord(raw)) {
         this.push(step.key, 'NOT_AN_OBJECT', 'Step payload must be an object');
         continue;
@@ -154,7 +161,8 @@ class PayloadChecker {
         scope,
         1,
       );
-      out[step.key] = result;
+      if (this.flat) Object.assign(out, result);
+      else out[step.key] = result;
     }
 
     return this.errors.length === 0
@@ -193,7 +201,7 @@ class PayloadChecker {
         const declared = fields.some((f) => f.key === key);
         if (!declared) {
           this.push(
-            `${path}.${key}`,
+            dotPath(path, key),
             'UNKNOWN_FIELD',
             `Unknown field "${key}"`,
           );
@@ -202,7 +210,7 @@ class PayloadChecker {
     }
 
     for (const field of active) {
-      const fieldPath = `${path}.${field.key}`;
+      const fieldPath = dotPath(path, field.key);
       const sent = data[field.key];
       // Trim before the absent check, so "   " cannot satisfy `required`.
       const raw =
@@ -607,7 +615,11 @@ export function validatePayload(
   payload: Record<string, unknown>,
   opts: ValidateOptions,
 ): PayloadValidationResult {
-  return new PayloadChecker(schema, opts).run(payload);
+  return new PayloadChecker(
+    normalizeSchema(schema),
+    opts,
+    isFlatSchema(schema),
+  ).run(payload);
 }
 
 export type { FormStep };

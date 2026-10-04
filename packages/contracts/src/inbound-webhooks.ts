@@ -132,10 +132,15 @@ export const INBOUND_FIELD_PROPERTIES: Record<
   json: [{ name: "maxBytes", description: "largest size in bytes" }],
 };
 
-/** The top level of a schema. */
+/** The top level of a schema: `steps` for a form, or `fields` for a flat payload, not both. */
 export const INBOUND_SCHEMA_PROPERTIES: InboundSchemaProperty[] = [
   { name: "version", description: "schema format version, currently 1" },
-  { name: "steps", description: "the steps of the form, in order" },
+  { name: "steps", description: "the steps of a form, in order" },
+  {
+    name: "fields",
+    description:
+      "the fields of a flat payload with no steps, for an event or any non-form data",
+  },
 ];
 
 export const INBOUND_STEP_PROPERTIES: InboundSchemaProperty[] = [
@@ -418,6 +423,46 @@ export const INBOUND_WEBHOOK_TEMPLATES: InboundWebhookTemplate[] = [
               },
             },
           ],
+        },
+      ],
+    },
+  },
+  {
+    id: "project-event",
+    label: "Project event",
+    description:
+      "No steps: a flat payload that describes something that happened in the project.",
+    schema: {
+      version: 1,
+      fields: [
+        { key: "event_id", type: "string", required: true, maxLength: 64 },
+        { key: "title", type: "string", required: true, maxLength: 120 },
+        {
+          key: "starts_at",
+          type: "datetime",
+          required: true,
+        },
+        {
+          key: "capacity",
+          type: "number",
+          required: false,
+          integer: true,
+          min: 1,
+        },
+        { key: "online", type: "boolean", required: true },
+        {
+          key: "location",
+          type: "string",
+          required: true,
+          maxLength: 120,
+          condition: { op: "eq", field: "online", value: false },
+        },
+        {
+          key: "tags",
+          type: "array",
+          required: false,
+          maxItems: 10,
+          item: { key: "tag", type: "string", required: true, maxLength: 30 },
         },
       ],
     },

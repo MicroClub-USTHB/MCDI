@@ -206,6 +206,19 @@ describe('Create inbound webhook', () => {
     expect(text).toContain('./is_member');
   });
 
+  it('offers a template without steps for data that is not a form', async () => {
+    serveRoles();
+    servePreview();
+    render(<CreateWebhookForm projectId="proj_1" />, { wrapper });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Project event' }));
+
+    const editor = (await screen.findByLabelText('Schema JSON')) as HTMLTextAreaElement;
+    const schema = JSON.parse(editor.value) as Record<string, unknown>;
+    expect(schema).toHaveProperty('fields');
+    expect(schema).not.toHaveProperty('steps');
+  });
+
   it('shows the API preview of a valid schema, after a pause', async () => {
     serveRoles();
     servePreview();

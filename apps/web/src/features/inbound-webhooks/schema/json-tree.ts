@@ -120,7 +120,12 @@ export function kindOfObject(state: EditorState, object: SyntaxNode): NodeKind |
     const ownerKind = owner ? kindOfObject(state, owner) : null;
     const name = property ? propertyName(state, property) : null;
     if (name === 'steps' && ownerKind === 'schema') return 'step';
-    if (name === 'fields' && (ownerKind === 'step' || ownerKind === 'field')) return 'field';
+    if (
+      name === 'fields' &&
+      (ownerKind === 'schema' || ownerKind === 'step' || ownerKind === 'field')
+    ) {
+      return 'field';
+    }
     if (name === 'options' && ownerKind === 'field') return 'option';
     if (name === 'of' && ownerKind === 'condition') return 'condition';
   }

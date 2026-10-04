@@ -214,3 +214,24 @@ describe('collectProblems', () => {
     expect(collectProblems(parseDocument(GOOD), [])).toEqual([]);
   });
 });
+
+describe('a schema with fields at the top level', () => {
+  const flat = (field: string) => `{ "version": 1, "fields": [ ${field} ] }`;
+
+  it('flags an unknown property of a top-level field', () => {
+    const doc = flat('{ "key": "a", "type": "string", "required": true, "maxLenght": 5 }');
+
+    const [problem] = findUnknownProperties(parseDocument(doc));
+
+    expect(problem?.message).toMatch(/"maxLenght" is not a property of a string field/);
+    expect(problem?.message).toMatch(/Did you mean "maxLength"/);
+  });
+
+  it('warns about a required file field at the top level', () => {
+    const doc = flat(
+      '{ "key": "cv", "type": "file", "required": true, "accept": ["a/b"], "maxSizeBytes": 1 }'
+    );
+
+    expect(findFileWarnings(parseDocument(doc))).toHaveLength(1);
+  });
+});

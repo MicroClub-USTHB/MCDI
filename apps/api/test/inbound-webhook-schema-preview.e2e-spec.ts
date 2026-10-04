@@ -77,6 +77,20 @@ describeIf('schema preview (e2e)', () => {
     });
   });
 
+  it('previews a schema without steps as a flat payload', async () => {
+    const res = await post({
+      schema: {
+        version: 1,
+        fields: [{ key: 'title', type: 'string', required: true }],
+      },
+      name: 'Workshop created',
+    }).expect(200);
+
+    expect(res.body.ok).toBe(true);
+    expect(res.body.examplePayload).toEqual({ title: 'example' });
+    expect(res.body.markdown).toContain('flat JSON object');
+  });
+
   it('returns every problem with its path, as a normal 200', async () => {
     const res = await post({
       schema: {

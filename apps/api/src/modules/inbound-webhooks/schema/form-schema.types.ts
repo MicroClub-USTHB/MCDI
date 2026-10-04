@@ -2,7 +2,8 @@
  * The schema definition language for inbound webhooks.
  *
  * A schema is a list of steps; each step is a list of fields. A single-step
- * form is the degenerate case, never a separate code path.
+ * form is the degenerate case, never a separate code path. A schema may
+ * instead list fields directly, for a payload that is not a form.
  *
  * Fields are a discriminated union on `type` rather than a flat bag of
  * optional constraints, so `{ type: 'boolean', minLength: 5 }` is a compile
@@ -149,10 +150,43 @@ export type FormStep = {
   fields: Field[];
 };
 
-export type FormSchema = {
+export type SteppedFormSchema = {
   version: 1;
   steps: FormStep[];
 };
+
+/**
+ * Fields at the top level, no steps: the payload is a flat object of those
+ * fields. For data that is not a form, such as one kind of event.
+ */
+export type FlatFormSchema = {
+  version: 1;
+  fields: Field[];
+};
+
+export type FormSchema = SteppedFormSchema | FlatFormSchema;
+
+/**
+ * The key of the single step a flat schema is read as. A step with this key
+ * has no name in the payload or in paths: its fields sit at the root.
+ */
+export const ROOT_STEP_KEY = '';
+
+export function isFlatSchema(schema: FormSchema): schema is FlatFormSchema {
+  return 'fields' in schema;
+}
+
+/** One shape for the code that walks steps; a flat schema becomes one root step. */
+export function normalizeSchema(schema: FormSchema): SteppedFormSchema {
+  return isFlatSchema(schema)
+    ? { version: 1, steps: [{ key: ROOT_STEP_KEY, fields: schema.fields }] }
+    : schema;
+}
+
+/** `a` + `b` is `a.b`; with nothing before it, just `b`. */
+export function dotPath(prefix: string, key: string): string {
+  return prefix ? `${prefix}.${key}` : key;
+}
 
 // ─── Limits (enforced by the Layer-1 schema validator) ───────────────────
 

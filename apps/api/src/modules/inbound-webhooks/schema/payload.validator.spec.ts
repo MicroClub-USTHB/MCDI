@@ -950,4 +950,128 @@ describe('validatePayload (Layer 2)', () => {
       'REQUIRED',
     ]);
   });
+
+  describe('a schema without steps', () => {
+    const flat = (fields: Field[]): FormSchema => ({ version: 1, fields });
+
+    it('takes a flat payload and returns a flat value', () => {
+      const schema = flat([
+        { key: 'a', type: 'string', required: true },
+        { key: 'b', type: 'number', required: false, default: 7 },
+      ]);
+      const r = validatePayload(schema, { a: 'x' }, opts);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value).toEqual({ a: 'x', b: 7 });
+    });
+
+    it('names a missing field by its own key', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: true }]),
+        {},
+        opts,
+      );
+      expect(codes(r)).toEqual(['REQUIRED']);
+      expect(paths(r)).toEqual(['a']);
+    });
+
+    it('reports nested and listed errors without a step prefix', () => {
+      const schema = flat([
+        {
+          key: 'place',
+          type: 'object',
+          required: true,
+          fields: [{ key: 'city', type: 'string', required: true }],
+        },
+        {
+          key: 'tags',
+          type: 'array',
+          required: true,
+          maxItems: 3,
+          item: { key: 'tag', type: 'string', required: true, maxLength: 3 },
+        },
+      ]);
+      const r = validatePayload(
+        schema,
+        { place: {}, tags: ['ok', 'toolong'] },
+        opts,
+      );
+      expect(paths(r).sort()).toEqual(['place.city', 'tags[1]']);
+    });
+
+    it('rejects an unknown field when asked to', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: false }]),
+        { a: 'x', extra: 1 },
+        opts,
+      );
+      expect(codes(r)).toEqual(['UNKNOWN_FIELD']);
+      expect(paths(r)).toEqual(['extra']);
+    });
+
+    it('strips an unknown field when not asked to reject', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: false }]),
+        { a: 'x', extra: 1 },
+        { rejectUnknownFields: false },
+      );
+      expect(r.ok && r.value).toEqual({ a: 'x' });
+    });
+
+    it('evaluates a condition against fields at the root', () => {
+      const schema = flat([
+        { key: 'status', type: 'string', required: true },
+        {
+          key: 'school',
+          type: 'string',
+          required: true,
+          condition: { op: 'eq', field: 'status', value: 'student' },
+        },
+      ]);
+      expect(
+        codes(validatePayload(schema, { status: 'student' }, opts)),
+      ).toEqual(['REQUIRED']);
+      const pro = validatePayload(schema, { status: 'pro' }, opts);
+      expect(pro.ok && pro.value).toEqual({ status: 'pro' });
+    });
+
+    it('evaluates a condition between fields of one array entry', () => {
+      const schema = flat([
+        {
+          key: 'guests',
+          type: 'array',
+          required: true,
+          maxItems: 2,
+          item: {
+            key: 'guest',
+            type: 'object',
+            required: true,
+            fields: [
+              { key: 'is_member', type: 'boolean', required: true },
+              {
+                key: 'member_id',
+                type: 'string',
+                required: true,
+                condition: { op: 'eq', field: './is_member', value: true },
+              },
+            ],
+          },
+        },
+      ]);
+      const r = validatePayload(
+        schema,
+        { guests: [{ is_member: true }, { is_member: false }] },
+        opts,
+      );
+      expect(paths(r)).toEqual(['guests[0].member_id']);
+    });
+
+    it('does not read a stepped payload', () => {
+      const r = validatePayload(
+        flat([{ key: 'a', type: 'string', required: true }]),
+        { step: { a: 'x' } },
+        opts,
+      );
+      expect(codes(r).sort()).toEqual(['REQUIRED', 'UNKNOWN_FIELD']);
+    });
+  });
 });

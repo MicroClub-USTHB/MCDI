@@ -148,7 +148,8 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         <div>
           <h2 className="text-subhead text-text-primary">Schema</h2>
           <p className="text-body text-text-muted">
-            The form callers submit, as JSON. Start from a template or write your own.
+            What callers send, as JSON. Use steps for a multi-step form, or list fields directly for
+            an event or any other payload. Start from a template or write your own.
           </p>
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Templates">
@@ -186,7 +187,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
 
       <section className="flex flex-col gap-3">
         <div>
-          <h2 className="text-subhead text-text-primary">Who can read the submissions</h2>
+          <h2 className="text-subhead text-text-primary">Who can read what it receives</h2>
           <p className="text-body text-text-muted">
             Members holding one of these Discord roles. The default roles are added for you; remove
             any you don&apos;t want here.
