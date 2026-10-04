@@ -111,7 +111,7 @@ Because the server never re-exposes it, **m-forge is the only place that can
 answer "what's the secret for webhook X?" after creation.** Current design
 decision: m-forge persists it locally, encrypted at rest using the same
 mechanism as the session token (PRD §12.1 — OS keychain, falling back to
-`~/.m-forge/key`), and exposes it again via `m-forge webhook secret get <id>`
+`~/.m-forge/key`), and exposes it again via `m-forge webhook secret get`
 (see issue tracking this). This is a deliberate departure from the PRD's
 original §12.2 ("never persisted anywhere, shown once") — update §12.2 in
 the MCDI-side PRD copy if this design sticks, so the two docs don't drift.
