@@ -8,6 +8,13 @@ import { registerSchemaCommand } from './commands/schema.js';
 import { registerWebhookCommand } from './commands/webhook.js';
 import { registerConfigCommand } from './commands/config.js';
 
+// When stdout is closed early (e.g. `mcdi-cli webhook list | head`), stop quietly
+// instead of crashing with an unhandled EPIPE stack trace.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+
 const program = new Command();
 
 program
