@@ -87,6 +87,7 @@ export interface InboundWebhookSettingsDto {
 /** What `PATCH /api/admin/inbound-webhooks/:id` accepts; each property is optional. */
 export interface UpdateInboundWebhookPayload {
   name?: string;
+  schema?: Record<string, unknown>;
   acceptedOrigins?: string[];
   requireSignature?: boolean;
   rejectUnknownFields?: boolean;

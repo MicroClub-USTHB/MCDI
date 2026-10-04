@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { inboundWebhookKeys } from '@/features/inbound-webhooks/api/keys';
 import {
   createInboundWebhook,
+  deleteInboundWebhook,
+  replaceAllowedRoles,
+  rotateSigningSecret,
   updateInboundSettings,
   updateInboundWebhook,
 } from '@/features/inbound-webhooks/api/service';
@@ -49,6 +52,37 @@ export function useUpdateInboundWebhookMutation(webhookId: string) {
       void queryClient.invalidateQueries({
         queryKey: inboundWebhookKeys.lists(response.data.projectId),
       });
+    },
+  });
+}
+
+/** `gcTime: 0` so the new secret does not linger in the mutation cache after it has been shown. */
+export function useRotateSecretMutation(webhookId: string) {
+  return useMutation({
+    mutationFn: () => rotateSigningSecret(webhookId),
+    gcTime: 0,
+  });
+}
+
+export function useDeleteInboundWebhookMutation(webhookId: string, projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => deleteInboundWebhook(webhookId),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: inboundWebhookKeys.detail(webhookId) });
+      void queryClient.invalidateQueries({ queryKey: inboundWebhookKeys.lists(projectId) });
+    },
+  });
+}
+
+export function useReplaceAllowedRolesMutation(webhookId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (roleIds: string[]) => replaceAllowedRoles(webhookId, roleIds),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: inboundWebhookKeys.roles(webhookId) });
     },
   });
 }
