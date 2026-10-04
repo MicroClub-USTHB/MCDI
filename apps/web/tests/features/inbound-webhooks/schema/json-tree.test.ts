@@ -116,3 +116,26 @@ describe('objectKindAt', () => {
     expect(objectKindAt(state, 15)).toBeNull();
   });
 });
+
+describe('a schema with fields at the top level', () => {
+  const FLAT = `{ "version": 1, "fields": [ { "key": "a", "type": "string", "required": true, "maxlenght": 5 }, { "key": "b", "type": "object", "fields": [ { "key": "c" } ] } ] }`;
+
+  it('reads each top-level field as a field', () => {
+    const state = parseDocument(FLAT);
+
+    expect(objectKindAt(state, FLAT.indexOf('"key": "a"'))).toBe('field');
+  });
+
+  it('reads the fields of an object inside it as fields', () => {
+    const state = parseDocument(FLAT);
+
+    expect(objectKindAt(state, FLAT.indexOf('"key": "c"'))).toBe('field');
+  });
+
+  it('finds a path that has no step in it', () => {
+    const state = parseDocument(FLAT);
+    const range = locatePath(state, 'fields[0].maxlenght');
+
+    expect(range && FLAT.slice(range.from, range.to)).toBe('"maxlenght": 5');
+  });
+});

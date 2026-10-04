@@ -18,7 +18,7 @@ import {
   stringValueOf,
   treeOf,
 } from '@/features/inbound-webhooks/schema/json-tree';
-import type { SyntaxNode } from '@/features/inbound-webhooks/schema/json-tree';
+import type { NodeKind, SyntaxNode } from '@/features/inbound-webhooks/schema/json-tree';
 import { allowedProperties } from '@/features/inbound-webhooks/schema/problems';
 
 /** Options whose name starts with what was typed, case-insensitively. */
@@ -32,14 +32,24 @@ function unique<T extends { name: string }>(items: T[]): T[] {
   return items.filter((item) => !seen.has(item.name) && seen.add(item.name));
 }
 
+/** `steps` and `fields` are alternatives: once one is written the other is not offered. */
+function withAlternatives(kind: NodeKind, present: Set<string>): Set<string> {
+  if (kind !== 'schema') return present;
+  const taken = new Set(present);
+  if (present.has('steps')) taken.add('fields');
+  if (present.has('fields')) taken.add('steps');
+  return taken;
+}
+
 function propertyOptions(
-  kind: NonNullable<ReturnType<typeof kindOfObject>>,
+  kind: NodeKind,
   fieldType: string | null,
   present: Set<string>,
   apply: (name: string) => string
 ): Completion[] {
+  const taken = withAlternatives(kind, present);
   return unique(allowedProperties(kind, fieldType))
-    .filter((property) => !present.has(property.name))
+    .filter((property) => !taken.has(property.name))
     .map((property) => ({
       label: property.name,
       detail: property.description,

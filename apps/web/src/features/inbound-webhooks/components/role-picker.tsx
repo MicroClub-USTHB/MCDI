@@ -15,7 +15,7 @@ interface RolePickerProps {
   isLoading?: boolean;
 }
 
-/** Who may read the submissions. Default roles start selected and can be removed like any other. */
+/** Who may read what the webhook receives. Default roles start selected and can be removed like any other. */
 export function RolePicker({ options, selected, onChange, isLoading }: RolePickerProps) {
   const [search, setSearch] = useState('');
   const byId = new Map(options.map((option) => [option.id, option]));
@@ -34,7 +34,7 @@ export function RolePicker({ options, selected, onChange, isLoading }: RolePicke
     <div className="flex flex-col gap-3">
       {selected.length === 0 ? (
         <p role="alert" className="text-body text-error">
-          Pick at least one role, or nobody will be able to read the submissions.
+          Pick at least one role, or nobody will be able to read what this webhook receives.
         </p>
       ) : (
         <ul className="flex flex-wrap gap-2" aria-label="Selected roles">
