@@ -258,6 +258,7 @@ export async function getInboundWebhook(session: Session, id: string): Promise<I
 /** The `UpdateInboundWebhookDto` fields mcdi-cli sends; only the ones being changed are included. */
 export interface InboundWebhookPatch {
   name?: string;
+  schema?: Record<string, unknown>;
   isActive?: boolean;
 }
 

@@ -376,12 +376,49 @@ describe('webhook update', () => {
     expect(fake.requests).toEqual([]);
   });
 
-  it('refuses --schema without sending the PATCH while the issue #5 pre-check is missing', async () => {
+  it('sends a schema that passes the local pre-check', async () => {
+    const { fake, deps } = await setup();
+    const schema = { version: 1, steps: [{ key: 'default', fields: [{ key: 'email', type: 'email', required: true }] }] };
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, JSON.stringify(schema));
+
+    await webhookUpdate('wh-1', { profile: 'prod', schema: path, inactive: true }, deps);
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({ method: 'PATCH', body: { schema, isActive: false } });
+  });
+
+  it('does not send the PATCH when the schema fails the local pre-check', async () => {
+    const { fake, deps } = await setup();
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, JSON.stringify({ version: 1, steps: [{ key: 'default', fields: [{ key: 'x', type: 'colour' }] }] }));
+
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', schema: path, name: 'Renamed' }, deps),
+      ExitCode.PrecheckFailed,
+      /validation errors? \(source: local\); nothing was sent\n  steps\[0\]\.fields\[0\]/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('does not send the PATCH when the schema file is unreadable or not JSON', async () => {
+    const { fake, deps } = await setup();
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-schema-')), 'schema.json');
+    await writeFile(path, '{ nope');
+    await expectCliError(webhookUpdate('wh-1', { profile: 'prod', schema: path }, deps), ExitCode.PrecheckFailed, /INVALID_JSON/);
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', schema: '/nonexistent/schema.json' }, deps),
+      ExitCode.Unexpected,
+      /could not read schema/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('checks --active/--inactive before reading the schema file', async () => {
     const { fake, deps } = await setup();
     await expectCliError(
-      webhookUpdate('wh-1', { profile: 'prod', schema: 'schema.json', name: 'x' }, deps),
-      ExitCode.Unexpected,
-      /issue #5.*nothing was sent/,
+      webhookUpdate('wh-1', { profile: 'prod', schema: '/nonexistent/schema.json', active: true, inactive: true }, deps),
+      ExitCode.PrecheckFailed,
+      /--active and --inactive/,
     );
     expect(fake.requests).toEqual([]);
   });

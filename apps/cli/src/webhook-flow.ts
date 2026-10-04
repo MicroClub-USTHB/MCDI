@@ -139,29 +139,24 @@ export interface WebhookUpdateOptions {
   inactive?: boolean;
 }
 
-/** Argument checks that must pass before any config read or network call. */
-function buildPatch(options: WebhookUpdateOptions): InboundWebhookPatch {
+/** Argument checks that must pass before any file read, config read, or network call. */
+function checkUpdateFlags(options: WebhookUpdateOptions): void {
   if (options.active && options.inactive) {
     throw new CliError('--active and --inactive cannot be used together', ExitCode.PrecheckFailed);
   }
-  if (options.schema !== undefined) {
-    throw new CliError(
-      '--schema needs the local pre-check from issue #5, which is not implemented yet; nothing was sent',
-      ExitCode.Unexpected,
-    );
+  if (options.schema === undefined && options.name === undefined && !options.active && !options.inactive) {
+    throw new CliError('nothing to update; pass --schema, --name, --active, or --inactive', ExitCode.PrecheckFailed);
   }
-  const patch: InboundWebhookPatch = {};
-  if (options.name !== undefined) patch.name = options.name;
-  if (options.active) patch.isActive = true;
-  if (options.inactive) patch.isActive = false;
-  if (Object.keys(patch).length === 0) {
-    throw new CliError('nothing to update; pass --name, --active, or --inactive', ExitCode.PrecheckFailed);
-  }
-  return patch;
 }
 
 export async function webhookUpdate(id: string, options: WebhookUpdateOptions, deps: WebhookDeps): Promise<void> {
-  const patch = buildPatch(options);
+  checkUpdateFlags(options);
+  const patch: InboundWebhookPatch = {};
+  if (options.name !== undefined) patch.name = options.name;
+  if (options.schema !== undefined) patch.schema = await readCheckedSchema(options.schema);
+  if (options.active) patch.isActive = true;
+  if (options.inactive) patch.isActive = false;
+
   const session = await loadSession(options.profile, deps);
   const webhook = await updateInboundWebhook(session, id, patch);
   deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
