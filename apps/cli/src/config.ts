@@ -137,6 +137,15 @@ export function setWebhookSecret(
   };
 }
 
+/** Drops a webhook's stored signing secret; returns null when there was none to drop. */
+export function removeWebhookSecret(config: Config, profileName: string, webhookId: string): Config | null {
+  const profile = config.profiles[profileName];
+  if (!profile?.webhookSecrets || !(webhookId in profile.webhookSecrets)) return null;
+  const webhookSecrets = { ...profile.webhookSecrets };
+  delete webhookSecrets[webhookId];
+  return { ...config, profiles: { ...config.profiles, [profileName]: { ...profile, webhookSecrets } } };
+}
+
 /** Clears a profile's session (e.g. on logout), keeping its baseUrl, the other profiles, and activeProfile untouched. */
 export function clearSession(config: Config, profileName: string): Config {
   const profile = config.profiles[profileName];
