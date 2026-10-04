@@ -252,6 +252,28 @@ describe('InboundWebhooksService default reader roles', () => {
       expect(repository.create).not.toHaveBeenCalled();
     });
 
+    it('accepts a schema without steps, storing it as given', async () => {
+      const flat = {
+        version: 1,
+        fields: [{ key: 'title', type: 'string', required: true }],
+      };
+
+      await service.create(dto({ schema: flat }), 'admin-1');
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ schema: flat }),
+      );
+    });
+
+    it('rejects a schema that declares steps and fields together', async () => {
+      const both = { ...SCHEMA, fields: SCHEMA.steps[0].fields };
+
+      await expect(
+        service.create(dto({ schema: both }), 'admin-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
     it('returns the roles the webhook ended up with', async () => {
       const result = await service.create(dto(), 'admin-1');
 

@@ -17,7 +17,10 @@ export class UpdateInboundWebhookDto {
   @MaxLength(255)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'A FormSchema; re-validated on update.' })
+  @ApiPropertyOptional({
+    description:
+      'Either `steps` or flat `fields`, not both; re-validated on update.',
+  })
   @IsOptional()
   @IsObject()
   schema?: Record<string, unknown>;

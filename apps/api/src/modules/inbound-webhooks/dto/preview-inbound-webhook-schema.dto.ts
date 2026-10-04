@@ -9,14 +9,14 @@ import {
 } from 'class-validator';
 
 /**
- * Checks a FormSchema without creating anything. `schema` is what create
+ * Checks a schema (steps or flat fields) without creating anything. `schema` is what create
  * takes; the rest only shapes the generated docs, so the preview shows what
  * the project's developers will actually receive.
  */
 export class PreviewInboundWebhookSchemaDto {
   @ApiProperty({
     description:
-      'A FormSchema, checked by the same validator that create uses.',
+      'Either `steps` or flat `fields`, not both; checked by the same validator that create uses.',
     example: {
       version: 1,
       steps: [

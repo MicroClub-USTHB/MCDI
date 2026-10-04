@@ -32,7 +32,10 @@ export class CreateInboundWebhookDto {
   slug!: string;
 
   @ApiProperty({
-    description: 'A FormSchema. Validated by the Layer-1 schema validator.',
+    description:
+      'The shape of what callers send. Either `steps` (a multi-step form; the payload is keyed by step) ' +
+      'or `fields` (a flat payload, for an event or any non-form data), not both. ' +
+      'Validated by the Layer-1 schema validator.',
     example: {
       version: 1,
       steps: [
