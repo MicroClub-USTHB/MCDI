@@ -1,14 +1,17 @@
 import { createInterface } from 'node:readline/promises';
 import { join } from 'node:path';
-import { configDir, configPath, loadConfig, resolveProfileName } from './config.js';
-import { decrypt, defaultKeyProvider, type KeyProvider } from './crypto-store.js';
+import { configDir, configPath, loadConfig, resolveProfileName, saveConfig, setWebhookSecret } from './config.js';
+import { readFile } from 'node:fs/promises';
+import { decrypt, defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import {
+  createInboundWebhook,
   getInboundWebhook,
   listInboundWebhooks,
   setInboundWebhookRoles,
   updateInboundWebhook,
   type InboundWebhook,
+  type CreateInboundWebhookBody,
   type InboundWebhookPatch,
 } from './mcdi.js';
 import { resolveSession, type Session } from './session.js';
@@ -169,18 +172,26 @@ export interface WebhookRolesSetOptions {
   roles: string;
 }
 
-export async function webhookRolesSet(id: string, options: WebhookRolesSetOptions, deps: WebhookDeps): Promise<void> {
-  const roleIds = options.roles
+/**
+ * Splits a comma-separated `--roles` value. MCDI treats an empty allowed-readers
+ * set as nobody, not "allow everyone", so an empty one is refused before any call.
+ */
+function parseRoleIds(raw: string, emptyMeans: string): string[] {
+  const roleIds = raw
     .split(',')
     .map((role) => role.trim())
     .filter((role) => role !== '');
-  // MCDI treats an empty set as removing all read access, not "allow everyone", so refuse it here first.
   if (roleIds.length === 0) {
-    throw new CliError(
-      '--roles needs at least one Discord role id; an empty set would remove all read access (delete the webhook instead)',
-      ExitCode.PrecheckFailed,
-    );
+    throw new CliError(`--roles needs at least one Discord role id; ${emptyMeans}`, ExitCode.PrecheckFailed);
   }
+  return roleIds;
+}
+
+export async function webhookRolesSet(id: string, options: WebhookRolesSetOptions, deps: WebhookDeps): Promise<void> {
+  const roleIds = parseRoleIds(
+    options.roles,
+    'an empty set would remove all read access (delete the webhook instead)',
+  );
   const session = await loadSession(options.profile, deps);
   const stored = await setInboundWebhookRoles(session, id, roleIds);
   deps.out(`Allowed reader roles for ${id} on ${session.profileName}: ${stored.join(', ')}`);
@@ -239,4 +250,99 @@ export async function webhookSecretGet(options: WebhookSecretGetOptions, deps: W
     deps.out(`Signing secret for ${entry.name} (${entry.slug}): ${maskSecret(secret)}`);
     deps.info('Pass --reveal to print it in plain text.');
   }
+}
+
+export interface WebhookCreateOptions {
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
+  name: string;
+  project: string;
+  roles: string;
+  acceptOrigin: string[];
+  slug?: string;
+  reveal?: boolean;
+}
+
+/** MCDI's `CreateInboundWebhookDto.slug` rule. */
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
+
+/** "Recruitment 2026!" → "recruitment-2026"; may still fail SLUG_PATTERN (e.g. a one-character name). */
+export function slugFromName(name: string): string {
+  return name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 64)
+    .replace(/-+$/, '');
+}
+
+function resolveSlug(options: WebhookCreateOptions): string {
+  const slug = options.slug ?? slugFromName(options.name);
+  if (SLUG_PATTERN.test(slug)) return slug;
+  throw new CliError(
+    options.slug !== undefined
+      ? `--slug "${slug}" must be 2-64 lowercase letters, digits, or dashes, not starting or ending with a dash`
+      : `could not derive a valid slug from --name "${options.name}"; pass --slug <slug>`,
+    ExitCode.PrecheckFailed,
+  );
+}
+
+/** Reads the schema file. There is no local pre-check to run on it: issue #5's was reverted on dev, so MCDI validates it. */
+async function readSchemaFile(path: string): Promise<Record<string, unknown>> {
+  let contents: string;
+  try {
+    contents = await readFile(path, 'utf8');
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(`could not read schema ${path}: ${reason}`, ExitCode.Unexpected);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(`schema ${path} is not valid JSON (${reason}); nothing was sent`, ExitCode.PrecheckFailed);
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new CliError(`schema ${path} must be a JSON object; nothing was sent`, ExitCode.PrecheckFailed);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+export async function webhookCreate(schemaPath: string, options: WebhookCreateOptions, deps: WebhookDeps): Promise<void> {
+  const allowedRoleIds = parseRoleIds(options.roles, 'MCDI requires at least one role allowed to read submissions');
+  const slug = resolveSlug(options);
+  const schema = await readSchemaFile(schemaPath);
+
+  const session = await loadSession(options.profile, deps);
+  const body: CreateInboundWebhookBody = { projectId: options.project, name: options.name, slug, schema, allowedRoleIds };
+  if (options.acceptOrigin.length > 0) body.acceptedOrigins = options.acceptOrigin;
+  const created = await createInboundWebhook(session, body);
+  const { webhook } = created;
+
+  // MCDI will never show this secret again, so it has to land in the local store now.
+  try {
+    const latest = await loadConfig(deps.configPath);
+    const entry = { secret: await encrypt(created.signingSecret, deps.keys), name: webhook.name, slug: webhook.slug };
+    await saveConfig(setWebhookSecret(latest, session.profileName, webhook.id, entry), deps.configPath);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new CliError(
+      `webhook ${webhook.name} (${webhook.id}) was created on MCDI, but its signing secret could not be stored locally ` +
+        `(${reason}); run \`m-forge webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` to get a new one`,
+      ExitCode.Unexpected,
+    );
+  }
+
+  deps.out(`Created ${webhook.name} (${webhook.slug}) on ${session.profileName}`);
+  deps.out(`ID:             ${webhook.id}`);
+  deps.out(`Submit URL:     ${created.submitUrl}`);
+  deps.out(`Docs:           ${created.docsUrl}`);
+  deps.out(`Signing secret: ${options.reveal ? created.signingSecret : maskSecret(created.signingSecret)}`);
+  deps.info(
+    `The signing secret is stored encrypted; get it again with \`m-forge webhook secret get --profile ${session.profileName}\`` +
+      (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
+  );
 }

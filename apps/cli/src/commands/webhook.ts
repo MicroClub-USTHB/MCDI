@@ -3,11 +3,13 @@ import { exitWithError } from '../errors.js';
 import { notImplemented } from '../not-implemented.js';
 import {
   defaultWebhookDeps,
+  webhookCreate,
   webhookGet,
   webhookList,
   webhookRolesSet,
   webhookSecretGet,
   webhookUpdate,
+  type WebhookCreateOptions,
   type WebhookGetOptions,
   type WebhookListOptions,
   type WebhookRolesSetOptions,
@@ -22,12 +24,21 @@ export function registerWebhookCommand(program: Command): void {
 
   webhook
     .command('create <schema-path>')
-    .description('Pre-check a schema, then create the webhook on MCDI')
+    .description('Create a webhook on MCDI from a schema file and store its signing secret')
     .requiredOption('--name <name>', 'webhook display name')
     .requiredOption('--project <projectId>', 'owning MCDI project id')
     .requiredOption('--roles <roleIds>', 'comma-separated allowed Discord role ids')
     .option('--accept-origin <origin>', 'accepted origin (repeatable)', collect, [])
-    .action(() => notImplemented('webhook create', 7));
+    .option('--slug <slug>', 'URL-safe id, unique in the project (default: derived from --name)')
+    .option('--reveal', 'print the signing secret in plain text')
+    .requiredOption('--profile <name>', 'profile to create on')
+    .action(async (schemaPath: string, options: WebhookCreateOptions) => {
+      try {
+        await webhookCreate(schemaPath, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook create', err);
+      }
+    });
 
   webhook
     .command('update <id>')
