@@ -99,3 +99,130 @@ export async function getAdminMe(baseUrl: string, token: string): Promise<AdminM
 export function adminDisplayName(me: AdminMe): string {
   return me.preferredName || me.displayName || me.globalName || me.username;
 }
+
+/**
+ * An inbound webhook as `/admin/inbound-webhooks` returns it — MCDI's
+ * `InboundWebhookRow` (inbound-webhooks.repository.ts, `PUBLIC_COLUMNS`).
+ * The signing secret is never part of it.
+ */
+export interface InboundWebhook {
+  id: string;
+  projectId: string;
+  name: string;
+  slug: string;
+  schema: unknown;
+  acceptedOrigins: string[];
+  requireSignature: boolean;
+  rejectUnknownFields: boolean;
+  allowRoleInheritance: boolean;
+  isActive: boolean;
+  submissionCount: number;
+  lastSubmissionAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const INBOUND_WEBHOOK_FIELDS = [
+  'id',
+  'projectId',
+  'name',
+  'slug',
+  'schema',
+  'acceptedOrigins',
+  'requireSignature',
+  'rejectUnknownFields',
+  'allowRoleInheritance',
+  'isActive',
+  'submissionCount',
+  'lastSubmissionAt',
+  'createdAt',
+  'updatedAt',
+] as const satisfies readonly (keyof InboundWebhook)[];
+
+/** Keeps only the documented public fields, so nothing secret-like MCDI might add later is ever echoed. */
+function toInboundWebhook(raw: unknown): InboundWebhook {
+  const row = raw as Record<string, unknown> | null;
+  if (typeof row?.id !== 'string' || typeof row.name !== 'string') {
+    throw new CliError('MCDI inbound webhook response has an unexpected shape', ExitCode.Unexpected);
+  }
+  const picked: Record<string, unknown> = {};
+  for (const field of INBOUND_WEBHOOK_FIELDS) picked[field] = row[field];
+  return picked as unknown as InboundWebhook;
+}
+
+/** Turns a NestJS error body (`message` string or list, or MCDI's `errors: [{path, code, message}]`) into one line. */
+function describeError(body: unknown): string | undefined {
+  const b = body as { message?: unknown; errors?: unknown } | null;
+  if (Array.isArray(b?.errors) && b.errors.length > 0) {
+    return b.errors
+      .map((e: { path?: unknown; code?: unknown; message?: unknown }) =>
+        [e.path, e.code, e.message].filter((part) => typeof part === 'string' && part).join(' '),
+      )
+      .join('; ');
+  }
+  if (Array.isArray(b?.message)) return b.message.join('; ');
+  if (typeof b?.message === 'string') return b.message;
+  return undefined;
+}
+
+/**
+ * An authenticated call to MCDI's admin API with a session token, mapping
+ * failures onto the PRD §11 exit codes. `profileName` only feeds the re-login hint.
+ */
+async function adminRequest(
+  baseUrl: string,
+  token: string,
+  profileName: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<unknown> {
+  const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const res = await request(baseUrl, path, {
+    method,
+    headers,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  if (res.ok) return res.status === 204 ? undefined : readJson(res, `${method} ${path}`);
+
+  const detail = describeError(await res.json().catch(() => null));
+  const suffix = detail ? `: ${detail}` : '';
+  if (res.status === 401) {
+    throw new CliError(
+      `MCDI rejected the session (invalid or expired); run \`mcdi-cli login --profile ${profileName}\``,
+      ExitCode.Auth,
+    );
+  }
+  if (res.status === 403) {
+    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
+  }
+  if (res.status === 404) throw new CliError(`not found${suffix}`, ExitCode.NotFound);
+  if (res.status === 400 || res.status === 422) {
+    throw new CliError(`MCDI rejected the request (HTTP ${res.status})${suffix}`, ExitCode.Rejected);
+  }
+  throw new CliError(`MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`, ExitCode.Unexpected);
+}
+
+/** Where to reach MCDI and as whom, for the admin inbound-webhooks calls. */
+export interface AdminSession {
+  profileName: string;
+  baseUrl: string;
+  token: string;
+}
+
+/** GET /admin/inbound-webhooks[?projectId=] → webhooks, newest first. */
+export async function listInboundWebhooks(session: AdminSession, projectId?: string): Promise<InboundWebhook[]> {
+  const query = projectId ? `?${new URLSearchParams({ projectId })}` : '';
+  const body = await adminRequest(
+    session.baseUrl,
+    session.token,
+    session.profileName,
+    'GET',
+    `/admin/inbound-webhooks${query}`,
+  );
+  if (!Array.isArray(body)) {
+    throw new CliError('MCDI inbound webhook list response is not an array', ExitCode.Unexpected);
+  }
+  return body.map(toInboundWebhook);
+}
