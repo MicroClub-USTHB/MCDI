@@ -235,3 +235,20 @@ export async function getInboundWebhook(session: AdminSession, id: string): Prom
     await adminRequest(session.baseUrl, session.token, session.profileName, 'GET', webhookPath(id)),
   );
 }
+
+/** The `UpdateInboundWebhookDto` fields mcdi-cli sends; only the ones being changed are included. */
+export interface InboundWebhookPatch {
+  name?: string;
+  isActive?: boolean;
+}
+
+/** PATCH /admin/inbound-webhooks/:id → the updated webhook (400 → exit 2, 404 → exit 4). */
+export async function updateInboundWebhook(
+  session: AdminSession,
+  id: string,
+  patch: InboundWebhookPatch,
+): Promise<InboundWebhook> {
+  return toInboundWebhook(
+    await adminRequest(session.baseUrl, session.token, session.profileName, 'PATCH', webhookPath(id), patch),
+  );
+}

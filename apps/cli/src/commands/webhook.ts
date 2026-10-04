@@ -5,8 +5,10 @@ import {
   defaultWebhookDeps,
   webhookGet,
   webhookList,
+  webhookUpdate,
   type WebhookGetOptions,
   type WebhookListOptions,
+  type WebhookUpdateOptions,
 } from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
@@ -30,7 +32,14 @@ export function registerWebhookCommand(program: Command): void {
     .option('--name <name>', 'new display name')
     .option('--active', 'mark the webhook active')
     .option('--inactive', 'mark the webhook inactive')
-    .action(() => notImplemented('webhook update', 11));
+    .requiredOption('--profile <name>', 'profile to update on')
+    .action(async (id: string, options: WebhookUpdateOptions) => {
+      try {
+        await webhookUpdate(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook update', err);
+      }
+    });
 
   webhook
     .command('list')

@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { emptyConfig, saveConfig, setSession } from './config.js';
 import { encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { webhookGet, webhookList, type WebhookDeps } from './webhook-flow.js';
+import { webhookGet, webhookList, webhookUpdate, type WebhookDeps } from './webhook-flow.js';
 
 /**
  * A stand-in for MCDI's `/api/admin/inbound-webhooks` routes, with shapes from
@@ -97,6 +97,10 @@ async function startFakeMcdi(): Promise<FakeMcdi> {
         const index = fake.webhooks.findIndex((w) => w.id === id);
         if (index === -1) return json(404, { statusCode: 404, message: 'Inbound webhook not found', error: 'Not Found' });
         if (req.method === 'GET') return json(200, fake.webhooks[index]);
+        if (req.method === 'PATCH') {
+          fake.webhooks[index] = { ...fake.webhooks[index], ...(fake.requests.at(-1)!.body as object) };
+          return json(200, fake.webhooks[index]);
+        }
       }
       json(404, { statusCode: 404, message: 'Not Found' });
     });
@@ -285,5 +289,86 @@ describe('webhook get', () => {
       expect(printed(out, info)).not.toContain(LEAKED_SECRET);
       expect(printed(out, info)).not.toContain('signingSecret');
     }
+  });
+});
+
+describe('webhook update', () => {
+  it('PATCHes only the new name', async () => {
+    const { fake, deps, out } = await setup();
+    await webhookUpdate('wh-1', { profile: 'prod', name: 'Recruitment 2027' }, deps);
+
+    expect(fake.requests).toHaveLength(1);
+    expect(fake.requests[0]).toMatchObject({
+      method: 'PATCH',
+      path: '/api/admin/inbound-webhooks/wh-1',
+      authorization: `Bearer ${TOKEN}`,
+      body: { name: 'Recruitment 2027' },
+    });
+    expect(out).toEqual(['Updated Recruitment 2027 (wh-1) on prod; now active']);
+  });
+
+  it('maps --inactive to isActive: false', async () => {
+    const { fake, deps, out } = await setup();
+    await webhookUpdate('wh-1', { profile: 'prod', inactive: true }, deps);
+    expect(fake.requests[0]!.body).toEqual({ isActive: false });
+    expect(out[0]).toMatch(/now inactive$/);
+  });
+
+  it('maps --active to isActive: true, alongside --name', async () => {
+    const { fake, deps, out } = await setup();
+    await webhookUpdate('wh-2', { profile: 'prod', active: true, name: 'Feedback v2' }, deps);
+    expect(fake.requests[0]!.body).toEqual({ name: 'Feedback v2', isActive: true });
+    expect(out[0]).toBe('Updated Feedback v2 (wh-2) on prod; now active');
+  });
+
+  it('rejects --active with --inactive before any network call', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', active: true, inactive: true }, deps),
+      ExitCode.PrecheckFailed,
+      /--active and --inactive cannot be used together/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('rejects an update with nothing to change before any network call', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(webhookUpdate('wh-1', { profile: 'prod' }, deps), ExitCode.PrecheckFailed, /nothing to update/);
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('refuses --schema without sending the PATCH while the issue #5 pre-check is missing', async () => {
+    const { fake, deps } = await setup();
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', schema: 'schema.json', name: 'x' }, deps),
+      ExitCode.Unexpected,
+      /issue #5.*nothing was sent/,
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it("surfaces MCDI's 400 as exit 2", async () => {
+    const { fake, deps } = await setup();
+    fake.fail = {
+      status: 400,
+      body: { statusCode: 400, message: ['name must be shorter than or equal to 255 characters'], error: 'Bad Request' },
+    };
+    await expectCliError(
+      webhookUpdate('wh-1', { profile: 'prod', name: 'x'.repeat(300) }, deps),
+      ExitCode.Rejected,
+      /HTTP 400.*name must be shorter/,
+    );
+  });
+
+  it('maps a 404 to exit 4', async () => {
+    const { deps } = await setup();
+    await expectCliError(webhookUpdate('missing', { profile: 'prod', inactive: true }, deps), ExitCode.NotFound, /not found/);
+  });
+
+  it('never prints the session token or secret material', async () => {
+    const { deps, out, info } = await setup();
+    await webhookUpdate('wh-1', { profile: 'prod', name: 'Renamed' }, deps);
+    expect(printed(out, info)).not.toContain(TOKEN);
+    expect(printed(out, info)).not.toContain(LEAKED_SECRET);
   });
 });
