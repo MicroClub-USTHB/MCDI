@@ -4,12 +4,14 @@ import { notImplemented } from '../not-implemented.js';
 import {
   defaultWebhookDeps,
   webhookCreate,
+  webhookDelete,
   webhookGet,
   webhookList,
   webhookRolesSet,
   webhookSecretGet,
   webhookUpdate,
   type WebhookCreateOptions,
+  type WebhookDeleteOptions,
   type WebhookGetOptions,
   type WebhookListOptions,
   type WebhookRolesSetOptions,
@@ -87,7 +89,14 @@ export function registerWebhookCommand(program: Command): void {
     .command('delete <id>')
     .description('Delete a webhook and all its submissions')
     .option('--yes', 'skip the confirmation prompt')
-    .action(() => notImplemented('webhook delete', 11));
+    .requiredOption('--profile <name>', 'profile to delete on')
+    .action(async (id: string, options: WebhookDeleteOptions) => {
+      try {
+        await webhookDelete(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook delete', err);
+      }
+    });
 
   const roles = webhook.command('roles').description('Manage allowed reader roles');
   roles
