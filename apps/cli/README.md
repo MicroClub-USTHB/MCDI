@@ -10,9 +10,10 @@ conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
-Command surface is scaffolded as stubs (each prints "not implemented" and
-points at its tracking issue); no command does real work yet. Implementation
-tracked in [issues](https://github.com/MicroClub-USTHB/mcdi-cli/issues).
+The command surface is mostly scaffolded. `schema init` and `schema validate`
+are implemented, including an offline pre-check aligned with MCDI's Layer 1
+schema validator. Other commands remain tracked in
+[issues](https://github.com/MicroClub-USTHB/mcdi-cli/issues).
 
 ## Develop
 
