@@ -83,3 +83,41 @@ export interface InboundWebhookSettingsDto {
   updatedAt: string | null;
   updatedBy: string | null;
 }
+
+/** What `PATCH /api/admin/inbound-webhooks/:id` accepts; each property is optional. */
+export interface UpdateInboundWebhookPayload {
+  name?: string;
+  acceptedOrigins?: string[];
+  requireSignature?: boolean;
+  rejectUnknownFields?: boolean;
+  isActive?: boolean;
+}
+
+export interface SubmissionDto {
+  id: string;
+  payload: Record<string, unknown>;
+  receivedAt: string;
+  origin: string | null;
+}
+
+/** One submission opened in full: the list row plus where the request came from. */
+export interface SubmissionDetailDto extends SubmissionDto {
+  ipAddress: string | null;
+  userAgent: string | null;
+}
+
+/** `GET /api/inbound-webhooks/:id/submissions` */
+export interface SubmissionPageDto {
+  submissions: SubmissionDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface SubmissionFilters {
+  /** `YYYY-MM-DD`, read as UTC. */
+  dateFrom?: string;
+  dateTo?: string;
+  limit: number;
+  offset: number;
+}
