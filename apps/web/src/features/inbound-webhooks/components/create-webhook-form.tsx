@@ -185,62 +185,64 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         </div>
       </section>
 
-      <section className="flex flex-col gap-3">
-        <div>
-          <h2 className="text-subhead text-text-primary">Who can read what it receives</h2>
-          <p className="text-body text-text-muted">
-            Members holding one of these Discord roles. The default roles are added for you; remove
-            any you don&apos;t want here.
-          </p>
-        </div>
-        <RolePicker
-          options={roles.options}
-          selected={selectedRoles}
-          onChange={setPickedRoles}
-          isLoading={roles.isLoading}
-        />
-      </section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-subhead text-text-primary">Who can read what it receives</h2>
+            <p className="text-body text-text-muted">
+              Members holding one of these Discord roles. The default roles are added for you;
+              remove any you don&apos;t want here.
+            </p>
+          </div>
+          <RolePicker
+            options={roles.options}
+            selected={selectedRoles}
+            onChange={setPickedRoles}
+            isLoading={roles.isLoading}
+          />
+        </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-subhead text-text-primary">Options</h2>
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="require-signature" className="flex flex-col gap-1">
-            Require a signature
-            <span className="text-text-muted">Reject requests that aren&apos;t signed.</span>
-          </Label>
-          <Switch
-            id="require-signature"
-            checked={requireSignature}
-            onCheckedChange={setRequireSignature}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="reject-unknown" className="flex flex-col gap-1">
-            Reject unknown fields
-            <span className="text-text-muted">
-              Off means fields outside the schema are dropped instead.
-            </span>
-          </Label>
-          <Switch
-            id="reject-unknown"
-            checked={rejectUnknownFields}
-            onCheckedChange={setRejectUnknownFields}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="accepted-origins">Accepted origins</Label>
-          <Textarea
-            id="accepted-origins"
-            value={origins}
-            onChange={(event) => setOrigins(event.target.value)}
-            placeholder="https://app.microclub.dz"
-            rows={3}
-          />
-          <p className="text-body text-text-muted">
-            One per line. Leave empty to accept requests from anywhere.
-          </p>
-        </div>
-      </section>
+        <section className="flex flex-col gap-4">
+          <h2 className="text-subhead text-text-primary">Options</h2>
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="require-signature" className="flex flex-col gap-1">
+              Require a signature
+              <span className="text-text-muted">Reject requests that aren&apos;t signed.</span>
+            </Label>
+            <Switch
+              id="require-signature"
+              checked={requireSignature}
+              onCheckedChange={setRequireSignature}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="reject-unknown" className="flex flex-col gap-1">
+              Reject unknown fields
+              <span className="text-text-muted">
+                Off means fields outside the schema are dropped instead.
+              </span>
+            </Label>
+            <Switch
+              id="reject-unknown"
+              checked={rejectUnknownFields}
+              onCheckedChange={setRejectUnknownFields}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="accepted-origins">Accepted origins</Label>
+            <Textarea
+              id="accepted-origins"
+              value={origins}
+              onChange={(event) => setOrigins(event.target.value)}
+              placeholder="https://app.microclub.dz"
+              rows={3}
+            />
+            <p className="text-body text-text-muted">
+              One per line. Leave empty to accept requests from anywhere.
+            </p>
+          </div>
+        </section>
+      </div>
 
       <div className="flex justify-end gap-3">
         <Button type="button" variant="ghost" onClick={() => router.back()}>

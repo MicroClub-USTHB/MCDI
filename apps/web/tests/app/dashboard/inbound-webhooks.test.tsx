@@ -219,15 +219,20 @@ describe('Create inbound webhook', () => {
     expect(schema).not.toHaveProperty('steps');
   });
 
-  it('shows the API preview of a valid schema, after a pause', async () => {
+  it('shows the example payload first, and the docs behind a tab', async () => {
     serveRoles();
     servePreview();
     render(<CreateWebhookForm projectId="proj_1" />, { wrapper });
 
     expect(await screen.findByText(/"example"/)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Docs' })).toBeNull();
+    expect(previewBodies).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Docs' }));
+
     expect(screen.getByRole('heading', { name: 'Docs' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Field' })).toBeInTheDocument();
-    expect(previewBodies).toHaveLength(1);
+    expect(screen.queryByText(/"example"/)).toBeNull();
   });
 
   it('keeps the last valid preview, without asking the API, while the text is not valid JSON', async () => {
@@ -240,7 +245,7 @@ describe('Create inbound webhook', () => {
     await userEvent.clear(editor);
     await userEvent.type(editor, '{{ "version": ');
 
-    expect(await screen.findByText(/This is the last version that was valid/)).toBeInTheDocument();
+    expect(await screen.findByText('Last valid version')).toBeInTheDocument();
     expect(screen.getByText(/"example"/)).toBeInTheDocument();
     expect(previewBodies).toHaveLength(1);
   });
