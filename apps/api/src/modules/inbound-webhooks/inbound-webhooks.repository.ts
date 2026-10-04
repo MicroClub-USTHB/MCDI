@@ -1,5 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, gte, inArray, lte, sql, SQL } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  ne,
+  or,
+  sql,
+  SQL,
+} from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
 import * as schema from '../../database/entities';
@@ -9,8 +22,11 @@ import {
   inboundWebhookSubmissions,
   inboundWebhooks,
   projectServers,
+  roleInheritanceRuleTargets,
+  roleInheritanceRules,
   roles,
   serverMemberRoles,
+  servers,
 } from '../../database/entities';
 import type { FormSchema } from './schema/form-schema.types';
 
@@ -159,6 +175,32 @@ export class InboundWebhooksRepository {
    * cannot see.
    */
   async listReadableByMember(memberId: string): Promise<InboundWebhookRow[]> {
+    const direct = await this.listReadableDirectly(memberId);
+
+    // Webhooks that opted in to inheritance add the ones reached through it.
+    const known = new Set(direct.map((webhook) => webhook.id));
+    const inheritedIds = [
+      ...new Set(
+        (await this.findInheritedGrants(memberId))
+          .map((grant) => grant.webhookId)
+          .filter((id) => !known.has(id)),
+      ),
+    ];
+    if (inheritedIds.length === 0) return direct;
+
+    const inherited = (await this.db
+      .select(PUBLIC_COLUMNS)
+      .from(inboundWebhooks)
+      .where(inArray(inboundWebhooks.id, inheritedIds))) as InboundWebhookRow[];
+
+    return [...direct, ...inherited].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
+  }
+
+  private async listReadableDirectly(
+    memberId: string,
+  ): Promise<InboundWebhookRow[]> {
     const rows = await this.db
       .selectDistinct(PUBLIC_COLUMNS)
       .from(inboundWebhooks)
@@ -302,6 +344,88 @@ export class InboundWebhooksRepository {
       .from(serverMemberRoles)
       .where(eq(serverMemberRoles.memberId, memberId));
     return rows.map((r) => r.roleId);
+  }
+
+  /**
+   * The granted role through which a member reads one webhook by inheritance,
+   * or null. Only webhooks with `allowRoleInheritance` can match.
+   */
+  async findInheritedGrantRoleId(
+    memberId: string,
+    webhookId: string,
+  ): Promise<string | null> {
+    const [grant] = await this.findInheritedGrants(memberId, webhookId);
+    return grant?.roleId ?? null;
+  }
+
+  /**
+   * Granted roles a member reaches through role inheritance, for webhooks that
+   * opted in. This is the same rule permissions use
+   * (`PermissionsRepository.hasInheritedPermission`): a role the member holds
+   * on the MAIN server that is the source of an enabled inheritance rule
+   * covering the granted role's server counts as the role of the same name
+   * there. A role granted on the main server itself is never inherited.
+   */
+  private async findInheritedGrants(
+    memberId: string,
+    webhookId?: string,
+  ): Promise<{ webhookId: string; roleId: string }[]> {
+    const [main] = await this.db
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.isMain, true))
+      .limit(1);
+    if (!main) return [];
+
+    const held = alias(roles, 'held_role');
+    const granted = alias(roles, 'granted_role');
+
+    return this.db
+      .selectDistinct({
+        webhookId: inboundWebhooks.id,
+        roleId: inboundWebhookRoles.roleId,
+      })
+      .from(inboundWebhooks)
+      .innerJoin(
+        inboundWebhookRoles,
+        eq(inboundWebhookRoles.webhookId, inboundWebhooks.id),
+      )
+      .innerJoin(granted, eq(granted.id, inboundWebhookRoles.roleId))
+      .innerJoin(
+        held,
+        sql`lower(trim(${held.name})) = lower(trim(${granted.name}))`,
+      )
+      .innerJoin(serverMemberRoles, eq(serverMemberRoles.roleId, held.id))
+      .innerJoin(
+        roleInheritanceRules,
+        and(
+          eq(roleInheritanceRules.sourceRoleId, held.id),
+          eq(roleInheritanceRules.enabled, true),
+        ),
+      )
+      .leftJoin(
+        roleInheritanceRuleTargets,
+        and(
+          eq(roleInheritanceRuleTargets.ruleId, roleInheritanceRules.id),
+          eq(roleInheritanceRuleTargets.targetServerId, granted.serverId),
+        ),
+      )
+      .where(
+        and(
+          eq(inboundWebhooks.allowRoleInheritance, true),
+          webhookId ? eq(inboundWebhooks.id, webhookId) : undefined,
+          eq(serverMemberRoles.memberId, memberId),
+          eq(held.serverId, main.id),
+          ne(granted.serverId, main.id),
+          or(
+            eq(roleInheritanceRules.targetScope, 'all'),
+            and(
+              eq(roleInheritanceRules.targetScope, 'selected'),
+              isNotNull(roleInheritanceRuleTargets.targetServerId),
+            ),
+          ),
+        ),
+      );
   }
 
   // ─── Submissions ────────────────────────────────────────────────────────

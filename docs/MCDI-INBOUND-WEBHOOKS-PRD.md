@@ -393,7 +393,7 @@ Five new tables. Naming follows the `inbound_webhook*` prefix throughout.
 | `accepted_origins` | jsonb `string[]` | allowlist; empty = no origin check |
 | `signing_secret_enc` | text | AES-256-GCM ciphertext — **not** a hash |
 | `require_signature` | boolean, default `true` | |
-| `allow_role_inheritance` | boolean, default `false` | see [15](#15-open-decisions) |
+| `allow_role_inheritance` | boolean, default `false` | when `true`, role inheritance rules also grant read access; see [10.3](#103-enforcement) and [15](#15-open-decisions) |
 | `is_active` | boolean, default `true` | |
 | `submission_count` | integer, default `0` | |
 | `last_submission_at` | timestamptz null | |
@@ -612,9 +612,14 @@ new endpoint:
 2. webhookId from params → granted role ids        (Redis-cached)
 3. member's role ids on that webhook's server      (uncached, indexed)
 4. intersection non-empty            → allow
+5. else, if the webhook has allow_role_inheritance and the member holds a main-server
+   role that inherits a granted role (see D1)       → allow
    else                              → 404
    (a system admin role does not bypass the grant)
 ```
+
+The inheritance check in step 5 is uncached like step 3, and the same rule decides which
+webhooks `GET /inbound-webhooks` lists.
 
 **404, not 403.** A `403` confirms the webhook exists and that the caller merely
 lacks permission — an enumeration oracle over the org's forms.
@@ -778,7 +783,7 @@ follow.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Does `role_inheritance_rules` apply to submission reads? | **No.** Data access should be explicit. "The president inherits everything" is a surprise when the form holds phone numbers. Exposed as the per-webhook `allow_role_inheritance` flag, default `false`, so it is visible per form rather than global |
+| D1 | Does `role_inheritance_rules` apply to submission reads? | **No by default.** Data access should be explicit. "The president inherits everything" is a surprise when the form holds phone numbers. Exposed as the per-webhook `allow_role_inheritance` flag, default `false`, so it is visible per form rather than global. **Implemented (IW-17):** with the flag on, a role the member holds on the main server that is the source of an enabled rule covering the granted role's server counts as the same-named role there (the rule permissions already use). A role granted on the main server itself is never inherited |
 | D2 | Submission retention period | 365 days default, configurable. Decide **before** the table has ten million rows |
 | D3 | Per-role field-level redaction | v2. Would become `inbound_webhook_roles.visible_fields jsonb` |
 | D4 | Public (no-API-key) ingest mode | Out of scope for v1; would be token-in-URL plus strict rate limiting |

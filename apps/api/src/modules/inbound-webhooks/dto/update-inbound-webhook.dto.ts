@@ -38,7 +38,10 @@ export class UpdateInboundWebhookDto {
   @IsBoolean()
   rejectUnknownFields?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Let role inheritance rules grant read access to this webhook. See the create request for the rule.',
+  })
   @IsOptional()
   @IsBoolean()
   allowRoleInheritance?: boolean;

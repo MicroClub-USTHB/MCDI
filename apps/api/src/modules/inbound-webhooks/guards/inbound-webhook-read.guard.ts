@@ -22,6 +22,9 @@ export type RequestWithReadAccess = Request & {
  *
  * Runs after SessionGuard, which populates `req.memberId`.
  *
+ * A webhook that sets `allowRoleInheritance` also admits members whose role
+ * inherits a granted role (see `InboundWebhooksRepository.findInheritedGrants`).
+ *
  * Denial is a 404, never a 403: a 403 would confirm the webhook exists and
  * that the caller merely lacks permission, which is an enumeration oracle
  * over the organisation's forms.
@@ -54,6 +57,17 @@ export class InboundWebhookReadGuard implements CanActivate {
 
     if (matched) {
       request.matchedViaRoleId = matched;
+      return true;
+    }
+
+    // Webhooks with `allowRoleInheritance` also admit a member whose role
+    // inherits a granted one. Like the member's own roles, never cached.
+    const inherited = await this.repository.findInheritedGrantRoleId(
+      memberId,
+      webhookId,
+    );
+    if (inherited) {
+      request.matchedViaRoleId = inherited;
       return true;
     }
 
