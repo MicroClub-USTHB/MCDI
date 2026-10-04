@@ -10,9 +10,22 @@ export interface StoredSession {
   adminIdentity: string;
 }
 
+/**
+ * A webhook signing secret m-forge keeps because MCDI never re-issues one
+ * (docs/endpoints/webhook/). `secret` is always encrypted, like `accessToken`;
+ * the rest only labels it for `m-forge webhook secret get`.
+ */
+export interface StoredWebhookSecret {
+  secret: string;
+  name: string;
+  slug: string;
+}
+
 export interface Profile {
   baseUrl: string;
   session: StoredSession | null;
+  /** Keyed by webhook id. */
+  webhookSecrets?: Record<string, StoredWebhookSecret>;
 }
 
 export interface Config {

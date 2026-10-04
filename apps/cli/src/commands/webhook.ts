@@ -6,10 +6,12 @@ import {
   webhookGet,
   webhookList,
   webhookRolesSet,
+  webhookSecretGet,
   webhookUpdate,
   type WebhookGetOptions,
   type WebhookListOptions,
   type WebhookRolesSetOptions,
+  type WebhookSecretGetOptions,
   type WebhookUpdateOptions,
 } from '../webhook-flow.js';
 
@@ -102,7 +104,13 @@ export function registerWebhookCommand(program: Command): void {
     .description('Retrieve a stored signing secret (prompts if more than one is stored)')
     .option('--reveal', 'print the secret in plain text')
     .option('--profile <name>', 'profile to read from')
-    .action(() => notImplemented('webhook secret get', 9));
+    .action(async (options: WebhookSecretGetOptions) => {
+      try {
+        await webhookSecretGet(options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook secret get', err);
+      }
+    });
 
   webhook
     .command('diff <id> <schema-path>')
