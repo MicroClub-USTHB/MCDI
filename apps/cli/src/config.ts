@@ -102,3 +102,13 @@ export function setSession(config: Config, profileName: string, baseUrl: string,
     profiles: { ...config.profiles, [profileName]: { baseUrl, session } },
   };
 }
+
+/** Clears a profile's session (e.g. on logout), keeping its baseUrl, the other profiles, and activeProfile untouched. */
+export function clearSession(config: Config, profileName: string): Config {
+  const profile = config.profiles[profileName];
+  if (!profile) return config;
+  return {
+    ...config,
+    profiles: { ...config.profiles, [profileName]: { ...profile, session: null } },
+  };
+}
