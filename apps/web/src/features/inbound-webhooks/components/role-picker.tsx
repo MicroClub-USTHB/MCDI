@@ -68,7 +68,7 @@ export function RolePicker({ options, selected, onChange, isLoading }: RolePicke
         aria-label="Search roles"
       />
 
-      <ul className="max-h-60 overflow-y-auto rounded-md border border-border">
+      <ul className="relative max-h-60 overflow-y-auto rounded-md border border-border">
         {isLoading ? (
           <li className="px-3 py-2 text-body text-text-subtle">Loading roles…</li>
         ) : shown.length === 0 ? (

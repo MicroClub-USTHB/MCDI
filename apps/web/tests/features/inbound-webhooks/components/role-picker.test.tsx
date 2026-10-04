@@ -61,4 +61,12 @@ describe('RolePicker', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/at least one role/i);
   });
+
+  it('positions the scrolling list, so the checkboxes hidden inputs stay inside it', () => {
+    render(<Harness initial={[]} />);
+
+    const list = screen.getByRole('checkbox', { name: 'Member' }).closest('ul');
+
+    expect(list).toHaveClass('relative', 'overflow-y-auto');
+  });
 });
