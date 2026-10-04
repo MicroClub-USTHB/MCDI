@@ -566,6 +566,237 @@ describe('validatePayload (Layer 2)', () => {
     });
   });
 
+  describe('conditions between fields of the same array item', () => {
+    const role: Field = {
+      key: 'role',
+      type: 'enum',
+      required: true,
+      options: [{ value: 'lead' }, { value: 'member' }],
+    };
+    const team: Field = {
+      key: 'team',
+      type: 'string',
+      required: true,
+      condition: { op: 'eq', field: './role', value: 'lead' },
+    };
+    const members = (itemFields: Field[]): Field => ({
+      key: 'members',
+      type: 'array',
+      required: true,
+      maxItems: 5,
+      item: {
+        key: 'member',
+        type: 'object',
+        required: true,
+        fields: itemFields,
+      },
+    });
+    const schema = build([members([role, team])]);
+
+    it('evaluates each item against its own values', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member' },
+              { role: 'lead', team: 'Web' },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member' },
+              { role: 'lead', team: 'Web' },
+            ],
+          },
+        });
+      }
+    });
+
+    it('requires the field only in the items where its condition holds', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'lead' }, { role: 'member' }] } },
+        opts,
+      );
+      expect(codes(r)).toEqual(['REQUIRED']);
+      expect(paths(r)).toEqual(['step.members[0].team']);
+    });
+
+    it('reports every item that breaks the rule, by index', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [{ role: 'lead' }, { role: 'member' }, { role: 'lead' }],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual([
+        'step.members[0].team',
+        'step.members[2].team',
+      ]);
+    });
+
+    it('strips a value sent for an item where the condition does not hold', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'member', team: 'ignored' }] } },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({ step: { members: [{ role: 'member' }] } });
+      }
+    });
+
+    it('does not report a stripped field as unknown', () => {
+      const r = validatePayload(
+        schema,
+        { step: { members: [{ role: 'member', team: 'x' }] } },
+        { rejectUnknownFields: true },
+      );
+      expect(r.ok).toBe(true);
+    });
+
+    it('still lets an item field depend on a field outside the array', () => {
+      const withKind = build([
+        { key: 'kind', type: 'string', required: true },
+        members([
+          role,
+          {
+            key: 'note',
+            type: 'string',
+            required: true,
+            condition: { op: 'eq', field: 'step.kind', value: 'team' },
+          },
+        ]),
+      ]);
+
+      const asTeam = validatePayload(
+        withKind,
+        { step: { kind: 'team', members: [{ role: 'member' }] } },
+        opts,
+      );
+      expect(paths(asTeam)).toEqual(['step.members[0].note']);
+
+      const asSolo = validatePayload(
+        withKind,
+        { step: { kind: 'solo', members: [{ role: 'member' }] } },
+        opts,
+      );
+      expect(asSolo.ok).toBe(true);
+    });
+
+    it('resolves ./ for a field inside a nested object of the item', () => {
+      const nested = build([
+        members([
+          role,
+          {
+            key: 'extra',
+            type: 'object',
+            required: false,
+            fields: [
+              {
+                key: 'team',
+                type: 'string',
+                required: true,
+                condition: { op: 'eq', field: './role', value: 'lead' },
+              },
+            ],
+          },
+        ]),
+      ]);
+
+      const r = validatePayload(
+        nested,
+        {
+          step: {
+            members: [
+              { role: 'lead', extra: {} },
+              { role: 'member', extra: {} },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual(['step.members[0].extra.team']);
+    });
+
+    it('gives each nested array its own item', () => {
+      const tasks: Field = {
+        key: 'tasks',
+        type: 'array',
+        required: false,
+        maxItems: 5,
+        item: {
+          key: 'task',
+          type: 'object',
+          required: true,
+          fields: [
+            { key: 'done', type: 'string', required: true },
+            {
+              key: 'why',
+              type: 'string',
+              required: true,
+              condition: { op: 'eq', field: './done', value: 'no' },
+            },
+          ],
+        },
+      };
+      const nested = build([members([role, tasks])]);
+
+      const r = validatePayload(
+        nested,
+        {
+          step: {
+            members: [
+              {
+                role: 'lead',
+                tasks: [{ done: 'yes' }, { done: 'no' }],
+              },
+              { role: 'member', tasks: [{ done: 'no', why: 'busy' }] },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(paths(r)).toEqual(['step.members[0].tasks[1].why']);
+    });
+
+    it('does not let an inactive field leak into another item', () => {
+      const r = validatePayload(
+        schema,
+        {
+          step: {
+            members: [
+              { role: 'lead', team: 'Robotics' },
+              { role: 'member', team: 'carried over' },
+            ],
+          },
+        },
+        opts,
+      );
+      expect(r.ok).toBe(true);
+      if (r.ok) {
+        expect(r.value).toEqual({
+          step: {
+            members: [{ role: 'lead', team: 'Robotics' }, { role: 'member' }],
+          },
+        });
+      }
+    });
+  });
+
   describe('files', () => {
     const schema = build([
       {

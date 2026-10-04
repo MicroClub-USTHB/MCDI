@@ -15,7 +15,10 @@ import {
   FormSchema,
   FormStep,
 } from '../schema/form-schema.types';
-import { evaluateCondition } from '../schema/condition.evaluator';
+import {
+  evaluateCondition,
+  ITEM_REF_PREFIX,
+} from '../schema/condition.evaluator';
 import { validatePayload } from '../schema/payload.validator';
 
 export interface WebhookDocsInput {
@@ -63,9 +66,16 @@ const EXAMPLE_FILE_ID = '3f1c0a7e-9b2d-4c1a-8e5f-0a1b2c3d4e5f';
 
 /**
  * `root` is the example built so far, which nested conditions are evaluated
- * against — the same paths a real submission would resolve.
+ * against — the same paths a real submission would resolve. `item` is the
+ * array entry being built, which `./` references read; `isItem` marks `field`
+ * as that entry itself (an array element), which starts a new `./` scope.
  */
-function exampleFor(field: Field, root: Record<string, unknown>): unknown {
+function exampleFor(
+  field: Field,
+  root: Record<string, unknown>,
+  item?: Record<string, unknown>,
+  isItem = false,
+): unknown {
   switch (field.type) {
     case 'string':
       return field.pattern
@@ -95,13 +105,13 @@ function exampleFor(field: Field, root: Record<string, unknown>): unknown {
       return field.options.slice(0, field.minSelected ?? 1).map((o) => o.value);
     case 'object': {
       const out: Record<string, unknown> = {};
-      fillExample(field.fields, out, root);
+      fillExample(field.fields, out, root, isItem ? out : item);
       return out;
     }
     case 'array': {
       const count = field.minItems && field.minItems > 0 ? field.minItems : 1;
       return Array.from({ length: Math.min(count, 2) }, () =>
-        exampleFor(field.item, root),
+        exampleFor(field.item, root, item, true),
       );
     }
     case 'file':
@@ -125,17 +135,20 @@ function fillExample(
   fields: Field[],
   target: Record<string, unknown>,
   root: Record<string, unknown>,
+  item?: Record<string, unknown>,
 ): void {
   for (const field of fields) {
-    if (field.condition && !evaluateCondition(field.condition, root)) continue;
+    if (field.condition && !evaluateCondition(field.condition, root, item)) {
+      continue;
+    }
     if (field.type === 'object') {
       // Attached before it is filled, so its own children can reference
       // each other by path.
       const child: Record<string, unknown> = {};
       target[field.key] = child;
-      fillExample(field.fields, child, root);
+      fillExample(field.fields, child, root, item);
     } else {
-      target[field.key] = exampleFor(field, root);
+      target[field.key] = exampleFor(field, root, item);
     }
   }
 }
@@ -326,8 +339,11 @@ export function describeCondition(condition: Condition): string {
     exists: 'is present',
   };
   const verb = verbs[condition.op] ?? condition.op;
-  if (condition.op === 'exists') return `\`${condition.field}\` ${verb}`;
-  return `\`${condition.field}\` ${verb} \`${JSON.stringify(condition.value)}\``;
+  const subject = condition.field.startsWith(ITEM_REF_PREFIX)
+    ? `this entry's \`${condition.field.slice(ITEM_REF_PREFIX.length)}\``
+    : `\`${condition.field}\``;
+  if (condition.op === 'exists') return `${subject} ${verb}`;
+  return `${subject} ${verb} \`${JSON.stringify(condition.value)}\``;
 }
 
 function formatBytes(n: number): string {

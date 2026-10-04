@@ -302,7 +302,7 @@ A deliberately tiny AST. Never `eval`, never a JS expression string.
 ```ts
 type Condition =
   | { op: 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'contains' | 'exists';
-      field: string;              // dotted path: "identity.status"
+      field: string;              // dotted path: "identity.status", or "./role" inside an array item
       value?: unknown }
   | { op: 'and' | 'or'; of: Condition[] }
   | { op: 'not'; of: Condition };
@@ -312,6 +312,33 @@ type Condition =
 the active field set first, then validates only that set. A `required` field inside
 a false condition must not block submission, and any value sent for it is stripped.
 Getting this backwards makes every branching form unsubmittable.
+
+#### Referencing a field of the same array item
+
+A dotted path cannot say *which* entry of a list it means, so a field inside an array
+of objects can't be made conditional on a sibling with an absolute path. A `field`
+starting with `./` is relative to the **nearest enclosing array item** instead:
+
+```json
+{ "key": "members", "type": "array", "required": true, "maxItems": 5,
+  "item": { "key": "member", "type": "object", "required": true, "fields": [
+    { "key": "role", "type": "enum", "required": true,
+      "options": [{ "value": "lead" }, { "value": "member" }] },
+    { "key": "team_name", "type": "string", "required": true,
+      "condition": { "op": "eq", "field": "./role", "value": "lead" } }
+  ] } }
+```
+
+| Rule | |
+|---|---|
+| Meaning | `./role` is the `role` of this same entry; `./address.city` is a nested path inside it |
+| Allowed on | a field inside an array item that is an object (also inside an `object` field within that item) |
+| Target | must be declared **earlier in the same item**; a forward reference, a reference to itself, or a field the item doesn't have is rejected (`FORWARD_REFERENCE`) |
+| Elsewhere | `./` on a step condition, on a field outside any array, or on the item's own condition is rejected (`RELATIVE_REFERENCE_OUTSIDE_ITEM`); an empty `./` is `INVALID_CONDITION` |
+| Nested arrays | each array has its own scope: an inner item can't see the outer item's fields |
+| Absolute paths | unchanged: an item field may still reference a field outside the array, and an absolute path *into* an array is still rejected (`UNRESOLVABLE_REFERENCE`) |
+| At submission | each item is evaluated against **its own values**, read as sent (like absolute paths); one entry can need `team_name` while the next doesn't, and a value sent for an inactive field is stripped |
+| Generated docs | the field's row reads "only when this entry's `role` is `"lead"`", and the example payload evaluates each entry against itself |
 
 ### 6.4 Two validation layers
 

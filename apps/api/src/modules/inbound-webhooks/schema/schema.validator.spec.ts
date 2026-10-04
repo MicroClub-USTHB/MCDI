@@ -387,6 +387,260 @@ describe('validateSchema (Layer 1)', () => {
       expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
     });
 
+    describe('./ references to a sibling in the same array item', () => {
+      const members = (
+        itemFields: unknown[],
+        over: Record<string, unknown> = {},
+      ) => ({
+        key: 'members',
+        type: 'array',
+        required: true,
+        maxItems: 5,
+        item: {
+          key: 'member',
+          type: 'object',
+          required: true,
+          fields: itemFields,
+          ...over,
+        },
+      });
+      const lead = (ref = './role') =>
+        field({
+          key: 'team',
+          condition: { op: 'eq', field: ref, value: 'lead' },
+        });
+
+      it('accepts a reference to an earlier sibling', () => {
+        const result = validateSchema(
+          schema([members([field({ key: 'role' }), lead()])]),
+        );
+        expect(result).toEqual({ ok: true });
+      });
+
+      it('accepts a reference into a nested object of the item', () => {
+        const result = validateSchema(
+          schema([
+            members([
+              {
+                key: 'address',
+                type: 'object',
+                required: true,
+                fields: [field({ key: 'city' })],
+              },
+              field({
+                key: 'note',
+                condition: { op: 'exists', field: './address.city' },
+              }),
+            ]),
+          ]),
+        );
+        expect(result).toEqual({ ok: true });
+      });
+
+      it('accepts it inside and, or and not', () => {
+        const result = validateSchema(
+          schema([
+            members([
+              field({ key: 'role' }),
+              field({
+                key: 'team',
+                condition: {
+                  op: 'not',
+                  of: {
+                    op: 'or',
+                    of: [
+                      { op: 'eq', field: './role', value: 'a' },
+                      { op: 'eq', field: './role', value: 'b' },
+                    ],
+                  },
+                },
+              }),
+            ]),
+          ]),
+        );
+        expect(result).toEqual({ ok: true });
+      });
+
+      it('accepts a condition on a field inside a nested object of the item', () => {
+        const result = validateSchema(
+          schema([
+            members([
+              field({ key: 'role' }),
+              {
+                key: 'extra',
+                type: 'object',
+                required: false,
+                fields: [lead()],
+              },
+            ]),
+          ]),
+        );
+        expect(result).toEqual({ ok: true });
+      });
+
+      it('rejects a sibling declared later', () => {
+        const result = validateSchema(
+          schema([members([lead(), field({ key: 'role' })])]),
+        );
+        expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+      });
+
+      it('rejects a field referencing itself', () => {
+        const result = validateSchema(
+          schema([
+            members([
+              field({
+                key: 'role',
+                condition: { op: 'exists', field: './role' },
+              }),
+            ]),
+          ]),
+        );
+        expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+      });
+
+      it('rejects a field the item does not have', () => {
+        const result = validateSchema(
+          schema([members([field({ key: 'role' }), lead('./nope')])]),
+        );
+        expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+      });
+
+      it('rejects a reference to a sibling of another array', () => {
+        const result = validateSchema(
+          schema([
+            {
+              key: 'a',
+              type: 'array',
+              required: false,
+              maxItems: 3,
+              item: {
+                key: 'one',
+                type: 'object',
+                required: true,
+                fields: [field({ key: 'only_in_a' })],
+              },
+            },
+            {
+              key: 'b',
+              type: 'array',
+              required: false,
+              maxItems: 3,
+              item: {
+                key: 'two',
+                type: 'object',
+                required: true,
+                fields: [lead('./only_in_a')],
+              },
+            },
+          ]),
+        );
+        expect(codes(result)).toEqual(['FORWARD_REFERENCE']);
+      });
+
+      it('resolves ./ against the nearest array when arrays are nested', () => {
+        const inner = {
+          key: 'tasks',
+          type: 'array',
+          required: false,
+          maxItems: 3,
+          item: {
+            key: 'task',
+            type: 'object',
+            required: true,
+            fields: [
+              field({ key: 'done' }),
+              field({
+                key: 'why',
+                condition: { op: 'eq', field: './done', value: 'no' },
+              }),
+            ],
+          },
+        };
+        const result = validateSchema(
+          schema([members([field({ key: 'role' }), inner])]),
+        );
+        expect(result).toEqual({ ok: true });
+
+        // `role` belongs to the outer item, so an inner item can't see it
+        const outerFieldFromInner = validateSchema(
+          schema([
+            members([
+              field({ key: 'role' }),
+              {
+                ...inner,
+                item: {
+                  ...inner.item,
+                  fields: [
+                    field({
+                      key: 'why',
+                      condition: { op: 'eq', field: './role', value: 'x' },
+                    }),
+                  ],
+                },
+              },
+            ]),
+          ]),
+        );
+        expect(codes(outerFieldFromInner)).toEqual(['FORWARD_REFERENCE']);
+      });
+
+      it('rejects ./ outside any array item', () => {
+        const result = validateSchema(
+          schema([
+            field({ key: 'a' }),
+            field({
+              key: 'b',
+              condition: { op: 'eq', field: './a', value: 'x' },
+            }),
+          ]),
+        );
+        expect(codes(result)).toEqual(['RELATIVE_REFERENCE_OUTSIDE_ITEM']);
+      });
+
+      it('rejects ./ in a step condition', () => {
+        const result = validateSchema(
+          schema([field({ key: 'a' })], {
+            condition: { op: 'eq', field: './a', value: 'x' },
+          }),
+        );
+        expect(codes(result)).toContain('RELATIVE_REFERENCE_OUTSIDE_ITEM');
+      });
+
+      it("rejects ./ on the array item's own condition, where there is no item yet", () => {
+        const result = validateSchema(
+          schema([
+            members([field({ key: 'role' })], {
+              condition: { op: 'eq', field: './role', value: 'x' },
+            }),
+          ]),
+        );
+        expect(codes(result)).toEqual(['RELATIVE_REFERENCE_OUTSIDE_ITEM']);
+      });
+
+      it('rejects an empty relative path', () => {
+        const result = validateSchema(
+          schema([members([field({ key: 'role' }), lead('./')])]),
+        );
+        expect(codes(result)).toEqual(['INVALID_CONDITION']);
+      });
+
+      it('points the old absolute form at the new one', () => {
+        const result = validateSchema(
+          schema([
+            members([
+              field({ key: 'role' }),
+              lead('identity.members.member.role'),
+            ]),
+          ]),
+        );
+        expect(codes(result)).toEqual(['UNRESOLVABLE_REFERENCE']);
+        expect(
+          result.ok ? '' : result.errors.map((e) => e.message).join(' '),
+        ).toContain('./');
+      });
+    });
+
     it('rejects a reference into an array, which cannot be resolved', () => {
       const members = {
         key: 'members',
