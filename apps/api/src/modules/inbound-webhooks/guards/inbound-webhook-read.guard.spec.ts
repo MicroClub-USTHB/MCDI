@@ -10,7 +10,10 @@ const ctx = (req: Record<string, unknown>): ExecutionContext =>
   }) as unknown as ExecutionContext;
 
 describe('InboundWebhookReadGuard', () => {
-  let repository: { findMemberRoleIds: jest.Mock };
+  let repository: {
+    findMemberRoleIds: jest.Mock;
+    findInheritedGrantRoleId: jest.Mock;
+  };
   let service: {
     getAllowedRoleIdsCached: jest.Mock;
     auditReadDenied: jest.Mock;
@@ -18,7 +21,10 @@ describe('InboundWebhookReadGuard', () => {
   let guard: InboundWebhookReadGuard;
 
   beforeEach(() => {
-    repository = { findMemberRoleIds: jest.fn().mockResolvedValue([]) };
+    repository = {
+      findMemberRoleIds: jest.fn().mockResolvedValue([]),
+      findInheritedGrantRoleId: jest.fn().mockResolvedValue(null),
+    };
     service = {
       getAllowedRoleIdsCached: jest.fn().mockResolvedValue([]),
       auditReadDenied: jest.fn().mockResolvedValue(undefined),
@@ -35,6 +41,39 @@ describe('InboundWebhookReadGuard', () => {
     const req = request();
     await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
     expect((req as Record<string, unknown>).matchedViaRoleId).toBe('role-b');
+  });
+
+  it('does not look for inheritance when a granted role is held directly', async () => {
+    service.getAllowedRoleIdsCached.mockResolvedValue(['role-a']);
+    repository.findMemberRoleIds.mockResolvedValue(['role-a']);
+
+    await expect(guard.canActivate(ctx(request()))).resolves.toBe(true);
+    expect(repository.findInheritedGrantRoleId).not.toHaveBeenCalled();
+  });
+
+  it('allows a member who reaches a granted role through inheritance', async () => {
+    service.getAllowedRoleIdsCached.mockResolvedValue(['role-a']);
+    repository.findMemberRoleIds.mockResolvedValue(['role-z']);
+    repository.findInheritedGrantRoleId.mockResolvedValue('role-a');
+
+    const req = request();
+    await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
+    expect(repository.findInheritedGrantRoleId).toHaveBeenCalledWith(
+      MEMBER,
+      WEBHOOK,
+    );
+    expect((req as Record<string, unknown>).matchedViaRoleId).toBe('role-a');
+    expect(service.auditReadDenied).not.toHaveBeenCalled();
+  });
+
+  it('still denies with 404, and audits it, when inheritance finds nothing', async () => {
+    service.getAllowedRoleIdsCached.mockResolvedValue(['role-a']);
+    repository.findMemberRoleIds.mockResolvedValue(['role-z']);
+
+    await expect(guard.canActivate(ctx(request()))).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(service.auditReadDenied).toHaveBeenCalledWith(WEBHOOK, MEMBER);
   });
 
   it('denies a member holding none of the granted roles', async () => {

@@ -91,7 +91,10 @@ export class CreateInboundWebhookDto {
   @ApiPropertyOptional({
     default: false,
     description:
-      'Whether role inheritance rules grant read access. Off by default: data access should be explicit.',
+      "When true, a member can also read this webhook's submissions through role inheritance: " +
+      'a role they hold on the main server that is the source of an enabled inheritance rule covering the ' +
+      'server of a granted role counts as that granted role, matched by role name. ' +
+      'Off by default: data access should be explicit.',
   })
   @IsOptional()
   @IsBoolean()
