@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  ArrayNotEmpty,
   IsArray,
   IsBoolean,
   IsObject,
@@ -55,19 +54,21 @@ export class CreateInboundWebhookDto {
    * means "anyone authenticated" — an inbound webhook with no roles would
    * expose submissions to every logged-in member. Fail closed.
    */
-  @ApiProperty({
+  @ApiPropertyOptional({
     description:
-      'Discord role IDs permitted to READ submissions. At least one is required.',
+      'Discord role IDs permitted to READ submissions. When omitted, the configured default reader ' +
+      'roles are used (MC Executive unless changed in the inbound webhook settings); when given, ' +
+      'exactly these roles are used. At least one role must result.',
     example: ['1234567890123456789'],
   })
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty({ message: 'at least one allowed role is required' })
   @IsString({ each: true })
   @Matches(/^\d{17,20}$/, {
     each: true,
     message: 'each role must be a Discord snowflake',
   })
-  allowedRoleIds!: string[];
+  allowedRoleIds?: string[];
 
   @ApiPropertyOptional({
     description: 'Origins permitted to call this webhook. Empty = no check.',

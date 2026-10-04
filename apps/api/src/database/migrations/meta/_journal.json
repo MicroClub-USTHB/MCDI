@@ -36,6 +36,13 @@
       "when": 1790855010384,
       "tag": "0004_wandering_korvac",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791120631487,
+      "tag": "0005_inbound_webhook_settings",
+      "breakpoints": true
     }
   ]
 }

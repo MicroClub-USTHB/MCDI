@@ -53,6 +53,22 @@ export interface CreateInboundWebhookResult {
 
 export type DocsFormat = 'markdown' | 'openapi';
 
+export interface InboundWebhookSettingsView {
+  /** The effective default reader roles; may include roles that no longer exist. */
+  defaultReaderRoleIds: string[];
+  /** The ones that still exist, with their names, for display. */
+  defaultReaderRoles: {
+    id: string;
+    name: string;
+    serverId: string;
+    serverName: string;
+  }[];
+  /** `environment` until the setting is first saved. */
+  source: 'settings' | 'environment';
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
 export interface IngestContext {
   projectId: string;
   rawBody: Buffer | undefined;
@@ -91,7 +107,10 @@ export class InboundWebhooksService {
       );
     }
 
-    await this.assertRolesGrantable(dto.projectId, dto.allowedRoleIds);
+    const allowedRoleIds = await this.resolveReaderRoles(
+      dto.projectId,
+      dto.allowedRoleIds,
+    );
 
     const signingSecret = generateSigningSecret();
 
@@ -106,7 +125,7 @@ export class InboundWebhooksService {
       rejectUnknownFields: dto.rejectUnknownFields ?? true,
       allowRoleInheritance: dto.allowRoleInheritance ?? false,
       createdBy: actor,
-      allowedRoleIds: dto.allowedRoleIds,
+      allowedRoleIds,
     });
 
     await this.audit({
@@ -116,7 +135,7 @@ export class InboundWebhooksService {
       details: {
         projectId: dto.projectId,
         slug: dto.slug,
-        allowedRoleIds: dto.allowedRoleIds,
+        allowedRoleIds,
       },
     });
 
@@ -124,7 +143,7 @@ export class InboundWebhooksService {
     return {
       webhook,
       signingSecret,
-      allowedRoleIds: dto.allowedRoleIds,
+      allowedRoleIds,
       submitUrl: `${baseUrl}/inbound-webhooks/${webhook.id}/submit`,
       docsUrl: `${baseUrl}/admin/inbound-webhooks/${webhook.id}/docs`,
     };
@@ -197,7 +216,11 @@ export class InboundWebhooksService {
       );
     }
 
-    await this.assertRolesGrantable(webhook.projectId, roleIds);
+    await this.assertRolesGrantable(
+      webhook.projectId,
+      roleIds,
+      new Set(await this.getDefaultReaderRoleIds()),
+    );
 
     const previous = await this.repository.findAllowedRoleIds(id);
     await this.repository.replaceAllowedRoles(id, roleIds, actor);
@@ -301,9 +324,15 @@ export class InboundWebhooksService {
    *     from an unrelated guild becomes a privilege-escalation path
    *  3. they are not bot-managed (warn only)
    */
+  /**
+   * `exempt` are the configured default reader roles: they may be granted even
+   * when their server (the main one, for the executive role) is not one the
+   * project can access. Every other role is checked against the project.
+   */
   private async assertRolesGrantable(
     projectId: string,
     roleIds: string[],
+    exempt: Set<string> = new Set(),
   ): Promise<void> {
     const unique = Array.from(new Set(roleIds));
     const found = await this.repository.findExistingRoles(unique);
@@ -317,7 +346,9 @@ export class InboundWebhooksService {
     const projectServerIds = new Set(
       await this.repository.findProjectServerIds(projectId),
     );
-    const foreign = found.filter((r) => !projectServerIds.has(r.serverId));
+    const foreign = found.filter(
+      (r) => !projectServerIds.has(r.serverId) && !exempt.has(r.id),
+    );
     if (foreign.length > 0) {
       throw new BadRequestException(
         `These roles belong to servers this project cannot access: ${foreign
@@ -664,6 +695,114 @@ export class InboundWebhooksService {
     return `${host}/${prefix}`;
   }
 
+  // ─── Settings ───────────────────────────────────────────────────────────
+
+  /**
+   * The reader roles a new webhook gets when its creator names none: the saved
+   * setting, or the executive role while nothing has been saved.
+   */
+  async getDefaultReaderRoleIds(): Promise<string[]> {
+    const row = await this.repository.getSettings();
+    return row?.defaultReaderRoleIds ?? this.environmentDefaultReaders();
+  }
+
+  private environmentDefaultReaders(): string[] {
+    const executive = this.configService.get<string>('discord.executiveRoleId');
+    return executive ? [executive] : [];
+  }
+
+  async getSettings(): Promise<InboundWebhookSettingsView> {
+    const row = await this.repository.getSettings();
+    const stored = row?.defaultReaderRoleIds ?? null;
+    const defaultReaderRoleIds = stored ?? this.environmentDefaultReaders();
+
+    const found = new Map(
+      (await this.repository.findExistingRoles(defaultReaderRoleIds)).map(
+        (role) => [role.id, role],
+      ),
+    );
+
+    return {
+      defaultReaderRoleIds,
+      defaultReaderRoles: defaultReaderRoleIds.flatMap((id) => {
+        const role = found.get(id);
+        return role
+          ? [
+              {
+                id,
+                name: role.name,
+                serverId: role.serverId,
+                serverName: role.serverName,
+              },
+            ]
+          : [];
+      }),
+      source: stored === null ? 'environment' : 'settings',
+      updatedAt: row?.updatedAt.toISOString() ?? null,
+      updatedBy: row?.updatedBy ?? null,
+    };
+  }
+
+  async updateSettings(
+    defaultReaderRoleIds: string[],
+    actor: string | null,
+  ): Promise<InboundWebhookSettingsView> {
+    const roleIds = [...new Set(defaultReaderRoleIds)];
+
+    const known = new Set(
+      (await this.repository.findExistingRoles(roleIds)).map((r) => r.id),
+    );
+    const unknown = roleIds.filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      throw new BadRequestException(`Unknown role IDs: ${unknown.join(', ')}`);
+    }
+
+    const previous = await this.getDefaultReaderRoleIds();
+    await this.repository.upsertSettings(roleIds, actor);
+
+    await this.audit({
+      action: 'settings.updated',
+      entityType: 'inbound_webhook_settings',
+      entityId: 'settings',
+      actorId: actor,
+      details: { from: previous, to: roleIds },
+    });
+
+    return this.getSettings();
+  }
+
+  /**
+   * The readers a new webhook is created with: exactly the roles the creator
+   * named, or the defaults when it named none. A default that no longer exists
+   * is skipped. Either way at least one role must remain.
+   */
+  private async resolveReaderRoles(
+    projectId: string,
+    requested: string[] | undefined,
+  ): Promise<string[]> {
+    const defaults = await this.getDefaultReaderRoleIds();
+
+    if (requested !== undefined) {
+      const roleIds = [...new Set(requested)];
+      if (roleIds.length === 0) throw this.noReaders();
+      await this.assertRolesGrantable(projectId, roleIds, new Set(defaults));
+      return roleIds;
+    }
+
+    const existing = new Set(
+      (await this.repository.findExistingRoles(defaults)).map((r) => r.id),
+    );
+    const usable = defaults.filter((id) => existing.has(id));
+    if (usable.length === 0) throw this.noReaders();
+    return usable;
+  }
+
+  private noReaders(): BadRequestException {
+    return new BadRequestException(
+      'At least one reader role is required: name one, or configure default reader roles in the inbound webhook settings.',
+    );
+  }
+
   private encryptionKey(): string {
     const key = this.configService.get<string>(
       'app.inboundWebhookEncryptionKey',
@@ -691,6 +830,7 @@ export class InboundWebhooksService {
 
   private async audit(entry: {
     action: string;
+    entityType?: string;
     entityId: string;
     actorId?: string | null;
     details?: Record<string, unknown>;
@@ -700,7 +840,7 @@ export class InboundWebhooksService {
       await this.auditRepository.insert({
         actionType: 'webhook',
         action: entry.action,
-        entityType: 'inbound_webhook',
+        entityType: entry.entityType ?? 'inbound_webhook',
         entityId: entry.entityId,
         actorId: entry.actorId ?? null,
         details: entry.details ?? null,

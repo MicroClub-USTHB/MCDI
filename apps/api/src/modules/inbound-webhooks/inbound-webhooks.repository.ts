@@ -19,6 +19,7 @@ import * as schema from '../../database/entities';
 import {
   inboundWebhookFiles,
   inboundWebhookRoles,
+  inboundWebhookSettings,
   inboundWebhookSubmissions,
   inboundWebhooks,
   projectServers,
@@ -28,6 +29,7 @@ import {
   serverMemberRoles,
   servers,
 } from '../../database/entities';
+import type { InboundWebhookSettingsRow } from '../../database/entities';
 import type { FormSchema } from './schema/form-schema.types';
 
 export interface InboundWebhookRow {
@@ -318,11 +320,38 @@ export class InboundWebhooksRepository {
       .select({
         id: roles.id,
         serverId: roles.serverId,
+        serverName: servers.name,
         name: roles.name,
         managed: roles.managed,
       })
       .from(roles)
+      .innerJoin(servers, eq(servers.id, roles.serverId))
       .where(inArray(roles.id, roleIds));
+  }
+
+  // ─── Settings ───────────────────────────────────────────────────────────
+
+  /** The single settings row, or null while nothing has been saved. */
+  async getSettings(): Promise<InboundWebhookSettingsRow | null> {
+    const [row] = await this.db
+      .select()
+      .from(inboundWebhookSettings)
+      .where(eq(inboundWebhookSettings.id, 1))
+      .limit(1);
+    return row ?? null;
+  }
+
+  async upsertSettings(
+    defaultReaderRoleIds: string[],
+    updatedBy: string | null,
+  ): Promise<void> {
+    await this.db
+      .insert(inboundWebhookSettings)
+      .values({ id: 1, defaultReaderRoleIds, updatedBy })
+      .onConflictDoUpdate({
+        target: inboundWebhookSettings.id,
+        set: { defaultReaderRoleIds, updatedBy, updatedAt: new Date() },
+      });
   }
 
   /** Server IDs a project has an access mapping for. */
