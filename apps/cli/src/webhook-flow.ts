@@ -14,6 +14,7 @@ import {
   type CreateInboundWebhookBody,
   type InboundWebhookPatch,
 } from './mcdi.js';
+import { validateSchema, type ValidationError } from './schema/validate.js';
 import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {
@@ -289,8 +290,17 @@ function resolveSlug(options: WebhookCreateOptions): string {
   );
 }
 
-/** Reads the schema file. There is no local pre-check to run on it: issue #5's was reverted on dev, so MCDI validates it. */
-async function readSchemaFile(path: string): Promise<Record<string, unknown>> {
+/** Same layout as `mcdi-cli schema validate`. */
+function formatLocalErrors(errors: Pick<ValidationError, 'path' | 'code' | 'message'>[]): string {
+  const noun = errors.length === 1 ? 'error' : 'errors';
+  return [
+    `✗ ${errors.length} validation ${noun} (source: local); nothing was sent`,
+    ...errors.map((e) => `  ${e.path}  ${e.code}  ${e.message}`),
+  ].join('\n');
+}
+
+/** Reads a schema file and runs the issue #5 local pre-check on it; any failure stops before a network call. */
+async function readCheckedSchema(path: string): Promise<Record<string, unknown>> {
   let contents: string;
   try {
     contents = await readFile(path, 'utf8');
@@ -303,18 +313,17 @@ async function readSchemaFile(path: string): Promise<Record<string, unknown>> {
     parsed = JSON.parse(contents);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    throw new CliError(`schema ${path} is not valid JSON (${reason}); nothing was sent`, ExitCode.PrecheckFailed);
+    throw new CliError(formatLocalErrors([{ path, code: 'INVALID_JSON', message: reason }]), ExitCode.PrecheckFailed);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new CliError(`schema ${path} must be a JSON object; nothing was sent`, ExitCode.PrecheckFailed);
-  }
+  const result = validateSchema(parsed);
+  if (!result.valid) throw new CliError(formatLocalErrors(result.errors), ExitCode.PrecheckFailed);
   return parsed as Record<string, unknown>;
 }
 
 export async function webhookCreate(schemaPath: string, options: WebhookCreateOptions, deps: WebhookDeps): Promise<void> {
   const allowedRoleIds = parseRoleIds(options.roles, 'MCDI requires at least one role allowed to read submissions');
   const slug = resolveSlug(options);
-  const schema = await readSchemaFile(schemaPath);
+  const schema = await readCheckedSchema(schemaPath);
 
   const session = await loadSession(options.profile, deps);
   const body: CreateInboundWebhookBody = { projectId: options.project, name: options.name, slug, schema, allowedRoleIds };
