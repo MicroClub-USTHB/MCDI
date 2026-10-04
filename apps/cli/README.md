@@ -5,7 +5,8 @@ and manages MCDI Inbound Webhooks from the terminal — pre-checking schemas
 locally before anything hits the server.
 
 Full requirements: [`docs/m-forge-CLI-PRD.md`](docs/m-forge-CLI-PRD.md).
-Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Working
+Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Custom validation
+rules: [`docs/custom-rules.md`](docs/custom-rules.md). Working
 conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
 
 ## Status

@@ -22,6 +22,8 @@ const FIELD_TYPE = {
 type FieldType = typeof FIELD_TYPE[keyof typeof FIELD_TYPE];
 
 const FIELD_TYPES = new Set<string>(Object.values(FIELD_TYPE));
+/** The 16 FormSchema field types, for callers like the custom rule engine. */
+export const FIELD_TYPE_NAMES: readonly string[] = Object.values(FIELD_TYPE);
 const FIELD_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const MAX_DEPTH = 5;
 const MAX_NODES = 200;
