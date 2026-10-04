@@ -46,6 +46,7 @@ const ERROR_CODE = {
   NODE_LIMIT_EXCEEDED: 'NODE_LIMIT_EXCEEDED',
   MAX_DEPTH_EXCEEDED: 'MAX_DEPTH_EXCEEDED',
   INVALID_STEP: 'INVALID_STEP',
+  INVALID_STEP_KEY: 'INVALID_STEP_KEY',
   INVALID_FIELDS: 'INVALID_FIELDS',
   INVALID_FIELD: 'INVALID_FIELD',
   INVALID_KEY: 'INVALID_KEY',
@@ -164,6 +165,9 @@ export function validateSchema(value: unknown): ValidationResult {
     if (!isRecord(step)) {
       add(path, ERROR_CODE.INVALID_STEP, 'Step must be an object');
       return;
+    }
+    if (typeof step.key !== 'string' || step.key.length === 0) {
+      add(`${path}.key`, ERROR_CODE.INVALID_STEP_KEY, 'Step key must be a non-empty string');
     }
     if ('condition' in step) conditionChecks.push({ condition: step.condition, path: `${path}.condition`, stepIndex });
     if (!Array.isArray(step.fields)) {
