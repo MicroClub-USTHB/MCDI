@@ -1,5 +1,15 @@
 import { Command } from 'commander';
+import { exitWithError } from '../errors.js';
 import { notImplemented } from '../not-implemented.js';
+import {
+  defaultWebhookDeps,
+  webhookGet,
+  webhookList,
+  webhookUpdate,
+  type WebhookGetOptions,
+  type WebhookListOptions,
+  type WebhookUpdateOptions,
+} from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
   const webhook = program
@@ -22,20 +32,41 @@ export function registerWebhookCommand(program: Command): void {
     .option('--name <name>', 'new display name')
     .option('--active', 'mark the webhook active')
     .option('--inactive', 'mark the webhook inactive')
-    .action(() => notImplemented('webhook update', 11));
+    .requiredOption('--profile <name>', 'profile to update on')
+    .action(async (id: string, options: WebhookUpdateOptions) => {
+      try {
+        await webhookUpdate(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook update', err);
+      }
+    });
 
   webhook
     .command('list')
     .description('List webhooks')
     .option('--project <projectId>', 'filter by project id')
-    .action(() => notImplemented('webhook list', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (options: WebhookListOptions) => {
+      try {
+        await webhookList(options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook list', err);
+      }
+    });
 
   webhook
     .command('get <id>')
     .description('Inspect one webhook')
     .option('--schema-only', 'print only the schema')
     .option('--json', 'emit machine-readable JSON')
-    .action(() => notImplemented('webhook get', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (id: string, options: WebhookGetOptions) => {
+      try {
+        await webhookGet(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook get', err);
+      }
+    });
 
   webhook
     .command('delete <id>')
