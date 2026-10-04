@@ -2,7 +2,14 @@ import { join } from 'node:path';
 import { configDir, configPath, loadConfig, normalizeBaseUrl, resolveProfileName } from './config.js';
 import { DefaultKeyProvider, FileKeyProvider, KeychainKeyProvider, decrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { getInboundWebhook, listInboundWebhooks, type AdminSession, type InboundWebhook } from './mcdi.js';
+import {
+  getInboundWebhook,
+  listInboundWebhooks,
+  updateInboundWebhook,
+  type AdminSession,
+  type InboundWebhook,
+  type InboundWebhookPatch,
+} from './mcdi.js';
 
 export interface WebhookDeps {
   configPath: string;
@@ -31,7 +38,10 @@ export async function loadAdminSession(profileFlag: string | undefined, deps: We
   const relogin = `run \`m-forge login --profile ${profileName}\``;
   const profile = config.profiles[profileName];
   if (!profile) {
-    throw new CliError(`profile "${profileName}" does not exist; ${relogin} --base-url <url>`, ExitCode.Auth);
+    throw new CliError(
+      `profile "${profileName}" does not exist; run \`m-forge login --profile ${profileName} --base-url <url>\``,
+      ExitCode.Auth,
+    );
   }
   if (!profile.session) throw new CliError(`not logged in on profile "${profileName}"; ${relogin}`, ExitCode.Auth);
   const expiresAt = Date.parse(profile.session.expiresAt);
@@ -122,4 +132,41 @@ export async function webhookGet(id: string, options: WebhookGetOptions, deps: W
   } else {
     for (const line of describeWebhook(webhook)) deps.out(line);
   }
+}
+
+export interface WebhookUpdateOptions {
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
+  schema?: string;
+  name?: string;
+  active?: boolean;
+  inactive?: boolean;
+}
+
+/** Argument checks that must pass before any config read or network call. */
+function buildPatch(options: WebhookUpdateOptions): InboundWebhookPatch {
+  if (options.active && options.inactive) {
+    throw new CliError('--active and --inactive cannot be used together', ExitCode.PrecheckFailed);
+  }
+  if (options.schema !== undefined) {
+    throw new CliError(
+      '--schema needs the local pre-check from issue #5, which is not implemented yet; nothing was sent',
+      ExitCode.Unexpected,
+    );
+  }
+  const patch: InboundWebhookPatch = {};
+  if (options.name !== undefined) patch.name = options.name;
+  if (options.active) patch.isActive = true;
+  if (options.inactive) patch.isActive = false;
+  if (Object.keys(patch).length === 0) {
+    throw new CliError('nothing to update; pass --name, --active, or --inactive', ExitCode.PrecheckFailed);
+  }
+  return patch;
+}
+
+export async function webhookUpdate(id: string, options: WebhookUpdateOptions, deps: WebhookDeps): Promise<void> {
+  const patch = buildPatch(options);
+  const session = await loadAdminSession(options.profile, deps);
+  const webhook = await updateInboundWebhook(session, id, patch);
+  deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
 }
