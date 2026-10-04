@@ -177,9 +177,9 @@ export function validateSchema(value: unknown): ValidationResult {
     add('steps', ERROR_CODE.NODE_LIMIT_EXCEEDED, 'Schema contains more than 200 nodes');
   }
 
-  for (const { condition, stepIndex } of conditionChecks) {
+  for (const { condition, path: conditionPath, stepIndex } of conditionChecks) {
     // UNVERIFIED: supported condition AST reference properties are not documented locally.
-    for (const ref of collectFieldReferences(condition)) {
+    for (const ref of collectFieldReferences(condition, conditionPath)) {
       const definedAt = knownFields.get(ref.key);
       if (definedAt === undefined) {
         add(ref.path, ERROR_CODE.UNKNOWN_CONDITION_FIELD, `Condition references unknown field "${ref.key}"`);

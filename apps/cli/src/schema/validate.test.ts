@@ -72,6 +72,7 @@ describe('validateSchema', () => {
   it('checks unknown and later-step condition references', () => {
     const unknown = { version: 1, steps: [{ key: 'one', condition: { field: 'missing' }, fields: [{ key: 'x', type: 'string' }] }] };
     expect(codes(unknown)).toContain('UNKNOWN_CONDITION_FIELD');
+    expect(validateSchema(unknown).errors[0]?.path).toBe('steps[0].condition.field');
     const later = { version: 1, steps: [
       { key: 'first', condition: { all: [{ fieldKey: 'future' }] }, fields: [{ key: 'first_field', type: 'string' }] },
       { key: 'second', fields: [{ key: 'future', type: 'string' }] },
