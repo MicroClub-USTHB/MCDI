@@ -697,8 +697,8 @@ describe('webhook create', () => {
       [() => schemaFile(), options({ roles: ' , ' }), ExitCode.PrecheckFailed, /at least one Discord role id/],
       [() => schemaFile(), options({ name: '!!' }), ExitCode.PrecheckFailed, /could not derive a valid slug.*--slug/],
       [() => schemaFile(), options({ slug: 'Bad Slug' }), ExitCode.PrecheckFailed, /--slug "Bad Slug" must be/],
-      [() => schemaFile('{ nope'), options(), ExitCode.PrecheckFailed, /not valid JSON.*nothing was sent/],
-      [() => schemaFile('[1, 2]'), options(), ExitCode.PrecheckFailed, /must be a JSON object/],
+      [() => schemaFile('{ nope'), options(), ExitCode.PrecheckFailed, /1 validation error \(source: local\); nothing was sent\n.*INVALID_JSON/],
+      [() => schemaFile('[1, 2]'), options(), ExitCode.PrecheckFailed, /validation error.*source: local/],
       [async () => '/nonexistent/schema.json', options(), ExitCode.Unexpected, /could not read schema/],
     ];
     for (const [path, opts, code, message] of cases) {
@@ -706,6 +706,18 @@ describe('webhook create', () => {
       await expectCliError(webhookCreate(await path(), opts, deps), code, message);
       expect(fake.requests).toEqual([]);
     }
+  });
+
+  it('runs the local pre-check and sends nothing when the schema fails it', async () => {
+    const { fake, deps } = await setup();
+    const bad = { version: 1, steps: [{ key: 'default', fields: [{ key: 'colour', type: 'colour' }] }] };
+    const err = (await webhookCreate(await schemaFile(JSON.stringify(bad)), options(), deps).catch((e: unknown) => e)) as CliError;
+
+    expect(err).toBeInstanceOf(CliError);
+    expect(err.exitCode).toBe(ExitCode.PrecheckFailed);
+    expect(err.message).toMatch(/^✗ \d+ validation errors? \(source: local\); nothing was sent\n  steps\[0\]\.fields\[0\]/);
+    expect(fake.requests).toEqual([]);
+    expect((await loadConfig(deps.configPath)).profiles.prod!.webhookSecrets).toBeUndefined();
   });
 
   it("surfaces MCDI's schema 400 one error per line with source: mcdi", async () => {
