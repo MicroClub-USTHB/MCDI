@@ -107,12 +107,33 @@ export function normalizeBaseUrl(raw: string): string {
   return url.toString().replace(/\/+$/, '');
 }
 
-/** Stores a session on a profile (creating it if needed) and makes it active if none is. */
+/**
+ * Stores a session on a profile (creating it if needed) and makes it active if none is.
+ * Keeps the profile's other fields: its webhook secrets can't be recovered from MCDI if lost.
+ */
 export function setSession(config: Config, profileName: string, baseUrl: string, session: StoredSession): Config {
   return {
     ...config,
     activeProfile: config.activeProfile ?? profileName,
-    profiles: { ...config.profiles, [profileName]: { baseUrl, session } },
+    profiles: { ...config.profiles, [profileName]: { ...config.profiles[profileName], baseUrl, session } },
+  };
+}
+
+/** Stores (or replaces) a webhook's encrypted signing secret on a profile that already exists. */
+export function setWebhookSecret(
+  config: Config,
+  profileName: string,
+  webhookId: string,
+  entry: StoredWebhookSecret,
+): Config {
+  const profile = config.profiles[profileName];
+  if (!profile) throw new CliError(`profile "${profileName}" does not exist`, ExitCode.Unexpected);
+  return {
+    ...config,
+    profiles: {
+      ...config.profiles,
+      [profileName]: { ...profile, webhookSecrets: { ...profile.webhookSecrets, [webhookId]: entry } },
+    },
   };
 }
 
