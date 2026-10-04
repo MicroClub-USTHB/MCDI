@@ -13,6 +13,7 @@ import {
   saveConfig,
   setSession,
   setWebhookSecret,
+  removeWebhookSecret,
   type Config,
 } from './config.js';
 import { CliError } from './errors.js';
@@ -122,5 +123,27 @@ describe('clearSession', () => {
   it('is a no-op when the profile does not exist', () => {
     const config = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
     expect(clearSession(config, 'ghost')).toEqual(config);
+  });
+});
+
+describe('removeWebhookSecret', () => {
+  const entry = { secret: 'v1:enc', name: 'Recruitment', slug: 'recruitment' };
+  const base = setWebhookSecret(
+    setWebhookSecret(setSession(emptyConfig(), 'prod', 'https://a.example.com', session), 'prod', 'wh-1', entry),
+    'prod',
+    'wh-2',
+    entry,
+  );
+
+  it('drops only that webhook, keeping the session', () => {
+    const after = removeWebhookSecret(base, 'prod', 'wh-1')!;
+    expect(Object.keys(after.profiles.prod!.webhookSecrets!)).toEqual(['wh-2']);
+    expect(after.profiles.prod!.session).toEqual(session);
+  });
+
+  it('returns null when there is nothing to drop', () => {
+    expect(removeWebhookSecret(base, 'prod', 'wh-9')).toBeNull();
+    expect(removeWebhookSecret(base, 'staging', 'wh-1')).toBeNull();
+    expect(removeWebhookSecret(emptyConfig(), 'prod', 'wh-1')).toBeNull();
   });
 });
