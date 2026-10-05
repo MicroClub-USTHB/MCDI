@@ -43,4 +43,25 @@ describe('middleware', () => {
       expect(response.headers.get('location')).toBeNull();
     }
   });
+
+  it('lets a logged-out visitor read the docs', () => {
+    for (const path of ['/docs', '/docs/start-here/what-is-mcdi', '/docs/build/contributing']) {
+      const response = middleware(new NextRequest(`http://localhost:3002${path}`));
+      expect(response.headers.get('location'), path).toBeNull();
+    }
+  });
+
+  it('does not treat a look-alike path as the docs', () => {
+    const response = middleware(new NextRequest('http://localhost:3002/docs-private'));
+
+    expect(response.headers.get('location')).toBe(
+      'http://localhost:3002/login?redirect=%2Fdocs-private'
+    );
+  });
+
+  it('serves the sitemap to anyone, crawlers included', () => {
+    const response = middleware(new NextRequest('http://localhost:3002/sitemap.xml'));
+
+    expect(response.headers.get('location')).toBeNull();
+  });
 });

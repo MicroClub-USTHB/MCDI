@@ -1,0 +1,115 @@
+/*
+ * Article text and code colours, from the design tokens only. Inside the components layer, with
+ * :where() on the tags, so any Tailwind utility on a component (Steps, tables, callouts) still wins.
+ */
+@layer components {
+  .docs-prose {
+    color: var(--color-text-normal);
+    font-size: var(--text-body);
+    line-height: 1.75;
+  }
+
+  .docs-prose :where(p) {
+    margin-block: 1rem;
+  }
+
+  .docs-prose :where(strong) {
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  .docs-prose :where(ul),
+  .docs-prose :where(ol) {
+    margin-block: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .docs-prose :where(ul) {
+    list-style: disc;
+  }
+
+  .docs-prose :where(ol) {
+    list-style: decimal;
+  }
+
+  .docs-prose :where(li) {
+    margin-block: 0.375rem;
+  }
+
+  .docs-prose :where(li)::marker {
+    color: var(--color-text-subtle);
+  }
+
+  .docs-prose :where(blockquote) {
+    margin-block: 1.5rem;
+    border-left: 3px solid var(--color-border);
+    padding-left: 1rem;
+    color: var(--color-text-muted);
+  }
+
+  .docs-prose :where(hr) {
+    margin-block: 2.5rem;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* The highlighter (highlight.js classes). Every colour here clears 4.5:1 on the code background (surface-base). */
+  .docs-prose .hljs-comment,
+  .docs-prose .hljs-quote {
+    color: var(--color-text-subtle);
+    font-style: italic;
+  }
+
+  .docs-prose .hljs-keyword,
+  .docs-prose .hljs-selector-tag,
+  .docs-prose .hljs-doctag,
+  .docs-prose .hljs-meta .hljs-keyword {
+    color: var(--color-brand-light);
+  }
+
+  .docs-prose .hljs-string,
+  .docs-prose .hljs-regexp,
+  .docs-prose .hljs-addition,
+  .docs-prose .hljs-meta .hljs-string {
+    color: var(--color-success);
+  }
+
+  .docs-prose .hljs-number,
+  .docs-prose .hljs-literal,
+  .docs-prose .hljs-symbol,
+  .docs-prose .hljs-bullet {
+    color: var(--color-warning);
+  }
+
+  .docs-prose .hljs-title,
+  .docs-prose .hljs-title.function_,
+  .docs-prose .hljs-section,
+  .docs-prose .hljs-built_in,
+  .docs-prose .hljs-type,
+  .docs-prose .hljs-class .hljs-title {
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  .docs-prose .hljs-attr,
+  .docs-prose .hljs-attribute,
+  .docs-prose .hljs-property,
+  .docs-prose .hljs-variable,
+  .docs-prose .hljs-template-variable,
+  .docs-prose .hljs-params {
+    color: var(--color-accent);
+  }
+
+  .docs-prose .hljs-deletion {
+    color: var(--color-accent);
+    text-decoration: line-through;
+  }
+
+  .docs-prose .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .docs-prose .hljs-strong {
+    font-weight: 700;
+  }
+}

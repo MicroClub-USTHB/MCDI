@@ -1,0 +1,41 @@
+MCDI, the MicroClub Discord Interface, is the central service that connects MicroClub applications to Discord. It gives every club project one way to sign members in, one place to ask who a member is and what they may do, and one admin panel to run all of it.
+
+## Who uses it
+
+| Who                | What they do with MCDI                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Club members       | Sign in to MicroClub applications with their Discord account.                                                                                                    |
+| Project developers | Build applications that use MCDI for login, membership checks, permissions and incoming data.                                                                    |
+| System admins      | Manage projects, servers, roles, synchronisation and webhooks in the admin panel. They sign in with Discord and must hold the executive role of the main server. |
+
+## The concepts
+
+These words appear everywhere in the code and in these docs.
+
+| Term             | Meaning                                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server           | A Discord server (a guild) that MCDI knows about. One of them is the main MicroClub server.                                                                          |
+| Member           | A person, identified by their Discord account, together with the roles they hold on each server.                                                                     |
+| Role             | A Discord role on a server. Roles decide what a member is allowed to do.                                                                                             |
+| Sync             | MCDI keeps its database in step with Discord: a full sync when it starts, queued manual syncs, and live updates as Discord reports changes.                          |
+| Project          | An application that uses MCDI. It has an API key and is given access to specific servers.                                                                            |
+| API key          | The secret a project sends with its requests. Only a hash of it is stored.                                                                                           |
+| Role inheritance | A rule that extends a role from one server to other servers, so that holding it on the main server can count elsewhere.                                              |
+| Inbound webhook  | A schema-validated endpoint that lets a project send MCDI structured data, such as a form or an event. Only members holding a reader role can read what it receives. |
+| Signing secret   | The secret a project uses to sign each request to an inbound webhook, so MCDI can tell the request is genuine.                                                       |
+
+## How the pieces fit
+
+- The **API** (NestJS) serves projects and admins. It keeps its data in PostgreSQL, which is the source of truth, and uses Redis as a cache.
+- A **Discord bot** inside the API reads servers, members and roles and keeps the database current.
+- The **admin panel** (Next.js) is where admins manage everything. It talks to the API with a session cookie.
+- A shared package, **contracts**, holds the types and constants that the API and the panel both rely on.
+
+Projects do not talk to Discord for identity. They send members to MCDI to sign in, then call the API with their key.
+
+## Where to go next
+
+- To work on MCDI, read [Contributing](/docs/build/contributing).
+- To add to these docs, read [Writing these docs](/docs/build/writing-docs).
+
+Source: `docs/specefication_document_mvp.md`, `CLAUDE.md`, `apps/api/src/modules`.

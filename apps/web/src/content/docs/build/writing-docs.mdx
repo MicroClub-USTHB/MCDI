@@ -1,0 +1,77 @@
+These docs are plain MDX files in the repository, so they are reviewed and versioned like code. This page explains how to add or change one.
+
+## Where pages live
+
+Pages are MDX files in `apps/web/src/content/docs`, grouped in folders by section. The file path decides the address: `src/content/docs/build/contributing.mdx` is served at `/docs/build/contributing`.
+
+## Add a page
+
+<Steps>
+
+1. Create the file in the right folder, for example `src/content/docs/build/my-page.mdx`.
+
+2. Register it in `DOCS_NAV` in `apps/web/src/features/docs/nav.ts` with a `slug` (the path without `.mdx`), a `title`, and a `description` of 30 to 160 characters. The title becomes the page heading and the description becomes its search snippet.
+
+3. Write the content. Do not add a title heading, because the page already shows the title from the nav. Start with a short introduction and then use `##` sections.
+
+4. Run the docs tests, which check that the nav and the files match, that every link and anchor resolves, and that the page is valid MDX.
+
+</Steps>
+
+```bash
+pnpm --filter @mcdi/web exec vitest run tests/features/docs
+```
+
+## Components
+
+Fenced code blocks get syntax highlighting and a copy button automatically. Always name the language after the opening fence.
+
+A `Callout` draws attention to something. It has a `type` of `note`, `tip` or `warning`:
+
+```mdx
+<Callout type="warning">
+  The end to end tests clear every table.
+</Callout>
+```
+
+<Callout type="note">
+  This is what a note looks like. The icon and the label carry the meaning, so it does not depend on colour.
+</Callout>
+
+`Steps` turns a numbered list into a procedure, as in "Add a page" above. Leave a blank line after the opening tag and before the closing tag.
+
+`Tabs` offers alternatives, for example one example in several languages. They are the same tabs used in the admin panel:
+
+```mdx
+<Tabs defaultValue="node">
+  <TabsList>
+    <TabsTrigger value="node">Node</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+  </TabsList>
+  <TabsContent value="node">Node example here.</TabsContent>
+  <TabsContent value="python">Python example here.</TabsContent>
+</Tabs>
+```
+
+`Diagram` shows an SVG with required alternative text. Put the file in `apps/web/public/docs/`:
+
+```mdx
+<Diagram src="/docs/system-overview.svg" alt="Projects call the API, which reads PostgreSQL." width={960} height={540} />
+```
+
+Tables scroll sideways inside their own box on narrow screens, so wide tables are fine.
+
+## Style rules
+
+- Use plain hyphens. Do not use em dashes or en dashes.
+- Write in the present tense, and say what the code does, not what it was meant to do.
+- Run every command and example you include.
+- End each page with a line that starts with `Source:` and names the files it describes, so a reviewer can check a claim against the code.
+- Link to other pages with absolute paths such as `/docs/build/contributing`, and to headings with `#anchors`.
+- Keep the description short enough to read as a search result.
+
+## What the tests check
+
+The tests in `apps/web/tests/features/docs` fail when a page in the nav has no file, when a file is missing from the nav, when a page is not valid MDX, when it contains a top-level heading, when a code block does not name its language, when it uses an em or en dash, when it does not end with a `Source:` line, or when an internal link or anchor does not resolve.
+
+Source: `apps/web/src/features/docs/nav.ts`, `apps/web/src/mdx-components.tsx`, `apps/web/tests/features/docs`.
