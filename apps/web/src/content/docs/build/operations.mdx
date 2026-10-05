@@ -1,0 +1,254 @@
+This page covers how MCDI runs in production, what makes it refuse to start, how to tell whether it is healthy, and what to do about the problems that have actually happened. Every troubleshooting entry below came from a real incident, or was reproduced for this page, and shows the exact message.
+
+## Where each part runs
+
+| Part | Where | How it gets there |
+| --- | --- | --- |
+| Admin panel and these docs | Vercel | Built from this repository. The build needs two environment variables, `NEXT_PUBLIC_API_URL` (the API address including `/api`) and `NEXT_PUBLIC_APP_URL`. |
+| API, PostgreSQL and Redis | A Docker Compose stack on a server managed with dokploy | CI builds the API image and pushes it to the GitHub Container Registry. The server pulls it and never builds it. |
+
+The panel has no Docker files. The Vercel project is set up like this, as the root `README.md` records:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `apps/web`, with *Include source files outside of the Root Directory* enabled |
+| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcdi/web`, which builds `@mcdi/contracts` first |
+| Ignored Build Step | `npx turbo-ignore @mcdi/web`, so a change that only touches the API does not redeploy the panel |
+| Environment variables | `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_APP_URL` |
+
+Add the Vercel domain to `CORS_ORIGINS` on the API, or the browser blocks the panel's calls.
+
+### The API image
+
+On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcdi` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
+
+- **pruner:** `turbo prune @mcdi/api --docker` keeps only the API and the workspace packages it uses.
+- **builder:** installs with the frozen lockfile, builds, and concatenates every SQL migration, in order, into a single `/migrations/migration.sql`.
+- **deps:** installs the production dependencies only.
+- **production:** a small Node 24 image with `postgresql-client`, running as the unprivileged `node` user.
+
+### The production stack
+
+`apps/api/docker-compose.prod.yml` starts three services: the API (from the image, with `IMAGE_TAG` defaulting to `latest`), PostgreSQL 16 and Redis 7, each with its own volume (`pg_data`, `redis_data`). Secrets come from the deployment environment and are never in the file. The step by step for dokploy, the registry, the domain and the backups is in `apps/api/DEPLOY.md`.
+
+- **Follow the newest build:** leave `IMAGE_TAG` unset and redeploy.
+- **Deploy or roll back to an exact build:** set `IMAGE_TAG=sha-1a2b3c4` and redeploy. A rolled-back image applies its own migrations. It does not undo newer ones.
+
+## Migrations run on every boot, so they must be idempotent
+
+The API container's command is `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/migration.sql && node dist/main.js`. There is no migration journal in production: the whole file runs again each time the container starts. So every migration has to be safe on a database that already has it:
+
+- `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`;
+- `ADD COLUMN IF NOT EXISTS`;
+- `ADD CONSTRAINT` wrapped in a `DO $$ ... IF NOT EXISTS (SELECT 1 FROM pg_constraint ...)` block.
+
+The SQL that `drizzle-kit generate` writes is not idempotent. Edit it before you commit it. CI protects you: its end to end job applies the concatenated file twice and fails when the second run errors.
+
+The API also tries to migrate when it starts, but the production image has no `src` folder, so it logs that it found no migrations folder and skips. What it does on every start is create the main server record from `MC_GUILD_ID` when the `servers` table is empty.
+
+## Configuration that stops the boot on purpose
+
+With `NODE_ENV=production`, the API validates its environment before it does anything else, and refuses to start when a required variable is missing or malformed. This is deliberate: a secret that silently falls back to an empty value is worse than a service that does not start. With none of them set, the log says:
+
+```text
+ERROR [ExceptionHandler] Error: Config validation error: DISCORD_TOKEN is required in production — set your Discord bot token. DISCORD_CLIENT_ID is required in production — set from Discord Developer Portal. DISCORD_CLIENT_SECRET is required in production. MC_GUILD_ID is required in production — set your main Discord server ID. MC_EXECUTIVE_ROLE_ID is required in production — set your admin Discord role ID. DISCORD_CALLBACK_URL is required in production. WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32. INBOUND_WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32
+```
+
+With everything but the inbound key set:
+
+```text
+ERROR [ExceptionHandler] Error: Config validation error: INBOUND_WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32
+```
+
+A key that is present but not 64 hex characters stops it too. The full list of variables is in [Local setup](/docs/build/local-setup#environment-variables). The two encryption keys deserve care: there is no key rotation, so a lost or changed key makes the stored secrets it encrypted unreadable. Back the keys up with the other secrets.
+
+## Health
+
+`GET /api/health` needs no login. It is what the Docker healthcheck, the compose healthcheck and the orchestrator call.
+
+```json
+{ "status": "ok", "uptime": 1241, "database": "up", "redis": "up" }
+```
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `ok` when the database and Redis both answer, otherwise `degraded`. |
+| `uptime` | Seconds since the process started. |
+| `database` | `up` when `select 1` succeeds, otherwise `down`. |
+| `redis` | `up` when Redis answers a ping, otherwise `down`. |
+
+The status code is 200 for `ok` and **503 for `degraded`**, so an orchestrator stops sending traffic when either dependency is down. With Redis unreachable it answers:
+
+```json
+{ "status": "degraded", "uptime": 1, "database": "up", "redis": "down" }
+```
+
+Note what that means: the API would still work without Redis, because it falls back to the database, but it reports itself unhealthy and a health-gated deployment treats it as down. Restore Redis rather than ignoring the 503.
+
+### Redis is optional for serving
+
+When Redis cannot be reached, the API logs `Redis cache unavailable. Falling back to database path.` followed by the error, and keeps serving from PostgreSQL. Responses are slower, the caches are cold, and two protections degrade: inbound webhook replay protection and the per-minute rate limit pause until Redis is back, because refusing every request would be a worse failure.
+
+### The monitoring page
+
+The admin panel's **Monitoring** page (`/dashboard/monitoring`) is the operator's view of a running system:
+
+- **System health:** the API (uptime and response time), the Discord connection (guilds and latency), PostgreSQL (query time and connections) and Redis (hit rate and memory), from `GET /api/admin/monitoring/health`.
+- **Usage and error rate** for 7, 30 or 90 days, per project, from the usage the API records for every request.
+- **Authentication failures:** rejected API keys and sessions, with the time, address, reason and path.
+- **The audit log** of admin actions, with filters and a CSV export.
+
+## Backups
+
+The database is in the `pg_data` volume. It survives redeploys, and it is not backed up by default. Take scheduled backups of the `database` service in dokploy, or dump it yourself:
+
+```bash
+docker compose -f "$COMPOSE_FILE" exec -T database pg_dump -U mcdi mcdi > mcdi-$(date +%F).sql
+```
+
+Keep dumps off the server and test a restore now and then. Redis holds only caches and short-lived counters, so it needs no backup.
+
+## Troubleshooting
+
+### Redis will not start: "Wrong signature trying to load DB from file"
+
+**Symptom.** The Redis container exits at once and restarts in a loop. Its log says:
+
+```text
+# Wrong signature trying to load DB from file
+# Fatal error loading the DB, check server logs. Exiting.
+```
+
+**Cause.** The snapshot file `dump.rdb` in the `redis_data` volume is corrupt, which can follow an unclean shutdown.
+
+**Fix.** Redis holds only caches here, so remove the volume and start again. In the development stack:
+
+```bash
+cd apps/api
+docker compose down
+docker volume rm mcdi_redis_data
+docker compose up -d
+```
+
+In production, remove the `redis_data` volume of the stack the same way. Cached values and counters are rebuilt from PostgreSQL.
+
+### Port 3000 is held by two processes
+
+**Symptom.** The API seems to run old code, a change does not show, or requests are answered by the wrong process. Docker itself reports no error. When the port is held only by another container, it does:
+
+```text
+Bind for 0.0.0.0:3000 failed: port is already allocated
+```
+
+**Cause.** A Node process started on your machine, for example `pnpm dev` or a leftover `nest start`, and the `mcdi-api-1` container both listen on port 3000. On macOS the second one can bind without an error, and requests go to either.
+
+**Fix.** Find what holds the port, and stop the one that is not Docker:
+
+```bash
+lsof -iTCP:3000 -sTCP:LISTEN -P
+```
+
+Stop the Node process, or stop the container with `docker compose stop api`. Run the API one way at a time.
+
+### The web dev server stops with "JavaScript heap out of memory"
+
+**Symptom.**
+
+```text
+FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+```
+
+**Cause.** The dev server hit Node's default memory limit, which happens on a machine with little free memory while Docker is also running.
+
+**Fix.** Give it a larger heap:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcdi/web run dev
+```
+
+### The API cannot reach Redis: `getaddrinfo ENOTFOUND redis`
+
+**Symptom.** On startup the API logs:
+
+```text
+WARN [RedisService] Redis cache unavailable. Falling back to database path. Error:getaddrinfo ENOTFOUND redis
+```
+
+**Cause.** `REDIS_HOST=redis` is the container name, which only exists inside Docker's network. An API running on your machine cannot resolve it.
+
+**Fix.** For an API on your machine, set `REDIS_HOST=localhost` in `apps/api/.env`. Inside the compose stack leave it as `redis`. If the message is `NOAUTH Authentication required` instead, the password in `.env` does not match the Redis password.
+
+### Creating an inbound webhook fails: "INBOUND_WEBHOOK_ENCRYPTION_KEY is not configured"
+
+**Symptom.** Creating an inbound webhook, or rotating its secret, answers 500 with the code `ENCRYPTION_KEY_MISSING` and the message `INBOUND_WEBHOOK_ENCRYPTION_KEY is not configured`.
+
+**Cause.** The key is empty. Production refuses to boot without it, but in development `.env.example` leaves it blank and the API starts anyway.
+
+**Fix.** Generate a key and put it in `apps/api/.env`, then restart the API:
+
+```bash
+openssl rand -hex 32
+```
+
+### The API container crashes with "Cannot find module"
+
+**Symptom.** After you build the API on your machine, the container that watches the same folder stops:
+
+```text
+Error: Cannot find module '/usr/src/app/apps/api/dist/main'
+Error: Cannot find module './app.module'
+```
+
+**Cause.** The container's `dist` folder is the one on your machine, because the repository is mounted into it, and a build rewrote it while the container was reading.
+
+**Fix.** Restart the API container:
+
+```bash
+cd apps/api
+docker compose restart api
+```
+
+### A page reloads in a loop, or the dev server hangs
+
+**Symptom.** The browser keeps refreshing or never loads, and the dev server log shows a chunk error such as:
+
+```text
+ChunkLoadError: Failed to load chunk /_next/static/chunks/..._layout_tsx_....js
+```
+
+**Cause.** The `.next` cache is stale. It happens when a production build (`next build`, or `pnpm build`) runs while the dev server is running, since both write to `apps/web/.next`.
+
+**Fix.** Stop the dev server, delete the folder and start it again:
+
+```bash
+rm -rf apps/web/.next
+pnpm --filter @mcdi/web run dev
+```
+
+### A hydration warning in the console
+
+**Symptom.** In development the console shows:
+
+```text
+A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.
+```
+
+and the diff points at the `<html>` element, with a class such as `js-storylane-extension` on the client side only.
+
+**Cause.** A browser extension changes the page before React hydrates it. Nothing in the application adds that class, and visitors do not see the warning in production.
+
+**Fix.** Disable the extension for `localhost`, or open the page in a private window.
+
+### Images on the landing page fail for a logged-out visitor
+
+**Symptom.** Images from `public/` do not load before sign-in, and the dev server logs:
+
+```text
+The requested resource isn't a valid image for /landing/admin-panel.webp received null
+```
+
+**Cause.** The login middleware redirected the request for the image to `/login`. Next.js's image optimizer fetches files without cookies, so it received an HTML page and rejected it. This was a bug in the middleware matcher, fixed by excluding image files from it.
+
+**Fix.** If you add a new kind of public file, make sure `middleware.ts` does not redirect it. The matcher lists the image extensions that are let through, so a new extension must be added there. See [Web guide](/docs/build/web-guide#who-gets-in).
+
+Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/middleware.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.

@@ -1,0 +1,37 @@
+The words MCDI uses, in alphabetical order. Where a term has a page of its own, the meaning links to it.
+
+| Term | Meaning |
+| --- | --- |
+| Admin | A member who holds an admin role (the executive role, or the optional dev-leads or IT-leads role) in the main server. Admins sign in with Discord and use the admin panel. |
+| API key | The secret a project sends in `X-API-Key`. It looks like `pk_` plus 8 hex characters, a dot, and 64 hex characters. Only the prefix and a hash of the secret are stored. See [API keys and server access](/docs/integrate/api-keys). |
+| Audit log | The record of admin actions and of rejected credentials, shown on the Monitoring page. |
+| Boot sync | The sync that is queued for every active server when the bot becomes ready after a start. |
+| Callback code | The one-time code a login redirect carries to a project. It is valid for 120 seconds and the project's backend exchanges it for a session. |
+| Condition | A rule on a field or a step of an inbound webhook schema, such as "only when `identity.status` equals `student`". See [Schemas](/docs/integrate/inbound-webhooks/schemas#conditions). |
+| Contracts | The `@mcdi/contracts` package: the types, constants and schema catalog the API and the panel share. See [Shared contracts](/docs/build/contracts). |
+| Default readers | The reader roles a new inbound webhook gets when its creator names none. They are set in the admin settings. |
+| Field | One value in an inbound webhook schema, with a key, a type and limits. |
+| Global role | A role marked global, whose permissions count on every server. |
+| Hierarchy level | A number on a role of a server where a lower number is a higher rank. A member inherits the permissions of roles ranked at or below their best one. |
+| Inbound webhook | A schema-validated address a project sends data to. Members with a reader role read what it receives. See [Inbound webhooks: overview](/docs/integrate/inbound-webhooks/overview). |
+| Inheritance rule | A rule that makes a role of the main server count on other servers, matched to the role of the same name there. See [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions). |
+| Main server | The one Discord server that decides admin access and from which inheritance rules start. It is set with `MC_GUILD_ID`. |
+| Member | A person, identified by their Discord account, with the roles they hold on each server. |
+| Operation | What a project may do on a server: `READ`, `SEND_MESSAGES` or `MANAGE_WEBHOOKS`. An admin grants them per project and server. |
+| Permission | A named capability, such as `MANAGE_EVENTS`, attached to roles. A member holds it through their roles. `ADMINISTRATOR` grants every permission. |
+| Project | An application that uses MCDI. It has an API key and access to chosen servers. |
+| Reader role | A Discord role that may read the submissions of one inbound webhook. |
+| Redirect URI | An address registered for a project that a login may return the browser to. The match is exact. |
+| Replay protection | A signature on an inbound webhook request can be used once. A second use is refused with a 409. See [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending#replay-protection). |
+| Role | A Discord role on a server. Roles decide what a member is allowed to do. |
+| Scope | A kind of member data a project may read on a server, such as `read_members`. An admin grants scopes per project and server. |
+| Server (guild) | A Discord server that MCDI knows about. Discord calls it a guild. |
+| Session | A signed-in period. A project session belongs to one project, an admin session to the admin panel, and an SSO session to a browser. |
+| Signing secret | The `whsec_` secret that signs requests to one inbound webhook. It is shown once and stored encrypted. |
+| Slug | A short lowercase name, such as `recruitment-2026`, unique within a project, that names an inbound webhook. |
+| SSO | Single sign-on. After one Discord login, the `mcdi_sso` cookie lets a member sign in to other projects without the Discord screen. See [Login with MicroClub](/docs/integrate/sso). |
+| Step | A part of an inbound webhook schema that is a form, holding its own fields. A flat schema has no steps. |
+| Submission | One accepted request to an inbound webhook, stored after it passed the schema. |
+| Sync | Keeping PostgreSQL in step with Discord: a full sync of a server, or a live update from a gateway event. See [Architecture](/docs/build/architecture#discord-the-bot-and-the-sync). |
+
+Source: `packages/contracts/src/inbound-webhooks.ts`, `apps/api/src/modules/permissions/permissions.service.ts`, `apps/api/src/modules/sync/sync.service.ts`, `apps/api/src/modules/projects/projects.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/api/src/common/utils/api-key.util.ts`.

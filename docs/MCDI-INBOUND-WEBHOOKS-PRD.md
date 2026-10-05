@@ -1,6 +1,9 @@
 # MCDI — Inbound Webhooks
 ## Product Requirements Document
 
+> **Historical design record.** This file is the product requirements written before inbound webhooks were built. The behaviour shipped differs in places, for example flat `fields` schemas were added and every field must set `required`. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 > **Status**: Draft — Ready for GitHub Issue Creation
 > **Focus**: Typed inbound ingest endpoints with multi-step schemas, file uploads, and Discord-role-gated submission access
 > **Target Audience**: Development Team (Backend)

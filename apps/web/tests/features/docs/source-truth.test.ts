@@ -120,7 +120,7 @@ describe('code excerpts in the docs', () => {
 
     for (const raw of excerpt.body.split('\n')) {
       const line = raw.trim();
-      if (line === '' || line === '// ...' || line === '-- ...') continue;
+      if (line === '' || ['// ...', '-- ...', '/* ... */'].includes(line)) continue;
       const at = sourceLines.indexOf(line, cursor);
       if (at === -1) {
         missing.push(line);

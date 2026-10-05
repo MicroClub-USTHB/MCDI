@@ -63,7 +63,7 @@ Tables scroll sideways inside their own box on narrow screens, so wide tables ar
 
 ## Style rules
 
-- Use plain hyphens. Do not use em dashes or en dashes.
+- Use plain hyphens. Do not use em dashes or en dashes in prose. A code block that quotes real program output keeps the output exactly as it was.
 - Write in the present tense, and say what the code does, not what it was meant to do.
 - Run every command and example you include.
 - End each page with a line that starts with `Source:` and names the files it describes, so a reviewer can check a claim against the code.
@@ -72,6 +72,6 @@ Tables scroll sideways inside their own box on narrow screens, so wide tables ar
 
 ## What the tests check
 
-The tests in `apps/web/tests/features/docs` fail when a page in the nav has no file, when a file is missing from the nav, when a page is not valid MDX, when it contains a top-level heading, when a code block does not name its language, when it uses an em or en dash, when it does not end with a `Source:` line, or when an internal link or anchor does not resolve.
+The tests in `apps/web/tests/features/docs` fail when a page in the nav has no file, when a file is missing from the nav, when a page is not valid MDX, when it contains a top-level heading, when a code block does not name its language, when its prose uses an em or en dash (a code block may quote program output exactly), when it does not end with a `Source:` line, or when an internal link or anchor does not resolve.
 
 Source: `apps/web/src/features/docs/nav.ts`, `apps/web/src/mdx-components.tsx`, `apps/web/tests/features/docs`.
