@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -23,6 +24,16 @@ describe('docs navigation', () => {
         .filter((page) => !onDisk.has(page.slug))
         .map((page) => page.slug)
     ).toEqual([]);
+  });
+
+  it('is not hidden by .gitignore, so the pages that pass here are the pages that get pushed', () => {
+    const ignored = allDocPages().filter(
+      (page) =>
+        spawnSync('git', ['check-ignore', '-q', path.join(CONTENT_DIR, `${page.slug}.mdx`)])
+          .status === 0
+    );
+
+    expect(ignored.map((page) => page.slug)).toEqual([]);
   });
 
   it('has a nav entry for every file, so no page is orphaned', () => {

@@ -1,0 +1,50 @@
+This page is the short version of how a change gets from an idea to the `dev` branch.
+
+## Start from an issue
+
+Every piece of work starts as a GitHub issue. Pick one, or open one that states the goal and what done looks like. One issue maps to one branch and one pull request. A large issue can be split into several pull requests that each name it.
+
+## Branches and pull requests
+
+- Name the branch after you and the work: `your-github-user/ISSUE-short-topic`, for example `benabdou/IW-21-inbound-webhooks-list-and-create`.
+- Open the pull request against `dev`. The `main` branch is for releases.
+- Say in the description what changed, why, and what you ran to check it. Link the issue; it is closed once the work has merged.
+
+## Write the test first
+
+For new behaviour and for bug fixes, write a failing test, watch it fail for the right reason, then write the code that makes it pass. The existing suites were built this way, and it is what reviewers look for.
+
+## Run the checks before you push
+
+From the repository root:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+A few things to know:
+
+- `pnpm lint` runs `eslint --fix` in the API, so it can change files. Check `git status` afterwards.
+- The API end to end tests need Postgres and are run with `pnpm test:e2e`. They clear every table, so point them at a throwaway database and never at your development one.
+- In the web app you can also run `pnpm run format:check` from `apps/web`.
+
+CI runs lint and typecheck, the unit tests with coverage, the build, and then the API end to end tests against Postgres 16. A pull request is ready when all of it is green.
+
+## Commits
+
+Use a short, imperative subject with the area as a prefix, and explain the why in the body when it is not obvious:
+
+```text
+feat(web): inbound webhook page with submissions
+fix(web): stop checkbox inputs from stretching the page scroll
+docs(api): describe flat schemas in the inbound webhook DTOs
+```
+
+## When the docs need to change
+
+If your change alters behaviour that a documentation page describes, update the page in the same pull request. [Writing these docs](/docs/build/writing-docs) explains how.
+
+Source: `CLAUDE.md`, `apps/web/CLAUDE.md`, `.github/workflows/ci.yml`.
