@@ -18,7 +18,8 @@
     "e2e:auth": "playwright test --project=setup --headed e2e/auth.setup.ts",
     "e2e:test": "playwright test --project=chromium",
     "e2e:install": "playwright install chromium",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "docs:api": "tsx scripts/generate-api-docs.ts"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
@@ -81,6 +82,7 @@
     "msw": "^2.13.2",
     "prettier": "^3.8.2",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.4"
   }
