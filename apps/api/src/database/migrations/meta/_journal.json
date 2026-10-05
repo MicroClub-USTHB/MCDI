@@ -43,6 +43,13 @@
       "when": 1791120631487,
       "tag": "0005_inbound_webhook_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791158543575,
+      "tag": "0006_admin_cli_login",
+      "breakpoints": true
     }
   ]
 }

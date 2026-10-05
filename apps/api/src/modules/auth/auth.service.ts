@@ -12,6 +12,7 @@ import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
+import { AdminCliCodeRepository } from './repositories/admin-cli-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
@@ -40,6 +41,7 @@ export class AuthService {
     private readonly authRequestRepository: AuthRequestRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly callbackCodeRepository: CallbackCodeRepository,
+    private readonly adminCliCodeRepository: AdminCliCodeRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
@@ -712,6 +714,7 @@ export class AuthService {
       this.authRequestRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
       this.callbackCodeRepository.deleteExpired(),
+      this.adminCliCodeRepository.deleteExpired(),
     ]);
     return { success: true };
   }

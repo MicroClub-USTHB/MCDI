@@ -8,6 +8,7 @@ import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
+import { AdminCliCodeRepository } from './repositories/admin-cli-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { DRIZZLE } from '../../database/database.module';
@@ -65,6 +66,8 @@ const mockAdminOAuthStateRepo = {
   markAsUsed: jest.fn(),
   deleteExpired: jest.fn(),
 };
+
+const mockAdminCliCodeRepo = { deleteExpired: jest.fn() };
 
 const mockCallbackCodeRepo = {
   create: jest.fn(),
@@ -130,6 +133,7 @@ describe('AuthService', () => {
           useValue: mockAdminOAuthStateRepo,
         },
         { provide: CallbackCodeRepository, useValue: mockCallbackCodeRepo },
+        { provide: AdminCliCodeRepository, useValue: mockAdminCliCodeRepo },
         { provide: ProjectsRepository, useValue: mockProjectsRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordService, useValue: mockDiscordService },
@@ -669,6 +673,7 @@ describe('AuthService', () => {
       expect(mockAuthRequestRepo.deleteExpired).toHaveBeenCalled();
       expect(mockAdminOAuthStateRepo.deleteExpired).toHaveBeenCalled();
       expect(mockCallbackCodeRepo.deleteExpired).toHaveBeenCalled();
+      expect(mockAdminCliCodeRepo.deleteExpired).toHaveBeenCalled();
     });
   });
 

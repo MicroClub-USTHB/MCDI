@@ -29,6 +29,9 @@ const mockAdminAuthService = {
   buildAdminDiscordLoginUrl: jest.fn(),
   hasValidAdminState: jest.fn(),
   handleAdminDiscordCallback: jest.fn(),
+  findCliRedirect: jest.fn(),
+  handleAdminCliCallback: jest.fn(),
+  exchangeAdminCliCode: jest.fn(),
   getMe: jest.fn(),
 };
 
@@ -320,6 +323,91 @@ describe('AuthController', () => {
       expect.objectContaining({ httpOnly: true, sameSite: 'lax' }),
     );
     expect(res.redirect).toHaveBeenCalledWith('development');
+  });
+
+  // ── admin CLI login (m-forge) ──────────────────────────────────────
+
+  describe('admin CLI login', () => {
+    const CLI_TARGET =
+      'http://127.0.0.1:53123/callback?code=one-time&state=cli-state';
+
+    it('adminDiscordLogin passes the CLI query through to the service', async () => {
+      mockAdminAuthService.buildAdminDiscordLoginUrl.mockResolvedValue({
+        url: 'https://discord.com/oauth2/authorize?state=x',
+      });
+      const res = mockRes();
+
+      await controller.adminDiscordLogin(
+        {
+          redirect_uri: 'http://127.0.0.1:53123/callback',
+          code_challenge: 'c'.repeat(43),
+          code_challenge_method: 'S256',
+        },
+        { headers: { accept: 'application/json' } } as any,
+        res as any,
+      );
+
+      expect(
+        mockAdminAuthService.buildAdminDiscordLoginUrl,
+      ).toHaveBeenCalledWith({
+        redirectUri: 'http://127.0.0.1:53123/callback',
+        codeChallenge: 'c'.repeat(43),
+        codeChallengeMethod: 'S256',
+      });
+      expect(res.json).toHaveBeenCalledWith({
+        url: 'https://discord.com/oauth2/authorize?state=x',
+      });
+    });
+
+    it.each(['adminDiscordCallback', 'discordCallback'] as const)(
+      '%s sends a CLI login back to the loopback URL, without a cookie',
+      async (handler) => {
+        mockAdminAuthService.hasValidAdminState.mockResolvedValue(true);
+        mockAdminAuthService.findCliRedirect.mockResolvedValue(
+          'http://127.0.0.1:53123/callback',
+        );
+        mockAdminAuthService.handleAdminCliCallback.mockResolvedValue(
+          CLI_TARGET,
+        );
+        const res = mockRes();
+
+        await controller[handler](
+          'code123',
+          'cli-state',
+          { headers: {} } as any,
+          res as any,
+        );
+
+        expect(
+          mockAdminAuthService.handleAdminCliCallback,
+        ).toHaveBeenCalledWith('code123', 'cli-state', {
+          ipAddress: null,
+          userAgent: null,
+        });
+        expect(res.redirect).toHaveBeenCalledWith(CLI_TARGET);
+        expect(res.cookie).not.toHaveBeenCalled();
+        expect(
+          mockAdminAuthService.handleAdminDiscordCallback,
+        ).not.toHaveBeenCalled();
+      },
+    );
+
+    it('adminCliToken exchanges the code with the verifier', async () => {
+      const session = { token: 'cli-token', expiresAt: new Date() };
+      mockAdminAuthService.exchangeAdminCliCode.mockResolvedValue(session);
+
+      const result = await controller.adminCliToken(
+        { code: 'one-time', codeVerifier: 'v'.repeat(43) },
+        { headers: {} } as any,
+      );
+
+      expect(mockAdminAuthService.exchangeAdminCliCode).toHaveBeenCalledWith(
+        'one-time',
+        'v'.repeat(43),
+        { ipAddress: null, userAgent: null },
+      );
+      expect(result).toBe(session);
+    });
   });
 
   // ── validateSession ────────────────────────────────────────────────
