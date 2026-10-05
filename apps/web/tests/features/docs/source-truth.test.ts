@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -133,8 +134,18 @@ describe('code excerpts in the docs', () => {
 });
 
 describe('the files a page cites', () => {
+  // Tracked by git, not merely present: a file that is ignored (a personal override) exists
+  // on one machine and not in a fresh clone or in CI, which is where a reader would look.
+  const tracked = new Set(
+    execFileSync('git', ['ls-files'], { cwd: REPO, maxBuffer: 64 * 1024 * 1024 })
+      .toString()
+      .split('\n')
+  );
+  const isTracked = (file: string) =>
+    tracked.has(file) || [...tracked].some((candidate) => candidate.startsWith(`${file}/`));
+
   it.each(pages.map(({ slug, source }) => [slug, source] as const))(
-    '%s cites files that exist',
+    '%s cites files that are in the repository',
     (_slug, source) => {
       const line = source
         .split('\n')
@@ -143,7 +154,7 @@ describe('the files a page cites', () => {
       const cited = [...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]!);
 
       expect(cited.length).toBeGreaterThan(0);
-      expect(cited.filter((file) => !fs.existsSync(path.join(REPO, file)))).toEqual([]);
+      expect(cited.filter((file) => !isTracked(file))).toEqual([]);
     }
   );
 });

@@ -66,6 +66,17 @@ Compose starts three services:
 
 The compose file overrides the database and Redis settings with the container hostnames, so `.env` can keep the values from `.env.example`. The first start takes a few minutes. Watch it with `docker compose logs -f api` until you see `Application is running on: http://localhost:3000/api`.
 
+The compose file also fixes `ADMIN_FRONTEND_URL`, where the browser goes after an admin signs in, to `http://localhost:3000/admin`, the API's legacy admin page. To land in the panel instead, create `apps/api/docker-compose.override.yml`. Git ignores that file, and Compose reads it automatically:
+
+```yaml
+services:
+  api:
+    environment:
+      - ADMIN_FRONTEND_URL=http://localhost:3002/callback
+```
+
+Run `docker compose up -d` again after you create it, so the API container picks the value up.
+
 Then start the admin panel, from the repository root:
 
 ```bash
@@ -81,11 +92,12 @@ cd apps/api
 docker compose up -d database redis
 ```
 
-In `apps/api/.env`, point the API at them. The example file uses the container names `database` and `redis`, which only exist inside Docker:
+In `apps/api/.env`, point the API at them. The example file uses the container names `database` and `redis`, which only exist inside Docker, and an old address for the panel:
 
 ```bash
 DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi
 REDIS_HOST=localhost
+ADMIN_FRONTEND_URL=http://localhost:3002/callback
 ```
 
 Then, from the repository root, run the API and the panel together:
@@ -144,7 +156,7 @@ On its first start with a `MC_GUILD_ID` and an empty database, the API creates t
 
 ## Sign in as the first admin
 
-Open `http://localhost:3002/login` and sign in with Discord. MCDI lets you in when you belong to the main server (`MC_GUILD_ID`) and hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`. It asks Discord about your membership with your own login, so you do not have to wait for the first sync. After sign-in the API sends you to `ADMIN_FRONTEND_URL`, which the compose files set to the panel.
+Open `http://localhost:3002/login` and sign in with Discord. MCDI lets you in when you belong to the main server (`MC_GUILD_ID`) and hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`. It asks Discord about your membership with your own login, so you do not have to wait for the first sync. After sign-in the API sends you to `ADMIN_FRONTEND_URL`. That must be `http://localhost:3002/callback` for you to land in the panel: set it in `.env` when the API runs on your machine, and with the override file when it runs in Docker. Left alone, Docker sends you to the legacy admin page at `http://localhost:3000/admin`.
 
 ## The database
 
@@ -267,4 +279,4 @@ The panel reads `apps/web/.env`, and refuses to start when a value is missing.
 - **The API container crashes with `MODULE_NOT_FOUND`.** A build on your machine wrote into the folder the container watches. Run `docker compose restart api` from `apps/api`.
 - **The log says `Redis cache unavailable ... NOAUTH`.** The password in `.env` does not match Redis. The compose Redis password is `redis_password`.
 
-Source: `apps/api/src/config`, `apps/api/.env.example`, `apps/api/docker-compose.yml`, `apps/api/docker-compose.override.yml`, `apps/api/docker-compose.prod.yml`, `apps/api/package.json`, `apps/api/scripts/migrate.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/database/seeders/initial.seeder.ts`, `apps/api/src/modules/discord/discord.module.ts`, `apps/api/src/modules/auth/utils/build-discord-oauth-url.ts`, `apps/web/.env.example`, `apps/web/src/shared/lib/env.ts`.
+Source: `apps/api/src/config`, `apps/api/.env.example`, `apps/api/docker-compose.yml`, `apps/api/docker-compose.prod.yml`, `apps/api/package.json`, `apps/api/scripts/migrate.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/database/seeders/initial.seeder.ts`, `apps/api/src/modules/discord/discord.module.ts`, `apps/api/src/modules/auth/utils/build-discord-oauth-url.ts`, `apps/web/.env.example`, `apps/web/src/shared/lib/env.ts`, `.gitignore`.
