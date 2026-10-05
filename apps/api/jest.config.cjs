@@ -21,6 +21,7 @@ module.exports = {
     '!**/*.config.ts',
     '!**/config.module.ts',
     '!**/main.ts',
+    '!**/openapi/export.ts',
   ],
   coverageDirectory: '../coverage',
   coverageThreshold: {
