@@ -16,7 +16,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -332,7 +332,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Exchange callback code for session token (backend-to-backend)',
@@ -383,7 +383,7 @@ export class AuthController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Validate session token (project-scoped)',
@@ -633,7 +633,7 @@ export class AuthController {
   @Post('token/refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
@@ -671,7 +671,7 @@ export class AuthController {
 
   @Get('sessions')
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'List active sessions for the current member',
@@ -700,7 +700,7 @@ export class AuthController {
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Revoke a specific session',

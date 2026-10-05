@@ -21,7 +21,7 @@ import {
   ApiNotFoundResponse,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { ChannelsService } from '../channels/channels.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ListChannelsQueryDto } from '../channels/dto/list-channels-query.dto';
@@ -41,7 +41,7 @@ import { ChannelsExceptionFilter } from '../channels/filters/channels-exception.
  * System Admin is not a project and sees every server, so `ChannelAccessGuard`
  * (per-project channel grant) and `ProjectThrottlerGuard` (per-project rate
  * limit) do not apply — the Discord-proxying `messages` route keeps a plain
- * IP-keyed `@Throttle` instead.
+ * IP-keyed `@Throttle` override of the global limit instead.
  */
 @ApiTags('Channels')
 @ApiBearerAuth('session-token')
@@ -126,7 +126,6 @@ export class AdminChannelsController {
   }
 
   @Get(':channelId/messages')
-  @UseGuards(ThrottlerGuard)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @ApiOperation({
     summary: 'Get recent messages from a channel (admin session)',

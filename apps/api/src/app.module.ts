@@ -17,6 +17,7 @@ import { AdminChannelsModule } from './modules/admin-channels/admin-channels.mod
 import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
+import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
 import { SyncModule } from './modules/sync/sync.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -61,6 +62,8 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
   ],
   controllers: [AppController],
   providers: [
+    // Registered first so a rejected flood costs no database lookups
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     {
       provide: APP_GUARD,
       useClass: ServerActiveGuard,
