@@ -59,11 +59,7 @@ A route is protected by the guards you attach with `@UseGuards`, usually on the 
 Two decorators declare what a project needs on a server, and `ApiKeyGuard` enforces them:
 
 - `@RequireProjectOperation('READ' | 'SEND_MESSAGES' | 'MANAGE_WEBHOOKS')` on the controller or the route. `READ` is the default.
-- `@RequireScope('read_members')` on a route that returns member data. The scope is checked against the server in the request, so the route must have a `serverId` in its path or query.
-
-<Callout type="warning">
-  The access check reads `serverId` from the path or the query only. A route that takes the server in the request body is not checked (issue #181). Put the server in the path.
-</Callout>
+- `@RequireScope('read_members')` on a route that returns member data. The scope is checked against the server in the request, so the route must have a `serverId` in its path, its query or its JSON body.
 
 ### Tell Swagger who calls it
 
