@@ -31,6 +31,73 @@ export const DOCS_NAV: DocSection[] = [
         description:
           'The idea behind MCDI and the handful of concepts, projects, servers, roles, sync and webhooks, that everything else builds on.',
       },
+      {
+        slug: 'start-here/quickstart',
+        title: 'Quickstart',
+        description:
+          'Go from nothing to a first successful call to the MCDI API with a project key, and learn what a 401 or a 403 means.',
+      },
+    ],
+  },
+  {
+    title: 'Integrate with MCDI',
+    description:
+      'For developers of MicroClub projects: sign members in, use your API key, check permissions and receive data through inbound webhooks.',
+    pages: [
+      {
+        slug: 'integrate/sso',
+        title: 'Login with MicroClub',
+        description:
+          'Sign members in with MCDI: the two entry points, the callback, the code exchange, sessions, refresh, logout and migrating an old integration.',
+      },
+      {
+        slug: 'integrate/api-keys',
+        title: 'API keys and server access',
+        description:
+          'How a project authenticates with its API key, how an admin grants access per server, and what each 401 and 403 means.',
+      },
+      {
+        slug: 'integrate/roles-and-permissions',
+        title: 'Roles, permissions and inheritance',
+        description:
+          'How Discord roles become permissions, how inheritance reaches other servers, how to check them, and how fresh an answer is.',
+      },
+      {
+        slug: 'integrate/inbound-webhooks/overview',
+        title: 'Inbound webhooks: overview',
+        description:
+          'What an inbound webhook is, why there is one per kind of data, who creates it, and how it works from creation to reading.',
+      },
+      {
+        slug: 'integrate/inbound-webhooks/schemas',
+        title: 'Inbound webhooks: schemas',
+        description:
+          'Everything a webhook schema can contain: steps or flat fields, every field type and its limits, conditions, defaults and templates.',
+      },
+      {
+        slug: 'integrate/inbound-webhooks/signing-and-sending',
+        title: 'Inbound webhooks: signing and sending',
+        description:
+          'Sign and send a submission with Node, Python or curl: the signature, replay protection, the origin allowlist and the rate limit.',
+      },
+      {
+        slug: 'integrate/inbound-webhooks/reading-submissions',
+        title: 'Inbound webhooks: reading submissions',
+        description:
+          'Who can read what a webhook received, the list and detail endpoints, filters, paging and why a refusal is a 404.',
+      },
+      {
+        slug: 'integrate/inbound-webhooks/errors-and-limits',
+        title: 'Inbound webhooks: errors and limits',
+        description:
+          'Every status the submit endpoint returns, the 422 body that lists all schema problems, each error code and the limits.',
+      },
+      {
+        slug: 'integrate/conventions',
+        title: 'Conventions: errors and rate limits',
+        description:
+          'The rules shared by the whole API: the error shape, per-endpoint rate limits, CORS, paging, identifiers and times.',
+      },
     ],
   },
   {

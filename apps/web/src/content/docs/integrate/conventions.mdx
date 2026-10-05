@@ -1,0 +1,124 @@
+These rules hold across the whole MCDI API. They cover how errors look, how requests are limited, how browsers are allowed in, and how lists are paged.
+
+## Errors
+
+Every error is JSON, with the HTTP status in `statusCode`. Most have this shape:
+
+```json
+{ "message": "Invalid API key", "error": "Unauthorized", "statusCode": 401 }
+```
+
+`error` names the status and `message` says what to fix. Two variations exist.
+
+**Validation errors** list every problem in `message`, as an array of strings. The API refuses a request body or query that has a field it does not know, so a typo is a 400, not something silently ignored:
+
+```json
+{ "message": ["property apiKey should not exist"], "error": "Bad Request", "statusCode": 400 }
+```
+
+**Endpoints with their own error codes** put a stable name in `error`, and sometimes more:
+
+```json
+{ "statusCode": 401, "error": "InvalidSignature", "reason": "STALE_TIMESTAMP" }
+```
+
+```json
+{
+  "statusCode": 422,
+  "error": "ValidationFailed",
+  "errors": [
+    { "path": "identity.email", "code": "INVALID_EMAIL", "message": "Not a valid email address" }
+  ]
+}
+```
+
+Treat the status code and, when present, `error`, `reason` and `code` as the contract. The wording of `message` is for people and can change.
+
+| Status | Usually means                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------- |
+| 400    | The request is malformed: an unknown or invalid field, a bad ID, bad JSON.                        |
+| 401    | MCDI does not know who you are: no key or token, or an invalid one.                               |
+| 403    | It does, and you are not allowed: no access to the server, a missing scope, or a disabled server. |
+| 404    | The thing does not exist, or you may not know that it does.                                       |
+| 405    | The HTTP method is not supported. The answer carries an `Allow` header.                           |
+| 409    | A conflict, such as a replayed signed request or a duplicate.                                     |
+| 422    | The request is well formed but its data fails a schema.                                           |
+| 429    | Too many requests.                                                                                |
+
+An unknown route is `{ "message": "Cannot GET /api/nope", "error": "Not Found", "statusCode": 404 }`. A request with a method outside GET, POST, PUT, PATCH, DELETE, HEAD and OPTIONS gets 405 with `Allow: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS`.
+
+A malformed identifier in a path can come back as `{ "message": "Invalid parameter or data format provided.", ... }`, a 400 raised when the database refuses the value. A database conflict is a 409 with `Database conflict or constraint violation.`
+
+## Rate limits
+
+Limits protect the endpoints that are expensive or sensitive. They are per endpoint, counted per minute, and the 429 says when to come back.
+
+| Endpoint                                                     | Limit per minute | Counted per          |
+| ------------------------------------------------------------ | ---------------- | -------------------- |
+| `POST /api/auth/token`                                       | 30               | client IP address    |
+| `POST /api/auth/validate`                                    | 60               | client IP address    |
+| `POST /api/auth/token/refresh`                               | 30               | client IP address    |
+| `GET /api/auth/sessions`                                     | 60               | client IP address    |
+| `DELETE /api/auth/sessions/{sessionId}`                      | 30               | client IP address    |
+| `GET /api/servers/{serverId}/channels/{channelId}/messages`  | 10               | project              |
+| `POST /api/servers/{serverId}/channels/{channelId}/messages` | 5                | project              |
+| `POST /api/webhooks/{webhookId}/execute`                     | 30               | project              |
+| `POST /api/inbound-webhooks/{id}/submit`                     | 120              | webhook, and project |
+
+Other endpoints have no rate limit today, including the permission checks and the member endpoints. Do not read that as permission to hammer them: cache what you can.
+
+A request over the limit is a 429 with a `Retry-After` header in seconds:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+
+{ "statusCode": 429, "error": "ThrottlerException: Too Many Requests", "message": "ThrottlerException: Too Many Requests" }
+```
+
+Submissions to inbound webhooks have their own limit and answer in their own shape, `{ "statusCode": 429, "error": "RateLimited", "message": "..." }`. See [Errors and limits](/docs/integrate/inbound-webhooks/errors-and-limits).
+
+<Callout type="note">
+  The API reads two settings, `THROTTLER_TTL_MS` and `THROTTLER_LIMIT`, with defaults of 60 seconds
+  and 120 requests. Every limited endpoint above sets its own numbers, so those two settings do not
+  change anything today (issue #182).
+</Callout>
+
+Limits keyed by client IP use the address the API sees. Behind a proxy that is the proxy's address unless the deployment tells the API to trust the forwarded header, so many users behind one address share a budget.
+
+## CORS
+
+Browsers may call the API from another origin when it allows that origin. The API answers a preflight with 204 and allows:
+
+- methods `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`
+- headers `Content-Type`, `Authorization`, `Accept` and `X-API-Key`
+- credentials, so the `mcdi_sso` cookie can travel
+
+Which origins are allowed depends on the environment. In development every origin is accepted. Otherwise the API allows `localhost` and `127.0.0.1` on any port, plus the origins an operator lists in `CORS_ORIGINS`, separated by commas. Ask an admin to add the origin of your browser app, and remember the browser app never holds the project API key.
+
+## Paging
+
+Lists use two styles, depending on the endpoint.
+
+**Pages**, used by members. Send `page` (starting at 1) and `limit` (default 20, at most 100). The response has the entries in `data` and a `pagination` object:
+
+```json
+{
+  "data": [ ... ],
+  "pagination": { "page": 1, "limit": 2, "total": 3, "pages": 2, "hasNext": true, "hasPrev": false }
+}
+```
+
+**Offset**, used by inbound webhook submissions. Send `limit` (default 50, at most 200) and `offset` (default 0). The response has `submissions`, `total`, `limit` and `offset`. See [Reading submissions](/docs/integrate/inbound-webhooks/reading-submissions).
+
+Channel messages are limited by `limit` alone, between 1 and 100, default 50.
+
+Paging parameters that are out of range are a 400 that names the rule, such as `limit must not be greater than 200`.
+
+## Identifiers and times
+
+- Discord IDs, for servers, members and roles, are strings of 17 to 20 digits. Send them as strings, never as numbers, because they are larger than JavaScript can hold exactly.
+- Projects, webhooks, submissions and sessions use UUIDs.
+- Times are ISO 8601 in UTC, such as `2026-10-05T18:15:38.271Z`.
+
+Source: `apps/api/src/common/filters/drizzle.filter.ts`, `apps/api/src/common/middleware/method-not-allowed.middleware.ts`, `apps/api/src/main.ts`, `apps/api/src/app.module.ts`, `apps/api/src/modules/auth/auth.controller.ts`, `apps/api/src/modules/channels/channels.controller.ts`, `apps/api/src/modules/webhooks/webhooks.controller.ts`, `apps/api/src/modules/members/dto/get-members-query.dto.ts`.

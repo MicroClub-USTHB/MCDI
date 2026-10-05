@@ -8,6 +8,7 @@ import { DocHeading } from '@/features/docs/components/doc-heading';
 import { DocLink } from '@/features/docs/components/doc-link';
 import { DocTable } from '@/features/docs/components/doc-table';
 import { Endpoint } from '@/features/docs/components/endpoint';
+import { InboundContract } from '@/features/docs/components/inbound-contract';
 import { Steps } from '@/features/docs/components/steps';
 import { SwaggerLink } from '@/features/docs/components/swagger-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
@@ -17,7 +18,7 @@ function InlineCode({ className, ...props }: ComponentProps<'code'>) {
   if (className) return <code className={className} {...props} />;
   return (
     <code
-      className="rounded-sm bg-surface-active px-1.5 py-0.5 font-mono text-code text-text-primary"
+      className="rounded-sm bg-surface-active px-1.5 py-0.5 font-mono text-code text-text-primary [overflow-wrap:anywhere]"
       {...props}
     />
   );
@@ -37,6 +38,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Diagram,
     Endpoint,
     SwaggerLink,
+    InboundContract,
     Tabs,
     TabsList,
     TabsTrigger,

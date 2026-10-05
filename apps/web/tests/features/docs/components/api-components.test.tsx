@@ -1,6 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import {
+  INBOUND_FIELD_PROPERTIES,
+  INBOUND_FIELD_TYPES,
+  INBOUND_WEBHOOK_TEMPLATES,
+} from '@mcdi/contracts';
+
+import { InboundContract } from '@/features/docs/components/inbound-contract';
 import { Endpoint } from '@/features/docs/components/endpoint';
 import { SwaggerLink } from '@/features/docs/components/swagger-link';
 import { API_REFERENCE_HREF } from '@/features/docs/links';
@@ -50,5 +57,49 @@ describe('SwaggerLink', () => {
       'href',
       `${API_REFERENCE_HREF}#/Inbound%20Webhooks%20(Admin)/InboundWebhooksController_list`
     );
+  });
+});
+
+describe('InboundContract', () => {
+  it('lists every field type of the contracts, with its description', () => {
+    render(<InboundContract name="field-types" />);
+
+    for (const type of INBOUND_FIELD_TYPES) {
+      expect(screen.getByText(type, { selector: 'code' })).toBeInTheDocument();
+    }
+    expect(screen.getAllByRole('row')).toHaveLength(INBOUND_FIELD_TYPES.length + 1);
+  });
+
+  it('lists every property of every field type', () => {
+    render(<InboundContract name="field-properties" />);
+
+    const total = INBOUND_FIELD_TYPES.reduce(
+      (sum, type) => sum + INBOUND_FIELD_PROPERTIES[type].length,
+      0
+    );
+    expect(screen.getAllByRole('row')).toHaveLength(total + 1);
+    expect(screen.getByText('maxItems', { selector: 'code' })).toBeInTheDocument();
+  });
+
+  it('lists every template', () => {
+    render(<InboundContract name="templates" />);
+
+    for (const template of INBOUND_WEBHOOK_TEMPLATES) {
+      expect(screen.getByText(template.id, { selector: 'code' })).toBeInTheDocument();
+    }
+  });
+
+  it('renders the condition operators and schema properties', () => {
+    const { unmount } = render(<InboundContract name="condition-operators" />);
+    expect(screen.getByText('contains', { selector: 'code' })).toBeInTheDocument();
+    unmount();
+
+    render(<InboundContract name="schema-properties" />);
+    expect(screen.getByText('steps', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.getByText('fields', { selector: 'code' })).toBeInTheDocument();
+  });
+
+  it('refuses a table name it does not know', () => {
+    expect(() => render(<InboundContract name={'nope' as never} />)).toThrow(/unknown table/);
   });
 });
