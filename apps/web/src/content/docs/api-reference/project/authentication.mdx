@@ -201,33 +201,18 @@ Requires a valid `X-API-Key` header. Only sessions belonging to the calling proj
 
 ## Schemas
 
-### AuthMemberProfileDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `avatar` | `string or null` | no | Avatar URL |
-| `displayName` | `string or null` | no | Server nickname |
-| `email` | `string or null` | no | Primary email associated with the Discord account |
-| `globalName` | `string or null` | no | Global display name |
-| `id` | `string` | yes | Discord user ID |
-| `isClubMember` | `boolean` | yes | Whether the member is in the main club server |
-| `joinedAt` | `string (date-time) or null` | no | Date the member joined Discord |
-| `username` | `string` | yes | Discord username |
-
 ### AuthMemberResponseDto schema
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `avatar` | `string or null` | no | Avatar URL or hash |
-| `createdAt` | `string (date-time)` | yes | Creation timestamp |
-| `displayName` | `string or null` | no | Display name |
-| `email` | `string or null` | no | Email address |
+| `displayName` | `string or null` | no | Server nickname |
+| `email` | `string or null` | no | Primary email associated with the Discord account |
 | `globalName` | `string or null` | no | Discord global name |
 | `id` | `string` | yes | Member ID (Discord ID) |
 | `isClubMember` | `boolean` | yes | Whether the user is a club member |
-| `joinedAt` | `string (date-time) or null` | no | Date when the user joined |
-| `syncedAt` | `string (date-time) or null` | no | Last sync with Discord |
-| `updatedAt` | `string (date-time)` | yes | Last update timestamp |
+| `joinedAt` | `string (date-time) or null` | no | Date when the member joined Discord |
+| `preferredName` | `string or null` | no | Name set by an admin, overriding the display name |
 | `username` | `string` | yes | Discord username |
 
 ### AuthMemberRoleDto schema
@@ -317,7 +302,7 @@ Requires a valid `X-API-Key` header. Only sessions belonging to the calling proj
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `expiresAt` | `string (date-time)` | yes | ISO 8601 timestamp when the token expires |
-| `member` | `AuthMemberProfileDto` | yes | Basic profile information for the authenticated member |
+| `member` | `AuthMemberResponseDto` | yes | Basic profile information for the authenticated member |
 | `refreshToken` | `string` | yes | Refresh token used to rotate this session via POST /auth/token/refresh |
 | `roles` | `array of AuthMemberRoleDto` | yes | List of roles the member has in the associated server |
 | `token` | `string` | yes | Long-lived session token (Bearer token) |

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { members } from '../../../database/entities';
 
 // ── Member ───────────────────────────────────────────────────
 
@@ -15,21 +16,35 @@ export class AuthMemberResponseDto {
   @ApiPropertyOptional({
     description: 'Discord global name',
     example: 'John Doe',
+    nullable: true,
   })
   globalName: string | null;
 
-  @ApiPropertyOptional({ description: 'Display name', example: 'John Doe' })
+  @ApiPropertyOptional({
+    description: 'Server nickname',
+    example: 'John',
+    nullable: true,
+  })
   displayName: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Name set by an admin, overriding the display name',
+    example: 'Johnny',
+    nullable: true,
+  })
+  preferredName: string | null;
 
   @ApiPropertyOptional({
     description: 'Avatar URL or hash',
     example: 'https://cdn.discordapp.com/avatars/123/abc.png',
+    nullable: true,
   })
   avatar: string | null;
 
   @ApiPropertyOptional({
-    description: 'Email address',
+    description: 'Primary email associated with the Discord account',
     example: 'johndoe@example.com',
+    nullable: true,
   })
   email: string | null;
 
@@ -39,17 +54,31 @@ export class AuthMemberResponseDto {
   })
   isClubMember: boolean;
 
-  @ApiPropertyOptional({ description: 'Date when the user joined' })
+  @ApiPropertyOptional({
+    description: 'Date when the member joined Discord',
+    nullable: true,
+  })
   joinedAt: Date | null;
+}
 
-  @ApiPropertyOptional({ description: 'Last sync with Discord' })
-  syncedAt: Date | null;
-
-  @ApiProperty({ description: 'Creation timestamp' })
-  createdAt: Date;
-
-  @ApiProperty({ description: 'Last update timestamp' })
-  updatedAt: Date;
+/**
+ * Picks the public fields explicitly. Never spread a member row into a
+ * project-facing response: it carries `passwordHash` and `isSystemAdmin`.
+ */
+export function toAuthMemberResponse(
+  member: typeof members.$inferSelect,
+): AuthMemberResponseDto {
+  return {
+    id: member.id,
+    username: member.username,
+    globalName: member.globalName,
+    displayName: member.displayName,
+    preferredName: member.preferredName,
+    avatar: member.avatar,
+    email: member.email,
+    isClubMember: member.isClubMember,
+    joinedAt: member.joinedAt,
+  };
 }
 
 // ── Role ─────────────────────────────────────────────────────
