@@ -146,17 +146,19 @@ describe('DocPageHeader', () => {
 });
 
 describe('DocPager', () => {
-  it('offers the page before and the page after', () => {
+  it('offers the page before and the page after, in nav order', () => {
+    const pages = allDocPages();
+    const index = pages.findIndex((page) => page.slug === 'build/contributing');
+    const prev = pages[index - 1]!;
+    const next = pages[index + 1]!;
     render(<DocPager slug="build/contributing" />);
 
-    expect(screen.getByRole('link', { name: /Previous.*What is MCDI/s })).toHaveAttribute(
-      'href',
-      '/docs/start-here/what-is-mcdi'
-    );
-    expect(screen.getByRole('link', { name: /Next.*Writing these docs/s })).toHaveAttribute(
-      'href',
-      '/docs/build/writing-docs'
-    );
+    expect(
+      screen.getByRole('link', { name: new RegExp(`Previous.*${prev.title}`, 's') })
+    ).toHaveAttribute('href', `/docs/${prev.slug}`);
+    expect(
+      screen.getByRole('link', { name: new RegExp(`Next.*${next.title}`, 's') })
+    ).toHaveAttribute('href', `/docs/${next.slug}`);
   });
 
   it('has nothing before the first page', () => {

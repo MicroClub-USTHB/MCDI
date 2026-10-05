@@ -7,7 +7,9 @@ import { Diagram } from '@/features/docs/components/diagram';
 import { DocHeading } from '@/features/docs/components/doc-heading';
 import { DocLink } from '@/features/docs/components/doc-link';
 import { DocTable } from '@/features/docs/components/doc-table';
+import { Endpoint } from '@/features/docs/components/endpoint';
 import { Steps } from '@/features/docs/components/steps';
+import { SwaggerLink } from '@/features/docs/components/swagger-link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 
 /** Inline code only: a block's code carries the highlighter's `language-` class. */
@@ -33,6 +35,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Callout,
     Steps,
     Diagram,
+    Endpoint,
+    SwaggerLink,
     Tabs,
     TabsList,
     TabsTrigger,
