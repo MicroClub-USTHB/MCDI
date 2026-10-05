@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" role="img" font-family="ui-sans-serif,system-ui,sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9z" fill="#B5BAC1"/></marker></defs>
+<text x="30" y="30" font-size="16" font-weight="600" fill="#F2F3F5">Startup and manual sync</text>
+<rect x="30" y="50" width="380" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="220.0" y="73.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Bot is ready</text>
+<text x="220.0" y="93.0" text-anchor="middle" font-size="14" fill="#B5BAC1">or an admin queues a sync</text>
+<line x1="220" y1="108" x2="220" y2="138" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="30" y="138" width="380" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="220.0" y="161.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Queue a sync per active server</text>
+<text x="220.0" y="181.0" text-anchor="middle" font-size="14" fill="#B5BAC1">status: queued</text>
+<line x1="220" y1="196" x2="220" y2="226" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="30" y="226" width="380" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="220.0" y="249.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Worker drains the queue</text>
+<text x="220.0" y="269.0" text-anchor="middle" font-size="14" fill="#B5BAC1">polls every 5 seconds</text>
+<line x1="220" y1="284" x2="220" y2="314" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="30" y="314" width="380" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="220.0" y="337.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Sync server, roles, members</text>
+<text x="220.0" y="357.0" text-anchor="middle" font-size="14" fill="#B5BAC1">in order, clearing permission caches</text>
+<line x1="220" y1="372" x2="220" y2="402" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="30" y="402" width="380" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="220.0" y="425.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Write the sync log and changes</text>
+<text x="220.0" y="445.0" text-anchor="middle" font-size="14" fill="#B5BAC1">status: success or failed</text>
+<text x="530" y="30" font-size="16" font-weight="600" fill="#F2F3F5">Live updates from Discord</text>
+<rect x="530" y="50" width="400" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="730.0" y="73.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Gateway event</text>
+<text x="730.0" y="93.0" text-anchor="middle" font-size="14" fill="#B5BAC1">member join, leave, update, role or guild change</text>
+<line x1="730" y1="108" x2="730" y2="138" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="530" y="138" width="400" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="730.0" y="161.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">SyncListener handles it</text>
+<text x="730.0" y="181.0" text-anchor="middle" font-size="14" fill="#B5BAC1">one member, role or guild at a time</text>
+<line x1="730" y1="196" x2="730" y2="226" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="530" y="226" width="400" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="730.0" y="249.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Incremental update in PostgreSQL</text>
+<text x="730.0" y="269.0" text-anchor="middle" font-size="14" fill="#B5BAC1">no queue involved</text>
+<line x1="730" y1="284" x2="730" y2="314" stroke="#B5BAC1" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="530" y="314" width="400" height="58" rx="8" fill="#2B2D31" stroke="#4E5058" stroke-width="1"/>
+<text x="730.0" y="337.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Clear the affected caches</text>
+<text x="730.0" y="357.0" text-anchor="middle" font-size="14" fill="#B5BAC1">member or server permission cache</text>
+</svg>
