@@ -50,7 +50,7 @@ A route is protected by the guards you attach with `@UseGuards`, usually on the 
 | `ApiKeyGuard` | The caller is a project backend. | `project` |
 | `SessionGuard` | The caller is a member with any valid session. | `memberId`, `sessionToken` |
 | `SystemAdminGuard` | The route is for admins only. | `memberId` |
-| `ThrottlerGuard`, `ProjectThrottlerGuard` | The route needs a rate limit. Pair it with `@Throttle({ default: { ttl, limit } })`. | |
+| `ProjectThrottlerGuard` | The route is limited per project, not per IP. Pair it with `@Throttle({ default: { ttl, limit } })` and `@SkipGlobalThrottle()`, or the IP limit counts it too. | |
 | `ChannelAccessGuard` | A channel route needs the project's channel grant. | |
 | `InboundWebhookReadGuard` | A submission read must check the member's reader roles. | `matchedViaRoleId` |
 

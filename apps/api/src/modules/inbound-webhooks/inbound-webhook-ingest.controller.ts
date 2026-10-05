@@ -25,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { SkipGlobalThrottle } from '../../common/guards/app-throttler.guard';
 import { InboundWebhooksService } from './inbound-webhooks.service';
 import type { SubmitBody } from './dto/submit.dto';
 
@@ -41,6 +42,8 @@ type ProjectRequest = RawBodyRequest<Request> & {
  */
 @ApiTags('Inbound Webhooks (Ingest)')
 @ApiSecurity('api-key')
+// Has its own Redis limit (per webhook and per project)
+@SkipGlobalThrottle()
 @Controller('inbound-webhooks')
 @UseGuards(ApiKeyGuard)
 export class InboundWebhookIngestController {

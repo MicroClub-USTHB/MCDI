@@ -37,15 +37,17 @@ A request goes through these steps, in this order:
 
 3. **`AuditLoggingMiddleware`.** It runs on every route except `health`, `docs` and the OpenAPI documents. It waits for the response to finish, then records usage for the endpoint, writes an audit row when the request was a successful mutation listed in its route map, and records a rejected API key or session when the answer was a 401 or 403.
 
-4. **`ServerActiveGuard`, a global guard.** When the request carries credentials and names a server (as `serverId` or `guildId` in the path, `serverId` in the query or body, or an `x-server-id` header), the server must exist and be active, or the answer is a 403 `Server is disabled`. Routes under `/servers` are exempt, so admins can manage disabled servers.
+4. **`AppThrottlerGuard`, a global guard.** It limits requests per client IP address and route, using `THROTTLER_TTL_MS` and `THROTTLER_LIMIT` unless the route sets its own `@Throttle`. Routes that limit themselves differently opt out with `@SkipGlobalThrottle()`: the project-counted routes, inbound webhook submissions and `health`. Over the limit is a 429.
 
-5. **The route's guards.** `ApiKeyGuard`, `SessionGuard`, `SystemAdminGuard`, and on a few routes `ThrottlerGuard`. The throttler is not global: only routes that declare it are limited.
+5. **`ServerActiveGuard`, a global guard.** When the request carries credentials and names a server (as `serverId` or `guildId` in the path, `serverId` in the query or body, or an `x-server-id` header), the server must exist and be active, or the answer is a 403 `Server is disabled`. Routes under `/servers` are exempt, so admins can manage disabled servers.
 
-6. **The global `ValidationPipe`.** It runs with `whitelist` and `forbidNonWhitelisted`, so a body or query with a field the DTO does not declare is a 400. It also has `transform` on, so values reach the handler as the DTO's types.
+6. **The route's guards.** `ApiKeyGuard`, `SessionGuard`, `SystemAdminGuard`, and on a few routes `ProjectThrottlerGuard`.
 
-7. **Controller, service, repository.** The handler calls a service, and the service calls a repository that talks to PostgreSQL.
+7. **The global `ValidationPipe`.** It runs with `whitelist` and `forbidNonWhitelisted`, so a body or query with a field the DTO does not declare is a 400. It also has `transform` on, so values reach the handler as the DTO's types.
 
-8. **Exception filters.** `PostgresExceptionFilter` turns some database errors into clean responses (invalid format codes into 400, constraint violations into 409) and makes sure every `HttpException` leaves with a JSON body.
+8. **Controller, service, repository.** The handler calls a service, and the service calls a repository that talks to PostgreSQL.
+
+9. **Exception filters.** `PostgresExceptionFilter` turns some database errors into clean responses (invalid format codes into 400, constraint violations into 409) and makes sure every `HttpException` leaves with a JSON body.
 
 </Steps>
 

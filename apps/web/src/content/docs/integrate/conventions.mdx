@@ -51,7 +51,7 @@ A malformed identifier in a path can come back as `{ "message": "Invalid paramet
 
 ## Rate limits
 
-Limits protect the endpoints that are expensive or sensitive. They are per endpoint, counted per minute, and the 429 says when to come back.
+Every endpoint has a rate limit. Limits are per endpoint, counted per client IP address unless the table says otherwise, and the 429 says when to come back. Endpoints not in the table use the default: 120 requests per 60 seconds. An operator can change the default with `THROTTLER_LIMIT` and `THROTTLER_TTL_MS`. The table lists the endpoints that set their own, usually lower, numbers.
 
 | Endpoint                                                     | Limit per minute | Counted per          |
 | ------------------------------------------------------------ | ---------------- | -------------------- |
@@ -65,7 +65,7 @@ Limits protect the endpoints that are expensive or sensitive. They are per endpo
 | `POST /api/webhooks/{webhookId}/execute`                     | 30               | project              |
 | `POST /api/inbound-webhooks/{id}/submit`                     | 120              | webhook, and project |
 
-Other endpoints have no rate limit today, including the permission checks and the member endpoints. Do not read that as permission to hammer them: cache what you can.
+The health check is not limited. Inbound webhook submissions and the three project-counted endpoints above are not counted against the client IP address at all, only against their own limit. Cache what you can instead of calling the member and permission endpoints on every request.
 
 A request over the limit is a 429 with a `Retry-After` header in seconds:
 
@@ -77,12 +77,6 @@ Retry-After: 60
 ```
 
 Submissions to inbound webhooks have their own limit and answer in their own shape, `{ "statusCode": 429, "error": "RateLimited", "message": "..." }`. See [Errors and limits](/docs/integrate/inbound-webhooks/errors-and-limits).
-
-<Callout type="note">
-  The API reads two settings, `THROTTLER_TTL_MS` and `THROTTLER_LIMIT`, with defaults of 60 seconds
-  and 120 requests. Every limited endpoint above sets its own numbers, so those two settings do not
-  change anything today (issue #182).
-</Callout>
 
 Limits keyed by client IP use the address the API sees. Behind a proxy that is the proxy's address unless the deployment tells the API to trust the forwarded header, so many users behind one address share a budget.
 

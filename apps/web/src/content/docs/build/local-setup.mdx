@@ -243,8 +243,8 @@ The API reads `apps/api/.env`. Four of the values below (`PERMISSION_CACHE_TTL_M
 | `PROJECT_ACCESS_CACHE_TTL_MS` | no | `30000` | How long a project's access to a server is cached. |
 | `PROJECT_LAST_USED_WRITE_TTL_MS` | no | `60000` | The least time between two updates of a project's last-used time. |
 | `MAX_WEBHOOKS_PER_PROJECT` | no | `10` | How many Discord webhooks one project may create. |
-| `THROTTLER_TTL_MS` | no | `60000` | The default rate limit window. It currently has no effect, because every limited route sets its own limit (issue #182). |
-| `THROTTLER_LIMIT` | no | `120` | The default rate limit. Same note as above. |
+| `THROTTLER_TTL_MS` | no | `60000` | The default rate limit window. Applies to every route that does not set its own `@Throttle`. |
+| `THROTTLER_LIMIT` | no | `120` | The default number of requests per window, per client IP address and route. |
 
 ### Encryption and inbound webhooks
 
