@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { DM_Sans, JetBrains_Mono } from 'next/font/google';
 import '@/shared/styles/globals.css';
 import { Providers } from '@/app/providers';
+import { env } from '@/shared/lib/env';
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
@@ -16,6 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   title: {
     default: 'MCDI',
     template: '%s | MCDI',

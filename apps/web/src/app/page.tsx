@@ -1,25 +1,27 @@
-import Link from 'next/link';
-import { Button } from '@/shared/components/ui/button';
+import type { Metadata } from 'next';
+
+import { LandingHero } from '@/features/landing/components/landing-hero';
+import { LandingNav } from '@/features/landing/components/landing-nav';
+import { LANDING } from '@/features/landing/content';
+
+export const metadata: Metadata = {
+  title: { absolute: LANDING.metadata.title },
+  description: LANDING.metadata.description,
+};
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-surface-base text-text-primary">
-      <div className="max-w-2xl text-center space-y-6">
-        <h1 className="text-hero tracking-tight">Welcome to MCDI</h1>
-        <p className="text-body text-text-muted">
-          A modern application built with Next.js 16, TypeScript, and TailwindCSS.
-        </p>
-        <div className="flex gap-4 justify-center pt-4">
-          <Button asChild size="sm">
-            <Link href="/dashboard">Get Started</Link>
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="https://nextjs.org/docs" target="_blank" rel="noopener noreferrer">
-              Documentation
-            </Link>
-          </Button>
-        </div>
-      </div>
-    </main>
+    <div className="min-h-dvh overflow-x-clip bg-surface-base text-text-primary">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-body focus:text-on-brand"
+      >
+        Skip to main content
+      </a>
+      <LandingNav />
+      <main id="main-content">
+        <LandingHero />
+      </main>
+    </div>
   );
 }
