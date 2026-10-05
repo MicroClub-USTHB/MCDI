@@ -5,6 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InboundWebhooksService } from '../inbound-webhooks/inbound-webhooks.service';
+import type { CreateInboundWebhookResult } from '../inbound-webhooks/inbound-webhooks.service';
 import type { ProjectServerOperations } from '../../database/entities/project-server.entity';
 import { generateApiKey } from '../../common/utils/api-key.util';
 import { CreateProjectDto, ProjectScope } from './dto/create-project.dto';
@@ -29,6 +31,7 @@ export interface CreateProjectResult {
   /** Returned ONCE — never stored in plaintext, never returned again */
   apiKey: string;
   project: ProjectRow;
+  inboundWebhook?: CreateInboundWebhookResult;
 }
 
 @Injectable()
@@ -37,9 +40,13 @@ export class ProjectsService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly projectAuthCache: ProjectAuthCacheService,
     private readonly projectAccessCache: ProjectAccessCacheService,
+    private readonly inboundWebhooksService: InboundWebhooksService,
   ) {}
 
-  async create(dto: CreateProjectDto): Promise<CreateProjectResult> {
+  async create(
+    dto: CreateProjectDto,
+    actor: string = 'system:project-creation',
+  ): Promise<CreateProjectResult> {
     let serverAccessConfig = dto.serverAccess ?? [];
 
     if (serverAccessConfig.length === 0) {
@@ -72,41 +79,79 @@ export class ProjectsService {
       );
     }
 
-    const { fullKey, prefix, hash } = generateApiKey();
-
-    const project = await this.projectsRepository.create({
-      name: dto.name,
-      description: dto.description,
-      isInternal: dto.isInternal ?? false,
-      webhookUrl: dto.webhookUrl,
-      isActive: dto.isActive ?? true,
-      apiKeyHash: hash,
-      apiKeyPrefix: prefix,
-    });
-
-    const now = new Date();
-    for (const access of serverAccessConfig) {
-      const scopes = access.scopes ?? Object.values(ProjectScope);
-
-      await this.projectsRepository.upsertAccessMapping(
-        project.id,
-        access.serverId,
-        DEFAULT_PROJECT_SERVER_OPERATIONS,
-        now,
-        scopes,
+    let preparedWebhook;
+    if (dto.inboundWebhook) {
+      let slug = dto.inboundWebhook.slug;
+      if (!slug) {
+        slug = dto.inboundWebhook.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 63);
+        if (!slug) slug = 'webhook';
+      }
+      preparedWebhook = await this.inboundWebhooksService.prepare(
+        { ...dto.inboundWebhook, slug },
+        actor,
+        true,
+        undefined,
+        true,
       );
-      await this.projectsRepository.insertAuditEntry({
-        projectId: project.id,
-        serverId: access.serverId,
-        action: 'GRANT',
-        operationsBefore: null,
-        operationsAfter: DEFAULT_PROJECT_SERVER_OPERATIONS,
-        changedBy: 'system:project-creation',
-        changedAt: now,
-      });
     }
 
-    return { apiKey: fullKey, project };
+    const { fullKey, prefix, hash } = generateApiKey();
+
+    return this.projectsRepository.runInTransaction(async (tx) => {
+      const project = await this.projectsRepository.create(
+        {
+          name: dto.name,
+          description: dto.description,
+          isInternal: dto.isInternal ?? false,
+          webhookUrl: dto.webhookUrl,
+          isActive: dto.isActive ?? true,
+          apiKeyHash: hash,
+          apiKeyPrefix: prefix,
+        },
+        tx,
+      );
+
+      const now = new Date();
+      for (const access of serverAccessConfig) {
+        const scopes = access.scopes ?? Object.values(ProjectScope);
+
+        await this.projectsRepository.upsertAccessMapping(
+          project.id,
+          access.serverId,
+          DEFAULT_PROJECT_SERVER_OPERATIONS,
+          now,
+          scopes,
+          tx,
+        );
+        await this.projectsRepository.insertAuditEntry(
+          {
+            projectId: project.id,
+            serverId: access.serverId,
+            action: 'GRANT',
+            operationsBefore: null,
+            operationsAfter: DEFAULT_PROJECT_SERVER_OPERATIONS,
+            changedBy: actor,
+            changedAt: now,
+          },
+          tx,
+        );
+      }
+
+      let webhookResult: CreateInboundWebhookResult | undefined = undefined;
+      if (preparedWebhook) {
+        webhookResult = await this.inboundWebhooksService.persist(
+          project.id,
+          preparedWebhook,
+          tx,
+        );
+      }
+
+      return { apiKey: fullKey, project, inboundWebhook: webhookResult };
+    });
   }
 
   async findAll(filters?: ListProjectsFilters): Promise<ProjectRow[]> {

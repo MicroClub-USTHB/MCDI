@@ -94,14 +94,25 @@ export class ProjectsController {
           isActive: true,
           createdAt: '2026-02-20T00:00:00.000Z',
         },
+        inboundWebhook: {
+          webhook: {
+            id: 'uuid',
+            name: 'Recruitment 2026',
+            slug: 'recruitment-2026',
+          },
+          signingSecret: 'mcdi_whsec_live_5678',
+          submitUrl: 'https://api.microclub.dz/inbound-webhooks/uuid/submit',
+          docsUrl: 'https://api.microclub.dz/admin/inbound-webhooks/uuid/docs',
+        },
       },
     },
   })
   @ApiBadRequestResponse({ description: 'Validation error.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  create(@Body() dto: CreateProjectDto) {
-    return this.projectsService.create(dto);
+  create(@Body() dto: CreateProjectDto, @Req() req: RequestWithUser) {
+    const actor = this.resolveActor(req);
+    return this.projectsService.create(dto, actor);
   }
 
   @Get()

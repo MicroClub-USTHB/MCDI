@@ -7,8 +7,10 @@ import { ProjectAccessCacheService } from './project-access-cache.service';
 import { DatabaseModule } from '@/database/database.module';
 import { RedisModule } from '../../common/redis/redis.module';
 
+import { InboundWebhooksModule } from '../inbound-webhooks/inbound-webhooks.module';
+
 @Module({
-  imports: [DatabaseModule, RedisModule],
+  imports: [DatabaseModule, RedisModule, InboundWebhooksModule],
   controllers: [ProjectsController],
   providers: [
     ProjectsService,

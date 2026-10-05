@@ -51,10 +51,7 @@ describe('SystemAdminGuard', () => {
     return { select: jest.fn().mockImplementation(makeChain) };
   };
 
-  async function buildGuard(
-    db: any,
-    overrides?: Record<string, string>,
-  ) {
+  async function buildGuard(db: any, overrides?: Record<string, string>) {
     const module = await Test.createTestingModule({
       providers: [
         SystemAdminGuard,

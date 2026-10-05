@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, ilike, sql, SQL } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
+import { DrizzleDB } from '../../database/database.constants';
 import * as schema from '../../database/entities';
 import {
   projectServerAccessAudit,
@@ -106,8 +107,13 @@ export class ProjectsRepository {
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  async create(data: CreateProjectData): Promise<ProjectRow> {
-    const [project] = await this.db
+  async runInTransaction<T>(fn: (tx: DrizzleDB) => Promise<T>): Promise<T> {
+    return this.db.transaction(fn as any);
+  }
+
+  async create(data: CreateProjectData, tx?: DrizzleDB): Promise<ProjectRow> {
+    const db = tx ?? this.db;
+    const [project] = await db
       .insert(schema.projects)
       .values({
         name: data.name,
@@ -450,8 +456,10 @@ export class ProjectsRepository {
     operations: ProjectServerOperations,
     now: Date,
     scopes: string[] = [],
+    tx?: DrizzleDB,
   ) {
-    const [row] = await this.db
+    const db = tx ?? this.db;
+    const [row] = await db
       .insert(projectServers)
       .values({
         projectId,
@@ -488,16 +496,20 @@ export class ProjectsRepository {
     return row ?? null;
   }
 
-  async insertAuditEntry(params: {
-    projectId: string;
-    serverId: string;
-    action: AccessAuditAction;
-    operationsBefore: ProjectServerOperations | null;
-    operationsAfter: ProjectServerOperations | null;
-    changedBy: string;
-    changedAt: Date;
-  }) {
-    await this.db.insert(projectServerAccessAudit).values({
+  async insertAuditEntry(
+    params: {
+      projectId: string;
+      serverId: string;
+      action: AccessAuditAction;
+      operationsBefore: ProjectServerOperations | null;
+      operationsAfter: ProjectServerOperations | null;
+      changedBy: string;
+      changedAt: Date;
+    },
+    tx?: DrizzleDB,
+  ) {
+    const db = tx ?? this.db;
+    await db.insert(projectServerAccessAudit).values({
       projectId: params.projectId,
       serverId: params.serverId,
       action: params.action,
