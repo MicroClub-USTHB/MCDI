@@ -1,0 +1,106 @@
+A project talks to MCDI with an API key. The key says which project is calling. What the project may do is decided separately, per Discord server, by an admin. This page explains both halves and what each error means.
+
+## The key
+
+A key looks like this:
+
+```text
+pk_66db96db.3aebaa1aac557ba0f597955dfc2e706a05b9dedc79ad26b8b3859417bfebe91d
+```
+
+- `pk_66db96db` is the **prefix**, `pk_` and 8 hex characters. MCDI uses it to find your project, and the admin panel shows it so a key can be recognised.
+- The part after the dot is the **secret**, 64 hex characters.
+
+MCDI stores the prefix and a SHA-256 hash of the secret, never the secret itself. Nobody can read a key back, including admins. The full key is shown once, when an admin creates the project or regenerates the key, so store it straight away.
+
+## Send the key
+
+Put it in the `X-API-Key` header:
+
+```bash
+curl -s "$MCDI_URL/servers/$MCDI_SERVER_ID/members?limit=1" \
+  -H "X-API-Key: $MCDI_API_KEY"
+```
+
+The guard also accepts the key as `Authorization: Bearer <key>`, which is what the Swagger page uses. It looks in this order and uses the first it finds:
+
+1. `Authorization: Bearer <key>`
+2. `X-API-Key: <key>`
+3. an `apiKey` query parameter
+
+Prefer `X-API-Key`. The query form is accepted by the guard, but most endpoints reject unknown query parameters, so `?apiKey=` returns a 400 `property apiKey should not exist` on, for example, the members list. A key in a URL also ends up in logs. If your HTTP client already sets an `Authorization` header, MCDI reads that as the key and ignores `X-API-Key`.
+
+Send the key from your backend only. It must never reach a browser. Browsers use the member's session token or the SSO cookie, as described in [Login with MicroClub](/docs/integrate/sso). Cross-origin browser calls can carry the `X-API-Key` header, but that does not make it safe to ship the key to one.
+
+## Rotate and revoke
+
+An admin can act on a key in the admin panel:
+
+| Action     | Effect                                                                                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regenerate | Creates a new key and invalidates the old one at once. MCDI also clears the cached copy of the old key, so it stops working immediately instead of when a cache expires. The new key is shown once. |
+| Revoke     | Marks the project inactive. Its key is rejected with `Invalid API key` until an admin restores it.                                                                                                  |
+| Restore    | Reverses a revoke.                                                                                                                                                                                  |
+
+The new key exists only after the regeneration, and the old one stops at that moment. Plan the swap: regenerate, copy the key, update your service's configuration, and expect a short gap until it runs with the new value.
+
+## Access: servers, operations and scopes
+
+A valid key proves who you are. It grants nothing on its own. An admin gives a project access to each Discord server separately. Every project and server pair has:
+
+- **Operations**, what the project may do on that server:
+
+| Operation         | Default     | Allows                                                   |
+| ----------------- | ----------- | -------------------------------------------------------- |
+| `READ`            | allowed     | Reading members, channels and permissions of the server. |
+| `SEND_MESSAGES`   | not allowed | Posting messages to channels.                            |
+| `MANAGE_WEBHOOKS` | not allowed | Managing Discord webhooks on the server.                 |
+
+- **Scopes**, which kinds of member data it may read:
+
+| Scope               | Used by                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| `read_members`      | The member endpoints under `/api/servers/{serverId}/members`.                             |
+| `check_permissions` | Granted together with `read_members` by default. See the note on permission checks below. |
+
+When an admin grants access without choosing scopes, the project gets all of them.
+
+MCDI enforces access when the request names a server in its path or query string, as `/api/servers/{serverId}/...` does. It checks, in order, that the server exists and is active, that the project may perform the operation the endpoint needs, and that the project holds the scope the endpoint needs. A server ID must be 17 to 20 digits.
+
+<Callout type="warning">
+  The permission endpoints under `/api/permissions` do not check project access to the server. `POST
+  /api/permissions/check` and `POST /api/permissions/check-batch` take the server in the request
+  body, which the access check does not read, so any valid key can ask about any server MCDI knows.
+  `GET /api/permissions/{serverId}/{discordId}` checks the `READ` operation but not the
+  `check_permissions` scope that its description mentions. This is tracked in issue #181. This page
+  describes what the code does today. Do not rely on these endpoints refusing a project that was not
+  granted the server.
+</Callout>
+
+## 401, 403 and the others
+
+401 means MCDI does not know who you are. 403 means it does, and you are not allowed. These are the messages, each produced by running the request:
+
+| Status | `message`                                                             | Meaning and fix                                                                               |
+| ------ | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| 401    | `API key is required`                                                 | No key was sent. Add the `X-API-Key` header.                                                  |
+| 401    | `Invalid API key`                                                     | The key matches no active project: wrong, regenerated, or the project is revoked.             |
+| 403    | `Project is not allowed to perform READ on server 900000000000000002` | The project has no access to that server, or lacks that operation. Ask an admin to grant it.  |
+| 403    | `Insufficient scope: 'read_members' is required`                      | The project has the server but not this scope. Ask an admin to add the scope.                 |
+| 403    | `Server not found or inactive`                                        | The server is not known to MCDI or an admin disabled it.                                      |
+| 403    | `Server is disabled`                                                  | A request that names a server in its body or query refers to one that is unknown or disabled. |
+| 400    | `Invalid server ID format`                                            | The server ID is not 17 to 20 digits.                                                         |
+| 400    | `Server ID is required when scope validation is needed`               | The endpoint needs a scope but the request names no server.                                   |
+
+All of them have the same JSON shape, described in [Conventions](/docs/integrate/conventions).
+
+## Keeping keys safe
+
+- Keep the key in a secret manager or an environment variable. Never commit it.
+- Give each project its own key, so one leak can be revoked alone.
+- Ask for the smallest access: the servers, operations and scopes the project really uses.
+- If a key may have leaked, ask an admin to regenerate it. Revoking disables the whole project, regenerating only replaces the secret.
+
+For every endpoint and its required access, see the [Project API reference](/docs/api-reference/project/overview).
+
+Source: `apps/api/src/common/guards/api-key.guard.ts`, `apps/api/src/common/utils/auth.util.ts`, `apps/api/src/common/utils/api-key.util.ts`, `apps/api/src/modules/projects/projects.service.ts`, `apps/api/src/modules/servers/server.guard.ts`, `apps/api/src/modules/permissions/permissions.controller.ts`.
