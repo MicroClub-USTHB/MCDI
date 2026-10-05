@@ -18,9 +18,11 @@ export function middleware(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = ['/', '/login', '/callback', '/api/health'];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith('/api/')
-  );
+  const isPublicRoute =
+    publicRoutes.some((route) => pathname === route || pathname.startsWith('/api/')) ||
+    pathname === '/docs' ||
+    pathname.startsWith('/docs/') ||
+    pathname === '/sitemap.xml';
 
   if (isPublicRoute) {
     return NextResponse.next();
