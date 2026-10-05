@@ -1,0 +1,87 @@
+This page is how a change gets from an idea to the `dev` branch, and from there to production.
+
+## Start from an issue
+
+Every piece of work starts as a GitHub issue. Pick one, or open one that states the goal and what done looks like. One issue maps to one branch and one pull request. A large issue can be split into several pull requests that each name it. The issue stays open until the work has merged, and then a maintainer closes it.
+
+## Branches and pull requests
+
+- Name the branch after you and the work: `your-github-user/ISSUE-short-topic`, for example `benabdou/IW-21-inbound-webhooks-list-and-create`.
+- Open the pull request against `dev`. The `main` branch is for releases: a maintainer merges `dev` into `main` when it is time to ship, and a push to `main` is what builds the production image (see [Deployment and operations](/docs/build/operations)).
+- The pull request template asks for three things: what changed and why (link the issue, for example "Implements #123"), how you checked it, and a checklist. Fill them in, since reviewers read them first.
+- Keep a pull request to one subject. A reviewer should be able to say what it does in a sentence.
+
+The checklist in `.github/pull_request_template.md` is:
+
+- tests were added or updated, and written to fail first;
+- `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` pass;
+- if an endpoint, a DTO or a Swagger decorator changed, `pnpm docs:api` was run and its result committed (CI checks this);
+- the docs describe the changed behaviour, or no docs are affected.
+
+## Write the test first
+
+For new behaviour and for bug fixes, write a failing test, watch it fail for the right reason, then write the code that makes it pass. The existing suites were built this way, and it is what reviewers look for. [Testing](/docs/build/testing) says which kind of test to write.
+
+## Run the checks before you push
+
+From the repository root:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Then, depending on what you changed:
+
+| If you changed | Also run |
+| --- | --- |
+| An API endpoint, a DTO or a Swagger decorator | `pnpm docs:api`, and commit `apps/api/openapi.json` and the changed reference pages |
+| Anything the API stores or queries | `pnpm test:e2e`, against a throwaway database |
+| The web app | `pnpm run format:check` from `apps/web` |
+| A page in these docs | `pnpm --filter @mcdi/web exec vitest run tests/features/docs` |
+
+A few things to know:
+
+- `pnpm lint` runs `eslint --fix` in the API, so it can change files. Check `git status` afterwards.
+- The API end to end tests need Postgres and clear every table, so point them at a throwaway database and never at your development one. [Testing](/docs/build/testing) has the commands.
+- `pnpm docs:api` builds the API, so it can disturb a container that watches the same folder. If the API container then crashes, run `docker compose restart api` from `apps/api`.
+
+CI runs lint and typecheck, the unit tests with coverage, the build, the check that the generated API docs are current, and then the API end to end tests against Postgres 16. A pull request is ready when all of it is green.
+
+## Dependencies and secrets
+
+- pnpm is the only package manager. Do not add a `package-lock.json` or run `npm install`.
+- A version that must be pinned for a security fix goes in `overrides` in `pnpm-workspace.yaml`. Prefer a scoped override such as `jsdom>undici`, because global pins have broken the web test tooling.
+- Never commit a `.env` file, a token, an API key or a signing secret. `.env.example` files hold names and harmless defaults only.
+
+## Commits
+
+Use a short, imperative subject with the area as a prefix, and explain the why in the body when it is not obvious:
+
+```text
+feat(web): inbound webhook page with submissions
+fix(web): stop checkbox inputs from stretching the page scroll
+docs(api): describe flat schemas in the inbound webhook DTOs
+```
+
+## Review
+
+A reviewer checks that the change does what the issue asks, that a test would fail without it, that the checklist is honest, and that nothing secret or personal is in the diff. Expect questions about why, and answer them in the pull request so the reasoning stays with the change.
+
+## When the docs need to change
+
+If your change alters behaviour that a documentation page describes, update the page in the same pull request. The table says where to look.
+
+| You changed | Update |
+| --- | --- |
+| An endpoint | Nothing by hand: `pnpm docs:api` regenerates the [API reference](/docs/api-reference/project/overview). Update the hand-written page if its text is now wrong. |
+| An environment variable | The table in [Local setup](/docs/build/local-setup#environment-variables). A test fails when one is missing. |
+| How you run, test or deploy it | [Local setup](/docs/build/local-setup), [Testing](/docs/build/testing) or [Deployment and operations](/docs/build/operations). |
+| Why something is the way it is | A new entry in [Decisions](/docs/build/decisions). |
+| A word others will need | The [Glossary](/docs/build/glossary). |
+
+[Writing these docs](/docs/build/writing-docs) explains how to add a page.
+
+Source: `CLAUDE.md`, `apps/web/CLAUDE.md`, `.github/workflows/ci.yml`, `.github/pull_request_template.md`, `pnpm-workspace.yaml`.

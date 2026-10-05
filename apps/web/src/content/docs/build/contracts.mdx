@@ -1,0 +1,66 @@
+`@mcdi/contracts` is the small package that holds what the API and the admin panel must agree on: types, constants and the catalog of inbound webhook schemas. This page explains why it is built the way it is, what belongs in it, and how to change it safely.
+
+## What is in it
+
+Everything is exported from `packages/contracts/src/index.ts`.
+
+| File | What it holds | Used by |
+| --- | --- | --- |
+| `constants.ts` | `ADMIN_SESSION_COOKIE`, the name of the admin session cookie. | The API, when it sets the cookie after login, reads it in the session guards, and reads it when auditing. |
+| `admin.ts` | `AdminProfile`, the body of `GET /api/admin/profile`. | The API's profile response and the panel's settings types. |
+| `enums.ts` | The lists behind server types, permission policies, sync log statuses, sync types, entity types and change actions, each as a constant array and a type derived from it. | The API's sync repository and the panel's server and sync types. |
+| `http.ts` | `NestErrorBody`, Nest's default error body, where `message` is an array when validation fails. | The panel's API client, to read error responses. |
+| `inbound-webhooks.ts` | The inbound webhook catalog: field types, the properties of each type, condition operators, and the starter templates. | The admin schema editor and the create form, the API's tests, and these docs. |
+
+The inbound webhook catalog is the largest part. The schema editor in the admin panel uses it to suggest and check names as an admin types, and the docs pages for [schemas](/docs/integrate/inbound-webhooks/schemas) render their tables from it with the `InboundContract` component. The API's own validator remains the final authority: a name missing from the catalog only weakens a hint.
+
+## Why it is compiled
+
+The package is built to plain CommonJS with type declarations, into `dist`, and its `package.json` points `main` and `types` there. It does not export TypeScript source for the apps to compile.
+
+The reason is the API. NestJS runs as compiled CommonJS, and it cannot load a workspace package that ships TypeScript source, which a Next.js app could transpile on the fly. So the package has to be built before anything that imports it, and `dist` is what both apps load.
+
+The build is `tsc`, configured by `@mcdi/typescript-config/library.json` (`module: CommonJS`, `target: ES2022`, declarations on).
+
+## It stays dependency-free
+
+`@mcdi/contracts` has no runtime dependencies. Its only dev dependencies are TypeScript and the shared TypeScript config. Keep it that way:
+
+- It must not import from `apps/api` or `apps/web`. Shared code flows from the package into the apps, never back.
+- It must not pull in a library, because both apps would then inherit it, and the API cannot afford to load a web library.
+- Where it would need a type from an app, it stays loose instead. The inbound webhook templates hold their schema as `Record<string, unknown>` for exactly this reason, and the API's tests check that each one is a schema the validator accepts.
+
+## What belongs in it
+
+Put something here when **both** the API and the panel need the same fact and a mismatch would be a bug: a cookie name, a list of allowed values, the shape of a response both sides read. Leave it out when only one side uses it. Define lists as `as const` arrays and derive the type from them, as `enums.ts` does, so the values and the type cannot disagree.
+
+## Rebuild after you edit it
+
+The apps read `dist`, so a change in `src` is invisible until the package is built again.
+
+```bash
+pnpm --filter @mcdi/contracts run build
+```
+
+You rarely need to run it by hand:
+
+- Every Turbo task (`build`, `dev`, `lint`, `typecheck`, `test`) depends on `^build`, so the package is built before the tasks of any app that depends on it.
+- `pnpm dev` also runs the package's `dev` script, which rebuilds on every change (`tsc --watch`).
+
+If an app reports that an export does not exist, or a type is out of date after you changed the package, a stale `dist` is the first thing to suspect. Rebuild it.
+
+## The tests that keep the catalog true
+
+The inbound webhook catalog is data, and data drifts. These tests in the API fail when it does. They are in `apps/api/src/modules/inbound-webhooks/schema/contracts-catalog.spec.ts`:
+
+- The field types in the catalog equal the types the validator supports.
+- The properties every field may carry equal the validator's.
+- The properties of each field type equal the validator's, one test per type.
+- The condition operators equal the validator's operators plus `and`, `or` and `not`.
+- Every type and property has a description for the editor's hints.
+- The top level offers `version`, `steps` and `fields`.
+- The templates are listed in the expected order, exactly one is a flat schema, and every template is accepted by the schema validator and produces an example payload that passes the payload validator.
+
+So adding a field type or property to the validator without adding it to the catalog, or the reverse, is a red test and not a surprise in production.
+
+Source: `packages/contracts/package.json`, `packages/contracts/tsconfig.json`, `packages/contracts/src`, `packages/typescript-config/library.json`, `turbo.json`, `apps/api/src/modules/inbound-webhooks/schema/contracts-catalog.spec.ts`.

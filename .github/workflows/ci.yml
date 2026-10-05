@@ -55,6 +55,19 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:3000/api
           NEXT_PUBLIC_APP_URL: http://localhost:3002
 
+      - name: Check the API docs are up to date
+        # `pnpm docs:api` re-exports apps/api/openapi.json and regenerates the reference pages.
+        # `git status` (not `git diff`) so a page for a brand-new group counts as a change too.
+        run: |
+          pnpm docs:api
+          changes=$(git status --porcelain -- apps/api/openapi.json apps/web/src/content/docs/api-reference)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git --no-pager diff --stat -- apps/api/openapi.json apps/web/src/content/docs/api-reference
+            echo "::error::API docs are out of date, run pnpm docs:api and commit the result"
+            exit 1
+          fi
+
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@v4

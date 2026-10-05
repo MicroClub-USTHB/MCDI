@@ -2,6 +2,9 @@
 
 ## MicroClub Discord Interface
 
+> **Historical design record.** This file is the architecture direction and the roadmap after the MVP. Some of the roadmap has since been built, some changed. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 > This document tracks the architecture direction and the next phases after the current implemented release.
 > For the currently shipped scope, see `specefication_document_mvp.md`.
 > For schema details, see `database_architecture_mvp.md`.

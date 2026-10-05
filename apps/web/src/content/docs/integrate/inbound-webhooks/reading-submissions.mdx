@@ -1,0 +1,113 @@
+Your project sends data to an inbound webhook, and members read it. Access is decided by Discord roles, not by your project's key. This page covers who can read, the endpoints, filtering and paging, and what a 404 means.
+
+## Who can read
+
+Each webhook has a list of **reader roles**, set by an admin when the webhook is created and editable later. A member can read a webhook's submissions when they hold at least one of those roles.
+
+- A system admin does **not** bypass this. An admin who needs to read a webhook gives it a role they hold.
+- When the webhook allows role inheritance, a member whose role on the main server inherits a reader role may read too. See [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions).
+- When the webhook is created without naming roles, the default reader roles from the admin settings apply. A webhook always has at least one reader.
+- The member's roles are read fresh on every request. The list of reader roles is cached for 5 minutes, and an admin changing it clears that cache.
+
+Your project's API key cannot read submissions. Reading needs a member's session token, sent as `Authorization: Bearer <token>`. Any valid session of the member works: the admin panel's session, or one your project received from the [login flow](/docs/integrate/sso). Because of that, a project backend can show a member the submissions they may read, on their behalf, using the token they signed in with.
+
+## List the webhooks a member may read
+
+```bash
+curl -s "$MCDI_URL/inbound-webhooks" \
+  -H "Authorization: Bearer $SESSION_TOKEN"
+```
+
+The answer is an array of the webhooks, each with its `id`, `name`, `slug`, `projectId` and `schema`. A member who holds no reader role gets an empty array, `[]`, and the list never contains a webhook the member cannot read.
+
+## List submissions
+
+```bash
+curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=2" \
+  -H "Authorization: Bearer $SESSION_TOKEN"
+```
+
+```json
+{
+  "submissions": [
+    {
+      "id": "7c82bc9e-59b6-48f8-bcad-169938392cb0",
+      "payload": {
+        "identity": { "email": "amina@usthb.dz", "status": "student", "firstname": "Amina" },
+        "background": { "university": "USTHB" }
+      },
+      "receivedAt": "2026-10-05T19:02:19.515Z",
+      "origin": null
+    }
+  ],
+  "total": 1,
+  "limit": 2,
+  "offset": 0
+}
+```
+
+Newest submissions come first. `payload` is what MCDI stored after validation, so it includes defaults and leaves out fields whose condition did not apply. Object keys are not kept in the order they were sent. `origin` is the request's `Origin` header, when there was one.
+
+### Filters and paging
+
+| Query parameter | Meaning                                                    |
+| --------------- | ---------------------------------------------------------- |
+| `limit`         | Entries per page. Default 50, at least 1, at most 200.     |
+| `offset`        | Entries to skip. Default 0.                                |
+| `dateFrom`      | Only submissions received at or after this ISO 8601 time.  |
+| `dateTo`        | Only submissions received at or before this ISO 8601 time. |
+
+A date without a time means midnight UTC, so `dateTo=2026-04-01` excludes everything received on 1 April. Use `2026-04-02` or a full timestamp to include it. `total` counts all submissions that match the filters, not just the page, so a client can compute the number of pages from `total` and `limit`.
+
+```bash
+curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=50&offset=50&dateFrom=2026-03-01T00:00:00Z" \
+  -H "Authorization: Bearer $SESSION_TOKEN"
+```
+
+A `limit` over 200 is a 400, as is a date that cannot be parsed:
+
+```json
+{ "message": ["limit must not be greater than 200"], "error": "Bad Request", "statusCode": 400 }
+```
+
+## Get one submission
+
+```bash
+curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions/$SUBMISSION_ID" \
+  -H "Authorization: Bearer $SESSION_TOKEN"
+```
+
+The detail adds where the request came from:
+
+```json
+{
+  "id": "7c82bc9e-59b6-48f8-bcad-169938392cb0",
+  "payload": {
+    "identity": { "email": "amina@usthb.dz", "status": "student", "firstname": "Amina" },
+    "background": { "university": "USTHB" }
+  },
+  "receivedAt": "2026-10-05T19:02:19.515Z",
+  "origin": null,
+  "ipAddress": "::1",
+  "userAgent": "node"
+}
+```
+
+## What an error means
+
+| Status | `message`                    | Meaning                                                                     |
+| ------ | ---------------------------- | --------------------------------------------------------------------------- |
+| 401    | `Session token is required`  | No Bearer token. A project API key is not accepted here.                    |
+| 401    | `Invalid or expired session` | The token is unknown, expired or logged out.                                |
+| 404    | `Inbound webhook not found`  | There is no such webhook, **or** the member holds none of its reader roles. |
+| 404    | `Submission not found`       | The webhook is readable but has no such submission.                         |
+
+The 404 is deliberate. A 403 would confirm that the webhook exists and the member merely lacks permission, which would let anyone list the organisation's forms by guessing IDs. So "no access" and "does not exist" look the same. When a read is refused, MCDI also records the attempt in its audit log, and every successful read is logged, so repeated refusals on one webhook stand out.
+
+## In the admin panel
+
+Admins and readers use the admin panel to browse submissions, with the same role rule. The panel lists the webhooks the signed-in member may read, shows each one's submissions, and can export them as a CSV file.
+
+For the exact fields of each endpoint, see [Inbound webhooks (Read)](/docs/api-reference/admin/inbound-webhooks-read).
+
+Source: `apps/api/src/modules/inbound-webhooks/inbound-webhook-read.controller.ts`, `apps/api/src/modules/inbound-webhooks/guards/inbound-webhook-read.guard.ts`, `apps/api/src/modules/inbound-webhooks/dto/list-submissions.dto.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.repository.ts`.

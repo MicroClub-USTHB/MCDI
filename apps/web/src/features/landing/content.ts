@@ -1,7 +1,4 @@
-import { env } from '@/shared/lib/env';
-
-/** The docs are not written yet; until they are, the API's reference is the closest thing. */
-export const DOCS_HREF = `${env.NEXT_PUBLIC_API_URL}/docs`;
+export const DOCS_HREF = '/docs';
 
 export const SIGN_IN_HREF = '/login';
 

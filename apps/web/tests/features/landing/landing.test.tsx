@@ -23,6 +23,10 @@ describe('Landing page', () => {
     expect(LANDING.headline.split(/\s+/).length).toBeLessThanOrEqual(8);
   });
 
+  it('sends the docs button to the docs of this site', () => {
+    expect(DOCS_HREF).toBe('/docs');
+  });
+
   it('offers the docs first and the admin sign-in second, in the hero', () => {
     render(<Home />);
     const main = within(screen.getByRole('main'));

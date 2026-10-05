@@ -1,0 +1,121 @@
+When a submission fails, MCDI tells you why in the status code and the body. This page lists every status the submit endpoint returns, the shape of the 422 that lists schema problems, and every code that can appear in it.
+
+## Status codes
+
+| Status | When                                                                           | Body                                                                                                                                                                |
+| ------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 201    | Accepted and stored.                                                           | `{ "id": "...", "receivedAt": "..." }`                                                                                                                              |
+| 400    | The body is not valid JSON, or the webhook ID is not a UUID.                   | `{ "message": "Expected property name or '}' in JSON at position 1 (line 1 column 2)", ... }` or `{ "message": "Invalid parameter or data format provided.", ... }` |
+| 401    | The API key is missing or wrong, or the signature failed.                      | `{ "message": "API key is required", ... }` or `{ "error": "InvalidSignature", "reason": "..." }`                                                                   |
+| 403    | The `Origin` is not on the webhook's list.                                     | `{ "message": "Origin \"none\" is not permitted for this webhook", ... }`                                                                                           |
+| 404    | No such webhook for your project. A webhook of another project looks the same. | `{ "message": "Inbound webhook not found", ... }`                                                                                                                   |
+| 409    | This signed request was already processed.                                     | `{ "message": "This request has already been processed", ... }`                                                                                                     |
+| 410    | An admin switched the webhook off.                                             | `{ "message": "This webhook is no longer active", ... }`                                                                                                            |
+| 422    | The payload does not match the schema.                                         | `{ "error": "ValidationFailed", "errors": [ ... ] }`                                                                                                                |
+| 429    | More than 120 submissions a minute for this webhook or this project.           | `{ "error": "RateLimited", "message": "Rate limit of 120 requests per minute exceeded" }`                                                                           |
+
+Checks run in a fixed order, listed in [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending), and the first failure ends the request. That is why a request with a bad schema and a bad signature gets the 401, not the 422.
+
+Errors that are not about the schema share the shape `{ "message": ..., "error": ..., "statusCode": ... }`, which [Conventions](/docs/integrate/conventions) describes.
+
+## The 422: every problem at once
+
+MCDI does not stop at the first mistake. It validates the whole payload and returns every problem, each with the path of the field, a stable `code` and a human `message`:
+
+```json
+{
+  "statusCode": 422,
+  "error": "ValidationFailed",
+  "errors": [
+    { "path": "hobby", "code": "UNKNOWN_STEP", "message": "Unknown step \"hobby\"" },
+    { "path": "identity.firstname", "code": "REQUIRED", "message": "Field is required" },
+    { "path": "identity.email", "code": "INVALID_EMAIL", "message": "Not a valid email address" },
+    {
+      "path": "identity.status",
+      "code": "NOT_AN_OPTION",
+      "message": "\"alien\" is not one of the accepted values"
+    }
+  ]
+}
+```
+
+- `path` is the field, written `step.field` for a form with steps, the bare key for a flat schema, and with `[0]`, `[1]` for array entries, such as `members[0].github`.
+- Match on `code`, not on `message`. The wording of messages can change, the codes are the contract.
+- A request that fails with 422 stores nothing, and its signature stays usable, so you can fix the payload and send again.
+
+## Codes in a 422
+
+### Structure
+
+| Code            | Meaning                                                                           |
+| --------------- | --------------------------------------------------------------------------------- |
+| `REQUIRED`      | A required field is missing.                                                      |
+| `INVALID_TYPE`  | The value has the wrong JSON type, for example text where a boolean was expected. |
+| `UNKNOWN_FIELD` | The payload has a field the schema does not declare.                              |
+| `UNKNOWN_STEP`  | The payload has a top-level key that is not a step of the schema.                 |
+| `NOT_AN_OBJECT` | A step or object was expected, and something else arrived.                        |
+| `TOO_DEEP`      | The payload nests deeper than the allowed depth of 5.                             |
+
+### Text and numbers
+
+| Code                    | Meaning                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `TOO_SHORT`, `TOO_LONG` | Shorter than `minLength` or longer than `maxLength`.                                                                     |
+| `PATTERN_MISMATCH`      | The value does not match the field's `pattern`.                                                                          |
+| `PATTERN_TIMEOUT`       | Checking the `pattern` took too long. The stored pattern is at fault, not your data, and an admin has to fix the schema. |
+| `NOT_AN_INTEGER`        | A whole number was required.                                                                                             |
+| `OUT_OF_RANGE`          | Below `min` or above `max`, for numbers, dates and datetimes.                                                            |
+| `TOO_LARGE`             | A `json` value is bigger than `maxBytes`.                                                                                |
+
+### Typed values
+
+| Code                 | Meaning                                                  |
+| -------------------- | -------------------------------------------------------- |
+| `INVALID_EMAIL`      | Not a valid address, or longer than 254 characters.      |
+| `DOMAIN_NOT_ALLOWED` | An email address from a domain outside `allowedDomains`. |
+| `INVALID_URL`        | Not a valid web address.                                 |
+| `SCHEME_NOT_ALLOWED` | A URL scheme outside `allowedSchemes`.                   |
+| `INVALID_PHONE`      | Not a valid phone number.                                |
+| `INVALID_DATE`       | Not a valid `YYYY-MM-DD` date or ISO 8601 datetime.      |
+
+### Choices and lists
+
+| Code                                    | Meaning                                                             |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| `NOT_AN_OPTION`                         | The value is not one of the field's options.                        |
+| `DUPLICATE_SELECTION`                   | The same option was selected twice.                                 |
+| `TOO_FEW_SELECTED`, `TOO_MANY_SELECTED` | Fewer than `minSelected` or more than `maxSelected` choices.        |
+| `TOO_FEW_ITEMS`, `TOO_MANY_ITEMS`       | An array has fewer than `minItems` or more than `maxItems` entries. |
+
+### Files
+
+Files cannot be uploaded yet, so a webhook with a required file field cannot currently be satisfied. These codes exist for when uploads arrive (issue #136).
+
+| Code                                      | Meaning                                                          |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `INVALID_FILE_REFERENCE`                  | A file field must be `{ "fileId": "..." }`.                      |
+| `FILE_NOT_FOUND`                          | No uploaded file has that ID for this webhook.                   |
+| `FILE_EXPIRED`                            | The upload expired before it was submitted.                      |
+| `FILE_ALREADY_USED`                       | The file already belongs to another submission.                  |
+| `FILE_NOT_RESOLVABLE`                     | File references cannot be checked in this context.               |
+| `FILE_TOO_LARGE`, `FILE_TYPE_NOT_ALLOWED` | The file is over `maxSizeBytes`, or its type is not in `accept`. |
+| `TOO_FEW_FILES`, `TOO_MANY_FILES`         | Fewer than `minCount` or more than `maxCount` files.             |
+
+## Limits at a glance
+
+| Limit                  | Value                         | Where it applies                                                        |
+| ---------------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| Request body           | 512 KB                        | The whole API. A larger body is rejected before it reaches the webhook. |
+| Submissions per minute | 120                           | Each webhook, and also each project across its webhooks.                |
+| Signature age          | 5 minutes                     | Either side of MCDI's clock.                                            |
+| Submissions per page   | 200 entries at most           | The read endpoint's `limit`.                                            |
+| Schema size            | 20 steps, 200 fields, depth 5 | Checked when an admin saves the schema.                                 |
+
+## Handling errors in your code
+
+- Treat 401, 403, 404 and 410 as configuration problems: fix the key, secret, origin or webhook ID, and do not retry in a loop.
+- Treat 422 as a data problem. Log the `errors` array and fix the payload. Retrying the same body fails the same way.
+- Retry 429 after a short delay, and 5xx with backoff, signing the new request afresh so it has a current timestamp.
+- After a network timeout you cannot tell whether MCDI got the request. Resend the identical signed request: a 201 means it is stored now, and a 409 means the first attempt was already stored. Both are success.
+
+Source: `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/api/src/modules/inbound-webhooks/schema/payload.validator.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhook-ingest.controller.ts`, `apps/api/src/main.ts`.

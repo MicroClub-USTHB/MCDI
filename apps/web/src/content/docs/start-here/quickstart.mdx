@@ -1,0 +1,118 @@
+This page takes you from nothing to a first successful call to the MCDI API with a project key. It takes about five minutes once an admin has set your project up.
+
+## What you need first
+
+A system admin creates your project in the admin panel and gives you three things:
+
+| What       | Looks like                                                       | Notes                                                                               |
+| ---------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Project ID | a UUID                                                           | Public. It is the `client_id` of the login flow.                                    |
+| API key    | `pk_` followed by 8 hex characters, a dot, and 64 hex characters | A secret. It is shown once, when the key is created or regenerated.                 |
+| Server ID  | 17 to 20 digits                                                  | The Discord server the project may use. The admin grants your project access to it. |
+
+Keep the key in an environment variable or a secret manager, never in a repository or in browser code. The key is for your backend only.
+
+<Callout type="note">
+  The base URL is `http://localhost:3000/api` on a local stack. Ask an admin for the production
+  address. Every example below reads it from `MCDI_URL`.
+</Callout>
+
+```bash
+export MCDI_URL=http://localhost:3000/api
+export MCDI_API_KEY=pk_xxxxxxxx.your-secret-here
+export MCDI_SERVER_ID=900000000000000001
+```
+
+## Make your first call
+
+List two members of your server. The call needs the `read_members` scope and the `READ` operation on that server, which an admin grants.
+
+<Tabs defaultValue="curl">
+  <TabsList>
+    <TabsTrigger value="curl">curl</TabsTrigger>
+    <TabsTrigger value="node">Node</TabsTrigger>
+  </TabsList>
+  <TabsContent value="curl">
+
+```bash
+curl -s "$MCDI_URL/servers/$MCDI_SERVER_ID/members?limit=2" \
+  -H "X-API-Key: $MCDI_API_KEY"
+```
+
+  </TabsContent>
+  <TabsContent value="node">
+
+```js
+const res = await fetch(
+  `${process.env.MCDI_URL}/servers/${process.env.MCDI_SERVER_ID}/members?limit=2`,
+  { headers: { 'X-API-Key': process.env.MCDI_API_KEY } }
+);
+
+console.log(res.status, await res.json());
+```
+
+  </TabsContent>
+</Tabs>
+
+The response is a page of members and the paging details:
+
+```json
+{
+  "data": [
+    {
+      "discordId": "800000000000000010",
+      "username": "alice",
+      "globalName": null,
+      "displayName": null,
+      "avatar": null,
+      "isClubMember": true,
+      "joinedAt": "2026-10-05T18:15:38.271Z"
+    },
+    {
+      "discordId": "800000000000000011",
+      "username": "reader",
+      "globalName": null,
+      "displayName": null,
+      "avatar": null,
+      "isClubMember": true,
+      "joinedAt": "2026-10-05T18:15:38.281Z"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 2, "total": 3, "pages": 2, "hasNext": true, "hasPrev": false }
+}
+```
+
+The exact fields and every filter are in the [Members reference](/docs/api-reference/project/members).
+
+## When it fails
+
+Every error is JSON with a `statusCode`, an `error` and a `message`. The two you meet first are a missing or wrong key, which is a 401, and a project that is not allowed to do this, which is a 403.
+
+```bash
+curl -s -i "$MCDI_URL/servers/$MCDI_SERVER_ID/members"
+```
+
+```json
+{ "message": "API key is required", "error": "Unauthorized", "statusCode": 401 }
+```
+
+A key that does not match any active project gives `Invalid API key`, also a 401. A valid key that has no access to the server gives a 403:
+
+```json
+{
+  "message": "Project is not allowed to perform READ on server 900000000000000002",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+
+A 403 that says `Insufficient scope: 'read_members' is required` means the project has access to the server but not to this kind of data. In both cases the fix is on the admin side: ask for the access or scope you need. [API keys and server access](/docs/integrate/api-keys) explains all of them.
+
+## Where to go next
+
+- To let members sign in to your project, read [Login with MicroClub](/docs/integrate/sso).
+- To ask what a member is allowed to do, read [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions).
+- To receive forms or events from your project, read [Inbound webhooks: overview](/docs/integrate/inbound-webhooks/overview).
+- For every endpoint, see the [Project API reference](/docs/api-reference/project/overview).
+
+Source: `apps/api/src/common/guards/api-key.guard.ts`, `apps/api/src/common/utils/auth.util.ts`, `apps/api/src/modules/members/member.controller.ts`.

@@ -1,0 +1,282 @@
+This page gets the whole of MCDI running on your machine: the API with PostgreSQL and Redis, the admin panel, and a Discord application so you can sign in. It ends with every environment variable.
+
+## What you need
+
+- **Node 22 or newer** and **pnpm 10**. Run `corepack enable` and pnpm is installed at the version the repository pins.
+- **Docker** with Compose, which runs the API, PostgreSQL and Redis.
+- A **Discord account**, and a Discord server of your own to test with.
+- `openssl`, to generate two keys.
+
+## Get the code
+
+```bash
+git clone https://github.com/MicroClub-USTHB/MCDI.git
+cd MCDI
+pnpm install
+```
+
+pnpm finishes by warning that it ignored some build scripts (esbuild, sharp and a few others). That is expected. Do not run `pnpm approve-builds`.
+
+## Two ways to run it
+
+| | API in Docker | API on your machine |
+| --- | --- | --- |
+| Runs the API | in a container, restarted when files change | with `nest start --watch` |
+| PostgreSQL and Redis | containers | containers |
+| Admin panel | on your machine | on your machine |
+| Choose it when | you want the least setup | you want to attach a debugger or run the tests against it |
+
+Both start from the same two files.
+
+### 1. Create your environment files
+
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+Then edit `apps/api/.env`. Fill in these now, and the Discord ones in [Create the Discord application](#create-the-discord-application):
+
+```bash
+# Two different keys, 64 hex characters each
+openssl rand -hex 32   # use for WEBHOOK_ENCRYPTION_KEY
+openssl rand -hex 32   # use for INBOUND_WEBHOOK_ENCRYPTION_KEY
+```
+
+<Callout type="warning">
+  Set both keys even in development. They are empty in `.env.example`, and creating an inbound webhook with an empty `INBOUND_WEBHOOK_ENCRYPTION_KEY` fails with a 500 `ENCRYPTION_KEY_MISSING`. Both must be exactly 64 hex characters or the API refuses the value.
+</Callout>
+
+`apps/web/.env` already has the right values for a local run: `NEXT_PUBLIC_API_URL=http://localhost:3000/api` and `NEXT_PUBLIC_APP_URL=http://localhost:3002`.
+
+### 2a. API in Docker
+
+```bash
+cd apps/api
+docker compose up --build -d
+```
+
+Compose starts three services:
+
+| Service | Port | Notes |
+| --- | --- | --- |
+| `api` | 3000 | The repository is mounted into the container. On start it installs dependencies, creates the schema with `db:push` (retrying until the database is ready), then runs the API in watch mode. Port 4983 is for Drizzle Studio. |
+| `database` | 5432 | PostgreSQL 16. User `myuser`, password `mypassword`, database `mcdi`. |
+| `redis` | 6379 | Redis 7 with the password `redis_password`. |
+
+The compose file overrides the database and Redis settings with the container hostnames, so `.env` can keep the values from `.env.example`. The first start takes a few minutes. Watch it with `docker compose logs -f api` until you see `Application is running on: http://localhost:3000/api`.
+
+The compose file also fixes `ADMIN_FRONTEND_URL`, where the browser goes after an admin signs in, to `http://localhost:3000/admin`, the API's legacy admin page. To land in the panel instead, create `apps/api/docker-compose.override.yml`. Git ignores that file, and Compose reads it automatically:
+
+```yaml
+services:
+  api:
+    environment:
+      - ADMIN_FRONTEND_URL=http://localhost:3002/callback
+```
+
+Run `docker compose up -d` again after you create it, so the API container picks the value up.
+
+Then start the admin panel, from the repository root:
+
+```bash
+pnpm --filter @mcdi/web run dev
+```
+
+### 2b. API on your machine
+
+Start only PostgreSQL and Redis in Docker:
+
+```bash
+cd apps/api
+docker compose up -d database redis
+```
+
+In `apps/api/.env`, point the API at them. The example file uses the container names `database` and `redis`, which only exist inside Docker, and an old address for the panel:
+
+```bash
+DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi
+REDIS_HOST=localhost
+ADMIN_FRONTEND_URL=http://localhost:3002/callback
+```
+
+Then, from the repository root, run the API and the panel together:
+
+```bash
+pnpm dev
+```
+
+`pnpm dev` runs the contracts package in watch mode, the API on port 3000 and the panel on port 3002. To run only the API, use `pnpm --filter @mcdi/api run dev`.
+
+When the API starts it applies the pending database migrations by itself, so there is no separate step.
+
+### Check it works
+
+| Address | What you should see |
+| --- | --- |
+| `http://localhost:3000/api` | The text `MCDI w l3alamiya`. |
+| `http://localhost:3000/api/docs` | The Swagger page. |
+| `http://localhost:3002` | The landing page. |
+| `http://localhost:3002/docs` | These docs. |
+
+Until you add a Discord bot token, the log shows `Discord bot login failed - bot features remain unavailable`. The API keeps running and retries every 30 seconds. Everything that does not need Discord works.
+
+## Create the Discord application
+
+MCDI needs a Discord application for two things: a **bot** that reads your server, and **OAuth** so people can sign in.
+
+<Steps>
+
+1. Open the [Discord developer portal](https://discord.com/developers/applications) and create a **New Application**.
+
+2. On the **Bot** page, create a token. This is `DISCORD_TOKEN`. Under **Privileged Gateway Intents**, turn on **Presence Intent**, **Server Members Intent** and **Message Content Intent**. The bot asks for all three, and Discord refuses the connection when they are off.
+
+3. On the **OAuth2** page, copy the **Client ID** and **Client Secret**. They are `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. MCDI asks members for the `identify`, `email`, `guilds` and `guilds.members.read` scopes.
+
+4. Under **Redirects**, add the callback addresses. In the Docker setup both the member and the admin login use `http://localhost:3000/api/auth/discord/callback`, so that one is enough. When you run the API on your machine with the values from `.env.example`, also add `http://localhost:3000/api/auth/admin/discord/callback`. Discord only accepts an address that matches exactly.
+
+5. Invite the bot to your test server with the **OAuth2 URL Generator**: choose the `bot` scope and the permissions for the features you will try: View Channels, Send Messages, Read Message History, and Manage Webhooks.
+
+6. In Discord, turn on **Developer Mode** (User Settings, Advanced). Right-click your server and copy its ID, and right-click a role you hold and copy its ID.
+
+7. Put the values in `apps/api/.env`, and restart the API:
+
+</Steps>
+
+```bash
+DISCORD_TOKEN=<bot token>
+DISCORD_CLIENT_ID=<client id>
+DISCORD_CLIENT_SECRET=<client secret>
+DISCORD_CALLBACK_URL=http://localhost:3000/api/auth/discord/callback
+MC_GUILD_ID=<your server id>
+MC_EXECUTIVE_ROLE_ID=<the id of a role you hold>
+```
+
+On its first start with a `MC_GUILD_ID` and an empty database, the API creates the main server record from that ID. Once the bot is ready, it queues a sync for every active server.
+
+## Sign in as the first admin
+
+Open `http://localhost:3002/login` and sign in with Discord. MCDI lets you in when you belong to the main server (`MC_GUILD_ID`) and hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`. It asks Discord about your membership with your own login, so you do not have to wait for the first sync. After sign-in the API sends you to `ADMIN_FRONTEND_URL`. That must be `http://localhost:3002/callback` for you to land in the panel: set it in `.env` when the API runs on your machine, and with the override file when it runs in Docker. Left alone, Docker sends you to the legacy admin page at `http://localhost:3000/admin`.
+
+## The database
+
+The schema lives in Drizzle entities (`src/database/entities`) and is applied through SQL migrations (`src/database/migrations`). Run these from `apps/api`:
+
+| Command | What it does |
+| --- | --- |
+| `pnpm run db:generate` | Writes a new migration from your changes to the entities. Review the SQL, then commit it. |
+| `pnpm run db:migrate` | Applies the pending migrations. With `RESET_DB=1` it first drops and recreates the database in `DATABASE_URL`, so use it only on a throwaway database. |
+| `pnpm run db:push` | Makes the database match the entities directly, without migration files. The Docker setup uses it on start. |
+| `pnpm run db:seed` | Fills the database with sample servers, roles, members and projects. |
+| `pnpm run db:clear` | Empties every table and keeps the schema. |
+| `pnpm run db:studio` | Opens Drizzle Studio to browse the data. |
+
+<Callout type="warning">
+  `db:seed` is for a database on your own machine only. It creates an admin session with a fixed token that is written in the source, and projects whose keys can be derived from it. Never run it against a shared or production database.
+</Callout>
+
+When you run the API from the source tree, it applies the pending migrations itself every time it starts (`DatabaseInitService`). The production image has no source tree and applies one idempotent SQL file with `psql` instead, as [Deployment and operations](/docs/build/operations#migrations-run-on-every-boot-so-they-must-be-idempotent) explains.
+
+## Environment variables
+
+The API reads `apps/api/.env`. Four of the values below (`PERMISSION_CACHE_TTL_MS`, `STATS_CACHE_TTL_MS`, `MEMBER_ACTIVITY_THRESHOLD_DAYS` and `MAX_WEBHOOKS_PER_PROJECT`) are only the defaults of settings an admin can change at runtime. A saved override wins over the variable. In production, `NODE_ENV=production` makes the variables marked **production** mandatory, and the API refuses to start without them. Time values say whether they are seconds or milliseconds.
+
+### Application
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `NODE_ENV` | no | `development` | `development`, `production` or `test`. Production enforces the required variables and a CORS allowlist. |
+| `PORT` | no | `3000` | The HTTP port. |
+| `APP_PORT` | no | `3000` | Used when `PORT` is not set. |
+| `API_PREFIX` | no | `api` | The prefix of every route. |
+| `BASE_URL` | no | `http://localhost:<port>` | The public address of the API, used in the Swagger server list and in the addresses shown for inbound webhooks. |
+| `CORS_ORIGINS` | no | none | Comma-separated browser origins allowed outside development. `localhost` on any port is always allowed. |
+
+### Database and Redis
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | yes | none | The PostgreSQL connection string, for example `postgresql://myuser:mypassword@localhost:5432/mcdi`. |
+| `REDIS_HOST` | no | `localhost` | The Redis host. In Docker it is `redis`. |
+| `REDIS_PORT` | no | `6379` | The Redis port. |
+| `REDIS_PASSWORD` | no | none | The Redis password. The compose file starts Redis with `redis_password`. |
+| `REDIS_URL` | no | none | A full Redis URL. When set it is used instead of host, port and password. |
+| `REDIS_DB` | no | `0` | The Redis database number. |
+| `REDIS_KEY_PREFIX` | no | `mcdi` | Prefix of every key the API writes, so several environments can share a Redis. |
+
+### Discord
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `DISCORD_TOKEN` | production | empty | The bot token. |
+| `DISCORD_CLIENT_ID` | production | empty | The OAuth client ID of the application. |
+| `DISCORD_CLIENT_SECRET` | production | empty | The OAuth client secret. |
+| `DISCORD_CALLBACK_URL` | production | empty | The member login callback, a valid URL, for example `http://localhost:3000/api/auth/discord/callback`. |
+| `DISCORD_ADMIN_CALLBACK_URL` | no | derived | The admin login callback. When unset it is `DISCORD_CALLBACK_URL` with `/auth/discord/callback` replaced by `/auth/admin/discord/callback`. |
+| `DISCORD_LOGIN_RETRY_DELAY_MS` | no | `30000` | How long to wait before retrying a failed bot login. |
+| `MC_GUILD_ID` | production | empty | The ID of the main server. Admin access is decided there, and an empty database is bootstrapped with it. |
+| `MC_EXECUTIVE_ROLE_ID` | production | empty | The role in the main server that grants admin access. |
+| `MC_DEV_LEADS_ROLE_ID` | no | empty | An extra role in the main server that grants admin access. |
+| `MC_IT_LEADS_ROLE_ID` | no | empty | Another extra admin role. |
+| `ADMIN_FRONTEND_URL` | no | `<BASE_URL>/admin` | Where the browser goes after a successful admin login. |
+
+### Sessions and single sign-on
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `AUTH_REQUEST_TTL_SEC` | no | `600` | How long a login request stays valid, in seconds. |
+| `OAUTH_STATE_TTL_SEC` | no | `600` | How long the OAuth state is valid, in seconds. |
+| `CALLBACK_CODE_TTL_SEC` | no | `120` | How long the one-time code returned to a project is valid, in seconds. |
+| `SESSION_TTL_SEC` | no | `2592000` | The lifetime of a session, 30 days, in seconds. |
+| `SSO_COOKIE_NAME` | no | `mcdi_sso` | The name of the single sign-on cookie. |
+| `SSO_COOKIE_DOMAIN` | no | none | The cookie's domain, such as `.microclub.example`, so subdomains share the login. |
+| `SSO_TTL_SEC` | no | `2592000` | The lifetime of the single sign-on session, in seconds. |
+
+### Caches and limits
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `PERMISSION_CACHE_TTL_MS` | no | `300000` | How long a member's resolved permissions are cached. An admin can change it at runtime in the settings. |
+| `STATS_CACHE_TTL_MS` | no | `300000` | How long dashboard statistics are cached. |
+| `MEMBER_ACTIVITY_THRESHOLD_DAYS` | no | `30` | A member counts as active when a sync confirmed them within this many days. |
+| `PROJECT_AUTH_CACHE_TTL_MS` | no | `30000` | How long a project found by its API key is cached. |
+| `PROJECT_ACCESS_CACHE_TTL_MS` | no | `30000` | How long a project's access to a server is cached. |
+| `PROJECT_LAST_USED_WRITE_TTL_MS` | no | `60000` | The least time between two updates of a project's last-used time. |
+| `MAX_WEBHOOKS_PER_PROJECT` | no | `10` | How many Discord webhooks one project may create. |
+| `THROTTLER_TTL_MS` | no | `60000` | The default rate limit window. It currently has no effect, because every limited route sets its own limit (issue #182). |
+| `THROTTLER_LIMIT` | no | `120` | The default rate limit. Same note as above. |
+
+### Encryption and inbound webhooks
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `WEBHOOK_ENCRYPTION_KEY` | production | empty | 64 hex characters (`openssl rand -hex 32`). Encrypts stored Discord webhook tokens. |
+| `INBOUND_WEBHOOK_ENCRYPTION_KEY` | production | empty | 64 hex characters, a different key. Encrypts inbound webhook signing secrets. It is needed in development too, to create a webhook. There is no key rotation. |
+| `INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_S` | no | `300` | How far a signature's timestamp may be from the server's clock, in seconds. |
+| `INBOUND_WEBHOOK_RATE_LIMIT` | no | `120` | Submissions a minute for each webhook and for each project. |
+
+### Production deployment only
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `POSTGRES_PASSWORD` | production | none | Read by `docker-compose.prod.yml` for the database and the API's connection string. The Redis password is `REDIS_PASSWORD`, supplied the same way. |
+
+### Admin panel
+
+The panel reads `apps/web/.env`, and refuses to start when a value is missing.
+
+| Variable | Required | Default | What it does |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | yes | none | The API address including the `/api` prefix, for example `http://localhost:3000/api`. |
+| `NEXT_PUBLIC_APP_URL` | yes | none | The address of the panel itself, for example `http://localhost:3002`. |
+| `NODE_ENV` | yes | set by Next.js | `development`, `test` or `production`. |
+
+## If something goes wrong
+
+- **Port 3000 is already taken.** Something else, often a leftover Node process, holds the port. Stop it, or the API container cannot publish its port.
+- **The panel hangs, or a page reloads in a loop.** The dev server's `.next` cache is stale, which happens when a production build ran at the same time as the dev server. Stop the dev server, delete `apps/web/.next`, and start it again.
+- **The panel runs out of memory.** On a machine with 8 GB, start it with a larger heap: `NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcdi/web run dev`.
+- **The API container crashes with `MODULE_NOT_FOUND`.** A build on your machine wrote into the folder the container watches. Run `docker compose restart api` from `apps/api`.
+- **The log says `Redis cache unavailable ... NOAUTH`.** The password in `.env` does not match Redis. The compose Redis password is `redis_password`.
+
+Source: `apps/api/src/config`, `apps/api/.env.example`, `apps/api/docker-compose.yml`, `apps/api/docker-compose.prod.yml`, `apps/api/package.json`, `apps/api/scripts/migrate.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/database/seeders/initial.seeder.ts`, `apps/api/src/modules/discord/discord.module.ts`, `apps/api/src/modules/auth/utils/build-discord-oauth-url.ts`, `apps/web/.env.example`, `apps/web/src/shared/lib/env.ts`, `.gitignore`.
