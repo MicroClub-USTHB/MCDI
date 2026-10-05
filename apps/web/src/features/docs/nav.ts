@@ -257,6 +257,30 @@ export const DOCS_NAV: DocSection[] = [
       'For people who work on MCDI itself: how to contribute and how these docs are written.',
     pages: [
       {
+        slug: 'build/architecture',
+        title: 'Architecture',
+        description:
+          'How MCDI fits together: the repository, a request through the API, how callers authenticate, where data lives and how Discord stays in sync.',
+      },
+      {
+        slug: 'build/local-setup',
+        title: 'Local setup',
+        description:
+          'Run MCDI on your machine: Docker or host, the Discord application, signing in as the first admin, the database commands and every environment variable.',
+      },
+      {
+        slug: 'build/api-guide',
+        title: 'API guide',
+        description:
+          'How the API is built and how to add an endpoint, step by step, with a real feature as the worked example.',
+      },
+      {
+        slug: 'build/contracts',
+        title: 'Shared contracts',
+        description:
+          'Why @mcdi/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
+      },
+      {
         slug: 'build/contributing',
         title: 'Contributing',
         description:
