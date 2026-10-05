@@ -1,0 +1,400 @@
+This guide covers how the admin panel in `apps/web` is built: where code goes, how it talks to the API, how it looks, how a visitor is let in, and how to add a page. Frontend rules from the project's `apps/web/CLAUDE.md` are folded in here, and each claim points to the file it comes from.
+
+Next.js 16 differs from older versions. Before you use a Next.js API, read the matching guide in `apps/web/node_modules/next/dist/docs/`.
+
+## How the code is laid out
+
+```text
+apps/web/src/
+  app/           routes (Next.js App Router)
+  features/      one folder per feature: its API calls, components, types
+  shared/        what several features use: ui primitives, layout, api client, styles
+  providers/     React context providers
+  content/docs/  these docs, as MDX
+  middleware.ts  the gate for logged-out visitors
+```
+
+- **`app/`** holds routes and nothing else that matters: a route file reads its parameters and renders a view. The dashboard is one route group (`app/dashboard`) behind a single layout that wraps it in `ProtectedRoute` and the dashboard shell.
+- **`features/<name>/`** is a slice. It owns its `api/` (service, query keys, queries, mutations, mappers), its `components/`, and its `types/`. Features are independent of each other: when two need the same thing, it moves to `shared/`. The inbound webhooks feature, used as the worked example below, also has a `schema/` folder for the editor's helpers.
+- **`shared/`** holds the primitives (`components/ui`), the layout (sidebar, top bar, navigation), common pieces such as the error boundary, the `apiClient`, the `cn()` helper, and the design tokens.
+
+Names: files are `kebab-case.tsx` (older ones, such as `LogoutButton`, are PascalCase folders), components are named exports, and only Next.js pages and layouts use `export default`. Path alias `@/` means `src/`.
+
+## The design system
+
+The panel is dark only. There is no light mode, no theme switch and no `dark:` class. The whole palette is a set of tokens in `src/shared/styles/globals.css`, declared in a Tailwind v4 `@theme` block, since the project has no `tailwind.config.ts`.
+
+{/* excerpt: apps/web/src/shared/styles/globals.css */}
+
+```css
+/* Surface Colors (Layered Dark) */
+--color-surface-base: #1e1f22;
+--color-surface-raised: #2b2d31;
+--color-surface-main: #313338;
+--color-surface-hover: #35363c;
+--color-surface-active: #404249;
+--color-surface-elevated: #4e5058;
+/* ... */
+/* Text Hierarchy */
+--color-text-primary: #f2f3f5;
+--color-text-normal: #dbdee1;
+--color-text-muted: #b5bac1;
+--color-text-subtle: #949ba4;
+--color-text-faint: #6d6f78;
+/* ... */
+--text-hero: 22px;
+--text-hero--font-weight: 800;
+--text-hero--line-height: 1.2;
+```
+
+Use the token as a utility class: `bg-surface-raised`, `text-text-muted`, `border-border`. The groups are:
+
+| Group | Tokens |
+| --- | --- |
+| Brand | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
+| Surfaces | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated` |
+| Text | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint` |
+| State | `success`, `error`, `warning`, `info`, `accent` |
+| Borders | `border`, `border-subtle`, `border-hover`, `border-focus` |
+| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code` |
+
+Rules that keep it consistent:
+
+- Do not write a hex colour in a component. Use a token. If one is missing, add it to `globals.css`.
+- Build screens from the primitives in `src/shared/components/ui` (button, input, select, dialog, data table, badge, card, tabs and the rest) before writing your own.
+- Icons come from `lucide-react` only, and decorative ones carry `aria-hidden="true"`.
+- Accessibility is part of the work: semantic HTML, labels, visible focus, keyboard use.
+
+### `cn()` and the type scale
+
+`cn()` joins class names and resolves conflicts between them. It is `clsx` followed by `tailwind-merge`:
+
+{/* excerpt: apps/web/src/shared/lib/utils.ts */}
+
+```ts
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+```
+
+`tailwind-merge` does not know the project's type-scale tokens. It reads `text-body` and `text-text-primary` as two classes of the same kind and keeps only the last, so the type size is silently dropped:
+
+```text
+cn('text-body text-text-primary')   ->  'text-text-primary'
+cn('text-hero text-text-muted')     ->  'text-text-muted'
+```
+
+When a heading or label loses its size, that is why. Join the classes with `clsx` instead, as the docs components do, or put the type-scale class on a parent element.
+
+## Talking to the API
+
+Every request goes through one `apiClient` in `src/shared/lib/api-client.ts`. Never call `fetch` for an API route yourself and never create a second client.
+
+{/* excerpt: apps/web/src/shared/lib/api-client.ts */}
+
+```ts
+const response = await fetch(`${this.baseURL}${endpoint}`, {
+  ...fetchOptions,
+  headers,
+  credentials: 'include',
+});
+```
+
+- **The session is a cookie.** The API sets `admin_session` as an httpOnly cookie on its own origin, and JavaScript cannot read it. `credentials: 'include'` makes the browser send it to the API from the panel's origin. Without it every authenticated call is a 401.
+- **A 401 is final.** Admin sessions last 24 hours and cannot be refreshed, so on a 401 the client clears the local session and the app returns to the login page.
+- **Errors have one shape.** A failed call throws an `ApiError` with `message`, `code` and `status`, built from Nest's error body. When the API sends several messages (validation), they are joined with `; `.
+- **Bodies arrive as the API sends them.** The API returns resources without an envelope; the client wraps the result as `{ data, status }`, so every caller reads `response.data`. A 204 gives `data: null`.
+- **Text responses.** `getText` asks for a document instead of JSON, for endpoints such as the generated webhook guide.
+
+`NEXT_PUBLIC_API_URL` must include the `/api` prefix. Paths you pass to the client start after it, such as `/admin/projects`.
+
+## Data fetching with TanStack Query
+
+Server state lives in TanStack Query, client-only state in Zustand. The provider (`src/providers/QueryProvider.tsx`) sets the defaults: data is fresh for 60 seconds, kept for 5 minutes, queries and mutations retry once, and a query does not refetch when the window regains focus.
+
+Each feature's `api/` folder follows the same five-file pattern:
+
+| File | What it holds |
+| --- | --- |
+| `service.ts` | One function per endpoint. Plain functions that call `apiClient` and return its response. No React. |
+| `keys.ts` | The query key factory. Every key starts with the feature name, so one `invalidateQueries` can clear a whole feature. |
+| `queries.ts` | `useQuery` hooks that call a service function and map the result. |
+| `mutations.ts` | `useMutation` hooks. After a success they update or invalidate the keys the change affects. |
+| `mappers.ts` | Pure functions that turn API DTOs into the view models components render, and form values into request payloads. |
+
+Components use these hooks instead of calling a service function themselves, and they render the view model, not the raw DTO. Mapping in one place means a component cannot show a field it should not, for example a secret that arrived by accident.
+
+## Who gets in
+
+Three layers decide whether a visitor sees a page.
+
+{/* excerpt: apps/web/src/middleware.ts */}
+
+```ts
+const publicRoutes = ['/', '/login', '/callback', '/api/health'];
+const isPublicRoute =
+  publicRoutes.some((route) => pathname === route || pathname.startsWith('/api/')) ||
+  pathname === '/docs' ||
+  pathname.startsWith('/docs/') ||
+  pathname === '/sitemap.xml';
+```
+
+1. **`middleware.ts`** runs on the server before any HTML is sent. The public routes are the landing page `/`, `/login`, `/callback`, the docs under `/docs`, `/sitemap.xml` and anything under `/api/`. The matcher also lets image files from `public/` through, because the Next.js image optimizer fetches them without cookies. Every other route needs the `auth-token` cookie, and without it the visitor is sent to `/login?redirect=<path>`. A visitor who has the cookie and opens `/login` is sent on to the dashboard.
+2. **`ProtectedRoute`** wraps the dashboard layout. The server cannot read `localStorage`, so for the first paint, while the Zustand store rehydrates, it shows a loading state, and then it redirects to the login page if the store says nobody is signed in.
+3. **`SessionProvider`** checks the session against `GET /auth/admin/me` while the store believes someone is signed in. If the API refuses, it clears the store, shows a toast and returns to `/login`.
+
+The Zustand store (`features/auth/stores/auth.ts`, persisted under `auth-storage`) holds the admin's profile and when the session ends. The `auth-token` cookie is not the session. It is a flag set only after `/auth/admin/me` has answered 200, so the middleware can decide without a round trip. The real session is the httpOnly `admin_session`.
+
+Sign-in is a redirect: the login button goes to the API's Discord OAuth, the API sets the cookie and redirects to `/callback`, and `AuthCallbackHandler` calls `/auth/admin/me` to confirm, fills the store and sends the admin where they were going.
+
+## Heavy code is loaded on demand
+
+A large dependency must not weigh down every page. The inbound webhook schema editor is CodeMirror, so it is imported with `next/dynamic` and without server rendering, and a plain box holds its place while it loads:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/components/webhook-schema-section.tsx */}
+
+```tsx
+const SchemaEditor = dynamic(
+  () =>
+    import('@/features/inbound-webhooks/components/schema-editor').then(
+      (module) => module.SchemaEditor
+    ),
+  {
+    ssr: false,
+    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+  }
+);
+```
+
+Do the same for any editor, chart or large library that only one screen uses.
+
+## Add a page, step by step
+
+The worked example is the inbound webhooks list of a project, at `/dashboard/projects/<id>/inbound-webhooks`. Every excerpt is copied from the repository, and a docs test fails if one drifts from its file.
+
+### Step 1: Add the route
+
+A route is a folder in `src/app`. The `page.tsx` is a server component that reads its parameters and hands them to a view:
+
+{/* excerpt: apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx */}
+
+```tsx
+import { InboundWebhooksView } from './inbound-webhooks-view';
+
+export default async function ProjectInboundWebhooksPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <InboundWebhooksView projectId={id} />;
+}
+```
+
+The view is a client component (`'use client'`) in the same folder. It owns the screen: the heading, the states, the layout.
+
+{/* excerpt: apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/inbound-webhooks-view.tsx */}
+
+```tsx
+export function InboundWebhooksView({ projectId }: { projectId: string }) {
+  const query = useInboundWebhooksQuery(projectId);
+  const newHref = `/dashboard/projects/${encodeURIComponent(projectId)}/inbound-webhooks/new`;
+```
+
+### Step 2: Add the feature slice
+
+Put the data code in `src/features/<name>/api`. Start with the service, one plain function per endpoint:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/api/service.ts */}
+
+```ts
+const BASE = '/admin/inbound-webhooks';
+// ...
+export function fetchInboundWebhooks(projectId: string): Promise<ApiResponse<InboundWebhookDto[]>> {
+  return apiClient.get<InboundWebhookDto[]>(`${BASE}?projectId=${encodeURIComponent(projectId)}`);
+}
+```
+
+Then the keys, which every query and invalidation will use:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/api/keys.ts */}
+
+```ts
+export const inboundWebhookKeys = {
+  all: ['inbound-webhooks'] as const,
+  lists: (projectId: string) => [...inboundWebhookKeys.all, 'list', projectId] as const,
+  detail: (webhookId: string) => [...inboundWebhookKeys.all, 'detail', webhookId] as const,
+  docs: (webhookId: string) => [...inboundWebhookKeys.all, 'docs', webhookId] as const,
+  submissions: (webhookId: string, filters: SubmissionFilters) =>
+    [...inboundWebhookKeys.all, 'submissions', webhookId, filters] as const,
+  submission: (webhookId: string, submissionId: string) =>
+    [...inboundWebhookKeys.all, 'submission', webhookId, submissionId] as const,
+  roles: (webhookId: string) => [...inboundWebhookKeys.all, 'roles', webhookId] as const,
+  settings: () => [...inboundWebhookKeys.all, 'settings'] as const,
+  preview: (payload: PreviewSchemaPayload) =>
+    [...inboundWebhookKeys.all, 'preview', payload] as const,
+};
+```
+
+### Step 3: Map the data, then query it
+
+The mapper is where the DTO becomes what the screen renders. It copies display fields only:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/api/mappers.ts */}
+
+```ts
+export interface InboundWebhookView {
+  id: string;
+  projectId: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  signatureLabel: 'Signed' | 'Unsigned';
+  submissionCount: number;
+  lastSubmissionLabel: string;
+}
+// ...
+/** Copies only display fields, so nothing sensitive reaches the list by accident. */
+export function mapInboundWebhook(dto: InboundWebhookDto): InboundWebhookView {
+  return {
+    id: dto.id,
+    projectId: dto.projectId,
+    name: dto.name,
+    slug: dto.slug,
+    isActive: dto.isActive,
+    signatureLabel: dto.requireSignature ? 'Signed' : 'Unsigned',
+    submissionCount: dto.submissionCount,
+    lastSubmissionLabel: formatDate(dto.lastSubmissionAt) ?? 'Never',
+  };
+}
+```
+
+The query hook calls the service and maps the answer:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/api/queries.ts */}
+
+```ts
+export function useInboundWebhooksQuery(projectId: string) {
+  return useQuery({
+    queryKey: inboundWebhookKeys.lists(projectId),
+    queryFn: async () => {
+      const response = await fetchInboundWebhooks(projectId);
+      return response.data.map(mapInboundWebhook);
+    },
+  });
+}
+```
+
+A mutation updates what the change touched. Creating a webhook only needs the project's list refreshed:
+
+{/* excerpt: apps/web/src/features/inbound-webhooks/api/mutations.ts */}
+
+```ts
+export function useCreateInboundWebhookMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateInboundWebhookPayload) => createInboundWebhook(payload),
+    onSuccess: (_response, payload) => {
+      void queryClient.invalidateQueries({
+        queryKey: inboundWebhookKeys.lists(payload.projectId),
+      });
+    },
+  });
+}
+```
+
+### Step 4: Show it with the shared primitives
+
+Build the view from `shared/components/ui` and your feature's components, using tokens for every colour. Handle the four states a list has: loading, empty, failed with a retry, and loaded.
+
+### Step 5: Link it in the navigation
+
+A project's pages are listed in `src/shared/components/layout/nav-items.ts`. Adding a line puts the page in the sidebar under the selected project:
+
+{/* excerpt: apps/web/src/shared/components/layout/nav-items.ts */}
+
+```ts
+  { name: 'Keys & settings', segment: '', icon: KeyRound },
+  { name: 'Server access', segment: 'access', icon: Network },
+  { name: 'Webhooks', segment: 'webhooks', icon: Webhook },
+  { name: 'Inbound webhooks', segment: 'inbound-webhooks', icon: Inbox },
+],
+```
+
+### Step 6: Write the tests
+
+Tests live only under `apps/web/tests`, mirroring `src`. A mapper is a pure function, so its test is plain:
+
+{/* excerpt: apps/web/tests/features/inbound-webhooks/api/mappers.test.ts */}
+
+```ts
+describe('mapInboundWebhook', () => {
+  it('labels what the list shows', () => {
+    const view = mapInboundWebhook(dto);
+
+    expect(view).toMatchObject({
+      id: 'wh_1',
+      name: 'Recruitment 2026',
+      slug: 'recruitment-2026',
+      isActive: true,
+      signatureLabel: 'Signed',
+      submissionCount: 1234,
+    });
+    expect(view.lastSubmissionLabel).not.toBe('Never');
+  });
+
+```
+
+A page test renders the view with a fresh `QueryClient` and answers the API with MSW, then checks what the visitor sees:
+
+{/* excerpt: apps/web/tests/app/dashboard/inbound-webhooks.test.tsx */}
+
+```tsx
+function wrapper({ children }: { children: ReactNode }) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+// ...
+it('lists the webhooks with their readers and counts', async () => {
+  server.use(
+    http.get(`${API_URL}/admin/inbound-webhooks`, ({ request }) => {
+      expect(new URL(request.url).searchParams.get('projectId')).toBe('proj_1');
+      return HttpResponse.json([
+        webhook('wh_1', 'Recruitment'),
+        webhook('wh_2', 'Workshop', { requireSignature: false, isActive: false }),
+      ]);
+    }),
+    http.get(`${API_URL}/admin/inbound-webhooks/wh_1/roles`, () =>
+      HttpResponse.json([{ roleId: EXECUTIVE, roleName: 'MC Executive', serverId: 'srv-main' }])
+    ),
+    http.get(`${API_URL}/admin/inbound-webhooks/wh_2/roles`, () => HttpResponse.json([]))
+  );
+
+  render(<InboundWebhooksView projectId="proj_1" />, { wrapper });
+// ...
+expect(within(row).getByText('Signed')).toBeInTheDocument();
+expect(within(row).getByText('1,204')).toBeInTheDocument();
+```
+
+The `server` comes from `tests/setup.ts`. Write the test first, see it fail, then write the code that makes it pass. See [Testing](/docs/build/testing).
+
+### Step 7: Run the checks
+
+From `apps/web`:
+
+```bash
+pnpm run typecheck
+pnpm run lint
+pnpm run format:check
+pnpm run test
+pnpm run build
+```
+
+## The docs live here too
+
+These docs are MDX in `src/content/docs`, served by the same app at `/docs`. [Writing these docs](/docs/build/writing-docs) explains how to add a page, and [Contributing](/docs/build/contributing) says when a change needs one.
+
+Source: `apps/web/CLAUDE.md`, `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx`, `apps/web/src/features/inbound-webhooks/api`, `apps/web/src/features/auth`, `apps/web/src/providers/QueryProvider.tsx`, `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/shared/lib/utils.ts`, `apps/web/src/shared/lib/cookies.ts`, `apps/web/src/shared/styles/globals.css`, `apps/web/src/shared/components/layout/nav-items.ts`, `apps/web/src/middleware.ts`, `apps/web/tests/app/dashboard/inbound-webhooks.test.tsx`, `apps/web/tests/setup.ts`.

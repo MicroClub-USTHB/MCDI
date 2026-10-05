@@ -35,7 +35,7 @@ export class InboundWebhooksRepository {
   ) {}
 ```
 
-Entities are in `src/database/entities/*.entity.ts` and exported from `index.ts`. After you change an entity, generate a migration with `pnpm run db:generate`, read the SQL it wrote in `src/database/migrations`, and commit both. The API applies pending migrations when it starts.
+Entities are in `src/database/entities/*.entity.ts` and exported from `index.ts`. After you change an entity, generate a migration with `pnpm run db:generate`, read the SQL it wrote in `src/database/migrations`, make it idempotent, and commit both. Production applies the whole set again on every boot, so each statement must be safe to run twice: use `IF NOT EXISTS` for tables, indexes and columns, and guard `ADD CONSTRAINT` with a `DO $$` block. The SQL that `drizzle-kit generate` writes is not idempotent as it comes, and CI fails when the second run errors. Locally, the API applies pending migrations when it starts. See [Deployment and operations](/docs/build/operations#migrations-run-on-every-boot-so-they-must-be-idempotent).
 
 ### Registering a module
 
@@ -122,7 +122,7 @@ export type InboundWebhookSettingsRow =
   typeof inboundWebhookSettings.$inferSelect;
 ```
 
-The matching migration, committed with the entity (`pnpm run db:generate` writes it from the entity):
+The matching migration, committed with the entity. `pnpm run db:generate` writes it from the entity, and it was edited to be idempotent: note the `IF NOT EXISTS`, which makes it safe to run again.
 
 {/* excerpt: apps/api/src/database/migrations/0005_inbound_webhook_settings.sql */}
 

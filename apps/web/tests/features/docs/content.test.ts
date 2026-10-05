@@ -67,8 +67,9 @@ describe.each(pages)('docs page $slug', ({ source }) => {
     ).toEqual([]);
   });
 
-  it('uses no em or en dashes', () => {
-    expect(source.match(/[–—]/g) ?? []).toEqual([]);
+  // Prose only: program output inside a code block is quoted exactly, dashes and all.
+  it('uses no em or en dashes in its prose', () => {
+    expect(prose.join('\n').match(/[–—]/g) ?? []).toEqual([]);
   });
 
   it('ends by naming the files it describes', () => {

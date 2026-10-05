@@ -40,6 +40,79 @@ export const DOCS_NAV: DocSection[] = [
     ],
   },
   {
+    title: 'Build MCDI',
+    description:
+      'For people who work on MCDI itself: how to contribute and how these docs are written.',
+    pages: [
+      {
+        slug: 'build/architecture',
+        title: 'Architecture',
+        description:
+          'How MCDI fits together: the repository, a request through the API, how callers authenticate, where data lives and how Discord stays in sync.',
+      },
+      {
+        slug: 'build/local-setup',
+        title: 'Local setup',
+        description:
+          'Run MCDI on your machine: Docker or host, the Discord application, signing in as the first admin, the database commands and every environment variable.',
+      },
+      {
+        slug: 'build/api-guide',
+        title: 'API guide',
+        description:
+          'How the API is built and how to add an endpoint, step by step, with a real feature as the worked example.',
+      },
+      {
+        slug: 'build/web-guide',
+        title: 'Web guide',
+        description:
+          'How the admin panel is built: feature slices, the design system, data fetching, who gets in, and how to add a page step by step.',
+      },
+      {
+        slug: 'build/contracts',
+        title: 'Shared contracts',
+        description:
+          'Why @mcdi/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
+      },
+      {
+        slug: 'build/testing',
+        title: 'Testing',
+        description:
+          'How MCDI is tested: unit, end to end and browser tests, the exact commands, the throwaway database warning, and what CI runs.',
+      },
+      {
+        slug: 'build/contributing',
+        title: 'Contributing',
+        description:
+          'How work gets done on MCDI: issues, branches, pull requests, the checks to run before you push, and how changes are merged.',
+      },
+      {
+        slug: 'build/operations',
+        title: 'Deployment and operations',
+        description:
+          'How MCDI runs in production, what stops it from booting on purpose, how to read its health, and troubleshooting from real incidents.',
+      },
+      {
+        slug: 'build/decisions',
+        title: 'Decisions',
+        description:
+          'A short log of why MCDI is the way it is: context, decision, consequences and the pull request behind each choice.',
+      },
+      {
+        slug: 'build/glossary',
+        title: 'Glossary',
+        description:
+          'The words MCDI uses, from API key and boot sync to reader role, replay protection and submission, with links to the pages that explain them.',
+      },
+      {
+        slug: 'build/writing-docs',
+        title: 'Writing these docs',
+        description:
+          'How to add or change a documentation page: where files live, the nav entry, the available components and the style rules.',
+      },
+    ],
+  },
+  {
     title: 'Integrate with MCDI',
     description:
       'For developers of MicroClub projects: sign members in, use your API key, check permissions and receive data through inbound webhooks.',
@@ -248,49 +321,6 @@ export const DOCS_NAV: DocSection[] = [
         title: 'Webhooks',
         description:
           'List, inspect and delete the Discord webhooks of any project, with an admin session.',
-      },
-    ],
-  },
-  {
-    title: 'Build MCDI',
-    description:
-      'For people who work on MCDI itself: how to contribute and how these docs are written.',
-    pages: [
-      {
-        slug: 'build/architecture',
-        title: 'Architecture',
-        description:
-          'How MCDI fits together: the repository, a request through the API, how callers authenticate, where data lives and how Discord stays in sync.',
-      },
-      {
-        slug: 'build/local-setup',
-        title: 'Local setup',
-        description:
-          'Run MCDI on your machine: Docker or host, the Discord application, signing in as the first admin, the database commands and every environment variable.',
-      },
-      {
-        slug: 'build/api-guide',
-        title: 'API guide',
-        description:
-          'How the API is built and how to add an endpoint, step by step, with a real feature as the worked example.',
-      },
-      {
-        slug: 'build/contracts',
-        title: 'Shared contracts',
-        description:
-          'Why @mcdi/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
-      },
-      {
-        slug: 'build/contributing',
-        title: 'Contributing',
-        description:
-          'How work gets done on MCDI: issues, branches, pull requests, the checks to run before you push, and how changes are merged.',
-      },
-      {
-        slug: 'build/writing-docs',
-        title: 'Writing these docs',
-        description:
-          'How to add or change a documentation page: where files live, the nav entry, the available components and the style rules.',
       },
     ],
   },

@@ -169,9 +169,11 @@ describe('DocPager', () => {
   });
 
   it('has nothing after the last page', () => {
-    render(<DocPager slug="build/writing-docs" />);
+    const last = allDocPages().at(-1)!;
+    render(<DocPager slug={last.slug} />);
 
     expect(screen.queryByRole('link', { name: /Next/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /Previous/ })).toBeInTheDocument();
   });
 });
 

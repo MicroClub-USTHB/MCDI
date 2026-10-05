@@ -175,7 +175,7 @@ The schema lives in Drizzle entities (`src/database/entities`) and is applied th
   `db:seed` is for a database on your own machine only. It creates an admin session with a fixed token that is written in the source, and projects whose keys can be derived from it. Never run it against a shared or production database.
 </Callout>
 
-The API runs the pending migrations every time it starts (`DatabaseInitService`), whichever way you launched it.
+When you run the API from the source tree, it applies the pending migrations itself every time it starts (`DatabaseInitService`). The production image has no source tree and applies one idempotent SQL file with `psql` instead, as [Deployment and operations](/docs/build/operations#migrations-run-on-every-boot-so-they-must-be-idempotent) explains.
 
 ## Environment variables
 

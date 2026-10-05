@@ -1,0 +1,127 @@
+This is a short log of why MCDI is the way it is. Each entry gives the context, the decision, what follows from it, and where the discussion or the change lives. Read an entry before you reverse it: most of them were made to avoid a problem that is not obvious from the code.
+
+## PostgreSQL is the source of truth, Redis only caches
+
+**Context.** Every project call has to find the project, check its access to a server and, often, resolve a member's permissions. Doing that from PostgreSQL on every request is slow, and asking Discord is slower and rate limited.
+
+**Decision.** PostgreSQL holds the data and the API reads it, never Discord, when it answers. Redis caches the expensive reads for a short time (project authentication and access for 30 seconds, resolved permissions for 5 minutes). Whoever changes the data clears the matching cache in the same change.
+
+**Consequences.** A cache can be a few seconds or minutes behind, and a change that forgets to clear it is invisible until the entry expires. Losing Redis costs speed, not data, and the API falls back to the database. See [Architecture](/docs/build/architecture#redis).
+
+**Links.** [PR #76](https://github.com/MicroClub-USTHB/MCDI/pull/76), project caching layer.
+
+## Syncs are queued jobs and startup does not depend on Discord
+
+**Context.** A sync that lived in a background promise was lost on restart, could run twice across instances, and left `in_progress` meaning nothing. The API also refused to be useful while the bot logged in.
+
+**Decision.** A sync is a row with the status `queued`, claimed with a lease and a heartbeat by a worker that polls every 5 seconds. The bot logs in in the background, and the boot sync is queued once it is ready.
+
+**Consequences.** Syncs survive a restart and a crashed worker can be recovered. The API serves everything that does not need Discord even when the token is wrong.
+
+**Links.** [PR #73](https://github.com/MicroClub-USTHB/MCDI/pull/73), [PR #72](https://github.com/MicroClub-USTHB/MCDI/pull/72).
+
+## Shared contracts are compiled
+
+**Context.** The API and the admin panel need the same cookie name, enums and error types, and keeping copies in both drifts. The API runs as compiled CommonJS and cannot load a workspace package that ships TypeScript source.
+
+**Decision.** `@mcdi/contracts` is built with `tsc` to CommonJS and type declarations, depends on nothing, and holds only what both apps really share.
+
+**Consequences.** It must be built before the apps that use it, which Turborepo does through `^build`, and a stale `dist` is a common cause of a missing export. See [Shared contracts](/docs/build/contracts).
+
+**Links.** [PR #144](https://github.com/MicroClub-USTHB/MCDI/pull/144), the move to a pnpm and Turborepo monorepo.
+
+## Admins sign in with Discord and hold an httpOnly cookie
+
+**Context.** The first admin login used a username and password that the API had to store and protect.
+
+**Decision.** Admins sign in only with Discord OAuth, and only members who hold an admin role in the main server get in. The session is the `admin_session` cookie, which is httpOnly so JavaScript cannot read it, and it is also accepted as a Bearer token for tools. An admin session is a separate kind from a project session, and `SystemAdminGuard` accepts only the first.
+
+**Consequences.** There are no admin passwords to leak. The admin session lasts 24 hours and cannot be refreshed, so a 401 sends the admin back to the login page. The panel keeps a non-secret `auth-token` flag cookie so its middleware can decide without calling the API. Discord roles are the access list, so removing a role removes access.
+
+**Links.** [PR #77](https://github.com/MicroClub-USTHB/MCDI/pull/77), admin authentication refactor.
+
+## Projects get a one-time code, not a token, in the redirect
+
+**Context.** Returning a session token in the redirect after login put a long-lived credential in the browser's address and history.
+
+**Decision.** The redirect carries a random one-time code (valid for 120 seconds, stored only as a hash) and the project's backend exchanges it for a session with its API key. Single sign-on later added a browser cookie that skips the Discord screen but still ends in the same code.
+
+**Consequences.** A project needs a backend to log members in, and a reused or expired code is refused. See [Login with MicroClub](/docs/integrate/sso).
+
+**Links.** [PR #69](https://github.com/MicroClub-USTHB/MCDI/pull/69), [PR #92](https://github.com/MicroClub-USTHB/MCDI/pull/92).
+
+## Outbound and inbound webhook secrets use different encryption keys
+
+**Context.** MCDI stores two kinds of secret it must be able to read back: the tokens of Discord webhooks it creates for projects, and the signing secrets of inbound webhooks. Hashing is not possible for either, because MCDI has to use them.
+
+**Decision.** Both are encrypted at rest with AES-256-GCM, with two separate keys, `WEBHOOK_ENCRYPTION_KEY` and `INBOUND_WEBHOOK_ENCRYPTION_KEY`. In production the API refuses to boot without a valid one of each, so there is no silent fallback to storing plaintext.
+
+**Consequences.** Leaking one key does not expose the other kind of secret. There is no key rotation: changing a key means re-creating what it protected. See [Deployment and operations](/docs/build/operations#configuration-that-stops-the-boot-on-purpose).
+
+**Links.** [PR #114](https://github.com/MicroClub-USTHB/MCDI/pull/114), [PR #146](https://github.com/MicroClub-USTHB/MCDI/pull/146).
+
+## Reading inbound submissions is gated by roles, with no admin bypass
+
+**Context.** Submissions carry personal data, such as an application form.
+
+**Decision.** A member reads a webhook's submissions only if they hold one of its reader roles. An empty list of readers means nobody, the opposite of project login roles, and a webhook must have at least one reader. A system admin gets no exception. A refused read is a 404, never a 403, so nobody can find out which webhooks exist. The three audiences have three controllers, so no route is reachable by both an API key and a session.
+
+**Consequences.** An admin who needs to read a webhook gives it a role they hold. Every read, and every refused read, is audited. See [Reading submissions](/docs/integrate/inbound-webhooks/reading-submissions).
+
+**Links.** [PR #146](https://github.com/MicroClub-USTHB/MCDI/pull/146), [PR #160](https://github.com/MicroClub-USTHB/MCDI/pull/160) for role inheritance.
+
+## Schemas are checked twice, and are steps or flat fields
+
+**Context.** An admin writes a schema and projects send data against it, and a bad schema can be a denial of service (a runaway pattern) while bad data must produce errors a developer can act on.
+
+**Decision.** The first layer validates the schema when it is saved: depth, number of fields, duplicate keys, patterns that are too long or do not compile, conditions that point forward. The second validates each submission against the saved schema and returns every error at once. A schema has either `steps`, for a form, or flat `fields`, for an event or any non-form payload, and never both.
+
+**Consequences.** A webhook cannot be saved with a schema the validator cannot run, and every payload error comes back in one 422. See [Schemas](/docs/integrate/inbound-webhooks/schemas).
+
+**Links.** [PR #146](https://github.com/MicroClub-USTHB/MCDI/pull/146), [PR #166](https://github.com/MicroClub-USTHB/MCDI/pull/166) for flat schemas.
+
+## The schema editor has its own completion
+
+**Context.** The admin editor should suggest field types and properties and flag mistakes. The `codemirror-json-schema` package does that, but it pulls in shiki and markdown-it and has an unguarded highlighter promise.
+
+**Decision.** The editor is plain CodeMirror 6 with autocomplete driven by the catalog in `@mcdi/contracts`, instant checks for unknown properties, and the API's own errors from the preview endpoint placed in the text. It loads on demand with `next/dynamic`.
+
+**Consequences.** The hints cannot drift from the validator, because API tests compare the catalog with it. The API stays the authority. See [Shared contracts](/docs/build/contracts).
+
+**Links.** [PR #164](https://github.com/MicroClub-USTHB/MCDI/pull/164).
+
+## Migrations are applied by `psql` on every boot
+
+**Context.** The production image should not carry a package manager or drizzle-kit, and a deployment should apply its schema without a manual step.
+
+**Decision.** The image bakes in one ordered SQL file made from all the migrations, and the container applies it with `psql` before the API starts. There is no migration journal.
+
+**Consequences.** Every migration must be idempotent. CI applies the file twice and fails if the second run errors. See [Deployment and operations](/docs/build/operations#migrations-run-on-every-boot-so-they-must-be-idempotent).
+
+**Links.** [PR #96](https://github.com/MicroClub-USTHB/MCDI/pull/96).
+
+## The docs are MDX inside the web app
+
+**Context.** The specifications in `docs/` were long, partly out of date, and not where developers looked.
+
+**Decision.** The developer docs are plain MDX files in `apps/web`, served at `/docs` with plain `@next/mdx` and no extra service. The new pages are the source of truth, and the old files in `docs/` are kept as historical design records.
+
+**Consequences.** Docs are reviewed and versioned like code, and tests check links, anchors and the nav. There is no search yet.
+
+**Links.** [Issue #174](https://github.com/MicroClub-USTHB/MCDI/issues/174), [PR #179](https://github.com/MicroClub-USTHB/MCDI/pull/179).
+
+## The OpenAPI document and the reference pages are committed
+
+**Context.** An API reference that someone writes by hand drifts from the controllers.
+
+**Decision.** `pnpm docs:api` exports the OpenAPI document without starting the API and generates one MDX page per Swagger group, split into a Project API and an Admin API by how each endpoint authenticates. Both the document and the pages are committed, and CI fails when either is out of date.
+
+**Consequences.** Every API change shows up as a readable diff in the pull request, and the build on Vercel needs no running API. A new Swagger tag needs a page in the nav. See [API guide](/docs/build/api-guide).
+
+**Links.** [Issue #175](https://github.com/MicroClub-USTHB/MCDI/issues/175), [PR #180](https://github.com/MicroClub-USTHB/MCDI/pull/180).
+
+## Add a decision
+
+When you make a choice that a future reader would want to reverse without knowing why, add an entry at the bottom with the same four parts: context, decision, consequences, links to the pull request or issue. Keep it to a few sentences.
+
+Source: `apps/api/src/modules/sync/sync.service.ts`, `apps/api/src/modules/projects/project-auth-cache.service.ts`, `apps/api/src/modules/permissions/permission-cache.service.ts`, `packages/contracts/package.json`, `apps/api/src/common/guards/system-admin.guard.ts`, `apps/api/src/common/utils/encryption.util.ts`, `apps/api/src/modules/inbound-webhooks`, `apps/api/Dockerfile`, `apps/web/src/features/inbound-webhooks/components/schema-editor.tsx`, `.github/workflows/ci.yml`.
