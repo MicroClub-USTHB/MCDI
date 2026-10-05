@@ -14,20 +14,29 @@ const spec = JSON.parse(
 ) as OpenApiSpec;
 const outDir = path.resolve(__dirname, '../src/content/docs/api-reference');
 
-fs.mkdirSync(outDir, { recursive: true });
 const pages = generateApiPages(spec);
 
 for (const page of pages) {
-  fs.writeFileSync(path.join(outDir, `${page.slug}.mdx`), page.content);
+  const file = path.join(outDir, `${page.slug}.mdx`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, page.content);
 }
 
-// A group that no longer exists in the API must not leave its page behind.
-const wanted = new Set(pages.map((page) => `${page.slug}.mdx`));
-for (const file of fs.readdirSync(outDir)) {
-  if (file.endsWith('.mdx') && !wanted.has(file)) {
-    fs.rmSync(path.join(outDir, file));
-    console.log(`removed ${file}`);
+// A page that is no longer generated (a group moved or removed) must not stay behind.
+const wanted = new Set(pages.map((page) => path.join(outDir, `${page.slug}.mdx`)));
+
+function removeStale(dir: string): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      removeStale(full);
+      if (fs.readdirSync(full).length === 0) fs.rmdirSync(full);
+    } else if (entry.name.endsWith('.mdx') && !wanted.has(full)) {
+      fs.rmSync(full);
+      console.log(`removed ${path.relative(outDir, full)}`);
+    }
   }
 }
+removeStale(outDir);
 
 console.log(`api-reference: ${pages.length} pages written`);

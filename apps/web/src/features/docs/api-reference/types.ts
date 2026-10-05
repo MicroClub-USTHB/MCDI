@@ -46,9 +46,10 @@ export interface OpenApiSpec {
 }
 
 export interface ApiPage {
-  /** The Swagger group, as it is named in the API. */
+  audience: 'project' | 'admin';
+  /** The Swagger group, as it is named in the API, or `Overview`. */
   group: string;
-  /** The file name below `src/content/docs/api-reference`, without `.mdx`. */
+  /** The path below `src/content/docs/api-reference`, without `.mdx`: `project/members`. */
   slug: string;
   content: string;
 }

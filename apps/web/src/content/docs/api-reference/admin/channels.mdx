@@ -89,132 +89,7 @@ Retrieves message history from a text channel. Read-only; supports pagination an
 
 <SwaggerLink tag="Channels" operationId="AdminChannelsController_getMessages" />
 
-## List all channels in a server
-
-<Endpoint method="GET" path="/api/servers/{serverId}/channels" />
-
-Returns all channels the bot can access in the server, with categories.
-
-**Authentication:** Project API key (`X-API-Key` header)
-
-**Parameters**
-
-| Name | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `serverId` | path | `string` | yes | Discord server ID |
-| `type` | query | `"all" or "text" or "voice" or "announcement" or "category"` | no | Filter by channel type |
-| `categoryId` | query | `string` | no | Filter by parent category ID |
-
-**Responses**
-
-| Status | Description | Body |
-| --- | --- | --- |
-| `200` | List of channels and categories. | `ChannelListResponseDto` |
-| `400` | Invalid query parameters. |  |
-| `401` | Missing or invalid API key. |  |
-| `403` | Project does not have READ access to this server. |  |
-| `404` | Server not found or bot not connected. |  |
-
-<SwaggerLink tag="Channels" operationId="ChannelsController_listChannels" />
-
-## Get channel details
-
-<Endpoint method="GET" path="/api/servers/{serverId}/channels/{channelId}" />
-
-Returns detailed information about a specific channel.
-
-**Authentication:** Project API key (`X-API-Key` header)
-
-**Parameters**
-
-| Name | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `serverId` | path | `string` | yes | Discord server ID |
-| `channelId` | path | `string` | yes | Discord channel ID |
-
-**Responses**
-
-| Status | Description | Body |
-| --- | --- | --- |
-| `200` | Channel details. | `ChannelDetailResponseDto` |
-| `400` | Invalid channel ID format. |  |
-| `401` | Missing or invalid API key. |  |
-| `403` | Project does not have READ access to this server. |  |
-| `404` | Channel does not exist or bot lacks access. |  |
-
-<SwaggerLink tag="Channels" operationId="ChannelsController_getChannel" />
-
-## Get recent messages from a channel
-
-<Endpoint method="GET" path="/api/servers/{serverId}/channels/{channelId}/messages" />
-
-Retrieves message history from a text channel. Supports pagination and author filtering.
-
-**Authentication:** Project API key (`X-API-Key` header)
-
-**Parameters**
-
-| Name | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `serverId` | path | `string` | yes | Discord server ID |
-| `channelId` | path | `string` | yes | Discord channel ID |
-| `limit` | query | `number` | no | Max number of messages (1-100) Default: `50`. |
-| `before` | query | `string` | no | Get messages before this Discord snowflake ID |
-| `after` | query | `string` | no | Get messages after this Discord snowflake ID |
-| `authorId` | query | `string` | no | Filter by author Discord ID |
-
-**Responses**
-
-| Status | Description | Body |
-| --- | --- | --- |
-| `200` | List of messages. | `GetMessagesResponseDto` |
-| `400` | Invalid query parameters. |  |
-| `401` | Missing or invalid API key. |  |
-| `403` | Project does not have READ access to this server. |  |
-| `404` | Channel does not exist or bot lacks access. |  |
-| `429` | Rate limit exceeded. 10 requests per minute per project. |  |
-
-<SwaggerLink tag="Channels" operationId="ChannelsController_getMessages" />
-
-## Send a message to a Discord channel
-
-<Endpoint method="POST" path="/api/servers/{serverId}/channels/{channelId}/messages" />
-
-Sends a message with optional embeds and mention configuration.
-
-**Authentication:** Project API key (`X-API-Key` header)
-
-**Parameters**
-
-| Name | In | Type | Required | Description |
-| --- | --- | --- | --- | --- |
-| `serverId` | path | `string` | yes | Discord server ID |
-| `channelId` | path | `string` | yes | Discord channel ID |
-
-**Request body** (JSON, required): [SendMessageDto schema](#sendmessagedto-schema).
-
-**Responses**
-
-| Status | Description | Body |
-| --- | --- | --- |
-| `201` | Message sent successfully. | `SendMessageResponseDto` |
-| `400` | Invalid message content or embed validation failed. |  |
-| `401` | Missing or invalid API key. |  |
-| `403` | Project does not have SEND_MESSAGES operation on this server. |  |
-| `404` | Channel does not exist or bot lacks access. |  |
-| `429` | Rate limit exceeded. 5 messages per minute per project. |  |
-
-<SwaggerLink tag="Channels" operationId="ChannelsController_sendMessage" />
-
 ## Schemas
-
-### AllowedMentionsDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `parse` | `array of "everyone" or "roles" or "users"` | no | Types of mentions allowed |
-| `roles` | `array of string` | no | Discord role IDs to allow mentioning |
-| `users` | `array of string` | no | Discord user IDs to allow mentioning |
 
 ### ChannelCategoryDto schema
 
@@ -272,46 +147,6 @@ Sends a message with optional embeds and mention configuration.
 | `topic` | `string or null` | yes | Channel topic |
 | `type` | `"text" or "voice" or "announcement" or "category"` | yes | Channel type |
 
-### EmbedAuthorDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `icon_url` | `string (uri)` | no | Author icon URL |
-| `name` | `string` | yes | Author name |
-| `url` | `string (uri)` | no | Author URL |
-
-### EmbedDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `author` | `EmbedAuthorDto` | no | Embed author |
-| `color` | `number` | no | Color as decimal integer (0-16777215) |
-| `description` | `string` | no | Embed description |
-| `footer` | `EmbedFooterDto` | no | Embed footer |
-| `image` | `EmbedImageDto` | no | Embed image |
-| `thumbnail` | `EmbedThumbnailDto` | no | Embed thumbnail |
-| `title` | `string` | no | Embed title |
-| `url` | `string (uri)` | no | Embed URL |
-
-### EmbedFooterDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `icon_url` | `string (uri)` | no | Footer icon URL |
-| `text` | `string` | yes | Footer text |
-
-### EmbedImageDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `url` | `string (uri)` | yes | URL of the image |
-
-### EmbedThumbnailDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `url` | `string (uri)` | yes | URL of the thumbnail |
-
 ### GetMessagesResponseDto schema
 
 | Field | Type | Required | Description |
@@ -364,24 +199,5 @@ Sends a message with optional embeds and mention configuration.
 | `title` | `string or null` | no | Embed title |
 | `type` | `string or null` | no | Embed type |
 | `url` | `string or null` | no | Embed URL |
-
-### SendMessageDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `allowed_mentions` | `AllowedMentionsDto` | no | Allowed mentions configuration |
-| `content` | `string` | no | Message content (max 2000 chars, optional if embeds provided) |
-| `embeds` | `array of EmbedDto` | no | Embed objects (max 10) |
-| `tts` | `boolean` | no | Whether the message is text-to-speech Default: `false`. |
-
-### SendMessageResponseDto schema
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `author` | `MessageAuthorDto` | yes |  |
-| `channelId` | `string` | yes | Discord channel ID |
-| `content` | `string` | yes | Message content |
-| `id` | `string` | yes | Discord message ID |
-| `timestamp` | `string` | yes | ISO 8601 timestamp |
 
 Source: `apps/api/openapi.json`.

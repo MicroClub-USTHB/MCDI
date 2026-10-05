@@ -23,10 +23,10 @@ describe('DocsSidebar', () => {
     render(<DocsSidebar />);
 
     for (const page of allDocPages()) {
-      expect(screen.getByRole('link', { name: page.title })).toHaveAttribute(
-        'href',
-        `/docs/${page.slug}`
-      );
+      const link = screen
+        .getAllByRole('link', { name: page.title })
+        .find((candidate) => candidate.getAttribute('href') === `/docs/${page.slug}`);
+      expect(link, page.slug).toBeDefined();
     }
     expect(screen.getByText('Start here')).toBeInTheDocument();
     expect(screen.getByText('Build MCDI')).toBeInTheDocument();

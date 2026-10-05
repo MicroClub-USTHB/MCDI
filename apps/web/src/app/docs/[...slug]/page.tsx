@@ -23,7 +23,8 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: DocsPageProps): Promise<Metadata> {
   const { slug } = await params;
   const page = findDoc(slug.join('/'));
-  return page ? { title: page.title, description: page.description } : {};
+  // The section is in the title because two pages can share a name (Members in both APIs).
+  return page ? { title: `${page.title} | ${page.section}`, description: page.description } : {};
 }
 
 export default async function DocsPage({ params }: DocsPageProps) {

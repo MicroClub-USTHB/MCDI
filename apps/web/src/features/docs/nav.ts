@@ -34,104 +34,153 @@ export const DOCS_NAV: DocSection[] = [
     ],
   },
   {
-    title: 'API reference',
+    title: 'Project API',
     description:
-      'Every endpoint of the MCDI API, generated from its OpenAPI document so it always matches the code.',
+      'For developers of MicroClub projects: log members in, check permissions, use channels and webhooks, and send data to inbound webhooks.',
     pages: [
       {
-        slug: 'api-reference/admin-settings',
-        title: 'Admin Settings',
+        slug: 'api-reference/project/overview',
+        title: 'Project API overview',
         description:
-          "The admin's own profile and the editable system settings: read them, change them, or reset them to the environment values.",
+          'How a project calls MCDI: how to authenticate and every endpoint at a glance, grouped by area.',
       },
       {
-        slug: 'api-reference/audit',
-        title: 'Audit',
-        description: 'Read the audit log of administrative actions and export it as CSV.',
-      },
-      {
-        slug: 'api-reference/authentication',
+        slug: 'api-reference/project/authentication',
         title: 'Authentication',
         description:
-          'Admin login with Discord, and the project login flow: authorize, exchange the code for a session, validate and log out.',
+          "Start a login, exchange the code for a session token, validate or end a session, and manage a member's own sessions.",
       },
       {
-        slug: 'api-reference/authentication-sso',
+        slug: 'api-reference/project/authentication-sso',
         title: 'Authentication (SSO)',
         description:
           'The single sign-on entry point and the browser session endpoints. The recommended way to log members in.',
       },
       {
-        slug: 'api-reference/channels',
+        slug: 'api-reference/project/channels',
         title: 'Channels',
         description:
-          "List a server's channels, read recent messages and send messages, with a project API key or an admin session.",
+          "List a server's channels, read recent messages and send a message to a channel, with a project API key.",
       },
       {
-        slug: 'api-reference/inbound-webhooks-admin',
-        title: 'Inbound Webhooks (Admin)',
-        description:
-          'Create and manage inbound webhooks: schemas and previews, reader roles, settings, signing secrets, docs and deletion.',
-      },
-      {
-        slug: 'api-reference/inbound-webhooks-ingest',
+        slug: 'api-reference/project/inbound-webhooks-ingest',
         title: 'Inbound Webhooks (Ingest)',
         description:
           'The endpoint a project calls to send a signed payload to an inbound webhook, with every response it can return.',
       },
       {
-        slug: 'api-reference/inbound-webhooks-read',
+        slug: 'api-reference/project/members',
+        title: 'Members',
+        description:
+          "Search members, fetch one by Discord ID, and get a member's effective permissions on a server.",
+      },
+      {
+        slug: 'api-reference/project/permissions',
+        title: 'Permissions',
+        description:
+          "Check one permission or many at once for a member, and get the member's full resolved permissions.",
+      },
+      {
+        slug: 'api-reference/project/webhooks',
+        title: 'Webhooks',
+        description:
+          'Create, update, execute and delete the Discord webhooks a project owns, with a project API key.',
+      },
+    ],
+  },
+  {
+    title: 'Admin API',
+    description:
+      'What the admin dashboard uses. These endpoints need an admin session and are not meant for projects.',
+    pages: [
+      {
+        slug: 'api-reference/admin/overview',
+        title: 'Admin API overview',
+        description:
+          'How the admin dashboard talks to MCDI: the admin session it needs and every endpoint at a glance, grouped by area.',
+      },
+      {
+        slug: 'api-reference/admin/admin-settings',
+        title: 'Admin Settings',
+        description:
+          "The admin's own profile and the editable system settings: read them, change them, or reset them to the environment values.",
+      },
+      {
+        slug: 'api-reference/admin/audit',
+        title: 'Audit',
+        description: 'Read the audit log of administrative actions and export it as CSV.',
+      },
+      {
+        slug: 'api-reference/admin/authentication',
+        title: 'Authentication',
+        description:
+          "Admin login with Discord, the signed-in admin's profile, logout, and the session cleanup job.",
+      },
+      {
+        slug: 'api-reference/admin/channels',
+        title: 'Channels',
+        description:
+          "List a server's channels, see a channel's details and read its recent messages, with an admin session.",
+      },
+      {
+        slug: 'api-reference/admin/inbound-webhooks-admin',
+        title: 'Inbound Webhooks (Admin)',
+        description:
+          'Create and manage inbound webhooks: schemas and previews, reader roles, settings, signing secrets, docs and deletion.',
+      },
+      {
+        slug: 'api-reference/admin/inbound-webhooks-read',
         title: 'Inbound Webhooks (Read)',
         description:
           'List the inbound webhooks you may read and fetch their submissions, one at a time or in pages.',
       },
       {
-        slug: 'api-reference/members',
+        slug: 'api-reference/admin/members',
         title: 'Members',
         description:
-          'Look up members by server, role or search, view them across servers, and export a members report.',
+          'List members by server, role or search, see one across servers, and export a members report.',
       },
       {
-        slug: 'api-reference/monitoring',
+        slug: 'api-reference/admin/monitoring',
         title: 'Monitoring',
         description:
           'Recent authentication failures, the system health check and API usage statistics.',
       },
       {
-        slug: 'api-reference/permissions',
+        slug: 'api-reference/admin/permissions',
         title: 'Permissions',
         description:
-          'Check what a role may do, add or remove its permissions, preview a change and manage inheritance rules.',
+          "Preview and change a role's permissions and manage the inheritance rules, with an admin session.",
       },
       {
-        slug: 'api-reference/projects',
+        slug: 'api-reference/admin/projects',
         title: 'Projects',
         description:
           'Register projects, manage their API keys and redirect URIs, and grant or review their access to servers.',
       },
       {
-        slug: 'api-reference/servers',
+        slug: 'api-reference/admin/servers',
         title: 'Servers',
         description:
           'Register, update, disable, enable and remove the Discord servers MCDI knows about.',
       },
       {
-        slug: 'api-reference/statistics',
+        slug: 'api-reference/admin/statistics',
         title: 'Statistics',
         description:
           'Member statistics: totals, growth over time, role distribution and overlap across servers, with CSV and JSON export.',
       },
       {
-        slug: 'api-reference/sync',
+        slug: 'api-reference/admin/sync',
         title: 'Sync',
         description:
           'Trigger a full sync of a server, follow its status and read the logs and change details of past syncs.',
       },
       {
-        slug: 'api-reference/webhooks',
+        slug: 'api-reference/admin/webhooks',
         title: 'Webhooks',
         description:
-          'Create, list and delete the Discord webhooks a project owns, with a project API key or an admin session.',
+          'List, inspect and delete the Discord webhooks of any project, with an admin session.',
       },
     ],
   },
