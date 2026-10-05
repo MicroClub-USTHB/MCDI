@@ -39,6 +39,7 @@ import { ImpactPreviewResponseDto } from './dto/impact-preview-response.dto';
 import { PermissionsService } from './permissions.service';
 import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { RequireScope } from '../../common/decorators/require-scope.decorator';
 
 @ApiTags('Permissions')
 @Controller('permissions')
@@ -50,12 +51,14 @@ export class PermissionsController {
   @Post('check')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check a single permission',
     description:
       'Resolves whether a Discord member holds a specific permission in a given server. ' +
-      'Permissions are derived from their roles and any configured inheritance rules.',
+      'Permissions are derived from their roles and any configured inheritance rules. ' +
+      'Requires the `check_permissions` scope for the server in the request body.',
   })
   @ApiBody({ type: CheckPermissionDto })
   @ApiOkResponse({ description: 'Permission check result returned.' })
@@ -71,12 +74,14 @@ export class PermissionsController {
   @Post('check-batch')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check multiple permissions (batch)',
     description:
       'Checks a list of permissions for a member in one call. ' +
-      'Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches.',
+      'Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches. ' +
+      'Requires the `check_permissions` scope for the server in the request body.',
   })
   @ApiBody({ type: CheckPermissionsBatchDto })
   @ApiOkResponse({ description: 'Batch permission check result returned.' })
@@ -103,6 +108,7 @@ export class PermissionsController {
 
   @Get(':serverId/:discordId')
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get full resolved permissions for a member',

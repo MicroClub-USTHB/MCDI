@@ -61,21 +61,11 @@ A valid key proves who you are. It grants nothing on its own. An admin gives a p
 | Scope               | Used by                                                                                   |
 | ------------------- | ----------------------------------------------------------------------------------------- |
 | `read_members`      | The member endpoints under `/api/servers/{serverId}/members`.                             |
-| `check_permissions` | Granted together with `read_members` by default. See the note on permission checks below. |
+| `check_permissions` | The permission endpoints under `/api/permissions`: `POST /check`, `POST /check-batch` and `GET /{serverId}/{discordId}`. |
 
 When an admin grants access without choosing scopes, the project gets all of them.
 
-MCDI enforces access when the request names a server in its path or query string, as `/api/servers/{serverId}/...` does. It checks, in order, that the server exists and is active, that the project may perform the operation the endpoint needs, and that the project holds the scope the endpoint needs. A server ID must be 17 to 20 digits.
-
-<Callout type="warning">
-  The permission endpoints under `/api/permissions` do not check project access to the server. `POST
-  /api/permissions/check` and `POST /api/permissions/check-batch` take the server in the request
-  body, which the access check does not read, so any valid key can ask about any server MCDI knows.
-  `GET /api/permissions/{serverId}/{discordId}` checks the `READ` operation but not the
-  `check_permissions` scope that its description mentions. This is tracked in issue #181. This page
-  describes what the code does today. Do not rely on these endpoints refusing a project that was not
-  granted the server.
-</Callout>
+MCDI enforces access when the request names a server in its path, in its query string or, for `POST /api/permissions/check` and `POST /api/permissions/check-batch`, in its JSON body. It checks, in order, that the server exists and is active, that the project may perform the operation the endpoint needs, and that the project holds the scope the endpoint needs. A server ID must be 17 to 20 digits.
 
 ## 401, 403 and the others
 

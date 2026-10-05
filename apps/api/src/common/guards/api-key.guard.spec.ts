@@ -446,6 +446,36 @@ describe('ApiKeyGuard', () => {
     });
   });
 
+  it('checks project access for a serverId that is only in the request body', async () => {
+    const { generateApiKey } = require('../utils/api-key.util');
+    const { fullKey, prefix, hash } = generateApiKey();
+    const project = {
+      ...ACTIVE_PROJECT,
+      apiKeyPrefix: prefix,
+      apiKeyHash: hash,
+    };
+    guard = await setupGuard([project]);
+    mockReflector.get.mockReturnValue('check_permissions');
+
+    await guard.canActivate(
+      makeContext(
+        makeRequest({
+          headers: { authorization: `Bearer ${fullKey}` },
+          body: { serverId: '123456789012345678' },
+        }),
+      ),
+    );
+
+    expect(
+      mockAccessService.assertProjectServerRequestAccess,
+    ).toHaveBeenCalledWith({
+      projectId: 'project-1',
+      serverId: '123456789012345678',
+      operation: 'READ',
+      requiredScope: 'check_permissions',
+    });
+  });
+
   // ── Server not found / inactive ──
 
   it('throws ForbiddenException when server is not found or inactive', async () => {

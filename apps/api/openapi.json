@@ -8064,7 +8064,7 @@
     },
     "/api/permissions/check": {
       "post": {
-        "description": "Resolves whether a Discord member holds a specific permission in a given server. Permissions are derived from their roles and any configured inheritance rules.",
+        "description": "Resolves whether a Discord member holds a specific permission in a given server. Permissions are derived from their roles and any configured inheritance rules. Requires the `check_permissions` scope for the server in the request body.",
         "operationId": "PermissionsController_checkPermission",
         "parameters": [],
         "requestBody": {
@@ -8104,7 +8104,7 @@
     },
     "/api/permissions/check-batch": {
       "post": {
-        "description": "Checks a list of permissions for a member in one call. Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches.",
+        "description": "Checks a list of permissions for a member in one call. Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches. Requires the `check_permissions` scope for the server in the request body.",
         "operationId": "PermissionsController_checkPermissionBatch",
         "parameters": [],
         "requestBody": {
