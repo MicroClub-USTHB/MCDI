@@ -5,7 +5,8 @@
  *   → Discord (mocked with nock) → admin callback → 302 to the CLI's loopback URL
  *   with ?code=&state= → POST /api/auth/admin/token { code, codeVerifier } → session.
  *
- * Requires a running PostgreSQL database (`DATABASE_URL`) and `MC_GUILD_ID`.
+ * Requires a running PostgreSQL database (`DATABASE_URL`). Uses its own main
+ * guild id, so it does not depend on the `MC_GUILD_ID` secret.
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -27,6 +28,7 @@ import { hashSessionToken } from '../src/common/utils/session-token.util';
 const LOOPBACK = 'http://127.0.0.1:53123/callback';
 const EXECUTIVE_ROLE_ID = '700000000000000001'; // set by createTestApp
 const ADMIN_DISCORD_ID = '900000000000000001';
+const MAIN_GUILD_ID = '800000000000000099';
 
 const pkcePair = () => {
   const verifier = randomBytes(32).toString('base64url');
@@ -39,9 +41,13 @@ const pkcePair = () => {
 describe('Admin CLI login (e2e)', () => {
   let app: INestApplication;
   let db: TestDb;
-  const guildId = () => process.env.MC_GUILD_ID!;
+  const guildId = () => MAIN_GUILD_ID;
+  const previousGuildId = process.env.MC_GUILD_ID;
 
   beforeAll(async () => {
+    // The admin login requires a main guild; set one here instead of relying on
+    // the MC_GUILD_ID secret, which CI doesn't expose to pull requests from forks.
+    process.env.MC_GUILD_ID = MAIN_GUILD_ID;
     enableNock();
     db = getTestDb();
     app = await createTestApp();
@@ -51,6 +57,8 @@ describe('Admin CLI login (e2e)', () => {
     disableNock();
     await closeTestDb();
     await app.close();
+    if (previousGuildId === undefined) delete process.env.MC_GUILD_ID;
+    else process.env.MC_GUILD_ID = previousGuildId;
   });
 
   beforeEach(async () => {
