@@ -38,6 +38,8 @@ The club wants to limit who can see sensitive data (member details, message cont
 
 Levels are cumulative. A higher level includes everything below it.
 
+In practice a single grant is enough: a role or member with `manage` on a resource can call every `write` and `read` endpoint of that resource, and `write` includes every `read` endpoint. Nobody needs separate read or write rows alongside a `manage` row, and the system stores exactly one level per subject and resource. The check is an ordered comparison (`none < read < write < manage`), so an endpoint that needs `read` accepts `read`, `write` and `manage`.
+
 | Level | Meaning |
 |---|---|
 | `none` | No access. As an override it denies access that the role would grant |
