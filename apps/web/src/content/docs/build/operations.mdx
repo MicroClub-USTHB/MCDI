@@ -247,8 +247,8 @@ and the diff points at the `<html>` element, with a class such as `js-storylane-
 The requested resource isn't a valid image for /landing/admin-panel.webp received null
 ```
 
-**Cause.** The login middleware redirected the request for the image to `/login`. Next.js's image optimizer fetches files without cookies, so it received an HTML page and rejected it. This was a bug in the middleware matcher, fixed by excluding image files from it.
+**Cause.** The login proxy redirected the request for the image to `/login`. Next.js's image optimizer fetches files without cookies, so it received an HTML page and rejected it. This was a bug in the proxy matcher, fixed by excluding image files from it.
 
-**Fix.** If you add a new kind of public file, make sure `middleware.ts` does not redirect it. The matcher lists the image extensions that are let through, so a new extension must be added there. See [Web guide](/docs/build/web-guide#who-gets-in).
+**Fix.** If you add a new kind of public file, make sure `proxy.ts` does not redirect it. The matcher lists the image extensions that are let through, so a new extension must be added there. See [Web guide](/docs/build/web-guide#who-gets-in).
 
-Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/middleware.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.
+Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/proxy.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.

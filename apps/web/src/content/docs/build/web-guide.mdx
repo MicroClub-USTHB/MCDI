@@ -11,7 +11,7 @@ apps/web/src/
   shared/        what several features use: ui primitives, layout, api client, styles
   providers/     React context providers
   content/docs/  these docs, as MDX
-  middleware.ts  the gate for logged-out visitors
+  proxy.ts       the gate for logged-out visitors
 ```
 
 - **`app/`** holds routes and nothing else that matters: a route file reads its parameters and renders a view. The dashboard is one route group (`app/dashboard`) behind a single layout that wraps it in `ProtectedRoute` and the dashboard shell.
@@ -128,7 +128,7 @@ Components use these hooks instead of calling a service function themselves, and
 
 Three layers decide whether a visitor sees a page.
 
-{/* excerpt: apps/web/src/middleware.ts */}
+{/* excerpt: apps/web/src/proxy.ts */}
 
 ```ts
 const publicRoutes = ['/', '/login', '/callback', '/api/health'];
@@ -139,11 +139,11 @@ const isPublicRoute =
   pathname === '/sitemap.xml';
 ```
 
-1. **`middleware.ts`** runs on the server before any HTML is sent. The public routes are the landing page `/`, `/login`, `/callback`, the docs under `/docs`, `/sitemap.xml` and anything under `/api/`. The matcher also lets image files from `public/` through, because the Next.js image optimizer fetches them without cookies. Every other route needs the `auth-token` cookie, and without it the visitor is sent to `/login?redirect=<path>`. A visitor who has the cookie and opens `/login` is sent on to the dashboard.
+1. **`proxy.ts`** runs on the server before any HTML is sent. The public routes are the landing page `/`, `/login`, `/callback`, the docs under `/docs`, `/sitemap.xml` and anything under `/api/`. The matcher also lets image files from `public/` through, because the Next.js image optimizer fetches them without cookies. Every other route needs the `auth-token` cookie, and without it the visitor is sent to `/login?redirect=<path>`. A visitor who has the cookie and opens `/login` is sent on to the dashboard.
 2. **`ProtectedRoute`** wraps the dashboard layout. The server cannot read `localStorage`, so for the first paint, while the Zustand store rehydrates, it shows a loading state, and then it redirects to the login page if the store says nobody is signed in.
 3. **`SessionProvider`** checks the session against `GET /auth/admin/me` while the store believes someone is signed in. If the API refuses, it clears the store, shows a toast and returns to `/login`.
 
-The Zustand store (`features/auth/stores/auth.ts`, persisted under `auth-storage`) holds the admin's profile and when the session ends. The `auth-token` cookie is not the session. It is a flag set only after `/auth/admin/me` has answered 200, so the middleware can decide without a round trip. The real session is the httpOnly `admin_session`.
+The Zustand store (`features/auth/stores/auth.ts`, persisted under `auth-storage`) holds the admin's profile and when the session ends. The `auth-token` cookie is not the session. It is a flag set only after `/auth/admin/me` has answered 200, so the proxy can decide without a round trip. The real session is the httpOnly `admin_session`.
 
 Sign-in is a redirect: the login button goes to the API's Discord OAuth, the API sets the cookie and redirects to `/callback`, and `AuthCallbackHandler` calls `/auth/admin/me` to confirm, fills the store and sends the admin where they were going.
 
@@ -397,4 +397,4 @@ pnpm run build
 
 These docs are MDX in `src/content/docs`, served by the same app at `/docs`. [Writing these docs](/docs/build/writing-docs) explains how to add a page, and [Contributing](/docs/build/contributing) says when a change needs one.
 
-Source: `apps/web/CLAUDE.md`, `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx`, `apps/web/src/features/inbound-webhooks/api`, `apps/web/src/features/auth`, `apps/web/src/providers/QueryProvider.tsx`, `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/shared/lib/utils.ts`, `apps/web/src/shared/lib/cookies.ts`, `apps/web/src/shared/styles/globals.css`, `apps/web/src/shared/components/layout/nav-items.ts`, `apps/web/src/middleware.ts`, `apps/web/tests/app/dashboard/inbound-webhooks.test.tsx`, `apps/web/tests/setup.ts`.
+Source: `apps/web/CLAUDE.md`, `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx`, `apps/web/src/features/inbound-webhooks/api`, `apps/web/src/features/auth`, `apps/web/src/providers/QueryProvider.tsx`, `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/shared/lib/utils.ts`, `apps/web/src/shared/lib/cookies.ts`, `apps/web/src/shared/styles/globals.css`, `apps/web/src/shared/components/layout/nav-items.ts`, `apps/web/src/proxy.ts`, `apps/web/tests/app/dashboard/inbound-webhooks.test.tsx`, `apps/web/tests/setup.ts`.

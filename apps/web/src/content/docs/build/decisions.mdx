@@ -36,7 +36,7 @@ This is a short log of why MCDI is the way it is. Each entry gives the context, 
 
 **Decision.** Admins sign in only with Discord OAuth, and only members who hold an admin role in the main server get in. The session is the `admin_session` cookie, which is httpOnly so JavaScript cannot read it, and it is also accepted as a Bearer token for tools. An admin session is a separate kind from a project session, and `SystemAdminGuard` accepts only the first.
 
-**Consequences.** There are no admin passwords to leak. The admin session lasts 24 hours and cannot be refreshed, so a 401 sends the admin back to the login page. The panel keeps a non-secret `auth-token` flag cookie so its middleware can decide without calling the API. Discord roles are the access list, so removing a role removes access.
+**Consequences.** There are no admin passwords to leak. The admin session lasts 24 hours and cannot be refreshed, so a 401 sends the admin back to the login page. The panel keeps a non-secret `auth-token` flag cookie so its proxy can decide without calling the API. Discord roles are the access list, so removing a role removes access.
 
 **Links.** [PR #77](https://github.com/MicroClub-USTHB/MCDI/pull/77), admin authentication refactor.
 
