@@ -8,7 +8,7 @@ import { useAuthStore } from '@/features/auth/stores/auth';
 /**
  * Logs out on both sides: `POST /auth/admin/logout` revokes the session row
  * and clears the `admin_session` httpOnly cookie, then the local store, the
- * `auth-token` cookie the middleware reads, and the React Query cache are
+ * `auth-token` cookie the proxy reads, and the React Query cache are
  * dropped here.
  *
  * Local state is cleared in `onSettled` rather than `onSuccess`: if the

@@ -59,7 +59,7 @@ src/
 │   │   └── utils.ts              # cn() utility (clsx + tailwind-merge)
 │   ├── styles/globals.css        # Design system tokens (@theme block)
 │   └── types/index.ts            # Shared TypeScript interfaces
-└── middleware.ts                 # Auth guard (cookie-based redirect)
+└── proxy.ts                      # Auth guard (cookie-based redirect)
 ```
 
 ### Key Architectural Decisions
@@ -90,7 +90,7 @@ src/
 
 ### Gotchas
 
-1. **Next.js 16 breaking changes**: Read `node_modules/next/dist/docs/` before using any Next.js API. Middleware is deprecated in favor of "proxy" — see deprecation warning in build output.
+1. **Next.js 16 breaking changes**: Read `node_modules/next/dist/docs/` before using any Next.js API.
 2. **Zustand persist**: Auth store hydrates from `localStorage` key `auth-storage`. SSR-unsafe — only access in client components.
 3. **API client singleton**: `apiClient` in `api-client.ts` is a module-level singleton. It reads auth state directly from Zustand's `getState()` — no React context needed.
 4. **Token refresh race**: The `ApiClient` deduplicates concurrent refresh calls via `refreshPromise`. Never create a second `ApiClient` instance.
@@ -236,7 +236,7 @@ describe('ComponentName', () => {
 
 ### Auth Flow
 
-1. User visits protected route → middleware checks `auth-token` cookie
+1. User visits protected route → proxy checks `auth-token` cookie
 2. If no cookie → redirect to `/login?redirect=<path>`
 3. Login via Discord OAuth → backend returns `AuthTokens` (`accessToken`, `refreshToken`, `expiresAt`)
 4. Tokens stored in Zustand (persisted to `localStorage` under `auth-storage`)

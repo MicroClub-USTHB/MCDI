@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 }
 
 /**
- * Client-side complement to `middleware.ts`. The middleware redirects on the
+ * Client-side complement to `proxy.ts`. The proxy redirects on the
  * server using the `auth-token` presence cookie; this guard covers the gap
  * while Zustand rehydrates from localStorage on first paint, and re-checks
  * in case the client-side session was cleared without a full navigation
