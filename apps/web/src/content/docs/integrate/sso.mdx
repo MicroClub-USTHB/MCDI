@@ -117,7 +117,6 @@ curl -s -X POST "$MCDI_URL/auth/token" \
     "avatar": null,
     "email": null,
     "isClubMember": true,
-    "isSystemAdmin": false,
     "joinedAt": "2026-10-05T18:16:30.320Z"
   },
   "roles": [
@@ -131,7 +130,7 @@ curl -s -X POST "$MCDI_URL/auth/token" \
 }
 ```
 
-The session lasts 30 days. The member object also carries internal columns such as `passwordHash` and the timestamps. Use `id`, `username`, `globalName`, `displayName`, `avatar` and `isClubMember`, and ignore the rest. Returning only the useful fields is tracked in issue #183.
+The session lasts 30 days. The member object holds only the public profile: `id`, `username`, `globalName`, `displayName`, `preferredName`, `avatar`, `email`, `isClubMember` and `joinedAt`. `POST /api/auth/validate` returns the same object.
 
 | Status | When                                                                                                                                      |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |

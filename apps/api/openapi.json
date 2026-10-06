@@ -202,12 +202,12 @@
         ],
         "type": "object"
       },
-      "AuthMemberProfileDto": {
+      "AuthMemberResponseDto": {
         "additionalProperties": false,
         "properties": {
           "avatar": {
-            "description": "Avatar URL",
-            "example": "https://cdn.discordapp.com/avatars/.../...png",
+            "description": "Avatar URL or hash",
+            "example": "https://cdn.discordapp.com/avatars/123/abc.png",
             "nullable": true,
             "type": "string"
           },
@@ -219,68 +219,6 @@
           },
           "email": {
             "description": "Primary email associated with the Discord account",
-            "example": "alice@example.com",
-            "nullable": true,
-            "type": "string"
-          },
-          "globalName": {
-            "description": "Global display name",
-            "example": "John Doe",
-            "nullable": true,
-            "type": "string"
-          },
-          "id": {
-            "description": "Discord user ID",
-            "example": "123456789012345678",
-            "type": "string"
-          },
-          "isClubMember": {
-            "description": "Whether the member is in the main club server",
-            "example": true,
-            "type": "boolean"
-          },
-          "joinedAt": {
-            "description": "Date the member joined Discord",
-            "example": "2025-01-15T14:30:00.000Z",
-            "format": "date-time",
-            "nullable": true,
-            "type": "string"
-          },
-          "username": {
-            "description": "Discord username",
-            "example": "john_doe",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "username",
-          "isClubMember"
-        ],
-        "type": "object"
-      },
-      "AuthMemberResponseDto": {
-        "additionalProperties": false,
-        "properties": {
-          "avatar": {
-            "description": "Avatar URL or hash",
-            "example": "https://cdn.discordapp.com/avatars/123/abc.png",
-            "nullable": true,
-            "type": "string"
-          },
-          "createdAt": {
-            "description": "Creation timestamp",
-            "format": "date-time",
-            "type": "string"
-          },
-          "displayName": {
-            "description": "Display name",
-            "example": "John Doe",
-            "nullable": true,
-            "type": "string"
-          },
-          "email": {
-            "description": "Email address",
             "example": "johndoe@example.com",
             "nullable": true,
             "type": "string"
@@ -302,20 +240,15 @@
             "type": "boolean"
           },
           "joinedAt": {
-            "description": "Date when the user joined",
+            "description": "Date when the member joined Discord",
             "format": "date-time",
             "nullable": true,
             "type": "string"
           },
-          "syncedAt": {
-            "description": "Last sync with Discord",
-            "format": "date-time",
+          "preferredName": {
+            "description": "Name set by an admin, overriding the display name",
+            "example": "Johnny",
             "nullable": true,
-            "type": "string"
-          },
-          "updatedAt": {
-            "description": "Last update timestamp",
-            "format": "date-time",
             "type": "string"
           },
           "username": {
@@ -327,9 +260,7 @@
         "required": [
           "id",
           "username",
-          "isClubMember",
-          "createdAt",
-          "updatedAt"
+          "isClubMember"
         ],
         "type": "object"
       },
@@ -2728,7 +2659,7 @@
           "member": {
             "allOf": [
               {
-                "$ref": "#/components/schemas/AuthMemberProfileDto"
+                "$ref": "#/components/schemas/AuthMemberResponseDto"
               }
             ],
             "description": "Basic profile information for the authenticated member"
