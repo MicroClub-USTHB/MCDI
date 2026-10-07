@@ -41,7 +41,7 @@
 | `apps/web/src/shared/components/layout/visible-nav.ts` (create) | `visibleNavGroups`, `firstAllowedHref` |
 | `apps/web/src/shared/components/layout/require-access.tsx`, `no-access.tsx` (create) | The page guard and the no-access states |
 | `apps/web/src/shared/types/index.ts`, `features/auth/*` (modify) | `User` and `AdminProfileDto` carry `root` and `permissions` |
-| `apps/web/src/shared/lib/api-client.ts` (modify) | `setForbiddenHandler` |
+| `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/providers/QueryProvider.tsx` (modify) | `setForbiddenHandler`, registered by the query provider |
 | `apps/web/src/shared/components/layout/sidebar.tsx` (modify) | Shows only the links the member can use |
 | `apps/web/tests/helpers/auth.ts`, `tests/setup.ts` | Test sign-in helpers and the default root user |
 | `docs/superpowers/**` (create) | The panel spec and the three plans |
@@ -1524,89 +1524,28 @@ git commit -m "feat(web): show only the sidebar links the member can use"
 ### Task 8: A 403 refreshes the member's access
 
 **Files:**
-- Modify: `apps/web/src/shared/lib/api-client.ts`
-- Modify: `apps/web/src/features/auth/components/SessionProvider/SessionProvider.tsx`
-- Test: `apps/web/tests/lib/api-client.test.ts`, `apps/web/tests/features/auth/components/SessionProvider.test.tsx`
+- Modify: `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/providers/QueryProvider.tsx`
+- Test: `apps/web/tests/lib/api-client.test.ts`, `apps/web/tests/providers/query-provider.test.tsx`
 
 **Interfaces:**
-- Produces: `setForbiddenHandler(handler: (() => void) | null): void` from `api-client.ts`.
+- Produces: `setForbiddenHandler(handler: (() => void) | null): void` from `api-client.ts`. `QueryProvider` registers a handler that invalidates `authKeys.me()`.
+
+The handler lives in `QueryProvider`, which owns the query client. (`SessionProvider` is not used: its existing tests mock the session hook and render it without a `QueryClientProvider`.)
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `apps/web/tests/lib/api-client.test.ts` (inside its top-level `describe`, using the same MSW `server`, `http`, `HttpResponse` imports the file already has; add `setForbiddenHandler` to its import from `@/shared/lib/api-client`):
+In `tests/lib/api-client.test.ts`, before the `supports POST requests with a JSON body` test, add two tests: the handler is called once for a 403 and the API error is still thrown (`{ status: 403, message: "Requires 'read' access on 'members'" }`), and it is not called for a 404. Import `setForbiddenHandler` with the other client exports (`await import('@/shared/lib/api-client')`) and reset it with `setForbiddenHandler(null)` at the end of each test.
 
-```ts
-  it('calls the forbidden handler once for a 403 and still throws the API error', async () => {
-    const handler = vi.fn();
-    setForbiddenHandler(handler);
-    server.use(
-      http.get('http://localhost:3000/api/admin/members', () =>
-        HttpResponse.json(
-          { message: "Requires 'read' access on 'members'", error: 'Forbidden', statusCode: 403 },
-          { status: 403 }
-        )
-      )
-    );
-
-    await expect(apiClient.get('/admin/members')).rejects.toMatchObject({
-      status: 403,
-      message: "Requires 'read' access on 'members'",
-    });
-    expect(handler).toHaveBeenCalledTimes(1);
-
-    setForbiddenHandler(null);
-  });
-
-  it('does not call the forbidden handler for other errors', async () => {
-    const handler = vi.fn();
-    setForbiddenHandler(handler);
-    server.use(
-      http.get('http://localhost:3000/api/admin/members', () =>
-        HttpResponse.json({ message: 'Not found' }, { status: 404 })
-      )
-    );
-
-    await expect(apiClient.get('/admin/members')).rejects.toMatchObject({ status: 404 });
-    expect(handler).not.toHaveBeenCalled();
-
-    setForbiddenHandler(null);
-  });
-```
-
-Append to `apps/web/tests/features/auth/components/SessionProvider.test.tsx` a test that a 403 refetches `/me` (reuse the file's existing render helper, store setup and MSW `/auth/admin/me` handler; the helper below builds its own to stay self-contained):
-
-```tsx
-  it('refetches the current admin when any API call is answered 403', async () => {
-    let meCalls = 0;
-    server.use(
-      http.get('http://localhost:3000/api/auth/admin/me', () => {
-        meCalls += 1;
-        return HttpResponse.json(makeProfile());
-      }),
-      http.get('http://localhost:3000/api/admin/members', () =>
-        HttpResponse.json({ message: 'Forbidden' }, { status: 403 })
-      )
-    );
-    useAuthStore.setState({ isAuthenticated: true, hasHydrated: true });
-    renderProvider();
-    await waitFor(() => expect(meCalls).toBe(1));
-
-    await expect(apiClient.get('/admin/members')).rejects.toMatchObject({ status: 403 });
-
-    await waitFor(() => expect(meCalls).toBe(2));
-  });
-```
-
-with `makeProfile` from `../../../helpers/auth`, `apiClient` from `@/shared/lib/api-client`, and `renderProvider` being the render helper the file already uses (a `QueryClientProvider` wrapping `<SessionProvider>`; if the file has no such helper, define one with `new QueryClient({ defaultOptions: { queries: { retry: false } } })`).
+Create `tests/providers/query-provider.test.tsx`: render `<QueryProvider>` with a probe that runs `useQuery({ queryKey: authKeys.me(), queryFn: count, staleTime: Infinity })`, call `new ApiClient(API).get('/admin/members')` against an MSW handler that answers 403, and assert the probe's fetch count goes from 1 to 2. A second test fires two refusals together (`Promise.allSettled`) and asserts the count settles at exactly 2 (they share one refetch).
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/lib/api-client.test.ts tests/features/auth/components/SessionProvider.test.tsx`
+Run: `pnpm --filter @mcdi/web exec vitest run tests/lib/api-client.test.ts tests/providers`
 Expected: FAIL (`setForbiddenHandler` does not exist).
 
 - [ ] **Step 3: Implement**
 
-In `apps/web/src/shared/lib/api-client.ts`, add after `toErrorMessage` (before `class ApiClient`):
+In `api-client.ts`, before `class ApiClient`, add:
 
 ```ts
 let forbiddenHandler: (() => void) | null = null;
@@ -1620,7 +1559,7 @@ export function setForbiddenHandler(handler: (() => void) | null): void {
 }
 ```
 
-and inside `request`, right after the `if (response.status === 401 && requiresAuth) { ... }` block:
+and in `request`, right before `if (!response.ok) {`:
 
 ```ts
     if (response.status === 403) {
@@ -1628,41 +1567,31 @@ and inside `request`, right after the `if (response.status === 401 && requiresAu
     }
 ```
 
-In `apps/web/src/features/auth/components/SessionProvider/SessionProvider.tsx`:
-
-- add imports `import { useQueryClient } from '@tanstack/react-query';`, `import { authKeys } from '@/features/auth/api/keys';` and `import { setForbiddenHandler } from '@/shared/lib/api-client';`
-- inside `SessionProvider`, after `const router = useRouter();`, add:
+In `QueryProvider.tsx`, import `useEffect`, `authKeys` (`@/features/auth/api/keys`) and `setForbiddenHandler`, and before the return add:
 
 ```tsx
-  const queryClient = useQueryClient();
-
-  // A refused call usually means a grant changed: refresh the member's access. One refetch per
-  // refusal, and concurrent ones share a single request. `/auth/admin/me` itself is never 403.
   useEffect(() => {
     setForbiddenHandler(() => {
-      void queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      void queryClient.invalidateQueries({ queryKey: authKeys.me() }, { cancelRefetch: false });
     });
     return () => setForbiddenHandler(null);
   }, [queryClient]);
 ```
 
-and extend the doc comment with: "It also refreshes the member's access when the API answers 403."
+`cancelRefetch: false` makes refusals that arrive together share one in-flight request instead of cancelling and restarting it.
 
 - [ ] **Step 4: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/lib/api-client.test.ts tests/features/auth tests/features/docs`
+Run: `pnpm --filter @mcdi/web exec vitest run tests/lib tests/providers tests/features/auth tests/features/docs`
 Expected: PASS. If a docs excerpt test fails for `api-client.ts`, update that excerpt in `web-guide.mdx` to the new lines.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-pnpm exec prettier --write apps/web/src/shared/lib/api-client.ts apps/web/src/features/auth/components/SessionProvider/SessionProvider.tsx apps/web/tests/lib/api-client.test.ts apps/web/tests/features/auth/components/SessionProvider.test.tsx
+pnpm exec prettier --write apps/web/src/shared/lib/api-client.ts apps/web/src/providers/QueryProvider.tsx apps/web/tests/lib/api-client.test.ts apps/web/tests/providers
 git add apps/web
 git commit -m "feat(web): refresh the member's access when the API answers 403"
 ```
-
----
-
 
 ---
 

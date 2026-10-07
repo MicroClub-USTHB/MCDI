@@ -19,6 +19,16 @@ function toErrorMessage(message: string | string[] | undefined): string {
   return message || 'An error occurred';
 }
 
+let forbiddenHandler: (() => void) | null = null;
+
+/**
+ * Called once for every 403 the API answers. The app registers a handler that refreshes the
+ * member's access, because a 403 usually means a grant changed since the page was drawn.
+ */
+export function setForbiddenHandler(handler: (() => void) | null): void {
+  forbiddenHandler = handler;
+}
+
 class ApiClient {
   private baseURL: string;
 
@@ -56,6 +66,10 @@ class ApiClient {
     // the expiry and `ProtectedRoute` stops rendering protected content.
     if (response.status === 401 && requiresAuth) {
       useAuthStore.getState().clearAuth();
+    }
+
+    if (response.status === 403) {
+      forbiddenHandler?.();
     }
 
     if (!response.ok) {

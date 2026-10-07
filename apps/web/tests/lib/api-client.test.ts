@@ -175,6 +175,46 @@ describe('ApiClient', () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
   });
 
+  it('calls the forbidden handler once for a 403 and still throws the API error', async () => {
+    const handler = vi.fn();
+    const { ApiClient, setForbiddenHandler } = await import('@/shared/lib/api-client');
+    setForbiddenHandler(handler);
+    server.use(
+      http.get(`${BASE_URL}/admin/members`, () =>
+        HttpResponse.json(
+          { message: "Requires 'read' access on 'members'", error: 'Forbidden', statusCode: 403 },
+          { status: 403 }
+        )
+      )
+    );
+
+    await expect(new ApiClient(BASE_URL).get('/admin/members')).rejects.toMatchObject({
+      status: 403,
+      message: "Requires 'read' access on 'members'",
+    });
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    setForbiddenHandler(null);
+  });
+
+  it('does not call the forbidden handler for other errors', async () => {
+    const handler = vi.fn();
+    const { ApiClient, setForbiddenHandler } = await import('@/shared/lib/api-client');
+    setForbiddenHandler(handler);
+    server.use(
+      http.get(`${BASE_URL}/admin/members`, () =>
+        HttpResponse.json({ message: 'Not found' }, { status: 404 })
+      )
+    );
+
+    await expect(new ApiClient(BASE_URL).get('/admin/members')).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(handler).not.toHaveBeenCalled();
+
+    setForbiddenHandler(null);
+  });
+
   it('supports POST requests with a JSON body', async () => {
     let receivedBody: unknown = null;
     let contentType: string | null = null;
