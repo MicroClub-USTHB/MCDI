@@ -12,6 +12,7 @@ import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 /** Who may read the submissions. The list is replaced as a whole and may not be empty. */
@@ -21,6 +22,7 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
   const roles = useProjectRoleOptions(webhook.projectId);
   const replace = useReplaceAllowedRolesMutation(webhook.id);
   const [picked, setPicked] = useState<string[] | null>(null);
+  const canWrite = useCan('inbound_webhooks', 'write');
 
   if (granted.isError) {
     return <p className="text-body text-error">The reader roles could not be loaded.</p>;
@@ -61,15 +63,18 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
         selected={selected}
         onChange={setPicked}
         isLoading={roles.isLoading}
+        disabled={!canWrite}
       />
-      <Button
-        type="button"
-        className="self-end"
-        disabled={!changed || selected.length === 0 || replace.isPending}
-        onClick={save}
-      >
-        {replace.isPending ? 'Saving…' : 'Save readers'}
-      </Button>
+      {canWrite && (
+        <Button
+          type="button"
+          className="self-end"
+          disabled={!changed || selected.length === 0 || replace.isPending}
+          onClick={save}
+        >
+          {replace.isPending ? 'Saving…' : 'Save readers'}
+        </Button>
+      )}
     </div>
   );
 }

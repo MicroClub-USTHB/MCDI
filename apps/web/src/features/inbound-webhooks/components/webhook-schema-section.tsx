@@ -9,6 +9,7 @@ import { useSchemaPreview } from '@/features/inbound-webhooks/components/use-sch
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 const SchemaEditor = dynamic(
@@ -29,6 +30,7 @@ const SchemaEditor = dynamic(
 export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }) {
   const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhook.id);
+  const canWrite = useCan('inbound_webhooks', 'write');
   const stored = useMemo(() => JSON.stringify(webhook.schema, null, 2), [webhook.schema]);
 
   const [draft, setDraft] = useState<string | null>(null);
@@ -79,11 +81,11 @@ export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }
               {update.isPending ? 'Saving…' : 'Save schema'}
             </Button>
           </div>
-        ) : (
+        ) : canWrite ? (
           <Button type="button" variant="secondary" size="sm" onClick={() => setDraft(stored)}>
             Edit
           </Button>
-        )}
+        ) : null}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
