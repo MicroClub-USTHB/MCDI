@@ -120,6 +120,16 @@ This is a short log of why MCDI is the way it is. Each entry gives the context, 
 
 **Links.** [Issue #175](https://github.com/MicroClub-USTHB/MCDI/issues/175), [PR #180](https://github.com/MicroClub-USTHB/MCDI/pull/180).
 
+## Admin access is a level per resource, and root is a Discord role
+
+**Context.** Every admin endpoint sat behind one check: hold the Executive, Dev Lead or IT Lead role. Access was all or nothing, the club could not hide sensitive data such as messages or API keys from some people while showing it to others, and the list of admins was fixed by environment variables.
+
+**Decision.** Each admin resource (members, messages, projects, project keys and so on) has a level per role: `none`, `read`, `write` or `manage`, each including the previous one. A grant to a person replaces their roles' level for that resource only. Any main-server member can sign in, and a request is allowed when the effective level reaches the level the endpoint declares. An endpoint with no declaration is refused. The three env roles stay as root: full access, not editable in the platform, and the only ones who edit grants.
+
+**Consequences.** A new admin endpoint must declare a resource and a level, and a test fails when it does not. Effective access is cached in Redis with the other permission caches, so role changes in Discord and grant edits reach the guard on the next request. Root is still a Discord role, so whoever can assign roles in Discord can grant it. Project API keys keep their own per-project, per-server rules.
+
+**Links.** Design: `docs/superpowers/specs/2026-10-07-admin-permissions-design.md`. [PR #198](https://github.com/MicroClub-USTHB/MCDI/pull/198), [PR #199](https://github.com/MicroClub-USTHB/MCDI/pull/199). Follow-up issues: [#193](https://github.com/MicroClub-USTHB/MCDI/issues/193), [#194](https://github.com/MicroClub-USTHB/MCDI/issues/194), [#195](https://github.com/MicroClub-USTHB/MCDI/issues/195) and [#196](https://github.com/MicroClub-USTHB/MCDI/issues/196).
+
 ## Add a decision
 
 When you make a choice that a future reader would want to reverse without knowing why, add an entry at the bottom with the same four parts: context, decision, consequences, links to the pull request or issue. Keep it to a few sentences.

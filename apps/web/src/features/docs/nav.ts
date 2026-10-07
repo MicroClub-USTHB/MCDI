@@ -240,6 +240,12 @@ export const DOCS_NAV: DocSection[] = [
           'How the admin dashboard talks to MCDI: the admin session it needs and every endpoint at a glance, grouped by area.',
       },
       {
+        slug: 'api-reference/admin/admin-access',
+        title: 'Admin Access',
+        description:
+          'Root-only management of who may do what in the admin API: list the resources and levels, grant a level to a role, and override it for one member.',
+      },
+      {
         slug: 'api-reference/admin/admin-settings',
         title: 'Admin Settings',
         description:
