@@ -4,19 +4,24 @@ This page explains how MCDI is put together: what is in the repository, how a re
 
 MCDI is one repository managed with pnpm 10 workspaces and Turborepo, for Node 22 or newer.
 
-| Workspace | Package | What it is |
-| --- | --- | --- |
-| `apps/api` | `@mcdi/api` | The NestJS 11 API. It uses Drizzle ORM with PostgreSQL, Redis, and a discord.js bot. It is built as CommonJS and shipped as a Docker image. |
-| `apps/web` | `@mcdi/web` | The Next.js 16 admin panel, and these docs. It is deployed on Vercel. |
-| `packages/contracts` | `@mcdi/contracts` | Types and constants shared by the API and the web app. See [Shared contracts](/docs/build/contracts). |
-| `packages/typescript-config` | `@mcdi/typescript-config` | TypeScript presets the apps extend. |
-| `packages/eslint-config` | `@mcdi/eslint-config` | ESLint presets the apps extend. |
+| Workspace                    | Package                   | What it is                                                                                                                                  |
+| ---------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`                   | `@mcdi/api`               | The NestJS 11 API. It uses Drizzle ORM with PostgreSQL, Redis, and a discord.js bot. It is built as CommonJS and shipped as a Docker image. |
+| `apps/web`                   | `@mcdi/web`               | The Next.js 16 admin panel, and these docs. It is deployed on Vercel.                                                                       |
+| `packages/contracts`         | `@mcdi/contracts`         | Types and constants shared by the API and the web app. See [Shared contracts](/docs/build/contracts).                                       |
+| `packages/typescript-config` | `@mcdi/typescript-config` | TypeScript presets the apps extend.                                                                                                         |
+| `packages/eslint-config`     | `@mcdi/eslint-config`     | ESLint presets the apps extend.                                                                                                             |
 
 Every Turbo task depends on `^build`, so `@mcdi/contracts` is always built before the apps that use it.
 
 ## The system at a glance
 
-<Diagram src="/docs/system-overview.svg" alt="Three kinds of caller reach the MCDI API: a project backend with an API key, a member's browser with a session token or SSO cookie, and the admin panel with an admin session cookie. The API stores data in PostgreSQL, keeps caches and counters in Redis, and talks to Discord through OAuth and a bot connection." width={960} height={520} />
+<Diagram
+  src="/docs/system-overview.svg"
+  alt="Three kinds of caller reach the MCDI API: a project backend with an API key, a member's browser with a session token or SSO cookie, and the admin panel with an admin session cookie. The API stores data in PostgreSQL, keeps caches and counters in Redis, and talks to Discord through OAuth and a bot connection."
+  width={960}
+  height={520}
+/>
 
 - Three kinds of caller use the API: **project backends** with an API key, **members' browsers** during login, and the **admin panel** with an admin session.
 - **PostgreSQL** is the source of truth. The API reads Discord data from it, never from Discord, when it answers a request.
@@ -55,17 +60,17 @@ A request goes through these steps, in this order:
 
 ## Three ways to authenticate
 
-| Caller | Credential | Guard | What it proves |
-| --- | --- | --- | --- |
-| A project backend | API key in `X-API-Key` (or as a Bearer token) | `ApiKeyGuard` | Which project is calling. Access is then scoped per project and server. |
-| A member | Session token as a Bearer token | `SessionGuard` | Which member is calling. Any valid session works, including one issued to a project at login. |
-| A system admin | The `admin_session` cookie, or a Bearer token | `AdminAccessGuard` | A member, with a session from the admin login (not a project's), whose level on the endpoint's resource reaches the level the endpoint declares. |
+| Caller            | Credential                                    | Guard              | What it proves                                                                                                                                   |
+| ----------------- | --------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A project backend | API key in `X-API-Key` (or as a Bearer token) | `ApiKeyGuard`      | Which project is calling. Access is then scoped per project and server.                                                                          |
+| A member          | Session token as a Bearer token               | `SessionGuard`     | Which member is calling. Any valid session works, including one issued to a project at login.                                                    |
+| A system admin    | The `admin_session` cookie, or a Bearer token | `AdminAccessGuard` | A member, with a session from the admin login (not a project's), whose level on the endpoint's resource reaches the level the endpoint declares. |
 
 **Projects.** `ApiKeyGuard` finds the project by the key's prefix, compares a SHA-256 hash of the secret in constant time, and caches the result. When the request names a server, it then checks that the project may perform the operation the route declares with `@RequireProjectOperation` (`READ` by default) and holds the scope declared with `@RequireScope`. Both are stored per project and server pair.
 
 **Members.** A member signs in with Discord and receives a session token, either through the admin login or through a project's login flow. `SessionGuard` accepts any valid, unexpired session. It is used for routes that act on the member's own data, such as their sessions and the inbound webhook submissions they may read.
 
-**Admins.** Admins sign in with Discord OAuth, and any member of the main server can sign in. `AdminAccessGuard` accepts only sessions issued by the admin login, never one a project holds. It then compares the member's effective level on the endpoint's resource (`none`, `read`, `write` or `manage`, each including the one before it) with the level the endpoint declares through `@RequirePermission`. An endpoint with no declaration is refused. Members who hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, are root: they hold `manage` on everything, and only root edits grants. Root grants a level on a resource to a Discord role of the main server through `/api/admin/access`, and can give one person an override that replaces what their roles grant for that resource, including `none` to deny it. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. `GET /api/auth/admin/me` returns the member's effective level per resource, which the panel uses to build its navigation.
+**Admins.** Admins sign in with Discord OAuth, and any member of the main server can sign in. `AdminAccessGuard` accepts only sessions issued by the admin login, never one a project holds. It then compares the member's effective level on the endpoint's resource (`none`, `read`, `write` or `manage`, each including the one before it) with the level the endpoint declares through `@RequirePermission`. An endpoint with no declaration is refused. Members who hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, are root: they hold `manage` on everything, and only root edits grants. Root grants a level on a resource to a Discord role of the main server through `/api/admin/access`, and can give one person an override that replaces what their roles grant for that resource, including `none` to deny it. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. `GET /api/auth/admin/me` returns the member's effective level per resource, which the panel uses to build its navigation. The admin panel's Access screen edits grants through these endpoints, and the panel adds a root-only list of the members who have overrides, `GET /api/admin/access/overrides`.
 
 For the full login flow a project integrates with, see [Login with MicroClub](/docs/integrate/sso).
 
@@ -79,19 +84,21 @@ PostgreSQL holds everything durable: servers, members, roles, permissions, proje
 
 Redis is a cache and a coordination store. The caches below only copy what PostgreSQL holds, so losing them costs speed, not data.
 
-| What | Used for | How long | What clears it |
-| --- | --- | --- | --- |
-| Project auth | The project found for an API key | 30 seconds | Updating, revoking, restoring or deleting the project, regenerating its key. |
-| Project access | A project's operations and scopes on a server | 30 seconds | Granting or revoking access, enabling or disabling a server. |
-| Permissions | A member's resolved permissions on a server | 5 minutes | The sync, when a member's roles or a server's roles change, and when a permission is added to or removed from a role. |
-| Inbound webhook readers | The reader roles of a webhook | 5 minutes | Replacing the webhook's roles. |
-| Inbound webhook protection | Used signatures (replay protection) and per-minute counters (rate limit) | Minutes | They expire by themselves. |
-| Stats | Dashboard statistics | 5 minutes | Expiry. |
+| What                       | Used for                                                                 | How long   | What clears it                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| Project auth               | The project found for an API key                                         | 30 seconds | Updating, revoking, restoring or deleting the project, regenerating its key.                                          |
+| Project access             | A project's operations and scopes on a server                            | 30 seconds | Granting or revoking access, enabling or disabling a server.                                                          |
+| Permissions                | A member's resolved permissions on a server                              | 5 minutes  | The sync, when a member's roles or a server's roles change, and when a permission is added to or removed from a role. |
+| Inbound webhook readers    | The reader roles of a webhook                                            | 5 minutes  | Replacing the webhook's roles.                                                                                        |
+| Inbound webhook protection | Used signatures (replay protection) and per-minute counters (rate limit) | Minutes    | They expire by themselves.                                                                                            |
+| Stats                      | Dashboard statistics                                                     | 5 minutes  | Expiry.                                                                                                               |
 
 The lifetimes are environment variables, listed in [Local setup](/docs/build/local-setup#environment-variables).
 
 <Callout type="warning">
-  When you change data that a cache copies, clear that cache in the same change, or readers see the old value until it expires. Changing an inheritance rule today does not clear the permission cache, so it takes up to 5 minutes to apply.
+  When you change data that a cache copies, clear that cache in the same change, or readers see the
+  old value until it expires. Changing an inheritance rule today does not clear the permission
+  cache, so it takes up to 5 minutes to apply.
 </Callout>
 
 ## Discord, the bot and the sync
@@ -100,7 +107,12 @@ The bot is a discord.js client created in `DiscordModule`. Its intents are guild
 
 If the bot token is missing or wrong, the API still starts and serves everything that does not need Discord. It logs a warning and retries the login every 30 seconds.
 
-<Diagram src="/docs/sync-lifecycle.svg" alt="Two flows keep PostgreSQL in step with Discord. On the left, when the bot is ready or an admin asks, a sync is queued for each active server, a worker drains the queue every five seconds, and syncs server, roles and members before writing the log. On the right, a gateway event is handled by the sync listener as one incremental update, then the affected caches are cleared." width={960} height={520} />
+<Diagram
+  src="/docs/sync-lifecycle.svg"
+  alt="Two flows keep PostgreSQL in step with Discord. On the left, when the bot is ready or an admin asks, a sync is queued for each active server, a worker drains the queue every five seconds, and syncs server, roles and members before writing the log. On the right, a gateway event is handled by the sync listener as one incremental update, then the affected caches are cleared."
+  width={960}
+  height={520}
+/>
 
 - **Full syncs** are queued as rows in the sync log with the status `queued`. A worker polls for them every 5 seconds and runs them one at a time once the bot is ready. A sync reads the server's details, then its roles, then its members, writes a log with every change, and ends as `success` or `failed`. When the bot becomes ready, one sync is queued for each active server. Admins queue more from the admin panel.
 - **Live updates** come from the gateway. `SyncListener` handles member joins, leaves and updates, user updates, and role and guild changes as they happen. It updates only what changed and clears the related permission caches.

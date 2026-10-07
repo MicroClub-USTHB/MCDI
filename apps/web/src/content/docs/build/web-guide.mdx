@@ -49,14 +49,14 @@ The panel is dark only. There is no light mode, no theme switch and no `dark:` c
 
 Use the token as a utility class: `bg-surface-raised`, `text-text-muted`, `border-border`. The groups are:
 
-| Group | Tokens |
-| --- | --- |
-| Brand | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
-| Surfaces | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated` |
-| Text | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint` |
-| State | `success`, `error`, `warning`, `info`, `accent` |
-| Borders | `border`, `border-subtle`, `border-hover`, `border-focus` |
-| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code` |
+| Group      | Tokens                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Brand      | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
+| Surfaces   | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated`                |
+| Text       | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint`                                               |
+| State      | `success`, `error`, `warning`, `info`, `accent`                                                                        |
+| Borders    | `border`, `border-subtle`, `border-hover`, `border-focus`                                                              |
+| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code`    |
 
 Rules that keep it consistent:
 
@@ -114,13 +114,13 @@ Server state lives in TanStack Query, client-only state in Zustand. The provider
 
 Each feature's `api/` folder follows the same five-file pattern:
 
-| File | What it holds |
-| --- | --- |
-| `service.ts` | One function per endpoint. Plain functions that call `apiClient` and return its response. No React. |
-| `keys.ts` | The query key factory. Every key starts with the feature name, so one `invalidateQueries` can clear a whole feature. |
-| `queries.ts` | `useQuery` hooks that call a service function and map the result. |
-| `mutations.ts` | `useMutation` hooks. After a success they update or invalidate the keys the change affects. |
-| `mappers.ts` | Pure functions that turn API DTOs into the view models components render, and form values into request payloads. |
+| File           | What it holds                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `service.ts`   | One function per endpoint. Plain functions that call `apiClient` and return its response. No React.                  |
+| `keys.ts`      | The query key factory. Every key starts with the feature name, so one `invalidateQueries` can clear a whole feature. |
+| `queries.ts`   | `useQuery` hooks that call a service function and map the result.                                                    |
+| `mutations.ts` | `useMutation` hooks. After a success they update or invalidate the keys the change affects.                          |
+| `mappers.ts`   | Pure functions that turn API DTOs into the view models components render, and form values into request payloads.     |
 
 Components use these hooks instead of calling a service function themselves, and they render the view model, not the raw DTO. Mapping in one place means a component cannot show a field it should not, for example a secret that arrived by accident.
 
@@ -142,7 +142,8 @@ const isPublicRoute =
 1. **`proxy.ts`** runs on the server before any HTML is sent. The public routes are the landing page `/`, `/login`, `/callback`, the docs under `/docs`, `/sitemap.xml` and anything under `/api/`. The matcher also lets image files from `public/` through, because the Next.js image optimizer fetches them without cookies. Every other route needs the `auth-token` cookie, and without it the visitor is sent to `/login?redirect=<path>`. A visitor who has the cookie and opens `/login` is sent on to the dashboard.
 2. **`ProtectedRoute`** wraps the dashboard layout. The server cannot read `localStorage`, so for the first paint, while the Zustand store rehydrates, it shows a loading state, and then it redirects to the login page if the store says nobody is signed in.
 3. **The access rules** decide what a signed-in admin sees. `GET /api/auth/admin/me` returns the member's effective level per resource, and the panel keeps it in the auth store. `src/shared/lib/route-access.ts` lists who may open each dashboard page, and the page guard refuses a page that is not listed. `useCan(resource, level)` and `<Can>` hide the actions a member's level does not reach, and every query hook is disabled when the member cannot read its resource. The panel only adapts to these rules: the API refuses what a member may not do, and a refused call refreshes the member's access.
-4. **`SessionProvider`** checks the session against `GET /auth/admin/me` while the store believes someone is signed in. If the API refuses, it clears the store, shows a toast and returns to `/login`.
+4. **The Access screen** (`/dashboard/access`, root only) is where a root admin grants levels. The Roles tab edits one role at a time: a level per resource, saved as one request that replaces the role's grants. The Members with overrides tab lists everyone who has an override, and each member has an Access page (`/dashboard/members/[discordId]/access`) that shows the level they hold on every area, where it comes from, and lets root override it for that person alone. A save that lowers a level asks first, and a grant that cannot be reached in the panel because a prerequisite is missing (for example Channels without Servers) is flagged.
+5. **`SessionProvider`** checks the session against `GET /auth/admin/me` while the store believes someone is signed in. If the API refuses, it clears the store, shows a toast and returns to `/login`.
 
 The Zustand store (`features/auth/stores/auth.ts`, persisted under `auth-storage`) holds the admin's profile and when the session ends. The `auth-token` cookie is not the session. It is a flag set only after `/auth/admin/me` has answered 200, so the proxy can decide without a round trip. The real session is the httpOnly `admin_session`.
 
@@ -398,4 +399,4 @@ pnpm run build
 
 These docs are MDX in `src/content/docs`, served by the same app at `/docs`. [Writing these docs](/docs/build/writing-docs) explains how to add a page, and [Contributing](/docs/build/contributing) says when a change needs one.
 
-Source: `apps/web/CLAUDE.md`, `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx`, `apps/web/src/features/inbound-webhooks/api`, `apps/web/src/features/auth`, `apps/web/src/providers/QueryProvider.tsx`, `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/shared/lib/access.ts`, `apps/web/src/shared/lib/route-access.ts`, `apps/web/src/shared/lib/use-access.ts`, `apps/web/src/shared/lib/utils.ts`, `apps/web/src/shared/lib/cookies.ts`, `apps/web/src/shared/styles/globals.css`, `apps/web/src/shared/components/layout/nav-items.ts`, `apps/web/src/proxy.ts`, `apps/web/tests/app/dashboard/inbound-webhooks.test.tsx`, `apps/web/tests/setup.ts`.
+Source: `apps/web/CLAUDE.md`, `apps/web/src/app/dashboard/layout.tsx`, `apps/web/src/app/dashboard/projects/[id]/inbound-webhooks/page.tsx`, `apps/web/src/features/inbound-webhooks/api`, `apps/web/src/features/auth`, `apps/web/src/providers/QueryProvider.tsx`, `apps/web/src/shared/lib/api-client.ts`, `apps/web/src/shared/lib/access.ts`, `apps/web/src/shared/lib/route-access.ts`, `apps/web/src/shared/lib/use-access.ts`, `apps/web/src/shared/lib/utils.ts`, `apps/web/src/shared/lib/cookies.ts`, `apps/web/src/features/access`, `apps/web/src/app/dashboard/access`, `apps/web/src/shared/styles/globals.css`, `apps/web/src/shared/components/layout/nav-items.ts`, `apps/web/src/proxy.ts`, `apps/web/tests/app/dashboard/inbound-webhooks.test.tsx`, `apps/web/tests/setup.ts`.
