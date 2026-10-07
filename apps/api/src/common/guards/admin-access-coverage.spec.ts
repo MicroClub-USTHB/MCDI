@@ -108,6 +108,14 @@ const EXPECTED: Record<string, string> = {
   'PATCH /admin/profile': 'session',
   'GET /auth/admin/me': 'session',
   'POST /auth/admin/logout': 'session',
+  // grant management: root only
+  'GET /admin/access/catalog': 'root',
+  'GET /admin/access/roles': 'root',
+  'PUT /admin/access/roles/:roleId': 'root',
+  'GET /admin/access/members/:memberId': 'root',
+  'PUT /admin/access/members/:memberId': 'root',
+  'DELETE /admin/access/members/:memberId/:resource': 'root',
+  'GET /admin/access/members/:memberId/effective': 'root',
 };
 
 function controllerFiles(dir: string): string[] {
