@@ -56,9 +56,12 @@ describe('catalog', () => {
       ['read', 'read', true],
       ['none', 'read', false],
       ['none', 'none', true],
-    ] as const)('%s against required %s is %s', (effective, required, expected) => {
-      expect(levelAtLeast(effective, required)).toBe(expected);
-    });
+    ] as const)(
+      '%s against required %s is %s',
+      (effective, required, expected) => {
+        expect(levelAtLeast(effective, required)).toBe(expected);
+      },
+    );
   });
 
   describe('type guards', () => {

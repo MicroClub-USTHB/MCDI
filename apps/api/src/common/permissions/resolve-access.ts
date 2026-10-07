@@ -58,7 +58,10 @@ export function resolveEffectiveAccess(input: {
 
     let best: EffectiveEntry = { level: 'none', source: { type: 'none' } };
     for (const grant of input.roleGrants) {
-      if (grant.resource === resource && !levelAtLeast(best.level, grant.level)) {
+      if (
+        grant.resource === resource &&
+        !levelAtLeast(best.level, grant.level)
+      ) {
         best = {
           level: grant.level,
           source: { type: 'role', roleId: grant.roleId },

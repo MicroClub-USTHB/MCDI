@@ -67,7 +67,8 @@ export const RESOURCE_DESCRIPTIONS: Record<AccessResource, string> = {
     'Discord servers registered in MCDI: list, register, edit, enable, disable and delete.',
   members:
     'The member directory: lists, cross-server views and exports of member data.',
-  channels: 'The channel structure of a server (names and types), not the messages.',
+  channels:
+    'The channel structure of a server (names and types), not the messages.',
   messages:
     'The text of messages in a channel. The most sensitive data in MCDI.',
   roles:

@@ -25,7 +25,10 @@ describe('resolveEffectiveAccess', () => {
     });
 
     for (const resource of ACCESS_RESOURCES) {
-      expect(access[resource]).toEqual({ level: 'none', source: { type: 'none' } });
+      expect(access[resource]).toEqual({
+        level: 'none',
+        source: { type: 'none' },
+      });
     }
   });
 
@@ -84,7 +87,10 @@ describe('resolveEffectiveAccess', () => {
       overrides: [{ resource: 'messages', level: 'none' }],
     });
 
-    expect(access.messages).toEqual({ level: 'none', source: { type: 'override' } });
+    expect(access.messages).toEqual({
+      level: 'none',
+      source: { type: 'override' },
+    });
     expect(access.channels.level).toBe('read');
   });
 });
