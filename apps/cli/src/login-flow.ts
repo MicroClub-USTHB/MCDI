@@ -13,7 +13,8 @@ import {
 } from './config.js';
 import { defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { adminDisplayName, getAdminLoginUrl, getAdminMe } from './mcdi.js';
+import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcdi.js';
+import { createPkcePair } from './pkce.js';
 
 export const CALLBACK_PATH = '/callback';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
@@ -45,17 +46,17 @@ export function defaultLoginDeps(): LoginDeps {
   };
 }
 
-export type CallbackResult = { kind: 'token'; token: string } | { kind: 'error'; message: string } | { kind: 'ignore'; reason: string };
+export type CallbackResult = { kind: 'code'; code: string } | { kind: 'error'; message: string } | { kind: 'ignore'; reason: string };
 
 /**
- * Reads MCDI's redirect to the loopback listener. This is the only piece that
- * depends on the contract still open in issue #2; it currently expects
- * `?token=<session>&state=<state>` on success and `?error=<message>` on failure
- * (the same `error` param MCDI's admin callback already uses for the web panel).
+ * Reads MCDI's redirect to the loopback listener: `?code=<one-time code>&state=`
+ * once the admin login succeeded, or `?error=<message>&state=` when MCDI
+ * refused it (for example, no admin role).
  *
- * A token is only accepted alongside the exact `state` this login started with,
- * so another local process can't plant a session. An `error` is accepted without
- * it because the worst a forged one can do is abort this login.
+ * A code is only accepted alongside the exact `state` this login started with,
+ * so another local process can't feed it one; and the code is useless without
+ * this login's PKCE verifier anyway. An `error` is accepted without it because
+ * the worst a forged one can do is abort this login.
  */
 export function readCallback(params: URLSearchParams, expectedState: string): CallbackResult {
   const error = params.get('error');
@@ -63,9 +64,9 @@ export function readCallback(params: URLSearchParams, expectedState: string): Ca
   if (params.get('state') !== expectedState) {
     return { kind: 'ignore', reason: 'state does not match this login attempt' };
   }
-  const token = params.get('token');
-  if (!token) return { kind: 'ignore', reason: 'callback is missing the session token' };
-  return { kind: 'token', token };
+  const code = params.get('code');
+  if (!code) return { kind: 'ignore', reason: 'callback is missing the login code' };
+  return { kind: 'code', code };
 }
 
 /** Pulls the OAuth `state` MCDI generated out of the Discord URL, so the callback can be tied back to it. */
@@ -89,8 +90,8 @@ const page = (title: string, body: string) =>
 
 interface CallbackListener {
   redirectUri: string;
-  /** Resolves with the session token, rejects on an MCDI error or timeout. */
-  waitForToken(expectedState: string, timeoutMs: number): Promise<string>;
+  /** Resolves with the one-time login code, rejects on an MCDI error or timeout. */
+  waitForCode(expectedState: string, timeoutMs: number): Promise<string>;
   close(): Promise<void>;
 }
 
@@ -107,7 +108,7 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
     const result = onRequest(url.searchParams);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Connection', 'close');
-    if (result.kind === 'token') {
+    if (result.kind === 'code') {
       res.writeHead(200).end(page('Login complete', 'You can close this tab and return to the terminal.'));
     } else if (result.kind === 'error') {
       res.writeHead(400).end(page('Login failed', 'Check the terminal for details.'));
@@ -125,7 +126,7 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
 
   return {
     redirectUri: `http://127.0.0.1:${port}${CALLBACK_PATH}`,
-    waitForToken(expectedState, timeoutMs) {
+    waitForCode(expectedState, timeoutMs) {
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           onRequest = () => ({ kind: 'ignore', reason: 'login already timed out' });
@@ -143,7 +144,7 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
           if (result.kind === 'ignore') return result;
           clearTimeout(timer);
           onRequest = () => ({ kind: 'ignore', reason: 'login already finished' });
-          if (result.kind === 'token') resolve(result.token);
+          if (result.kind === 'code') resolve(result.code);
           else reject(new CliError(`MCDI reported a login failure: ${result.message}`, ExitCode.Auth));
           return result;
         };
@@ -164,11 +165,12 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
 
   const listener = await startCallbackListener(deps.info);
   try {
-    const discordUrl = await getAdminLoginUrl(baseUrl, listener.redirectUri);
+    const pkce = createPkcePair();
+    const discordUrl = await getAdminLoginUrl(baseUrl, listener.redirectUri, pkce.challenge);
     const state = extractState(discordUrl);
-    const tokenPromise = listener.waitForToken(state, deps.timeoutMs);
+    const codePromise = listener.waitForCode(state, deps.timeoutMs);
     // Awaited below; this only stops an early rejection from being reported as unhandled meanwhile.
-    tokenPromise.catch(() => {});
+    codePromise.catch(() => {});
 
     const opened = await deps.openBrowser(discordUrl);
     deps.info(
@@ -178,7 +180,8 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
     );
     deps.info('Waiting for the login to complete...');
 
-    const token = await tokenPromise;
+    const code = await codePromise;
+    const { token } = await exchangeAdminLoginCode(baseUrl, code, pkce.verifier);
     const me = await getAdminMe(baseUrl, token);
     const admin = adminDisplayName(me);
 

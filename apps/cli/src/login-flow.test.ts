@@ -9,15 +9,23 @@ afterEach(async () => {
 describe('readCallback', () => {
   const params = (p: Record<string, string>) => new URLSearchParams(p);
 
-  it('accepts a token only with the matching state', () => {
-    expect(readCallback(params({ token: 't', state: 's' }), 's')).toEqual({ kind: 'token', token: 't' });
-    expect(readCallback(params({ token: 't', state: 'other' }), 's').kind).toBe('ignore');
-    expect(readCallback(params({ token: 't' }), 's').kind).toBe('ignore');
+  it('accepts a login code only with the matching state', () => {
+    expect(readCallback(params({ code: 'c', state: 's' }), 's')).toEqual({ kind: 'code', code: 'c' });
+    expect(readCallback(params({ code: 'c', state: 'other' }), 's').kind).toBe('ignore');
+    expect(readCallback(params({ code: 'c' }), 's').kind).toBe('ignore');
     expect(readCallback(params({ state: 's' }), 's').kind).toBe('ignore');
+  });
+
+  it('no longer accepts a raw session token in the callback', () => {
+    expect(readCallback(params({ token: 't', state: 's' }), 's')).toEqual({
+      kind: 'ignore',
+      reason: 'callback is missing the login code',
+    });
   });
 
   it('reports an MCDI error', () => {
     expect(readCallback(params({ error: 'Not an admin' }), 's')).toEqual({ kind: 'error', message: 'Not an admin' });
+    expect(readCallback(params({ error: 'Not an admin', state: 's', code: 'c' }), 's').kind).toBe('error');
   });
 });
 
