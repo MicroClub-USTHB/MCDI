@@ -43,6 +43,13 @@
       "when": 1791120631487,
       "tag": "0005_inbound_webhook_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791333087929,
+      "tag": "0006_abandoned_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

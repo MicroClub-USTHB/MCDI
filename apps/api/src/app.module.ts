@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
+import { AdminAccessModule } from './modules/admin-access/admin-access.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { AdminMembersModule } from './modules/admin-members/admin-members.module';
 import { AdminChannelsModule } from './modules/admin-channels/admin-channels.module';
@@ -48,6 +49,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     ServersModule,
     MembersModule,
     PermissionsModule,
+    AdminAccessModule,
     ProjectsModule,
     SyncModule,
     AdminMembersModule,
