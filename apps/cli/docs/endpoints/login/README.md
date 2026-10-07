@@ -44,8 +44,8 @@ Discord redirects the browser here with `?code=&state=` after consent. MCDI:
 
 1. Validates and consumes the `state` token.
 2. Exchanges the Discord `code` for a Discord access token, using the
-   **server-configured** `discord.adminRedirectUri` (not a caller-supplied
-   `redirect_uri` — see [Gaps](#gaps-for-mcdi-cli) below).
+   **server-configured** `discord.adminRedirectUri` (Discord only accepts a
+   registered redirect URI, so this endpoint stays the landing point).
 3. Resolves the Discord profile, verifies guild membership and that the
    member holds one of the configured admin role IDs; rejects with `403` if
    not.
@@ -57,9 +57,9 @@ Discord redirects the browser here with `?code=&state=` after consent. MCDI:
    put in the redirect URL — only in the cookie.
 
 This endpoint is not directly callable by mcdi-cli; it only matters because
-it's where the browser ends up after the admin approves on Discord, and
-today it hands the resulting session to the admin **web** frontend, not back
-to mcdi-cli. See [Gaps](#gaps-for-mcdi-cli).
+it's where the browser ends up after the admin approves on Discord. For a
+web login it hands the session to the admin **web** frontend; for a CLI
+login see [CLI login](#cli-login-loopback-redirect--pkce) below.
 
 ## `GET /auth/admin/me` — whoami / session introspection
 
@@ -120,24 +120,62 @@ not attempt a silent refresh for the admin session (contrary to PRD §5.3,
 which assumed refresh semantics shared with the SSO flow); it should tell
 the developer to run `mcdi-cli login --profile <name>` again.
 
+## CLI login: loopback redirect + PKCE
+
+Status: implemented in MCDI PR
+[#191](https://github.com/MicroClub-USTHB/MCDI/pull/191) (mcdi-cli issue #2),
+**not deployed yet**. Until it is, the real MCDI ignores the extra query
+parameters below, sends the browser to the admin panel, and answers
+`POST /auth/admin/token` with `404`, so `mcdi-cli login` times out with a hint
+pointing at issue #2. The web panel flow above is unchanged either way.
+
+This is the standard native-app OAuth pattern (RFC 8252 loopback redirect,
+RFC 7636 PKCE):
+
+1. mcdi-cli starts a listener on `http://127.0.0.1:<port>/callback`, creates a
+   random PKCE `code_verifier`, and calls:
+
+   ```
+   GET /api/auth/admin/discord?redirect_uri=http%3A%2F%2F127.0.0.1%3A<port>%2Fcallback
+       &code_challenge=<BASE64URL(SHA256(code_verifier))>&code_challenge_method=S256
+   Accept: application/json
+
+   200 OK
+   { "url": "https://discord.com/api/oauth2/authorize?...&state=..." }
+   ```
+
+   `redirect_uri` must be an `http` loopback URL with an explicit port
+   (`127.0.0.1`, `localhost` or `[::1]`); PKCE `S256` is required with it.
+   Anything else is `400`.
+2. The admin approves on Discord. MCDI's callback runs the same guild and
+   admin-role checks as the web login, then redirects the browser to the
+   loopback URL:
+   - success: `?code=<one-time code>&state=<state>` (the code expires after
+     MCDI's `callbackCodeTtlSec`, 120 s by default, and works once);
+   - refusal: `?error=<message>&state=<state>`, e.g. `Only members with a
+     configured admin role can access the admin panel`.
+3. mcdi-cli checks `state`, then exchanges the code:
+
+   ```
+   POST /api/auth/admin/token
+   Content-Type: application/json
+   { "code": "<one-time code>", "codeVerifier": "<code_verifier>" }
+
+   200 OK
+   { "token": "<admin session token>", "expiresAt": "2026-10-08T12:00:00.000Z" }
+   ```
+
+   Unknown, used or expired codes and wrong verifiers all get the same `401`.
+   The session is a normal 24-hour admin session (Bearer), so `/auth/admin/me`
+   and `/auth/admin/logout` work with it as above.
+
+In mcdi-cli, `readCallback()` in `src/login-flow.ts` reads step 2,
+`src/pkce.ts` creates the verifier/challenge, and `exchangeAdminLoginCode()`
+in `src/mcdi.ts` does step 3.
+
 ## Gaps for mcdi-cli
 
-These block building `login`/`logout`/`whoami` exactly as scoped in the PRD
-(§13) and are the subject of the tracking issues in this repo:
-
-1. **No caller-supplied redirect target.** `admin/discord/callback` always
-   redirects to the configured admin frontend URL and only ever hands the
-   session to a cookie. A CLI with a local loopback listener
-   (`http://127.0.0.1:<port>/callback`) has no way to receive the resulting
-   token — it needs the callback to redirect to *its* URL with the token (or
-   a short-lived code to exchange), gated to a safe allowlist (loopback
-   addresses only), not an open redirect.
-2. **Discord `redirect_uri` is also fixed server-side**
-   (`discord.adminRedirectUri`), independent of (1) — Discord itself will
-   only accept a registered redirect URI, so the admin app's own
-   `/auth/admin/discord/callback` has to stay the landing point; the gap is
-   specifically MCDI relaying the result onward to mcdi-cli's loopback
-   listener afterward, not Discord's redirect.
-3. Once (1)/(2) are resolved, confirm the state param or an equivalent is
-   enough for mcdi-cli to correlate its local pending login with the
-   eventual callback (CSRF/replay protection for a non-browser caller).
+1. **Deployment only.** The CLI login above needs MCDI PR
+   [#191](https://github.com/MicroClub-USTHB/MCDI/pull/191) merged and
+   deployed; mcdi-cli already implements its side. Until then a real
+   `mcdi-cli login` can't complete.
