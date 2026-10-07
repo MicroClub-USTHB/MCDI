@@ -35,7 +35,7 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 | Scope | Both the permission-aware panel and the Access screen, as one spec delivered in three PRs |
 | Depth of gating | Sidebar, pages and actions |
 | Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcdi/contracts` |
-| Where overrides are managed | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page and from an overview list on the Access screen (needs one new API endpoint) |
+| Where overrides are managed | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page, and opened in place from the Members tab of the Access screen (one new API endpoint marks who already has an override) |
 | Role editor layout | A role list and a one-role editor, with one Save per role |
 | Buttons below the member's level | Hidden, not disabled. A readable form that cannot be changed is shown read-only |
 | Unmapped dashboard routes | Denied by default, like the API |
@@ -139,6 +139,7 @@ An action is shown only when the member's level on its resource reaches the leve
 | Messages | Message history inside the channels page | `messages:read` (the tab is omitted without it) |
 | Projects | Create or edit a project with its server choice | `projects:write`, and `servers:read` for the form's server list (the field is omitted without it) |
 | Inbound webhooks | Change the default readers (settings sub-page) | `inbound_webhooks:write`, and `servers:read` plus `stats:read` for the role picker, which lists every role of every server. Without those the current readers are shown read-only |
+| Inbound webhooks | Change a webhook's readers (its Readers tab), or pick readers when creating one | `inbound_webhooks:write`, and `stats:read` for the role picker, because the role list comes from `/admin/stats/roles`. Without it the current readers are shown read-only with a note, the Save button is hidden, and the create form keeps the default readers |
 
 A form the member can read but not change is rendered read-only with a "Read only" badge. For example, the settings form for a member with `settings:read`.
 
@@ -158,7 +159,7 @@ The panel audit (every hook of every page and component against the endpoint it 
 | Roles list and role page | `servers:read`, `roles:read`, `stats:read` | Add, remove and rule actions as in the actions table |
 | Project page | `projects:read` | The API key panel needs `project_keys:read` |
 | Project access | `projects:read`, `servers:read` | |
-| Inbound webhooks (list, detail, new) | `projects:read`, `inbound_webhooks:read` | |
+| Inbound webhooks (list, detail, new) | `projects:read`, `inbound_webhooks:read` | The role picker of the readers editor and of the create form needs `stats:read`. Without it the picker shows a note instead of the role list and cannot be changed |
 | Default readers (settings sub-page) | `inbound_webhooks:read` | The role picker needs `servers:read` and `stats:read`, plus `inbound_webhooks:write` to save |
 | Stats | `stats:read` | The server filter needs `servers:read` |
 | Monitoring | any of `monitoring:read`, `audit:read` | Health, usage and failures need `monitoring:read`. The audit log needs `audit:read`. The project filter needs `projects:read`. Actor names and the actor filter in the audit log need `members:read`, otherwise the ids are shown |
@@ -207,7 +208,7 @@ This means browsing anything under a server needs `servers:read`, because the se
 
 ### Where it lives
 
-`/dashboard/access`, root only, in the sidebar's System group, and a root-only **Access page for one member** at `/dashboard/members/[discordId]/access`. The member page links to it (a link visible to root only), and so does the overrides list. Both are entries in the route table.
+`/dashboard/access`, root only, in the sidebar's System group, and a root-only **Access page for one member** at `/dashboard/members/[discordId]/access`. The member page links to it (a link visible to root only), and the Access screen's Members tab opens the same editor in place. Both are entries in the route table.
 
 The member's Access view is its own page and not a tab on the member page, because the member page cannot load today: it calls `GET /api/admin/members/:discordId`, which the API does not have (only `.../servers`, the list, `cross-server` and `export` exist), and its permissions panel calls an API-key-only endpoint. Fixing that page is separate work, tracked on its own, and the Access page does not depend on it.
 
@@ -228,11 +229,11 @@ The page shows the member's name and avatar and a table: resource, the member's 
 - A member who currently holds a root role shows "Full access, cannot be changed" and no controls. The API refuses overrides on them.
 - A member id the API does not know shows a not-found state (the API answers 404).
 
-### Members with overrides tab
+### Members tab
 
-A list of every member who has overrides: avatar, name, a summary such as "messages: none, projects: manage", and a link to that member's Access page. A member whose overrides are inactive because they currently hold a root role is marked.
+A master-detail view: on the left, every member of the server (avatar, name and username) in a list with a search box and page controls (the paginated `GET /api/admin/members` list, filtered by `search`/`page`/`limit`), with members who already carry an override marked. Selecting a member on the left opens the member editor from the section above on the right, so root can see and change one person's access without leaving the screen; nothing selected shows a prompt to pick someone. The same editor still backs the member's Access page at `/dashboard/members/[discordId]/access`.
 
-**New API endpoint:** `GET /api/admin/access/overrides`, root only.
+**Endpoint used for the marks:** `GET /api/admin/access/overrides`, root only.
 
 ```
 { "members": [
@@ -258,7 +259,7 @@ React Query keys under an `access` feature: catalog (static), roles, a member's 
 ### Tests (PR 3)
 
 - API: unit tests for the new service method and controller, the coverage entry, and an e2e test (root sees a seeded override, a non-root member gets 403, a root member is flagged).
-- Web: the role editor (renders per resource, dirty state, Save sends the full set without `none`, Discard, root role locked), the member Access page (sources, Inherit leaves a resource out, root member locked, unknown member), the overrides list, the confirm dialog on lowering, the prerequisite hint, and that none of it renders for a non-root member.
+- Web: the role editor (renders per resource, dirty state, Save sends the full set without `none`, Discard, root role locked), the member Access page (sources, Inherit leaves a resource out, root member locked, unknown member), the member picker (list, search, paging, override marks, selection drives the editor), the confirm dialog on lowering, the prerequisite hint, and that none of it renders for a non-root member.
 
 ## Delivery
 
@@ -281,7 +282,7 @@ PR 2 and PR 3 both build on PR 1 and do not depend on each other. Each starts fr
 - **PR 2 touches many features.** Mitigated by the route-table coverage test and per-feature tests, and by keeping each action change to a single `useCan` or `<Can>` wrap.
 - **The UI can be briefly out of date.** A grant change reaches an open panel within about a minute, or immediately when the member tries a refused action. The API is always right, so the worst case is a visible button that answers 403.
 - **A grant can be unreachable in the panel** (for example `channels` without `servers`). The prerequisite hints reduce it; the API still allows the grant, so API clients are unaffected.
-- **The overrides list has no pagination.** Fine for the club's size; add paging if it ever grows.
+- **The overrides endpoint has no pagination.** It only marks who has overrides now (the picker pages the members list); fine for the club's size, add paging if it ever grows.
 
 ## Follow-ups
 

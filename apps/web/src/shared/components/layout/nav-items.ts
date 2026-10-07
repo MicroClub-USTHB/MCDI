@@ -6,6 +6,7 @@ import {
   Inbox,
   KeyRound,
   LayoutDashboard,
+  LockKeyhole,
   Network,
   RefreshCw,
   Server,
@@ -100,6 +101,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { name: 'Monitoring', route: '/dashboard/monitoring', icon: Activity },
       { name: 'Settings', route: '/dashboard/settings', icon: Settings },
+      { name: 'Access', route: '/dashboard/access', icon: LockKeyhole },
     ],
   },
 ];

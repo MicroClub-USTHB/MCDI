@@ -23,6 +23,7 @@ const ACTIONS: Array<{ value: AuditActionType; label: string }> = [
   { value: 'member', label: 'Member' },
   { value: 'sync', label: 'Sync' },
   { value: 'permission', label: 'Permission' },
+  { value: 'access', label: 'Access' },
 ];
 
 function AuditLogFilters({

@@ -65,6 +65,19 @@ export class AdminAccessController {
     return this.grants.listRoles();
   }
 
+  @Get('overrides')
+  @ApiOperation({
+    summary: 'List the members that have overrides',
+    description:
+      'Every member with at least one override and their overrides, ordered by name. Not paginated: ' +
+      "the list is bounded by the club's size. `root` marks a member whose overrides are inactive " +
+      'because they currently hold a root role.',
+  })
+  @ApiOkResponse({ description: 'Members with their overrides.' })
+  listMemberOverrides() {
+    return this.grants.listMemberOverrides();
+  }
+
   @Put('roles/:roleId')
   @ApiOperation({
     summary: "Replace a role's grants",
@@ -148,7 +161,7 @@ export class AdminAccessController {
   @ApiOperation({
     summary: "Explain a member's effective access",
     description:
-      'The resolved level per resource and where it comes from: root, an override, or the role that supplied it.',
+      "The member's name, the resolved level per resource and where it comes from: root, an override, or the role that supplied it.",
   })
   @ApiOkResponse({ description: 'Effective access with sources.' })
   @ApiNotFoundResponse({ description: 'Member not found.' })
