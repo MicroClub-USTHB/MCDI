@@ -187,9 +187,70 @@ export class AdminAccessGrantsService {
   }
 
   async getMemberEffective(memberId: string) {
-    await this.requireMember(memberId);
+    const profile = await this.repository.findMemberProfile(memberId);
+    if (!profile) throw new NotFoundException('Member not found');
+
     const { root, access } = await this.access.getEffectiveAccess(memberId);
-    return { memberId, root, access };
+    return {
+      memberId,
+      username: profile.username,
+      displayName:
+        profile.displayName ?? profile.globalName ?? profile.username,
+      avatar: profile.avatar,
+      root,
+      access,
+    };
+  }
+
+  /**
+   * Every member who has an override, for the Access screen's overview. Not paginated: the list is
+   * bounded by the size of the club. `root` marks a member whose overrides are inactive because
+   * they currently hold a root role.
+   */
+  async listMemberOverrides() {
+    const rows = await this.repository.listOverrideRows();
+
+    const byMember = new Map<
+      string,
+      {
+        memberId: string;
+        username: string;
+        displayName: string;
+        avatar: string | null;
+        overrides: Record<string, AccessLevel>;
+      }
+    >();
+    for (const row of rows) {
+      const entry = byMember.get(row.memberId) ?? {
+        memberId: row.memberId,
+        username: row.username,
+        displayName: row.displayName ?? row.globalName ?? row.username,
+        avatar: row.avatar,
+        overrides: {},
+      };
+      entry.overrides[row.resource] = row.level;
+      byMember.set(row.memberId, entry);
+    }
+
+    const members = [...byMember.values()].sort(
+      (a, b) =>
+        a.displayName.localeCompare(b.displayName, undefined, {
+          sensitivity: 'base',
+        }) || a.memberId.localeCompare(b.memberId),
+    );
+    const roots = await Promise.all(
+      members.map(
+        async (member) =>
+          (await this.access.getEffectiveAccess(member.memberId)).root,
+      ),
+    );
+
+    return {
+      members: members.map((member, index) => ({
+        ...member,
+        root: roots[index],
+      })),
+    };
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 export type MonitoringPeriod = '7d' | '30d' | '90d';
 export type AuditActionType =
-  'auth' | 'project' | 'server' | 'role' | 'webhook' | 'member' | 'sync' | 'permission';
+  'auth' | 'project' | 'server' | 'role' | 'webhook' | 'member' | 'sync' | 'permission' | 'access';
 export type AuditSeverity = 'info' | 'warning' | 'error';
 
 export interface UsageProject {

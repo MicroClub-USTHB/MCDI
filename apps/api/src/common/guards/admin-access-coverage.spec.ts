@@ -112,6 +112,7 @@ const EXPECTED: Record<string, string> = {
   'GET /admin/access/catalog': 'root',
   'GET /admin/access/roles': 'root',
   'PUT /admin/access/roles/:roleId': 'root',
+  'GET /admin/access/overrides': 'root',
   'GET /admin/access/members/:memberId': 'root',
   'PUT /admin/access/members/:memberId': 'root',
   'DELETE /admin/access/members/:memberId/:resource': 'root',

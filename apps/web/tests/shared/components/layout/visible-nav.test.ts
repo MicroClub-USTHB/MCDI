@@ -28,8 +28,13 @@ describe('visibleNavGroups', () => {
         ['All projects'],
         ['Keys & settings', 'Server access', 'Webhooks', 'Inbound webhooks'],
       ],
-      ['System', ['Monitoring', 'Settings'], undefined],
+      ['System', ['Monitoring', 'Settings', 'Access'], undefined],
     ]);
+  });
+
+  it('shows Access to root only', () => {
+    expect(names(member({ settings: 'manage', audit: 'manage' })).flat(2)).not.toContain('Access');
+    expect(names(root).flat(2)).toContain('Access');
   });
 
   it('shows only Settings to a member with no access', () => {

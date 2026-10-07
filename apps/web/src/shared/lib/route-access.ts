@@ -1,4 +1,12 @@
-import { ANY_ACCESS, OPEN, allOf, anyOf, need, type Requirement } from '@/shared/lib/access';
+import {
+  ANY_ACCESS,
+  OPEN,
+  ROOT_ONLY,
+  allOf,
+  anyOf,
+  need,
+  type Requirement,
+} from '@/shared/lib/access';
 
 interface RouteRule {
   /** `/dashboard/servers/[id]/roles`: `[param]` matches any one segment. */
@@ -88,6 +96,9 @@ export const ROUTE_RULES: RouteRule[] = [
   // The profile is always available. Every other section is gated where it is rendered.
   { pattern: '/dashboard/settings', requires: OPEN },
   { pattern: '/dashboard/settings/inbound-webhooks', requires: need('inbound_webhooks', 'read') },
+
+  { pattern: '/dashboard/access', requires: ROOT_ONLY },
+  { pattern: '/dashboard/members/[discordId]/access', requires: ROOT_ONLY },
 ];
 
 function toRegExp(pattern: string): RegExp {

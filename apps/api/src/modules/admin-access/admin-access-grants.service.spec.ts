@@ -15,6 +15,8 @@ describe('AdminAccessGrantsService', () => {
     findGrantsForRoles: jest.fn(),
     findMemberOverrides: jest.fn(),
     memberExists: jest.fn(),
+    findMemberProfile: jest.fn(),
+    listOverrideRows: jest.fn(),
     replaceRoleGrants: jest.fn(),
     replaceMemberOverrides: jest.fn(),
     deleteMemberOverride: jest.fn(),
@@ -38,6 +40,14 @@ describe('AdminAccessGrantsService', () => {
     repo.findGrantsForRoles.mockResolvedValue([]);
     repo.findMemberOverrides.mockResolvedValue([]);
     repo.memberExists.mockResolvedValue(true);
+    repo.findMemberProfile.mockResolvedValue({
+      id: 'member-9',
+      username: 'ada',
+      globalName: 'Ada G',
+      displayName: null,
+      avatar: 'https://cdn.example/ada.png',
+    });
+    repo.listOverrideRows.mockResolvedValue([]);
     access.isRootRole.mockReturnValue(false);
     access.getEffectiveAccess.mockResolvedValue({ root: false, access: {} });
 
@@ -272,7 +282,7 @@ describe('AdminAccessGrantsService', () => {
   });
 
   describe('getMemberEffective', () => {
-    it('returns the resolved level and its source per resource', async () => {
+    it('returns the member profile and the resolved level with its source per resource', async () => {
       const resolved = {
         root: false,
         access: {
@@ -286,15 +296,75 @@ describe('AdminAccessGrantsService', () => {
 
       await expect(service.getMemberEffective('member-9')).resolves.toEqual({
         memberId: 'member-9',
+        username: 'ada',
+        displayName: 'Ada G',
+        avatar: 'https://cdn.example/ada.png',
         ...resolved,
       });
     });
 
     it('returns 404 for an unknown member', async () => {
-      repo.memberExists.mockResolvedValue(false);
+      repo.findMemberProfile.mockResolvedValue(null);
       await expect(service.getMemberEffective('ghost')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('listMemberOverrides', () => {
+    const row = (
+      memberId: string,
+      resource: string,
+      level: string,
+      name: string,
+    ) => ({
+      memberId,
+      resource,
+      level,
+      username: name.toLowerCase(),
+      globalName: null,
+      displayName: name,
+      avatar: null,
+    });
+
+    it('groups the rows by member, sorts by name and flags members who are root now', async () => {
+      repo.listOverrideRows.mockResolvedValue([
+        row('m2', 'messages', 'none', 'Zed'),
+        row('m1', 'projects', 'manage', 'Ada'),
+        row('m1', 'stats', 'read', 'Ada'),
+      ]);
+      access.getEffectiveAccess.mockImplementation((id: string) =>
+        Promise.resolve({ root: id === 'm2', access: {} }),
+      );
+
+      const result = await service.listMemberOverrides();
+
+      expect(result).toEqual({
+        members: [
+          {
+            memberId: 'm1',
+            username: 'ada',
+            displayName: 'Ada',
+            avatar: null,
+            root: false,
+            overrides: { projects: 'manage', stats: 'read' },
+          },
+          {
+            memberId: 'm2',
+            username: 'zed',
+            displayName: 'Zed',
+            avatar: null,
+            root: true,
+            overrides: { messages: 'none' },
+          },
+        ],
+      });
+    });
+
+    it('is empty when nobody has an override', async () => {
+      await expect(service.listMemberOverrides()).resolves.toEqual({
+        members: [],
+      });
     });
   });
 });
