@@ -35,7 +35,7 @@ The work ships as three pull requests, each green and safe on its own, each bran
 | B. Enforcement | `benabdou/admin-access-enforcement` | 6-10 | The switch: `AdminAccessGuard` on every admin endpoint, login without the admin-role gate, `SystemAdminGuard` removed. Only root has access until C |
 | C. Grant management | `benabdou/admin-access-grants` | 11-13, 14 | Root can grant levels through `/admin/access`. E2E tests and docs |
 
-Merge order is A, then B, then C. Verification for each PR: lint, typecheck, the unit tests of the touched areas, and `pnpm build`. PR B and PR C also run the whole API e2e suite (Task 15 lists the commands). Do not start a PR's branch before the previous one is merged, so every branch starts from a `dev` that contains its dependencies.
+Status: PR A is merged (#198), PR B is open (#199), PR C is next. Merge order is A, then B, then C. Verification for each PR: lint, typecheck, the unit tests of the touched areas, and `pnpm build`. PR B and PR C also run the whole API e2e suite (Task 15 lists the commands). Do not start a PR's branch before the previous one is merged, so every branch starts from a `dev` that contains its dependencies.
 
 ## File Structure
 
@@ -2056,7 +2056,9 @@ function discoverAdminRoutes(): Record<string, string> {
         | undefined;
 
       for (const name of Object.getOwnPropertyNames(cls.prototype)) {
-        const handler = cls.prototype[name];
+        // Read the descriptor: `cls.prototype[name]` would run getters.
+        const handler = Object.getOwnPropertyDescriptor(cls.prototype, name)
+          ?.value;
         if (typeof handler !== 'function') continue;
         const handlerPath = Reflect.getMetadata(PATH_METADATA, handler);
         const method = Reflect.getMetadata(METHOD_METADATA, handler);
@@ -3225,67 +3227,7 @@ git commit -m "feat(api): add the root-only /admin/access grant management API"
 
 Settings endpoints are used for the level checks because they need no Discord and have a read, a write and a manage endpoint (`GET`, `PATCH`, `POST reset`). The e2e suite runs against real Postgres and Redis. The permission cache lives in Redis, which `clearAllTables` does not touch, so the test flushes it before each test.
 
-- [ ] **Step 1: Add the helper**
-
-Append to `apps/api/test/helpers/db.ts`:
-
-```ts
-export interface MemberContext {
-  bearerToken: string;
-  memberId: string;
-  roleId: string;
-}
-
-/**
- * Seeds a main-server member with an admin session who holds a NON-root role
- * (`seedAdminContext` seeds the root Executive one). The server must already
- * exist (call `seedAdminContext` first). `suffix` is one character, so several
- * members can coexist.
- */
-export async function seedNonRootMember(
-  db: TestDb,
-  serverId: string,
-  suffix = '2',
-): Promise<MemberContext> {
-  const memberId = `80000000000000000${suffix}`;
-  const roleId = `70000000000000000${suffix}`;
-  const token = randomBytes(32).toString('hex');
-
-  await db.insert(schema.members).values({
-    id: memberId,
-    username: `member${suffix}`,
-    globalName: `Member ${suffix}`,
-    displayName: `Member ${suffix}`,
-    avatar: null,
-    email: `member${suffix}@test.com`,
-    isClubMember: true,
-    joinedAt: new Date(),
-    syncedAt: new Date(),
-  });
-  await db
-    .insert(schema.serverMembers)
-    .values({ serverId, memberId, joinedAt: new Date() });
-  await db.insert(schema.roles).values({
-    id: roleId,
-    serverId,
-    name: `Role ${suffix}`,
-    color: 0,
-    hoist: false,
-    position: 2,
-    managed: false,
-    mentionable: false,
-  });
-  await db.insert(schema.serverMemberRoles).values({ memberId, roleId });
-  await db.insert(schema.sessions).values({
-    id: crypto.randomUUID(),
-    memberId,
-    token: hashSessionToken(token),
-    expiresAt: new Date(Date.now() + 86_400_000),
-  });
-
-  return { bearerToken: token, memberId, roleId };
-}
-```
+- [x] **Step 1: The helper already exists.** `seedNonRootMember` and `MemberContext` were added to `apps/api/test/helpers/db.ts` in PR B, together with `test/admin-access-guard.e2e-spec.ts`, which already covers: no session gives 401, a member with no grant signs in to `/auth/admin/me` with every level `none` and is refused on admin endpoints, and root works. Do not add them again. The suite below only covers granting.
 
 - [ ] **Step 2: Write the e2e suite**
 
@@ -3562,7 +3504,7 @@ git commit -m "test(api): cover admin access levels end to end"
 
 ### Task 14: Documentation
 
-Part of PR C.
+Part of PR C. PR B already updated, for what it changed: the architecture admin paragraph and guard table, `local-setup.mdx` (sign-in sentence and the three root-role descriptions), the glossary, the older admin decision, `testing.mdx`, `api-guide.mdx`, `CLAUDE.md`, `apps/api/README.md` and the regenerated API reference for `/auth/admin/me`. Steps 1 and 2 below therefore only add what PR C introduces: the `/admin/access` sentence in the architecture paragraph, and the new decision entry. Skip any edit that is already in place.
 
 **Files:**
 - Modify: `apps/web/src/content/docs/build/architecture.mdx`, `build/local-setup.mdx`, `build/decisions.mdx`
@@ -3640,6 +3582,12 @@ pnpm run db:migrate && pnpm run test:e2e
 ```
 
 Never run the e2e suite against the development database, and do not use `RESET_DB=1` on it.
+
+**Do not run `pnpm build` in a shell where `apps/api/.env` was sourced.** That file sets `NODE_ENV=development`, and `next build` then fails prerendering with "Cannot read properties of null (reading 'useState')". Run the build in a clean shell.
+
+**`eslint --fix` on whole directories reformats unrelated files** (pre-existing style drift, for example `sync-log.service.ts`). Run it only on the files you changed, or revert unrelated files with `git checkout -- <file>` before committing.
+
+**Sweep for stale statements.** After a behavior change, search the docs and comments for the old rule: `grep -rn "<old name or phrase>" apps/web/src/content/docs CLAUDE.md apps/api/README.md apps/api/src apps/api/test`. `docs/` (specs and PRDs) is historical and not updated.
 
 **Formatting.** Code copied from this plan is not prettier-formatted. Run `pnpm exec eslint --fix` on the files you added or changed before committing, then re-run the tests.
 
