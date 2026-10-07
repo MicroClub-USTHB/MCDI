@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
+import { useCan } from '@/shared/lib/use-access';
 import type { CreateServerPayload, ServerDto, UpdateServerPayload } from '@/features/servers/types';
 import {
   createServerSchema,
@@ -62,6 +64,9 @@ function valuesFromServer(server: ServerDto): CreateServerFormValues {
  */
 function ServerForm(props: ServerFormProps) {
   const { isSubmitting = false } = props;
+  const canWrite = useCan('servers', 'write');
+  // Editing needs write; the create form is only reachable through the (gated) Add button.
+  const readOnly = props.mode === 'edit' && !canWrite;
   const [values, setValues] = useState<CreateServerFormValues>(() =>
     props.mode === 'edit' ? valuesFromServer(props.server) : DEFAULT_VALUES
   );
@@ -116,107 +121,115 @@ function ServerForm(props: ServerFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="guildId">Discord Guild ID</Label>
-        <Input
-          id="guildId"
-          value={values.guildId}
-          onChange={(event) => setField('guildId', event.target.value)}
-          placeholder="123456789012345678"
-          disabled={props.mode === 'edit'}
-          aria-invalid={!!errors.guildId}
-        />
-        {errors.guildId && <p className="text-body text-error">{errors.guildId}</p>}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="name">Server Name</Label>
-        <Input
-          id="name"
-          value={values.name}
-          onChange={(event) => setField('name', event.target.value)}
-          placeholder="Auto-filled from Discord"
-          aria-invalid={!!errors.name}
-        />
-        {errors.name && <p className="text-body text-error">{errors.name}</p>}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="type">Server Type</Label>
-        <Select
-          value={values.type}
-          onValueChange={(value) => setField('type', value as CreateServerFormValues['type'])}
-        >
-          <SelectTrigger id="type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="main">Main</SelectItem>
-            <SelectItem value="competition">Competition</SelectItem>
-            <SelectItem value="event">Event</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="isMain">Is Main Server</Label>
-          <Switch
-            id="isMain"
-            checked={isMainLocked ? true : values.isMain}
-            disabled={isMainLocked}
-            onCheckedChange={(checked) => setField('isMain', checked)}
+      <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="guildId">Discord Guild ID</Label>
+          <Input
+            id="guildId"
+            value={values.guildId}
+            onChange={(event) => setField('guildId', event.target.value)}
+            placeholder="123456789012345678"
+            disabled={props.mode === 'edit'}
+            aria-invalid={!!errors.guildId}
           />
+          {errors.guildId && <p className="text-body text-error">{errors.guildId}</p>}
         </div>
-        {isMainLocked && (
-          <p className="text-body text-text-muted">
-            To change the main server, set a different server as main from its own edit page.
-          </p>
-        )}
-      </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="syncFrequencyHours">Sync Frequency (hours)</Label>
-        <Input
-          id="syncFrequencyHours"
-          type="number"
-          min={1}
-          max={24}
-          value={values.syncFrequencyHours}
-          onChange={(event) => setField('syncFrequencyHours', Number(event.target.value))}
-          aria-invalid={!!errors.syncFrequencyHours}
-        />
-        {errors.syncFrequencyHours && (
-          <p className="text-body text-error">{errors.syncFrequencyHours}</p>
-        )}
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="name">Server Name</Label>
+          <Input
+            id="name"
+            value={values.name}
+            onChange={(event) => setField('name', event.target.value)}
+            placeholder="Auto-filled from Discord"
+            aria-invalid={!!errors.name}
+          />
+          {errors.name && <p className="text-body text-error">{errors.name}</p>}
+        </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="defaultPermissionPolicy">Default Permission Policy</Label>
-        <Select
-          value={values.defaultPermissionPolicy}
-          onValueChange={(value) =>
-            setField(
-              'defaultPermissionPolicy',
-              value as CreateServerFormValues['defaultPermissionPolicy']
-            )
-          }
-        >
-          <SelectTrigger id="defaultPermissionPolicy">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="deny_all">Deny all</SelectItem>
-            <SelectItem value="allow_all">Allow all</SelectItem>
-            <SelectItem value="custom">Custom</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="type">Server Type</Label>
+          <Select
+            value={values.type}
+            onValueChange={(value) => setField('type', value as CreateServerFormValues['type'])}
+          >
+            <SelectTrigger id="type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="main">Main</SelectItem>
+              <SelectItem value="competition">Competition</SelectItem>
+              <SelectItem value="event">Event</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      <Button type="submit" variant="primary" disabled={isSubmitting} className="mt-2">
-        {props.mode === 'create' ? 'Add Server' : 'Save Changes'}
-      </Button>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="isMain">Is Main Server</Label>
+            <Switch
+              id="isMain"
+              checked={isMainLocked ? true : values.isMain}
+              disabled={isMainLocked}
+              onCheckedChange={(checked) => setField('isMain', checked)}
+            />
+          </div>
+          {isMainLocked && (
+            <p className="text-body text-text-muted">
+              To change the main server, set a different server as main from its own edit page.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="syncFrequencyHours">Sync Frequency (hours)</Label>
+          <Input
+            id="syncFrequencyHours"
+            type="number"
+            min={1}
+            max={24}
+            value={values.syncFrequencyHours}
+            onChange={(event) => setField('syncFrequencyHours', Number(event.target.value))}
+            aria-invalid={!!errors.syncFrequencyHours}
+          />
+          {errors.syncFrequencyHours && (
+            <p className="text-body text-error">{errors.syncFrequencyHours}</p>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="defaultPermissionPolicy">Default Permission Policy</Label>
+          <Select
+            value={values.defaultPermissionPolicy}
+            onValueChange={(value) =>
+              setField(
+                'defaultPermissionPolicy',
+                value as CreateServerFormValues['defaultPermissionPolicy']
+              )
+            }
+          >
+            <SelectTrigger id="defaultPermissionPolicy">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="deny_all">Deny all</SelectItem>
+              <SelectItem value="allow_all">Allow all</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </fieldset>
+
+      {readOnly ? (
+        <Badge variant="secondary" className="self-start">
+          Read only
+        </Badge>
+      ) : (
+        <Button type="submit" variant="primary" disabled={isSubmitting} className="mt-2">
+          {props.mode === 'create' ? 'Add Server' : 'Save Changes'}
+        </Button>
+      )}
     </form>
   );
 }
