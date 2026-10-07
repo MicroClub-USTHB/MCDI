@@ -19,6 +19,7 @@ import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { SearchInput } from '@/shared/components/ui/input';
+import { useCan } from '@/shared/lib/use-access';
 import {
   Select,
   SelectContent,
@@ -49,6 +50,8 @@ function ProjectsView() {
   const [pageIndex, setPageIndex] = useState(0);
   const [pending, setPending] = useState<PendingAction | null>(null);
 
+  const canWrite = useCan('projects', 'write');
+
   const projects = useMemo(
     () => (projectsQuery.data ?? []).map(mapProjectResponse),
     [projectsQuery.data]
@@ -69,7 +72,7 @@ function ProjectsView() {
       icon={<FolderKanban className="size-6" aria-hidden="true" />}
       title="No projects"
       description="Create your first project to connect an application to MCDI."
-      action={<CreateProjectButton />}
+      action={canWrite ? <CreateProjectButton /> : undefined}
     />
   );
 
@@ -103,7 +106,7 @@ function ProjectsView() {
             Applications that integrate with MCDI and what they can access.
           </p>
         </div>
-        <CreateProjectButton />
+        {canWrite ? <CreateProjectButton /> : null}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

@@ -6,6 +6,7 @@ import { Trash2 } from 'lucide-react';
 import type { WebhookView } from '@/features/webhooks/api/mappers';
 import { useDeleteWebhookMutation } from '@/features/webhooks/api/mutations';
 import { WebhookStatsCard } from '@/features/webhooks/components/WebhookStatsCard';
+import { Can } from '@/shared/components/common';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { useToastStore } from '@/shared/stores/toast';
@@ -51,10 +52,12 @@ export function WebhookDetail({ webhook, onDeleted }: WebhookDetailProps) {
           </h2>
           <p className="font-mono text-overline text-text-subtle">ID: {webhook.id}</p>
         </div>
-        <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
-          <Trash2 className="size-4" aria-hidden="true" />
-          Delete webhook
-        </Button>
+        <Can resource="webhooks" level="manage">
+          <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
+            <Trash2 className="size-4" aria-hidden="true" />
+            Delete webhook
+          </Button>
+        </Can>
       </div>
 
       <WebhookStatsCard usageCount={webhook.usageCount} lastUsed={webhook.lastUsedLabel} />

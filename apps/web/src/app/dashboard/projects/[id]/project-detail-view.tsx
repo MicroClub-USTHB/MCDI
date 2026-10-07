@@ -22,6 +22,7 @@ import {
   RedirectUriManager,
 } from '@/features/projects/components';
 import type { ProjectFormValues } from '@/features/projects/types';
+import { Can } from '@/shared/components/common';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
@@ -34,6 +35,7 @@ import {
 } from '@/shared/components/ui/dialog';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Switch } from '@/shared/components/ui/switch';
+import { useCan } from '@/shared/lib/use-access';
 
 interface ProjectDetailViewProps {
   id: string;
@@ -50,6 +52,12 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   const reactivateMutation = useReactivateProjectMutation();
   const deleteMutation = useDeleteProjectMutation();
   const regenerateMutation = useRegenerateApiKeyMutation();
+
+  const canEdit = useCan('projects', 'write');
+  const canDelete = useCan('projects', 'manage');
+  const canViewKey = useCan('project_keys', 'read');
+  const canRotateKey = useCan('project_keys', 'write');
+  const canRevokeKey = useCan('project_keys', 'manage');
 
   const [revealOpen, setRevealOpen] = useState(false);
   const [rotationOpen, setRotationOpen] = useState(false);
@@ -142,50 +150,57 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Switch
-                checked={project.isActive}
-                aria-label={project.isActive ? 'Deactivate project' : 'Reactivate project'}
-                disabled={deactivateMutation.isPending || reactivateMutation.isPending}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    reactivateMutation.mutate(id);
-                  } else {
-                    setDeactivateOpen(true);
-                  }
-                }}
-              />
+              {(project.isActive ? canRevokeKey : canRotateKey) ? (
+                <Switch
+                  checked={project.isActive}
+                  aria-label={project.isActive ? 'Deactivate project' : 'Reactivate project'}
+                  disabled={deactivateMutation.isPending || reactivateMutation.isPending}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      reactivateMutation.mutate(id);
+                    } else {
+                      setDeactivateOpen(true);
+                    }
+                  }}
+                />
+              ) : null}
               <span className="text-overline text-text-subtle">
                 {project.isActive ? 'Active' : 'Deactivated'}
               </span>
             </div>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
-              Edit
-            </Button>
+            <Can resource="projects" level="write">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+            </Can>
           </div>
         </div>
       </div>
 
-      <section
-        aria-labelledby="api-key-heading"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
-      >
-        <div className="flex items-center gap-2">
-          <KeyRound className="size-4 text-text-muted" aria-hidden="true" />
-          <h2 id="api-key-heading" className="text-heading">
-            API key
-          </h2>
-        </div>
-        {apiKeyQuery.isPending ? (
-          <Skeleton className="h-16 w-full" />
-        ) : (
-          <ApiKeyDisplay
-            prefix={apiKeyInfo?.prefix ?? project.apiKeyPrefix}
-            isActive={project.isActive}
-            onReveal={() => setRevealOpen(true)}
-            onRegenerate={() => setRotationOpen(true)}
-          />
-        )}
-      </section>
+      {canViewKey ? (
+        <section
+          aria-labelledby="api-key-heading"
+          className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
+        >
+          <div className="flex items-center gap-2">
+            <KeyRound className="size-4 text-text-muted" aria-hidden="true" />
+            <h2 id="api-key-heading" className="text-heading">
+              API key
+            </h2>
+          </div>
+          {apiKeyQuery.isPending ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <ApiKeyDisplay
+              prefix={apiKeyInfo?.prefix ?? project.apiKeyPrefix}
+              isActive={project.isActive}
+              canRegenerate={canRotateKey}
+              onReveal={() => setRevealOpen(true)}
+              onRegenerate={() => setRotationOpen(true)}
+            />
+          )}
+        </section>
+      ) : null}
 
       <section
         aria-labelledby="redirect-heading"
@@ -202,18 +217,21 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         </div>
         <RedirectUriManager
           uris={uris}
+          readOnly={!canEdit}
           onAdd={handleAddRedirectUri}
           onRemove={handleRemoveRedirectUri}
           isSubmitting={updateRedirectMutation.isPending}
         />
       </section>
 
-      <div className="flex justify-end border-t border-border pt-4">
-        <Button type="button" variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-          <Trash2 aria-hidden="true" />
-          Delete project
-        </Button>
-      </div>
+      {canDelete ? (
+        <div className="flex justify-end border-t border-border pt-4">
+          <Button type="button" variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+            <Trash2 aria-hidden="true" />
+            Delete project
+          </Button>
+        </div>
+      ) : null}
 
       <Dialog open={revealOpen} onOpenChange={setRevealOpen}>
         <DialogContent className="sm:max-w-md">
