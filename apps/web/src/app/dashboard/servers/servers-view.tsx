@@ -4,9 +4,11 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Server as ServerIcon } from 'lucide-react';
 
+import { Can } from '@/shared/components/common';
 import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 import {
   CreateServerButton,
@@ -35,6 +37,7 @@ function ServersView() {
   const router = useRouter();
   const { data: servers, isPending, isError, error, refetch } = useServersQuery();
   const showToast = useToastStore((state) => state.show);
+  const canWrite = useCan('servers', 'write');
 
   const [search, setSearch] = useState('');
   const [type, setType] = useState<ServerTypeFilter>('all');
@@ -108,13 +111,15 @@ function ServersView() {
           }}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <SyncTriggerButton
-            target="all"
-            onTrigger={(payload) => syncMutation.mutate(payload)}
-            isPending={syncMutation.isPending}
-            disabled={anySyncActive || !servers || servers.length === 0}
-          />
-          <CreateServerButton onClick={() => setCreateOpen(true)} />
+          <Can resource="sync" level="write">
+            <SyncTriggerButton
+              target="all"
+              onTrigger={(payload) => syncMutation.mutate(payload)}
+              isPending={syncMutation.isPending}
+              disabled={anySyncActive || !servers || servers.length === 0}
+            />
+          </Can>
+          {canWrite ? <CreateServerButton onClick={() => setCreateOpen(true)} /> : null}
         </div>
       </div>
 
@@ -150,9 +155,9 @@ function ServersView() {
               >
                 Clear filters
               </Button>
-            ) : (
+            ) : canWrite ? (
               <CreateServerButton onClick={() => setCreateOpen(true)} />
-            )
+            ) : undefined
           }
         />
       ) : (

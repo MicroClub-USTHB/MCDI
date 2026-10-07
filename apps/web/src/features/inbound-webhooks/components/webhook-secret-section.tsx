@@ -6,6 +6,7 @@ import { useRotateSecretMutation } from '@/features/inbound-webhooks/api/mutatio
 import { SigningSecretDialog } from '@/features/inbound-webhooks/components/signing-secret-dialog';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 /** Issues a new signing secret and shows it once. The old one stops working at once. */
@@ -14,6 +15,9 @@ export function WebhookSecretSection({ webhookId }: { webhookId: string }) {
   const rotate = useRotateSecretMutation(webhookId);
   const [confirming, setConfirming] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
+  const canRotate = useCan('inbound_webhooks', 'write');
+
+  if (!canRotate) return null;
 
   function confirm() {
     rotate.mutate(undefined, {

@@ -9,6 +9,7 @@ import type {
 } from '@/features/projects/types';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Switch } from '@/shared/components/ui/switch';
+import { useCan } from '@/shared/lib/use-access';
 
 const PROJECT_SCOPES: readonly ProjectScope[] = ['read_members', 'check_permissions'];
 const PROJECT_OPERATIONS: readonly ProjectOperation[] = [
@@ -64,6 +65,9 @@ function ServerAccessMatrix({
   isMutating = false,
   onChange,
 }: ServerAccessMatrixProps) {
+  const canWrite = useCan('projects', 'write');
+  const canManage = useCan('projects', 'manage');
+
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full min-w-[680px] border-collapse text-left">
@@ -132,7 +136,7 @@ function ServerAccessMatrix({
                         <label key={scope} className="flex cursor-pointer items-center gap-2">
                           <Checkbox
                             checked={scopes.includes(scope)}
-                            disabled={isMutating}
+                            disabled={isMutating || !canWrite}
                             onCheckedChange={() => toggleScope(scope)}
                             aria-label={`${SCOPE_LABELS[scope]} on ${server.name}`}
                           />
@@ -150,23 +154,25 @@ function ServerAccessMatrix({
                   <td key={operation} className="px-4 py-3">
                     <Checkbox
                       checked={granted ? (operations?.[operation] ?? false) : false}
-                      disabled={isMutating || !granted}
+                      disabled={isMutating || !canWrite || !granted}
                       onCheckedChange={() => toggleOperation(operation)}
                       aria-label={`${OPERATION_LABELS[operation]} on ${server.name}`}
                     />
                   </td>
                 ))}
                 <td className="px-4 py-3 text-right">
-                  <Switch
-                    checked={granted}
-                    disabled={isMutating || !server.isActive}
-                    onCheckedChange={toggleGrant}
-                    aria-label={
-                      granted
-                        ? `Revoke access for ${server.name}`
-                        : `Grant access to ${server.name}`
-                    }
-                  />
+                  {(granted ? canManage : canWrite) && (
+                    <Switch
+                      checked={granted}
+                      disabled={isMutating || !server.isActive}
+                      onCheckedChange={toggleGrant}
+                      aria-label={
+                        granted
+                          ? `Revoke access for ${server.name}`
+                          : `Grant access to ${server.name}`
+                      }
+                    />
+                  )}
                 </td>
               </tr>
             );

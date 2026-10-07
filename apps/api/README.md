@@ -52,7 +52,7 @@ cp .env.example .env
 | **OAuth** | Project-scoped browser flows with CSRF state, validated `client_id` and `redirect_uri` |
 | **API Keys** | Hash-only storage, one-time secret reveal, per-project scopes |
 | **Sessions** | Short-lived callback codes exchanged for long-lived project session tokens |
-| **Admin Access** | Discord OAuth gated by a configured admin role ID in the main guild |
+| **Admin Access** | Discord OAuth for any main-guild member; a read/write/manage level per admin resource decides what they can do. The configured root role IDs hold everything |
 | **Members** | Fetch by ID, search within a server, resolve effective permissions |
 | **Permissions** | Single and batch checks (`ALL` / `ANY`), inheritance across servers |
 | **Multi-server** | Register guilds, set a main server, enable/disable, inspect sync health |
@@ -123,7 +123,7 @@ MCDI is configured through environment variables loaded from `.env`.
 | `DISCORD_CALLBACK_URL` | OAuth callback for project member login |
 | `DISCORD_ADMIN_CALLBACK_URL` | OAuth callback for admin login |
 | `MC_GUILD_ID` | Main MicroClub guild for admin access verification |
-| `MC_EXECUTIVE_ROLE_ID` | Discord role ID that grants admin access in the main guild |
+| `MC_EXECUTIVE_ROLE_ID` | Discord role ID of the root role in the main guild (full access to the admin API) |
 | `ADMIN_FRONTEND_URL` | Redirect target after successful admin login |
 
 ### Common Optional Settings
@@ -177,10 +177,7 @@ See [docs/auth-integration.md](docs/auth-integration.md) for the full integrator
 
 Admins authenticate through Discord OAuth and receive a bearer session.
 
-Admins log in via Discord OAuth and receive a bearer session token. Access is restricted to members who hold the configured admin role ID in the configured main guild.
-
-- are in the configured main guild
-- hold the `Executive` role in that guild
+Admins log in via Discord OAuth and receive a bearer session token. Any member of the configured main guild can sign in. What they can do depends on the level they hold on each admin resource; members who hold a configured root role ID have full access.
 
 ## Architecture
 

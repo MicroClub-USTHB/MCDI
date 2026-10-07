@@ -16,7 +16,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -38,7 +38,8 @@ import { AdminAuthService } from './services/admin-auth.service';
 import { SsoService } from './services/sso.service';
 import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { AdminSessionOnly } from '../../common/decorators/admin-access.decorator';
 import {
   SessionGuard,
   RequestWithSession,
@@ -332,7 +333,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Exchange callback code for session token (backend-to-backend)',
@@ -383,7 +384,7 @@ export class AuthController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Validate session token (project-scoped)',
@@ -633,7 +634,7 @@ export class AuthController {
   @Post('token/refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
@@ -671,7 +672,7 @@ export class AuthController {
 
   @Get('sessions')
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'List active sessions for the current member',
@@ -700,7 +701,7 @@ export class AuthController {
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Revoke a specific session',
@@ -737,13 +738,17 @@ export class AuthController {
   // ─── System Admin — Me ────────────────────────────────────────────────
 
   @Get('admin/me')
-  @UseGuards(SystemAdminGuard)
+  @AdminSessionOnly()
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Get current system admin profile',
     description:
       'Returns the profile of the authenticated system admin based on their Bearer session token ' +
       'or the `admin_session` httpOnly cookie set after Discord OAuth2 login. ' +
+      'Also returns `root` and the effective access level per admin resource (`permissions`), ' +
+      'which the admin panel uses to decide what to show. Any valid admin session succeeds, ' +
+      'including one whose member holds no access yet. ' +
       'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
   })
   @ApiOkResponse({
@@ -753,18 +758,15 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Missing, invalid, or expired session token.',
   })
-  @ApiForbiddenResponse({
-    description:
-      'Valid session but the member lacks the configured admin role.',
-  })
   async adminMe(@Req() req: Request) {
     const token = extractSessionToken(req)!;
     return this.adminAuthService.getMe(token);
   }
 
   @Post('admin/logout')
+  @AdminSessionOnly()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Log out of the admin dashboard',
@@ -796,7 +798,8 @@ export class AuthController {
   }
 
   // ─── POST /auth/admin/set-password has been removed.
-  // Admin access is gated solely on the configured Discord admin role ID.
+  // Admin access is decided by the level the member holds on each resource
+  // (AdminAccessGuard); root comes from the configured Discord root role IDs.
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
 

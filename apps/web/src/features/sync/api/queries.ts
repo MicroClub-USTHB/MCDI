@@ -13,6 +13,7 @@ import {
   mapSyncLogsResponse,
   syncRefetchInterval,
 } from '@/features/sync/api/mappers';
+import { useCan } from '@/shared/lib/use-access';
 
 /** Sync history is `limit`/`offset` paginated on the backend; the UI pages through fixed windows of this size. */
 export const SYNC_LOG_PAGE_SIZE = 20;
@@ -20,6 +21,7 @@ export const SYNC_LOG_PAGE_SIZE = 20;
 export const SYNC_CHANGES_PAGE_SIZE = 100;
 
 export function useSyncStatusAllQuery() {
+  const allowed = useCan('sync', 'read');
   return useQuery({
     queryKey: syncKeys.statusAll(),
     queryFn: async () => {
@@ -27,17 +29,19 @@ export function useSyncStatusAllQuery() {
       return response.data;
     },
     refetchInterval: (query) => syncRefetchInterval(query.state.data),
+    enabled: allowed,
   });
 }
 
 export function useSyncStatusQuery(serverId: string) {
+  const allowed = useCan('sync', 'read');
   return useQuery({
     queryKey: syncKeys.status(serverId),
     queryFn: async () => {
       const response = await fetchSyncStatus(serverId);
       return response.data;
     },
-    enabled: Boolean(serverId),
+    enabled: allowed && Boolean(serverId),
     refetchInterval: (query) =>
       syncRefetchInterval(query.state.data ? [query.state.data] : undefined),
   });
@@ -46,6 +50,7 @@ export function useSyncStatusQuery(serverId: string) {
 export function useSyncLogsQuery(serverId: string, page: number) {
   const safePage = Number.isInteger(page) && page > 0 ? page : 1;
 
+  const allowed = useCan('sync', 'read');
   return useQuery({
     queryKey: syncKeys.logs(serverId, safePage),
     queryFn: async () => {
@@ -53,7 +58,7 @@ export function useSyncLogsQuery(serverId: string, page: number) {
       const response = await fetchSyncLogs(serverId, SYNC_LOG_PAGE_SIZE, offset);
       return mapSyncLogsResponse(response.data, safePage, SYNC_LOG_PAGE_SIZE);
     },
-    enabled: Boolean(serverId),
+    enabled: allowed && Boolean(serverId),
     placeholderData: (previousData) => previousData,
   });
 }
@@ -61,6 +66,7 @@ export function useSyncLogsQuery(serverId: string, page: number) {
 export function useSyncChangesQuery(syncLogId: number | null, page: number) {
   const safePage = Number.isInteger(page) && page > 0 ? page : 1;
 
+  const allowed = useCan('sync', 'read');
   return useQuery({
     queryKey: syncKeys.changes(syncLogId ?? 0, safePage),
     queryFn: async () => {
@@ -68,7 +74,7 @@ export function useSyncChangesQuery(syncLogId: number | null, page: number) {
       const response = await fetchSyncChanges(syncLogId as number, SYNC_CHANGES_PAGE_SIZE, offset);
       return mapSyncChangesResponse(response.data, safePage, SYNC_CHANGES_PAGE_SIZE);
     },
-    enabled: syncLogId !== null,
+    enabled: allowed && syncLogId !== null,
     placeholderData: (previousData) => previousData,
   });
 }

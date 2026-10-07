@@ -278,6 +278,45 @@ describe('AuthService', () => {
       );
     });
 
+    it('returns only public member fields, not the raw row', async () => {
+      mockSessionRepo.findByTokenWithMember.mockResolvedValue({
+        memberId: 'u1',
+        expiresAt: new Date(Date.now() + 999_999_999),
+        serverId: null,
+        member: {
+          id: 'u1',
+          username: 'alice',
+          globalName: null,
+          displayName: null,
+          preferredName: null,
+          avatar: null,
+          email: 'alice@example.com',
+          isClubMember: true,
+          isSystemAdmin: true,
+          passwordHash: 'secret-hash',
+          joinedAt: null,
+          syncedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      const result = await service.validateSession('valid-token', 'proj-1');
+      expect(Object.keys(result.member).sort()).toEqual([
+        'avatar',
+        'displayName',
+        'email',
+        'globalName',
+        'id',
+        'isClubMember',
+        'joinedAt',
+        'preferredName',
+        'username',
+      ]);
+      expect(result.member).not.toHaveProperty('passwordHash');
+      expect(result.member).not.toHaveProperty('isSystemAdmin');
+    });
+
     it('returns member and roles for a valid session', async () => {
       const future = new Date(Date.now() + 999_999_999);
       mockSessionRepo.findByTokenWithMember.mockResolvedValue({
@@ -649,7 +688,12 @@ describe('AuthService', () => {
         memberId: 'u1',
         serverId: 's1',
       };
-      const memberData = { id: 'u1', username: 'alice' };
+      const memberData = {
+        id: 'u1',
+        username: 'alice',
+        passwordHash: 'secret-hash',
+        isSystemAdmin: true,
+      };
       const rolesData = [{ roleId: 'r1', roleName: 'Admin' }];
 
       mockCallbackCodeRepo.consumeValid.mockResolvedValue(callbackData);
@@ -671,7 +715,8 @@ describe('AuthService', () => {
 
       expect(result.token).toBeDefined();
       expect(result.refreshToken).toBe('new-refresh-token');
-      expect(result.member).toEqual(memberData);
+      expect(result.member).toMatchObject({ id: 'u1', username: 'alice' });
+      expect(result.member).not.toHaveProperty('passwordHash');
       expect(result.roles).toEqual(rolesData);
 
       expect(mockCallbackCodeRepo.consumeValid).toHaveBeenCalledWith(

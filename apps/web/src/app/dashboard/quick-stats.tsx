@@ -4,7 +4,9 @@ import { useProjectsQuery } from '@/features/projects';
 import { useServersQuery } from '@/features/servers';
 import { useMemberStatsQuery } from '@/features/stats';
 import { summarizeSyncStatus, useSyncStatusAllQuery } from '@/features/sync';
+import { EmptyState } from '@/shared/components/ui/empty-state';
 import { StatCard, StatCardError, StatCardSkeleton } from '@/shared/components/ui/stat-card';
+import { useCan } from '@/shared/lib/use-access';
 
 function ServersStatCard() {
   const { data, isPending, isError, refetch } = useServersQuery();
@@ -63,16 +65,30 @@ function SyncStatusStatCard() {
 }
 
 function QuickStats() {
+  const canServers = useCan('servers', 'read');
+  const canProjects = useCan('projects', 'read');
+  const canStats = useCan('stats', 'read');
+  const canSync = useCan('sync', 'read');
+
+  if (!canServers && !canProjects && !canStats && !canSync) {
+    return (
+      <EmptyState
+        title="Nothing to summarize here"
+        description="Pick a page from the sidebar to see what you have access to."
+      />
+    );
+  }
+
   return (
     <div
       className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
       aria-live="polite"
       aria-atomic="false"
     >
-      <ServersStatCard />
-      <ProjectsStatCard />
-      <MembersStatCard />
-      <SyncStatusStatCard />
+      {canServers ? <ServersStatCard /> : null}
+      {canProjects ? <ProjectsStatCard /> : null}
+      {canStats ? <MembersStatCard /> : null}
+      {canSync ? <SyncStatusStatCard /> : null}
     </div>
   );
 }

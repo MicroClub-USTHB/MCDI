@@ -69,7 +69,7 @@ export interface AdminContext {
 }
 
 /**
- * Seeds the minimum data required for `SystemAdminGuard` to pass:
+ * Seeds the minimum data required for `AdminAccessGuard` to resolve a root admin:
  *   main server → member → server membership → Executive role → session
  *
  * Returns auth context containing the bearer token and key IDs.
@@ -252,4 +252,60 @@ export async function seedMemberWithRole(
   await db.insert(schema.serverMemberRoles).values({ memberId, roleId });
 
   return { id: memberId, roleId };
+}
+
+export interface MemberContext {
+  bearerToken: string;
+  memberId: string;
+  roleId: string;
+}
+
+/**
+ * Seeds a main-server member with an admin session who holds a NON-root role
+ * (`seedAdminContext` seeds the root Executive one). The server must already
+ * exist (call `seedAdminContext` first). `suffix` is one character, so several
+ * members can coexist.
+ */
+export async function seedNonRootMember(
+  db: TestDb,
+  serverId: string,
+  suffix = '2',
+): Promise<MemberContext> {
+  const memberId = `80000000000000000${suffix}`;
+  const roleId = `70000000000000000${suffix}`;
+  const token = randomBytes(32).toString('hex');
+
+  await db.insert(schema.members).values({
+    id: memberId,
+    username: `member${suffix}`,
+    globalName: `Member ${suffix}`,
+    displayName: `Member ${suffix}`,
+    avatar: null,
+    email: `member${suffix}@test.com`,
+    isClubMember: true,
+    joinedAt: new Date(),
+    syncedAt: new Date(),
+  });
+  await db
+    .insert(schema.serverMembers)
+    .values({ serverId, memberId, joinedAt: new Date() });
+  await db.insert(schema.roles).values({
+    id: roleId,
+    serverId,
+    name: `Role ${suffix}`,
+    color: 0,
+    hoist: false,
+    position: 2,
+    managed: false,
+    mentionable: false,
+  });
+  await db.insert(schema.serverMemberRoles).values({ memberId, roleId });
+  await db.insert(schema.sessions).values({
+    id: crypto.randomUUID(),
+    memberId,
+    token: hashSessionToken(token),
+    expiresAt: new Date(Date.now() + 86_400_000),
+  });
+
+  return { bearerToken: token, memberId, roleId };
 }

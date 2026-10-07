@@ -12,7 +12,7 @@ export const useAuthStore = create<AuthState>()(
       hasHydrated: false,
 
       // Only ever called after `/auth/admin/me` has come back 200, which is
-      // what makes it safe to set the middleware-trusted cookie here: the
+      // what makes it safe to set the proxy-trusted cookie here: the
       // backend has confirmed the session cookie is real and carries an
       // admin role. Nothing on the client can reach this state by guessing.
       setAuth: (user: User, sessionExpiresAt: string | null = null) => {

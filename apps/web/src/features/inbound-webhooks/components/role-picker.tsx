@@ -13,10 +13,25 @@ interface RolePickerProps {
   selected: string[];
   onChange: (roleIds: string[]) => void;
   isLoading?: boolean;
+  /** Read-only: disables the search, the remove buttons and every option. */
+  disabled?: boolean;
+  /**
+   * Set when the member cannot list roles (the list comes from `/admin/stats/roles`). The search and
+   * the option list are replaced by this note, and the picker is read-only: nothing can be added.
+   */
+  unavailable?: string;
 }
 
 /** Who may read what the webhook receives. Default roles start selected and can be removed like any other. */
-export function RolePicker({ options, selected, onChange, isLoading }: RolePickerProps) {
+export function RolePicker({
+  options,
+  selected,
+  onChange,
+  isLoading,
+  disabled: disabledProp = false,
+  unavailable,
+}: RolePickerProps) {
+  const disabled = disabledProp || unavailable !== undefined;
   const [search, setSearch] = useState('');
   const byId = new Map(options.map((option) => [option.id, option]));
   const needle = search.trim().toLowerCase();
@@ -49,6 +64,7 @@ export function RolePicker({ options, selected, onChange, isLoading }: RolePicke
                   <button
                     type="button"
                     aria-label={`Remove ${name}`}
+                    disabled={disabled}
                     onClick={() => toggle(id)}
                     className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                   >
@@ -61,35 +77,43 @@ export function RolePicker({ options, selected, onChange, isLoading }: RolePicke
         </ul>
       )}
 
-      <SearchInput
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search roles"
-        aria-label="Search roles"
-      />
+      {unavailable !== undefined ? (
+        <p className="text-body text-text-muted">{unavailable}</p>
+      ) : (
+        <>
+          <SearchInput
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search roles"
+            aria-label="Search roles"
+            disabled={disabled}
+          />
 
-      <ul className="relative max-h-60 overflow-y-auto rounded-md border border-border">
-        {isLoading ? (
-          <li className="px-3 py-2 text-body text-text-subtle">Loading roles…</li>
-        ) : shown.length === 0 ? (
-          <li className="px-3 py-2 text-body text-text-subtle">No roles found.</li>
-        ) : (
-          shown.map((option) => (
-            <li key={option.id}>
-              <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-hover">
-                <Checkbox
-                  checked={selected.includes(option.id)}
-                  onCheckedChange={() => toggle(option.id)}
-                  aria-label={option.name}
-                />
-                <span className="text-body text-text-normal">{option.name}</span>
-                <span className="text-body text-text-subtle">{option.serverName}</span>
-                {option.isDefault ? <Badge variant="secondary">Default</Badge> : null}
-              </label>
-            </li>
-          ))
-        )}
-      </ul>
+          <ul className="relative max-h-60 overflow-y-auto rounded-md border border-border">
+            {isLoading ? (
+              <li className="px-3 py-2 text-body text-text-subtle">Loading roles…</li>
+            ) : shown.length === 0 ? (
+              <li className="px-3 py-2 text-body text-text-subtle">No roles found.</li>
+            ) : (
+              shown.map((option) => (
+                <li key={option.id}>
+                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-hover">
+                    <Checkbox
+                      checked={selected.includes(option.id)}
+                      disabled={disabled}
+                      onCheckedChange={() => toggle(option.id)}
+                      aria-label={option.name}
+                    />
+                    <span className="text-body text-text-normal">{option.name}</span>
+                    <span className="text-body text-text-subtle">{option.serverName}</span>
+                    {option.isDefault ? <Badge variant="secondary">Default</Badge> : null}
+                  </label>
+                </li>
+              ))
+            )}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

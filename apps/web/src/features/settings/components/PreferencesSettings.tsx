@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -18,9 +19,16 @@ interface PreferencesSettingsProps {
   preferences: PreferencesSettingsGroup;
   onSave: (payload: UpdateSettingsPayload) => void;
   isSaving?: boolean;
+  /** Read-only: disables the form and replaces Save with a badge. */
+  readOnly?: boolean;
 }
 
-function PreferencesSettings({ preferences, onSave, isSaving = false }: PreferencesSettingsProps) {
+function PreferencesSettings({
+  preferences,
+  onSave,
+  isSaving = false,
+  readOnly = false,
+}: PreferencesSettingsProps) {
   const [values, setValues] = useState<PreferencesSettingsFormValues>({
     memberActivityThresholdDays: preferences.memberActivityThresholdDays.value,
   });
@@ -53,25 +61,33 @@ function PreferencesSettings({ preferences, onSave, isSaving = false }: Preferen
       description="Behavior knobs that don't fit cache or rate limiting."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="memberActivityThresholdDays">Member activity threshold (days)</Label>
-          <Input
-            id="memberActivityThresholdDays"
-            type="number"
-            value={values.memberActivityThresholdDays}
-            onChange={(event) =>
-              setValues({ memberActivityThresholdDays: Number(event.target.value) })
-            }
-            aria-invalid={!!errors.memberActivityThresholdDays}
-          />
-          {errors.memberActivityThresholdDays && (
-            <p className="text-body text-error">{errors.memberActivityThresholdDays}</p>
-          )}
-        </div>
+        <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="memberActivityThresholdDays">Member activity threshold (days)</Label>
+            <Input
+              id="memberActivityThresholdDays"
+              type="number"
+              value={values.memberActivityThresholdDays}
+              onChange={(event) =>
+                setValues({ memberActivityThresholdDays: Number(event.target.value) })
+              }
+              aria-invalid={!!errors.memberActivityThresholdDays}
+            />
+            {errors.memberActivityThresholdDays && (
+              <p className="text-body text-error">{errors.memberActivityThresholdDays}</p>
+            )}
+          </div>
 
-        <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
-          Save
-        </Button>
+          {readOnly ? (
+            <Badge variant="secondary" className="self-start">
+              Read only
+            </Badge>
+          ) : (
+            <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
+              Save
+            </Button>
+          )}
+        </fieldset>
       </form>
     </SettingsSection>
   );

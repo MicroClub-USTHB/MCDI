@@ -36,6 +36,7 @@ describe('buildOpenApiDocument', () => {
     ].sort();
 
     expect(groups).toEqual([
+      'Admin Access',
       'Admin Settings',
       'Audit',
       'Authentication',

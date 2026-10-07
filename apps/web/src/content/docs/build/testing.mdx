@@ -45,7 +45,7 @@ const moduleRef = await Test.createTestingModule({
   controllers: [InboundWebhooksController],
   providers: [{ provide: InboundWebhooksService, useValue: service }],
 })
-  .overrideGuard(SystemAdminGuard)
+  .overrideGuard(AdminAccessGuard)
   .useValue({ canActivate: () => true })
   .compile();
 ```

@@ -9,5 +9,7 @@ export function mapAdminProfileToUser(dto: AdminProfileDto): User {
     email: dto.email,
     avatar: dto.avatar,
     isSystemAdmin: dto.isSystemAdmin,
+    root: dto.root,
+    permissions: dto.permissions,
   };
 }

@@ -21,7 +21,8 @@ import {
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { toCsv } from '../../common/utils/csv.util';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { AdminMembersService } from './admin-members.service';
 import {
   CrossServerQueryDto,
@@ -33,7 +34,8 @@ import {
 @ApiTags('Members')
 @ApiBearerAuth('session-token')
 @Controller('admin/members')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('members', 'read')
 export class AdminMembersController {
   constructor(private readonly adminMembersService: AdminMembersService) {}
 

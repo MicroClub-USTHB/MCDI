@@ -27,6 +27,7 @@ import {
 } from '@/features/roles/components';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
 import { Button } from '@/shared/components/ui/button';
+import { useCan } from '@/shared/lib/use-access';
 import { cn } from '@/shared/lib/utils';
 import { useToastStore } from '@/shared/stores';
 
@@ -69,6 +70,8 @@ function Panel({
 function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   const router = useRouter();
   const toast = useToastStore((s) => s.show);
+  const canWrite = useCan('roles', 'write');
+  const canManage = useCan('roles', 'manage');
 
   const statsQuery = useRoleStatsQuery(serverId);
   const rolePermissionsQuery = useRolePermissionsQuery(serverId, roleId);
@@ -129,8 +132,9 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   }, [currentRolePerms, staged]);
 
   function handleToggle(permissionId: number, checked: boolean) {
-    if (isApplying || isExecutiveRole || !currentRolePerms) return;
+    if (isApplying || isExecutiveRole || !canWrite || !currentRolePerms) return;
     const currentlyHas = currentRolePerms.permissionIds.has(permissionId);
+    if (currentlyHas && !checked && !canManage) return;
     setStaged((prev) => {
       const next = new Map(prev);
       if (checked === currentlyHas) next.delete(permissionId);
@@ -268,7 +272,8 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                 <PermissionMatrix
                   assignedIds={displayedPermissionIds ?? currentRolePerms.permissionIds}
                   savingIds={isApplying ? new Set(staged.keys()) : new Set()}
-                  locked={isApplying || isExecutiveRole}
+                  locked={isApplying || isExecutiveRole || !canWrite}
+                  lockedIds={canManage ? undefined : currentRolePerms.permissionIds}
                   onToggle={handleToggle}
                 />
 

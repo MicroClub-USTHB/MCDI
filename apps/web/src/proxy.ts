@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSafeRedirectPath } from '@/features/auth/lib/safe-redirect';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const authToken = request.cookies.get('auth-token');
 

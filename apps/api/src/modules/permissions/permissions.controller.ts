@@ -37,8 +37,10 @@ import { ImpactPreviewDto } from './dto/impact-preview.dto';
 import { RolePermissionsResponseDto } from './dto/role-permissions-response.dto';
 import { ImpactPreviewResponseDto } from './dto/impact-preview-response.dto';
 import { PermissionsService } from './permissions.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
+import { RequireScope } from '../../common/decorators/require-scope.decorator';
 
 @ApiTags('Permissions')
 @Controller('permissions')
@@ -50,12 +52,14 @@ export class PermissionsController {
   @Post('check')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check a single permission',
     description:
       'Resolves whether a Discord member holds a specific permission in a given server. ' +
-      'Permissions are derived from their roles and any configured inheritance rules.',
+      'Permissions are derived from their roles and any configured inheritance rules. ' +
+      'Requires the `check_permissions` scope for the server in the request body.',
   })
   @ApiBody({ type: CheckPermissionDto })
   @ApiOkResponse({ description: 'Permission check result returned.' })
@@ -71,12 +75,14 @@ export class PermissionsController {
   @Post('check-batch')
   @HttpCode(HttpStatus.OK)
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Check multiple permissions (batch)',
     description:
       'Checks a list of permissions for a member in one call. ' +
-      'Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches.',
+      'Set `mode` to `ALL` to require every permission, or `ANY` to pass if at least one matches. ' +
+      'Requires the `check_permissions` scope for the server in the request body.',
   })
   @ApiBody({ type: CheckPermissionsBatchDto })
   @ApiOkResponse({ description: 'Batch permission check result returned.' })
@@ -103,6 +109,7 @@ export class PermissionsController {
 
   @Get(':serverId/:discordId')
   @UseGuards(ApiKeyGuard)
+  @RequireScope('check_permissions')
   @ApiSecurity('api-key')
   @ApiOperation({
     summary: 'Get full resolved permissions for a member',
@@ -137,8 +144,9 @@ export class PermissionsController {
   // ─── Admin-only endpoints ──────────────────────────────────────────
 
   @Post('inheritance-rules')
+  @RequirePermission('roles', 'write')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Create or update an inheritance rule',
@@ -156,7 +164,8 @@ export class PermissionsController {
   }
 
   @Get('inheritance-rules')
-  @UseGuards(SystemAdminGuard)
+  @RequirePermission('roles', 'read')
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
@@ -199,7 +208,8 @@ export class PermissionsController {
   // ─── Role-Permission Management API ────────────────────────────────
 
   @Get('admin/servers/:serverId/roles/:roleId/permissions')
-  @UseGuards(SystemAdminGuard)
+  @RequirePermission('roles', 'read')
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Get all permissions assigned to a role',
@@ -231,8 +241,9 @@ export class PermissionsController {
   }
 
   @Post('admin/servers/:serverId/roles/:roleId/permissions')
+  @RequirePermission('roles', 'write')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Add permissions to a role',
@@ -271,8 +282,9 @@ export class PermissionsController {
   }
 
   @Delete('admin/servers/:serverId/roles/:roleId/permissions/:permissionId')
+  @RequirePermission('roles', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Remove a permission from a role',
@@ -316,8 +328,9 @@ export class PermissionsController {
   }
 
   @Post('admin/servers/:serverId/roles/:roleId/impact')
+  @RequirePermission('roles', 'read')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Preview impact of a permission change on a role',

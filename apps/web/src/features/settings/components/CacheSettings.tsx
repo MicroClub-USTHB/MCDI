@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Database } from 'lucide-react';
 
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -18,6 +19,8 @@ interface CacheSettingsProps {
   settings: CacheSettingsGroup;
   onSave: (payload: UpdateSettingsPayload) => void;
   isSaving?: boolean;
+  /** Read-only: disables the form and replaces Save with a badge. */
+  readOnly?: boolean;
 }
 
 function toValues(settings: CacheSettingsGroup): CacheSettingsFormValues {
@@ -27,7 +30,12 @@ function toValues(settings: CacheSettingsGroup): CacheSettingsFormValues {
   };
 }
 
-function CacheSettings({ settings, onSave, isSaving = false }: CacheSettingsProps) {
+function CacheSettings({
+  settings,
+  onSave,
+  isSaving = false,
+  readOnly = false,
+}: CacheSettingsProps) {
   const [values, setValues] = useState<CacheSettingsFormValues>(() => toValues(settings));
   const [errors, setErrors] = useState<CacheSettingsFormErrors>({});
   const isDirty =
@@ -63,51 +71,59 @@ function CacheSettings({ settings, onSave, isSaving = false }: CacheSettingsProp
       description="TTLs for the permission and stats caches."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="permissionTtlMs">Permission cache TTL (ms)</Label>
-          <Input
-            id="permissionTtlMs"
-            type="number"
-            value={values.permissionTtlMs}
-            onChange={(event) => setField('permissionTtlMs', event.target.value)}
-            aria-invalid={!!errors.permissionTtlMs}
-          />
-          {errors.permissionTtlMs && (
-            <p className="text-body text-error">{errors.permissionTtlMs}</p>
+        <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="permissionTtlMs">Permission cache TTL (ms)</Label>
+            <Input
+              id="permissionTtlMs"
+              type="number"
+              value={values.permissionTtlMs}
+              onChange={(event) => setField('permissionTtlMs', event.target.value)}
+              aria-invalid={!!errors.permissionTtlMs}
+            />
+            {errors.permissionTtlMs && (
+              <p className="text-body text-error">{errors.permissionTtlMs}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="statsTtlMs">Stats cache TTL (ms)</Label>
+            <Input
+              id="statsTtlMs"
+              type="number"
+              value={values.statsTtlMs}
+              onChange={(event) => setField('statsTtlMs', event.target.value)}
+              aria-invalid={!!errors.statsTtlMs}
+            />
+            {errors.statsTtlMs && <p className="text-body text-error">{errors.statsTtlMs}</p>}
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
+            <p className="text-overline text-text-faint uppercase">Environment-only</p>
+            <div className="flex items-center justify-between gap-3 text-body">
+              <span className="text-text-muted">Project auth cache TTL</span>
+              <span className="font-mono text-code text-text-normal">
+                {settings.projectAuthTtlMs.value.toLocaleString()} ms
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3 text-body">
+              <span className="text-text-muted">Project access cache TTL</span>
+              <span className="font-mono text-code text-text-normal">
+                {settings.projectAccessTtlMs.value.toLocaleString()} ms
+              </span>
+            </div>
+          </div>
+
+          {readOnly ? (
+            <Badge variant="secondary" className="self-start">
+              Read only
+            </Badge>
+          ) : (
+            <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
+              Save
+            </Button>
           )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="statsTtlMs">Stats cache TTL (ms)</Label>
-          <Input
-            id="statsTtlMs"
-            type="number"
-            value={values.statsTtlMs}
-            onChange={(event) => setField('statsTtlMs', event.target.value)}
-            aria-invalid={!!errors.statsTtlMs}
-          />
-          {errors.statsTtlMs && <p className="text-body text-error">{errors.statsTtlMs}</p>}
-        </div>
-
-        <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-          <p className="text-overline text-text-faint uppercase">Environment-only</p>
-          <div className="flex items-center justify-between gap-3 text-body">
-            <span className="text-text-muted">Project auth cache TTL</span>
-            <span className="font-mono text-code text-text-normal">
-              {settings.projectAuthTtlMs.value.toLocaleString()} ms
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 text-body">
-            <span className="text-text-muted">Project access cache TTL</span>
-            <span className="font-mono text-code text-text-normal">
-              {settings.projectAccessTtlMs.value.toLocaleString()} ms
-            </span>
-          </div>
-        </div>
-
-        <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
-          Save
-        </Button>
+        </fieldset>
       </form>
     </SettingsSection>
   );

@@ -6,7 +6,7 @@
  *
  * Auth model:
  *   - check / check-batch / getMemberPermissions: API key guard
- *   - inheritance-rules: SystemAdminGuard (Bearer token)
+ *   - inheritance-rules: AdminAccessGuard (Bearer token)
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -285,6 +285,97 @@ describeIf('/api/permissions (e2e)', () => {
       await request(app.getHttpServer())
         .get(`/api/permissions/${adminCtx.serverId}/${member.id}`)
         .set('X-API-Key', apiKey)
+        .expect(403);
+    });
+  });
+
+  // ─── Project access and scope enforcement ─────────────────────
+
+  describe('project access and scope', () => {
+    const OTHER_SERVER_ID = '900000000000000002';
+    let noAccessKey: string;
+    let noScopeKey: string;
+
+    beforeEach(async () => {
+      await db.insert(servers).values({
+        id: OTHER_SERVER_ID,
+        name: 'Other Server',
+        icon: null,
+        isMain: false,
+        isActive: true,
+        type: 'club',
+        syncedAt: new Date(),
+      });
+      // Access to the other server only, none to the main server
+      noAccessKey = (
+        await seedTestProject(db, OTHER_SERVER_ID, {
+          name: 'No Access Project',
+          scopes: ['check_permissions'],
+        })
+      ).apiKey;
+      // Access to the main server, but without the check_permissions scope
+      noScopeKey = (
+        await seedTestProject(db, adminCtx.serverId, {
+          name: 'No Scope Project',
+          scopes: ['read_members'],
+        })
+      ).apiKey;
+    });
+
+    const body = () => ({
+      discordId: member.id,
+      serverId: adminCtx.serverId,
+      permission: 'READ_MEMBERS',
+    });
+
+    it.each([
+      ['check', () => body()],
+      [
+        'check-batch',
+        () => ({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permissions: ['READ_MEMBERS'],
+          mode: 'ALL',
+        }),
+      ],
+    ])(
+      'POST %s returns 403 for a project without access to the server',
+      async (route, payload) => {
+        await request(app.getHttpServer())
+          .post(`/api/permissions/${route}`)
+          .set('X-API-Key', noAccessKey)
+          .send(payload())
+          .expect(403);
+      },
+    );
+
+    it.each([
+      ['check', () => body()],
+      [
+        'check-batch',
+        () => ({
+          discordId: member.id,
+          serverId: adminCtx.serverId,
+          permissions: ['READ_MEMBERS'],
+          mode: 'ALL',
+        }),
+      ],
+    ])(
+      'POST %s returns 403 for a project without the check_permissions scope',
+      async (route, payload) => {
+        await request(app.getHttpServer())
+          .post(`/api/permissions/${route}`)
+          .set('X-API-Key', noScopeKey)
+          .send(payload())
+          .expect(403);
+      },
+    );
+
+    it('GET /:serverId/:discordId returns 403 for a project without the check_permissions scope', async () => {
+      await request(app.getHttpServer())
+        .get(`/api/permissions/${adminCtx.serverId}/${member.id}`)
+        .set('X-API-Key', noScopeKey)
         .expect(403);
     });
   });

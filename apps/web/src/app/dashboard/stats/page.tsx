@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { RotateCw } from 'lucide-react';
 
 import { useServersQuery } from '@/features/servers';
+import { useCan } from '@/shared/lib/use-access';
 import {
   ChartCard,
   ChartEmpty,
@@ -203,6 +204,7 @@ function MemberStatisticsPage() {
   const growthGranularity = getGrowthGranularity(dateRange);
 
   const serversQuery = useServersQuery();
+  const canServers = useCan('servers', 'read');
   const memberStatsQuery = useMemberStatsQuery({ serverId, dateRange });
   const growthQuery = useMemberGrowthQuery(dateRange, growthGranularity);
   const roleQuery = useRoleStatsQuery(serverId);
@@ -264,30 +266,34 @@ function MemberStatisticsPage() {
           ))}
         </div>
 
-        <select
-          aria-label="Server"
-          className="h-9 w-48 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none transition-colors focus:border-border-focus disabled:cursor-not-allowed disabled:opacity-60"
-          value={selectedServerId}
-          onChange={(event) => setSelectedServerId(event.target.value)}
-          disabled={serversQuery.isPending}
-        >
-          <option value="">All servers</option>
-          {serversQuery.data?.map((server) => (
-            <option key={server.id} value={server.id}>
-              {server.name}
-            </option>
-          ))}
-        </select>
+        {canServers ? (
+          <>
+            <select
+              aria-label="Server"
+              className="h-9 w-48 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none transition-colors focus:border-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+              value={selectedServerId}
+              onChange={(event) => setSelectedServerId(event.target.value)}
+              disabled={serversQuery.isPending}
+            >
+              <option value="">All servers</option>
+              {serversQuery.data?.map((server) => (
+                <option key={server.id} value={server.id}>
+                  {server.name}
+                </option>
+              ))}
+            </select>
 
-        {serversQuery.isError ? (
-          <button
-            type="button"
-            onClick={() => void serversQuery.refetch()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-overline text-error transition-colors hover:bg-error/10 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
-          >
-            <RotateCw className="size-3.5" aria-hidden="true" />
-            Servers failed — retry
-          </button>
+            {serversQuery.isError ? (
+              <button
+                type="button"
+                onClick={() => void serversQuery.refetch()}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 text-overline text-error transition-colors hover:bg-error/10 focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+              >
+                <RotateCw className="size-3.5" aria-hidden="true" />
+                Servers failed — retry
+              </button>
+            ) : null}
+          </>
         ) : null}
 
         <div className="ml-auto">
