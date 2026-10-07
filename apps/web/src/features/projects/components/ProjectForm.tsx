@@ -135,13 +135,13 @@ function ProjectForm({
             {errors.scopes && <p className="text-overline text-error">{errors.scopes}</p>}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-body font-medium text-text-normal">Server access</span>
-              <span className="text-overline text-text-subtle">{serverIds.length} selected</span>
-            </div>
-            {canServers &&
-              (serversLoading ? (
+          {canServers ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-body font-medium text-text-normal">Server access</span>
+                <span className="text-overline text-text-subtle">{serverIds.length} selected</span>
+              </div>
+              {serversLoading ? (
                 <div className="rounded-md border border-border p-4 text-overline text-text-faint">
                   Loading servers…
                 </div>
@@ -174,8 +174,9 @@ function ProjectForm({
                     );
                   })}
                 </div>
-              ))}
-          </div>
+              )}
+            </div>
+          ) : null}
         </>
       )}
 
