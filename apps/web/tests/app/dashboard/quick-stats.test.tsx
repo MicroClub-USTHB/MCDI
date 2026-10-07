@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+
+import { signInAs } from '../../helpers/auth';
 import type * as SyncModule from '@/features/sync';
 
 const useServersQuery = vi.fn();
@@ -75,6 +77,33 @@ describe('QuickStats', () => {
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('1,247')).toBeInTheDocument();
     expect(screen.getByText('All synced')).toBeInTheDocument();
+  });
+
+  it('shows only the cards the member can read', () => {
+    useServersQuery.mockReturnValue(pendingResult);
+    useProjectsQuery.mockReturnValue(pendingResult);
+    useMemberStatsQuery.mockReturnValue(pendingResult);
+    useSyncStatusAllQuery.mockReturnValue(pendingResult);
+    signInAs({ permissions: { servers: 'read' } });
+
+    render(<QuickStats />);
+
+    expect(screen.getByText('Loading Servers…')).toBeInTheDocument();
+    expect(screen.queryByText('Loading Projects…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading Members…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading Sync…')).not.toBeInTheDocument();
+  });
+
+  it('points at the sidebar when no card applies', () => {
+    useServersQuery.mockReturnValue(pendingResult);
+    useProjectsQuery.mockReturnValue(pendingResult);
+    useMemberStatsQuery.mockReturnValue(pendingResult);
+    useSyncStatusAllQuery.mockReturnValue(pendingResult);
+    signInAs({ permissions: { messages: 'read' } });
+
+    render(<QuickStats />);
+
+    expect(screen.getByText(/pick a page from the sidebar/i)).toBeInTheDocument();
   });
 
   it('shows a retry control for a card whose query failed, independent of the others', async () => {

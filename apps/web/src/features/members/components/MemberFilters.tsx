@@ -9,6 +9,7 @@ import { Button } from '@/shared/components/ui/button';
 import { SearchInput } from '@/shared/components/ui/input';
 import { cn } from '@/shared/lib/utils';
 import { useServersQuery } from '@/features/servers/api/queries';
+import { useCan } from '@/shared/lib/use-access';
 import { memberKeys } from '@/features/members/api/keys';
 import { fetchServerRoles } from '@/features/members/api/service';
 import type { MemberFilters, ServerRolesResponseDto } from '@/features/members/types';
@@ -271,7 +272,11 @@ export function MemberFilters({
   lockServer = false,
 }: MemberFiltersProps) {
   const { data: servers = [], isPending: serversPending } = useServersQuery();
-  const roleQueries = useQueries({ queries: memberRoleQueries(filters.serverIds) });
+  const canServers = useCan('servers', 'read');
+  const canRoleStats = useCan('stats', 'read');
+  const roleQueries = useQueries({
+    queries: memberRoleQueries(canRoleStats ? filters.serverIds : []),
+  });
 
   const roleGroups = useMemo<ServerRolesResponseDto[]>(() => {
     return roleQueries
@@ -344,7 +349,7 @@ export function MemberFilters({
           />
         </div>
 
-        {!lockServer && (
+        {!lockServer && canServers && (
           <div className="min-w-0 space-y-1">
             <span className="text-overline text-text-subtle">Servers</span>
             <MultiSelectPicker
@@ -365,29 +370,31 @@ export function MemberFilters({
           </div>
         )}
 
-        <div className="min-w-0 space-y-1">
-          <span className="text-overline text-text-subtle">Roles</span>
-          <MultiSelectPicker
-            label="Roles"
-            selectionType="role"
-            groups={rolePickerGroups}
-            selectedIds={filters.roleIds}
-            searchPlaceholder="Search roles..."
-            emptyMessage={
-              selectedServerIds.length === 0
-                ? 'Select at least one server to load roles.'
-                : 'No matching roles found.'
-            }
-            loading={selectedServerIds.length > 0 && roleLoading}
-            disabled={selectedServerIds.length === 0}
-            onToggle={(roleId) =>
-              onFilterChange({
-                roleIds: toggleSelection(filters.roleIds, roleId),
-                page: 1,
-              })
-            }
-          />
-        </div>
+        {canServers && canRoleStats ? (
+          <div className="min-w-0 space-y-1">
+            <span className="text-overline text-text-subtle">Roles</span>
+            <MultiSelectPicker
+              label="Roles"
+              selectionType="role"
+              groups={rolePickerGroups}
+              selectedIds={filters.roleIds}
+              searchPlaceholder="Search roles..."
+              emptyMessage={
+                selectedServerIds.length === 0
+                  ? 'Select at least one server to load roles.'
+                  : 'No matching roles found.'
+              }
+              loading={selectedServerIds.length > 0 && roleLoading}
+              disabled={selectedServerIds.length === 0}
+              onToggle={(roleId) =>
+                onFilterChange({
+                  roleIds: toggleSelection(filters.roleIds, roleId),
+                  page: 1,
+                })
+              }
+            />
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-2 xl:pt-5">
           <span className="text-overline text-text-subtle">Club</span>
