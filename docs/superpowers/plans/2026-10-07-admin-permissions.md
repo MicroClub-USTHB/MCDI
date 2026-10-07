@@ -665,9 +665,19 @@ pnpm --filter @mcdi/api run db:migrate
 psql "$DATABASE_URL" -c '\d admin_role_access' -c '\d admin_member_access' -c "select unnest(enum_range(null::audit_action_type))"
 ```
 
-Expected: both runs succeed (the second proves idempotence), both tables show their primary key, the check constraint and the foreign key, and the enum list ends with `access`.
+Expected: both runs succeed, both tables show their primary key, the check constraint and the foreign key, and the enum list ends with `access`.
 
-- [ ] **Step 7: Typecheck and commit**
+- [ ] **Step 7: Prove idempotence the way production does**
+
+`db:migrate` uses a journal, so its second run skips the file and proves nothing about the SQL. Production applies the raw SQL with `psql` on every boot, so run that directly twice:
+
+```bash
+for i in 1 2; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f apps/api/src/database/migrations/0006_*.sql; done
+```
+
+Expected: both runs finish with only `NOTICE ... already exists, skipping` lines and no errors.
+
+- [ ] **Step 8: Typecheck and commit**
 
 Run: `pnpm --filter @mcdi/api run typecheck`
 Expected: no errors.
@@ -1054,7 +1064,8 @@ import * as schema from '../../database/entities';
 export interface ServerRoleRow {
   id: string;
   name: string;
-  position: number;
+  // roles.position is nullable
+  position: number | null;
 }
 
 @Injectable()
@@ -3617,6 +3628,20 @@ git commit -m "docs: describe admin access levels and root"
 ---
 
 ### Task 15: Verification and pull request (run once per PR)
+
+**Running the e2e suite locally.** The suite truncates every table and the app would try to log the real Discord bot in from `apps/api/.env`. Use a throwaway database and blank tokens, for example:
+
+```bash
+psql postgresql://myuser:mypassword@localhost:5432/mcdi -c "create database mcdi_test"
+cd apps/api && set -a && . ./.env && set +a
+export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi_test \
+  REDIS_HOST=localhost REDIS_KEY_PREFIX=mcdi_test DISCORD_TOKEN= DISCORD_BOT_TOKEN=
+pnpm run db:migrate && pnpm run test:e2e
+```
+
+Never run the e2e suite against the development database, and do not use `RESET_DB=1` on it.
+
+**Formatting.** Code copied from this plan is not prettier-formatted. Run `pnpm exec eslint --fix` on the files you added or changed before committing, then re-run the tests.
 
 Run the steps below at the end of each of PR A, B and C, on that PR's branch. For PR A skip the e2e run and the `docs:api` regeneration; for PR B run the full e2e suite; PR C runs everything. In Step 4 use the branch and title of the PR you are opening (see "Delivery in three pull requests") and describe only what that PR contains.
 
