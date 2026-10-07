@@ -99,8 +99,7 @@ describe('Sidebar', () => {
       expect(screen.queryByRole('group', { name: 'Projects' })).not.toBeInTheDocument();
     });
 
-    // un-skipped by the gating PR, which stops queries the member cannot make
-    it.skip('does not ask for servers when the member cannot read them', () => {
+    it('does not ask for servers when the member cannot read them', () => {
       let serversRequested = false;
       server.use(
         http.get(`${API_URL}/servers`, () => {

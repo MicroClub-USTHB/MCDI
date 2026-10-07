@@ -19,29 +19,36 @@ import {
   previewSchema,
 } from '@/features/inbound-webhooks/api/service';
 import type { PreviewSchemaPayload, SubmissionFilters } from '@/features/inbound-webhooks/types';
+import { useCan } from '@/shared/lib/use-access';
 
 export function useInboundWebhooksQuery(projectId: string) {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: inboundWebhookKeys.lists(projectId),
     queryFn: async () => {
       const response = await fetchInboundWebhooks(projectId);
       return response.data.map(mapInboundWebhook);
     },
+    enabled: allowed,
   });
 }
 
 /** The reader roles of one webhook. */
 export function useAllowedRolesQuery(webhookId: string) {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: inboundWebhookKeys.roles(webhookId),
     queryFn: async () => (await fetchAllowedRoles(webhookId)).data,
+    enabled: allowed,
   });
 }
 
 export function useInboundSettingsQuery() {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: inboundWebhookKeys.settings(),
     queryFn: async () => (await fetchInboundSettings()).data,
+    enabled: allowed,
   });
 }
 
@@ -51,10 +58,11 @@ export function useInboundSettingsQuery() {
  * preview never flashes empty while the admin types.
  */
 export function useSchemaPreviewQuery(payload: PreviewSchemaPayload | null) {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: payload ? inboundWebhookKeys.preview(payload) : inboundWebhookKeys.all,
     queryFn: async () => (await previewSchema(payload as PreviewSchemaPayload)).data,
-    enabled: payload !== null,
+    enabled: allowed && payload !== null,
     placeholderData: keepPreviousData,
     retry: false,
     staleTime: 30_000,
@@ -62,10 +70,13 @@ export function useSchemaPreviewQuery(payload: PreviewSchemaPayload | null) {
 }
 
 function useServerRoles(serverIds: string[]) {
+  // The roles come from `/admin/stats/roles`.
+  const allowed = useCan('stats', 'read');
   const queries = useQueries({
     queries: serverIds.map((serverId) => ({
       queryKey: memberKeys.roles(serverId),
       queryFn: async () => (await fetchServerRoles(serverId)).data,
+      enabled: allowed,
       retry: false,
     })),
   });
@@ -119,17 +130,20 @@ export function useAllRoleOptions() {
 }
 
 export function useInboundWebhookQuery(webhookId: string) {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: inboundWebhookKeys.detail(webhookId),
     queryFn: async () => (await fetchInboundWebhook(webhookId)).data,
+    enabled: allowed,
   });
 }
 
 export function useWebhookDocsQuery(webhookId: string, enabled: boolean) {
+  const allowed = useCan('inbound_webhooks', 'read');
   return useQuery({
     queryKey: inboundWebhookKeys.docs(webhookId),
     queryFn: async () => (await fetchWebhookDocs(webhookId)).data,
-    enabled,
+    enabled: allowed && enabled,
   });
 }
 
