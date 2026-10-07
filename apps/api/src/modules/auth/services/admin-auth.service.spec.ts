@@ -9,6 +9,8 @@ import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
 import { AuditService } from '../../audit/audit.service';
+import { AdminAccessService } from '../../admin-access/admin-access.service';
+import { ACCESS_RESOURCES } from '../../../common/permissions/catalog';
 
 describe('AdminAuthService', () => {
   let service: AdminAuthService;
@@ -19,6 +21,10 @@ describe('AdminAuthService', () => {
   let sessionIssuanceService: jest.Mocked<SessionIssuanceService>;
   let discordService: jest.Mocked<DiscordService>;
   let auditService: { logAction: jest.Mock };
+  let adminAccessService: {
+    getEffectiveAccess: jest.Mock;
+    invalidateMember: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mockSessionRepo = {
@@ -56,6 +62,10 @@ describe('AdminAuthService', () => {
       fetchGuildRolesForMember: jest.fn(),
     };
     auditService = { logAction: jest.fn() };
+    adminAccessService = {
+      getEffectiveAccess: jest.fn(),
+      invalidateMember: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -68,6 +78,7 @@ describe('AdminAuthService', () => {
         { provide: SessionIssuanceService, useValue: mockSessionIssuance },
         { provide: DiscordService, useValue: mockDiscordService },
         { provide: AuditService, useValue: auditService },
+        { provide: AdminAccessService, useValue: adminAccessService },
       ],
     }).compile();
 
@@ -94,7 +105,7 @@ describe('AdminAuthService', () => {
       await expect(service.getMe('t')).rejects.toThrow(UnauthorizedException);
     });
 
-    it('returns member on success', async () => {
+    it('returns the member with root and the effective level per resource', async () => {
       sessionRepository.findValidByToken.mockResolvedValue({
         memberId: '1',
         expiresAt: new Date(),
@@ -103,10 +114,25 @@ describe('AdminAuthService', () => {
         id: '1',
         username: 'a',
       } as any);
+      adminAccessService.getEffectiveAccess.mockResolvedValue({
+        root: false,
+        access: Object.fromEntries(
+          ACCESS_RESOURCES.map((r) => [
+            r,
+            r === 'members'
+              ? { level: 'read', source: { type: 'role', roleId: 'r' } }
+              : { level: 'none', source: { type: 'none' } },
+          ]),
+        ),
+      });
 
       const res = await service.getMe('t');
 
       expect(res.id).toBe('1');
+      expect(res.root).toBe(false);
+      expect(res.permissions.members).toBe('read');
+      expect(res.permissions.messages).toBe('none');
+      expect(Object.keys(res.permissions)).toEqual([...ACCESS_RESOURCES]);
     });
   });
 
@@ -210,17 +236,6 @@ describe('AdminAuthService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws Forbidden if the member lacks the Executive role', async () => {
-      discordService.fetchOAuthGuildMember.mockResolvedValue({
-        ok: true,
-        roleIds: ['role-lead'],
-      } as any);
-
-      await expect(
-        service.handleAdminDiscordCallback('code', 'valid'),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
     it('records a failed login with the reason, and with the Discord id once the profile resolved', async () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValueOnce(null);
       await expect(
@@ -245,8 +260,8 @@ describe('AdminAuthService', () => {
       );
 
       discordService.fetchOAuthGuildMember.mockResolvedValue({
-        ok: true,
-        roleIds: ['role-lead'],
+        ok: false,
+        status: 404,
       } as any);
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),
@@ -258,7 +273,7 @@ describe('AdminAuthService', () => {
           action: 'login_failed',
           details: {
             reason:
-              'Only members with a configured admin role can access the admin panel',
+              'You must be a member of the main MCDI Discord server to access the admin panel',
             attemptedActor: 'discord123',
           },
         }),
@@ -301,6 +316,20 @@ describe('AdminAuthService', () => {
         clientUserAgent: null,
         clientIpAddress: null,
       });
+    });
+
+    it('lets a main-server member with no admin role sign in, and clears their cached access', async () => {
+      discordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        roleIds: ['role-hr'],
+      } as any);
+
+      const res = await service.handleAdminDiscordCallback('code', 'valid');
+
+      expect(res.token).toBe('issued-token');
+      expect(adminAccessService.invalidateMember).toHaveBeenCalledWith(
+        'discord123',
+      );
     });
   });
 });
