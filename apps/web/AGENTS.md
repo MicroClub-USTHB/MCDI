@@ -72,6 +72,7 @@ src/
 4. **Auth singleton**: `apiClient` reads Zustand state via `getState()` — no React context needed. Never create a second instance.
 5. **Token refresh dedup**: Concurrent 401s share a single refresh promise. Don't bypass this.
 6. **Env validation**: `env.ts` throws at import time if vars are missing. Intentional.
+7. **Access levels**: every page under `app/dashboard` needs an entry in `src/shared/lib/route-access.ts` (a test fails without it, and an unlisted route is denied). A write or manage action is wrapped in `<Can resource level>` or checked with `useCan`, and a new query hook calls `useCan(resource, 'read')` into its `enabled`. The panel adapts to the member's levels; the API enforces them.
 
 ## 4. UI & Design System
 

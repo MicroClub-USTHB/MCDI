@@ -24,58 +24,63 @@ function wrapper({ children }: { children: ReactNode }) {
 
 /** Each hook, the resource it needs, and an endpoint that answers when it is called. */
 const CASES = [
-  { name: 'useServersQuery', resource: 'servers', path: '/servers', run: () => useServersQuery() },
+  {
+    name: 'useServersQuery',
+    resource: 'servers',
+    path: '/servers',
+    useRun: () => useServersQuery(),
+  },
   {
     name: 'useProjectsQuery',
     resource: 'projects',
     path: '/admin/projects',
-    run: () => useProjectsQuery(),
+    useRun: () => useProjectsQuery(),
   },
   {
     name: 'useServerStatsQuery',
     resource: 'stats',
     path: '/admin/stats/servers',
-    run: () => useServerStatsQuery(),
+    useRun: () => useServerStatsQuery(),
   },
   {
     name: 'useSyncStatusAllQuery',
     resource: 'sync',
     path: '/admin/sync/status/all',
-    run: () => useSyncStatusAllQuery(),
+    useRun: () => useSyncStatusAllQuery(),
   },
   {
     name: 'useSettingsQuery',
     resource: 'settings',
     path: '/admin/settings',
-    run: () => useSettingsQuery(),
+    useRun: () => useSettingsQuery(),
   },
   {
     name: 'useSystemHealthQuery',
     resource: 'monitoring',
     path: '/admin/monitoring/health',
-    run: () => useSystemHealthQuery(),
+    useRun: () => useSystemHealthQuery(),
   },
   {
     name: 'useAuditLogsQuery',
     resource: 'audit',
     path: '/admin/audit/logs',
-    run: () => useAuditLogsQuery(1, {}),
+    useRun: () => useAuditLogsQuery(1, {}),
   },
   {
     name: 'useInboundSettingsQuery',
     resource: 'inbound_webhooks',
     path: '/admin/inbound-webhooks/settings',
-    run: () => useInboundSettingsQuery(),
+    useRun: () => useInboundSettingsQuery(),
   },
   {
     name: 'useWebhooksQuery',
     resource: 'webhooks',
     path: '/admin/projects/p1/webhooks',
-    run: () => useWebhooksQuery('p1'),
+    useRun: () => useWebhooksQuery('p1'),
   },
 ] as const;
 
-describe.each(CASES)('$name', ({ resource, path, run }) => {
+describe.each(CASES)('$name', ({ resource, path, useRun }) => {
   it(`sends no request without ${resource}:read`, async () => {
     let requested = false;
     server.use(
@@ -86,7 +91,7 @@ describe.each(CASES)('$name', ({ resource, path, run }) => {
     );
     signInAs({ permissions: {} });
 
-    const { result } = renderHook(run, { wrapper });
+    const { result } = renderHook(useRun, { wrapper });
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(result.current.fetchStatus).toBe('idle');
@@ -104,7 +109,7 @@ describe.each(CASES)('$name', ({ resource, path, run }) => {
     );
     signInAs({ permissions: { [resource]: 'read' } });
 
-    renderHook(run, { wrapper });
+    renderHook(useRun, { wrapper });
 
     await waitFor(() => expect(requested).toBe(true));
   });

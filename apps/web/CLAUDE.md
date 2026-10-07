@@ -95,6 +95,7 @@ src/
 3. **API client singleton**: `apiClient` in `api-client.ts` is a module-level singleton. It reads auth state directly from Zustand's `getState()` — no React context needed.
 4. **Token refresh race**: The `ApiClient` deduplicates concurrent refresh calls via `refreshPromise`. Never create a second `ApiClient` instance.
 5. **Env validation**: `env.ts` throws at import time if required env vars are missing. This crashes the build intentionally.
+7. **Access levels**: every page under `app/dashboard` needs an entry in `src/shared/lib/route-access.ts` (a test fails without it, and an unlisted route is denied). A write or manage action is wrapped in `<Can resource level>` or checked with `useCan`, and a new query hook calls `useCan(resource, 'read')` into its `enabled`. The panel adapts to the member's levels; the API enforces them.
 
 ## 4. UI & Design System
 
