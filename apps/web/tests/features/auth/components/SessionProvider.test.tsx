@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
+
 const replace = vi.fn();
 const useCurrentAdminQueryMock = vi.fn();
 
@@ -19,6 +21,8 @@ const mockUser = {
   email: 'admin@mcdi.dev',
   avatar: null,
   isSystemAdmin: true,
+  root: true,
+  permissions: ROOT_PERMISSIONS,
 };
 
 const EXPIRES_AT = '2026-08-07T10:00:00.000Z';

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../../setup';
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -78,6 +79,8 @@ describe('fetchCurrentAdmin', () => {
           email: 'admin@mcdi.dev',
           isSystemAdmin: true,
           sessionExpiresAt: '2026-08-07T10:00:00.000Z',
+          root: true,
+          permissions: ROOT_PERMISSIONS,
         })
       )
     );

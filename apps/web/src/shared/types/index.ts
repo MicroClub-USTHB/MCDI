@@ -1,3 +1,5 @@
+import type { Permissions } from '@/shared/lib/access';
+
 /**
  * The backend returns resource bodies verbatim — there is no envelope on the
  * wire. `ApiClient` wraps every response in this shape so callers have one
@@ -31,6 +33,8 @@ export interface User {
   email: string | null;
   avatar: string | null;
   isSystemAdmin: boolean;
+  root: boolean;
+  permissions: Permissions;
 }
 
 /**

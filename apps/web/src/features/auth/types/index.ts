@@ -1,3 +1,5 @@
+import type { Permissions } from '@/shared/lib/access';
+
 /**
  * Raw shape returned by `GET /auth/admin/me`. Mirrors the backend's
  * `AdminAuthService.getMe` return value — `globalName`, `displayName`,
@@ -15,6 +17,10 @@ export interface AdminProfileDto {
   isSystemAdmin: boolean;
   /** Serialized `Date` — an ISO 8601 string over the wire. */
   sessionExpiresAt: string;
+  /** True when the member holds a root role: manage on every resource. */
+  root: boolean;
+  /** Effective level per admin resource. The panel adapts to it; the API enforces it. */
+  permissions: Permissions;
 }
 
 /**

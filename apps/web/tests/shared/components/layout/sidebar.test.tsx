@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '../../../setup';
+import { ROOT_PERMISSIONS, signInAs } from '../../../helpers/auth';
 
 const nav = vi.hoisted(() => ({ pathname: '/dashboard/members', push: vi.fn() }));
 
@@ -77,6 +78,56 @@ beforeEach(() => {
 });
 
 describe('Sidebar', () => {
+  describe('access', () => {
+    it('shows a member with no access only the Settings link', () => {
+      signInAs({ permissions: {} });
+      renderSidebar();
+
+      expect(screen.queryByRole('group', { name: 'Overview' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Discord' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Projects' })).not.toBeInTheDocument();
+      expect(group('System').getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+      expect(group('System').queryByRole('link', { name: 'Monitoring' })).not.toBeInTheDocument();
+    });
+
+    it('shows only the links the member can use', () => {
+      signInAs({ permissions: { members: 'read', stats: 'read' } });
+      renderSidebar();
+
+      expect(group('Overview').getByRole('link', { name: 'Members' })).toBeInTheDocument();
+      expect(group('Overview').getByRole('link', { name: 'Stats' })).toBeInTheDocument();
+      expect(screen.queryByRole('group', { name: 'Projects' })).not.toBeInTheDocument();
+    });
+
+    // un-skipped by the gating PR, which stops queries the member cannot make
+    it.skip('does not ask for servers when the member cannot read them', () => {
+      let serversRequested = false;
+      server.use(
+        http.get(`${API_URL}/servers`, () => {
+          serversRequested = true;
+          return HttpResponse.json([]);
+        })
+      );
+      signInAs({ permissions: { members: 'read' } });
+      renderSidebar();
+
+      expect(serversRequested).toBe(false);
+    });
+
+    it('shows the server pages the member can use, once the servers load', async () => {
+      signInAs({ permissions: { servers: 'read', channels: 'read' } });
+      nav.pathname = '/dashboard/servers/srv_1/channels';
+      renderSidebar();
+
+      const discord = await screen.findByRole('group', { name: 'Discord' });
+      await waitFor(() =>
+        expect(within(discord).getByRole('link', { name: 'Channels' })).toBeInTheDocument()
+      );
+      expect(within(discord).queryByRole('link', { name: 'Sync' })).not.toBeInTheDocument();
+      expect(within(discord).queryByRole('link', { name: 'Roles' })).not.toBeInTheDocument();
+    });
+  });
+
   it('groups the navigation into overview, Discord, projects and system', () => {
     renderSidebar();
 
@@ -234,6 +285,8 @@ describe('Sidebar', () => {
           email: 'dev@example.com',
           avatar: null,
           isSystemAdmin: true,
+          root: true,
+          permissions: ROOT_PERMISSIONS,
         },
       });
       renderSidebar();

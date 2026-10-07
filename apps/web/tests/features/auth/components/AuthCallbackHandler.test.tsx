@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
+
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
 
@@ -26,6 +28,8 @@ const mockProfile = {
   email: 'admin@mcdi.dev',
   isSystemAdmin: true,
   sessionExpiresAt: '2026-08-07T10:00:00.000Z',
+  root: true,
+  permissions: ROOT_PERMISSIONS,
 };
 
 describe('AuthCallbackHandler', () => {
@@ -56,6 +60,8 @@ describe('AuthCallbackHandler', () => {
       email: 'admin@mcdi.dev',
       avatar: null,
       isSystemAdmin: true,
+      root: true,
+      permissions: ROOT_PERMISSIONS,
     });
     expect(useAuthStore.getState().sessionExpiresAt).toBe('2026-08-07T10:00:00.000Z');
   });
