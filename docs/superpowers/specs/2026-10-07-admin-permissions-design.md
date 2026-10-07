@@ -22,6 +22,7 @@ The club wants to limit who can see sensitive data (member details, message cont
 - No change to project API-key endpoints (`ApiKeyGuard`, `operations`, `scopes`). They keep their own model.
 - No change to end-user session endpoints or the `/auth/*` login flows, other than the admin login gate described below.
 - No delegation of grant editing. Only root edits grants, for now.
+- Root stays the three env roles in this version. Moving root roles into the database, with a locked Executive row, is a follow-up built after this system exists (see "Follow-ups").
 
 ## Decisions taken
 
@@ -199,7 +200,7 @@ All under `/admin/access`, all `@RootOnly()`, all documented in Swagger.
 | `DELETE /admin/access/members/:memberId/:resource` | Remove one override, so the member falls back to their roles |
 | `GET /admin/access/members/:memberId/effective` | Effective level per resource with its source: `root`, `override`, or the role id that supplied it |
 
-Validation: unknown resources and levels return 400. Unknown roles or members return 404. Root roles are shown as root and cannot be given grants, since root already holds everything.
+Validation: unknown resources and levels return 400. Unknown roles or members return 404. Root is locked: a root role cannot be given grants, and a member who currently holds a root role cannot be given overrides. Both return 400, so no row exists that looks meaningful but has no effect. No endpoint can remove root, because root membership is the Discord role itself and MCDI never writes Discord roles.
 
 ## Audit
 
@@ -241,5 +242,17 @@ Validation: unknown resources and levels return 400. Unknown roles or members re
 ## Risks
 
 - **Any main-server member can now obtain an admin session.** Mitigated by the fail-closed guard: a session alone reaches only the session-only endpoints. The route-coverage test is the safety net for future endpoints.
-- **Cache staleness.** A role change in Discord reaches the database at the next sync event, and the permission cache adds up to its TTL on top. Grant edits invalidate the cache immediately.
+- **Root is a Discord role.** Anyone who can assign roles in Discord can grant or remove root in MCDI, and MCDI follows within seconds. MCDI cannot prevent it, so keep Discord's own role permissions tight. Issue #196 records every root role gained or lost.
+- **More than one main server would make root ambiguous.** The rule is enforced only in application code today. Issue #193 adds a database-level guarantee. Until it lands, treat a second main server as a configuration error.
+- **Cache staleness.** The gateway events that keep Postgres in step with Discord already exist. This system must hook into their cache invalidation (issue #194), and the sync must catch up after a gateway reconnect (issue #195). Grant edits invalidate the cache immediately.
 - **A misconfigured root list locks everyone out of grant editing.** Production boot validation already requires the executive role.
+
+## Follow-ups
+
+Tracked as separate work, not part of this spec:
+
+- #193: enforce a single main server at the database level.
+- #194: clear the admin access cache from Discord sync events. This is the sync-side wiring of this spec.
+- #195: catch-up sync when the Discord gateway reconnects.
+- #196: audit when a member gains or loses a root role through sync.
+- Root roles in the database: replace the env-based root roles with an `admin_root_roles` table. The Executive row is locked and cannot be changed or removed through the platform. The other root rows are editable, and the Executive alone edits them (recommended). The Executive role is seeded once from `MC_EXECUTIVE_ROLE_ID`, which stays as the bootstrap and recovery path. Built after this system is in place.
