@@ -6,7 +6,7 @@
  *
  * Auth model:
  *   - check / check-batch / getMemberPermissions: API key guard
- *   - inheritance-rules: SystemAdminGuard (Bearer token)
+ *   - inheritance-rules: AdminAccessGuard (Bearer token)
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';

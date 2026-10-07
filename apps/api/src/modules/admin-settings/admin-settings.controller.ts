@@ -21,7 +21,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { SettingsService } from './settings.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { EffectiveSettingsDto } from './dto/settings-response.dto';
@@ -37,12 +38,13 @@ type RequestWithMember = Request & { memberId: string };
 @ApiTags('Admin Settings')
 @ApiBearerAuth('session-token')
 @Controller('admin/settings')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AdminSettingsController {
   constructor(private readonly settings: SettingsService) {}
 
   @Get()
+  @RequirePermission('settings', 'read')
   @ApiOperation({
     summary: 'Get effective system settings',
     description:
@@ -60,6 +62,7 @@ export class AdminSettingsController {
   }
 
   @Patch()
+  @RequirePermission('settings', 'write')
   @ApiOperation({
     summary: 'Update editable settings',
     description:
@@ -81,6 +84,7 @@ export class AdminSettingsController {
   }
 
   @Post('reset')
+  @RequirePermission('settings', 'manage')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Reset editable settings to environment defaults',

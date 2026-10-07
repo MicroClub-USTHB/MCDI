@@ -326,8 +326,8 @@ export class AuditLoggingMiddleware implements NestMiddleware {
         action = 'session_rejected';
       }
     } else if (res.statusCode === 403 && sessionToken && memberId) {
-      // A valid session that lacks the admin role. Other 403s are not a
-      // verdict on the presented credential.
+      // A valid session that lacks the access level the endpoint needs. Other
+      // 403s are not a verdict on the presented credential.
       action = 'session_rejected';
     }
     if (!action) return;

@@ -7,7 +7,7 @@ import {
 import request from 'supertest';
 import { AdminProfileController } from './admin-profile.controller';
 import { AdminProfileService } from './services/admin-profile.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const profile = {
   id: 'admin-1',
@@ -40,7 +40,7 @@ describe('AdminProfileController (integration)', () => {
       controllers: [AdminProfileController],
       providers: [{ provide: AdminProfileService, useValue: mockService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue(guard)
       .compile();
 

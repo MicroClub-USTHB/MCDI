@@ -4,7 +4,7 @@
  * Requires a running PostgreSQL database (`DATABASE_URL`).
  * Skips entire suite when DATABASE_URL is not set.
  *
- * Auth model: SystemAdminGuard (Bearer token).
+ * Auth model: AdminAccessGuard (Bearer token), as a root admin.
  */
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';

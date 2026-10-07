@@ -7,7 +7,7 @@ import {
 import request from 'supertest';
 import { AdminSettingsController } from './admin-settings.controller';
 import { SettingsService } from './settings.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 describe('AdminSettingsController (integration)', () => {
   let app: INestApplication;
@@ -42,7 +42,7 @@ describe('AdminSettingsController (integration)', () => {
       controllers: [AdminSettingsController],
       providers: [{ provide: SettingsService, useValue: mockService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue(guard)
       .compile();
 

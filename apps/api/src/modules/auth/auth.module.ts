@@ -15,7 +15,6 @@ import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { SsoSessionRepository } from './repositories/sso-session.repository';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
 import { SessionGuard } from '../../common/guards/session.guard';
 import { DiscordModule } from '../discord/discord.module';
 import { ProjectsModule } from '../projects/projects.module';
@@ -40,7 +39,6 @@ import { AuditModule } from '../audit/audit.module';
     AdminOAuthStateRepository,
     CallbackCodeRepository,
     SsoSessionRepository,
-    SystemAdminGuard,
     SessionGuard,
   ],
   exports: [AuthService, AdminAuthService, SsoService],
