@@ -73,7 +73,7 @@ An override replaces what the roles grant for that resource, for this member onl
 
 <Endpoint method="GET" path="/api/admin/access/members/{memberId}/effective" />
 
-The resolved level per resource and where it comes from: root, an override, or the role that supplied it.
+The member's name, the resolved level per resource and where it comes from: root, an override, or the role that supplied it.
 
 **Authentication:** Admin session token (`Authorization: Bearer <token>`)
 
@@ -120,6 +120,24 @@ The member falls back to what their roles grant for that resource.
 | `404` | Member or override not found. |  |
 
 <SwaggerLink tag="Admin Access" operationId="AdminAccessController_removeMemberOverride" />
+
+## List the members that have overrides
+
+<Endpoint method="GET" path="/api/admin/access/overrides" />
+
+Every member with at least one override and their overrides, ordered by name. Not paginated: the list is bounded by the club's size. `root` marks a member whose overrides are inactive because they currently hold a root role.
+
+**Authentication:** Admin session token (`Authorization: Bearer <token>`)
+
+**Responses**
+
+| Status | Description | Body |
+| --- | --- | --- |
+| `200` | Members with their overrides. |  |
+| `401` | Missing or invalid admin session. |  |
+| `403` | Root admin access required. |  |
+
+<SwaggerLink tag="Admin Access" operationId="AdminAccessController_listMemberOverrides" />
 
 ## List main-server roles with their grants
 

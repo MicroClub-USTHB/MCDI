@@ -3454,7 +3454,7 @@
     },
     "/api/admin/access/members/{memberId}/effective": {
       "get": {
-        "description": "The resolved level per resource and where it comes from: root, an override, or the role that supplied it.",
+        "description": "The member's name, the resolved level per resource and where it comes from: root, an override, or the role that supplied it.",
         "operationId": "AdminAccessController_getMemberEffective",
         "parameters": [
           {
@@ -3536,6 +3536,33 @@
           }
         ],
         "summary": "Remove one override",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/overrides": {
+      "get": {
+        "description": "Every member with at least one override and their overrides, ordered by name. Not paginated: the list is bounded by the club's size. `root` marks a member whose overrides are inactive because they currently hold a root role.",
+        "operationId": "AdminAccessController_listMemberOverrides",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Members with their overrides."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "List the members that have overrides",
         "tags": [
           "Admin Access"
         ]

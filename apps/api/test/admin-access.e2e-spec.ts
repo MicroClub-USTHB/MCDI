@@ -21,7 +21,7 @@ import {
 } from './helpers/db';
 import { disableNock, enableNock } from './helpers/discord-mock';
 import { PermissionCacheService } from '../src/modules/permissions/permission-cache.service';
-import { auditLogs } from '../src/database/entities';
+import { adminMemberAccess, auditLogs } from '../src/database/entities';
 
 const DB_URL = process.env.DATABASE_URL;
 const describeIf = DB_URL ? describe : describe.skip;
@@ -270,5 +270,77 @@ describeIf('/api/admin/access and level enforcement (e2e)', () => {
 
   it('refuses an unauthenticated request', async () => {
     await http().get('/api/admin/access/catalog').expect(401);
+  });
+
+  it('lists the members that have overrides, root only', async () => {
+    await http()
+      .put(`/api/admin/access/members/${dev.memberId}`)
+      .set('Authorization', as(root.bearerToken))
+      .send({ grants: { messages: 'none', projects: 'manage' } })
+      .expect(200);
+
+    const res = await http()
+      .get('/api/admin/access/overrides')
+      .set('Authorization', as(root.bearerToken))
+      .expect(200);
+
+    expect(res.body.members).toEqual([
+      {
+        memberId: dev.memberId,
+        username: 'member2',
+        displayName: 'Member 2',
+        avatar: null,
+        root: false,
+        overrides: { messages: 'none', projects: 'manage' },
+      },
+    ]);
+
+    await http()
+      .get('/api/admin/access/overrides')
+      .set('Authorization', as(dev.bearerToken))
+      .expect(403);
+  });
+
+  it('flags a member whose overrides are inactive because they are root now', async () => {
+    // A row left over from before the member became root: the API would refuse to write it today.
+    await db.insert(adminMemberAccess).values({
+      memberId: root.memberId,
+      resource: 'messages',
+      level: 'none',
+    });
+
+    const res = await http()
+      .get('/api/admin/access/overrides')
+      .set('Authorization', as(root.bearerToken))
+      .expect(200);
+
+    expect(res.body.members).toEqual([
+      expect.objectContaining({
+        memberId: root.memberId,
+        root: true,
+        overrides: { messages: 'none' },
+      }),
+    ]);
+  });
+
+  it('returns the member profile with the effective access, and 404 for an unknown member', async () => {
+    const res = await http()
+      .get(`/api/admin/access/members/${dev.memberId}/effective`)
+      .set('Authorization', as(root.bearerToken))
+      .expect(200);
+
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        memberId: dev.memberId,
+        username: 'member2',
+        displayName: 'Member 2',
+        root: false,
+      }),
+    );
+
+    await http()
+      .get('/api/admin/access/members/999999999999999999/effective')
+      .set('Authorization', as(root.bearerToken))
+      .expect(404);
   });
 });
