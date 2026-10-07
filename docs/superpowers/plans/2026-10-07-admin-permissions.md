@@ -24,6 +24,19 @@
 - Commits and the PR carry no `Co-Authored-By` trailer and no Claude signature. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`. The PR targets `dev`.
 - All commands run from the repository root `/Users/destockphonedz/Documents/MCDI/MCDI` unless a step says otherwise. Work on the existing branch `benabdou/admin-permissions-spec`.
 
+## Delivery in three pull requests
+
+The work ships as three pull requests, each green and safe on its own, each branched from the latest `origin/dev` and targeting `dev`. The spec and this plan ship first as a small docs PR from `benabdou/admin-permissions-spec`.
+
+| PR | Branch | Tasks | State of `dev` after merge |
+|---|---|---|---|
+| 0. Docs | `benabdou/admin-permissions-spec` | spec and plan | No code change |
+| A. Foundations | `benabdou/admin-access-foundations` | 1-5 | Additive only: catalog, resolver, two tables and migration, cache entries, `AdminAccessService`. Nothing calls it yet |
+| B. Enforcement | `benabdou/admin-access-enforcement` | 6-10 | The switch: `AdminAccessGuard` on every admin endpoint, login without the admin-role gate, `SystemAdminGuard` removed. Only root has access until C |
+| C. Grant management | `benabdou/admin-access-grants` | 11-13, 14 | Root can grant levels through `/admin/access`. E2E tests and docs |
+
+Merge order is A, then B, then C. Verification for each PR: lint, typecheck, the unit tests of the touched areas, and `pnpm build`. PR B and PR C also run the whole API e2e suite (Task 15 lists the commands). Do not start a PR's branch before the previous one is merged, so every branch starts from a `dev` that contains its dependencies.
+
 ## File Structure
 
 | File | Responsibility |
@@ -1872,6 +1885,8 @@ git commit -m "feat(api): admin login no longer needs an admin role and /me retu
 
 ### Task 8: Route classification test (written first, fails until Tasks 9 and 10)
 
+Part of PR B. The seven root-only `/admin/access` routes are added to `EXPECTED` in Task 12 (PR C), when the controller exists.
+
 **Files:**
 - Test: `apps/api/src/common/guards/admin-access-coverage.spec.ts`
 
@@ -1989,14 +2004,6 @@ const EXPECTED: Record<string, string> = {
   'PATCH /admin/profile': 'session',
   'GET /auth/admin/me': 'session',
   'POST /auth/admin/logout': 'session',
-  // grant management: root only
-  'GET /admin/access/catalog': 'root',
-  'GET /admin/access/roles': 'root',
-  'PUT /admin/access/roles/:roleId': 'root',
-  'GET /admin/access/members/:memberId': 'root',
-  'PUT /admin/access/members/:memberId': 'root',
-  'DELETE /admin/access/members/:memberId/:resource': 'root',
-  'GET /admin/access/members/:memberId/effective': 'root',
 };
 
 function controllerFiles(dir: string): string[] {
@@ -2086,7 +2093,7 @@ describe('admin route classification', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --filter @mcdi/api exec jest src/common/guards/admin-access-coverage.spec.ts`
-Expected: FAIL. At this point no controller uses `AdminAccessGuard`, so "finds the admin routes" fails. It goes green only after Tasks 9, 10 and 12.
+Expected: FAIL. At this point no controller uses `AdminAccessGuard`, so "finds the admin routes" fails. It goes green after Tasks 9 and 10.
 
 - [ ] **Step 3: Commit**
 
@@ -2203,7 +2210,7 @@ Expected: PASS and no type errors.
 - [ ] **Step 8: See the coverage test shrink**
 
 Run: `pnpm --filter @mcdi/api exec jest src/common/guards/admin-access-coverage.spec.ts`
-Expected: still FAIL, but the diff against `EXPECTED` now lacks only the Task 10 and Task 12 routes (webhooks, inbound webhooks, sync, stats, audit, monitoring, settings, profile, auth and `/admin/access`). Every route from this task must match.
+Expected: still FAIL, but the diff against `EXPECTED` now lacks only the Task 10 routes (webhooks, inbound webhooks, sync, stats, audit, monitoring, settings, profile and auth). Every route from this task must match.
 
 - [ ] **Step 9: Commit**
 
@@ -2292,7 +2299,7 @@ Expected: no output.
 - [ ] **Step 10: Run the unit suite and typecheck**
 
 Run: `pnpm --filter @mcdi/api exec jest && pnpm --filter @mcdi/api run typecheck`
-Expected: all green except `admin-access-coverage.spec.ts`, which still fails only on the seven `/admin/access` routes (added in Task 12). If any other route is reported, fix its decorator.
+Expected: everything is green, including `admin-access-coverage.spec.ts` (78 admin routes classified exactly as the design says). If a route is reported, fix its decorator.
 
 - [ ] **Step 11: Commit**
 
@@ -2845,7 +2852,7 @@ git commit -m "feat(api): add root-only grant editing with validation, root lock
 
 **Interfaces:**
 - Consumes: `AdminAccessGrantsService` (Task 11), `AdminAccessGuard`, `RootOnly` (Task 6), `extractClientInfo`.
-- Produces: the seven `/admin/access` routes of the spec, which make `admin-access-coverage.spec.ts` pass.
+- Produces: the seven `/admin/access` routes of the spec, which are added to `EXPECTED` in `admin-access-coverage.spec.ts` (Step 6).
 
 - [ ] **Step 1: Write the failing controller test**
 
@@ -3163,7 +3170,22 @@ import { AdminAccessService } from './admin-access.service';
 export class AdminAccessModule {}
 ```
 
-- [ ] **Step 6: Run the controller spec, the coverage spec and typecheck**
+- [ ] **Step 6: Pin the new routes in the classification test**
+
+In `apps/api/src/common/guards/admin-access-coverage.spec.ts`, add these entries at the end of the `EXPECTED` object (after the `// own data` block):
+
+```ts
+  // grant management: root only
+  'GET /admin/access/catalog': 'root',
+  'GET /admin/access/roles': 'root',
+  'PUT /admin/access/roles/:roleId': 'root',
+  'GET /admin/access/members/:memberId': 'root',
+  'PUT /admin/access/members/:memberId': 'root',
+  'DELETE /admin/access/members/:memberId/:resource': 'root',
+  'GET /admin/access/members/:memberId/effective': 'root',
+```
+
+- [ ] **Step 7: Run the controller spec, the coverage spec and typecheck**
 
 Run:
 
@@ -3174,10 +3196,11 @@ pnpm --filter @mcdi/api run typecheck
 
 Expected: all PASS, including `admin-access-coverage.spec.ts` (all 85 admin routes now match the spec table).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add apps/api/src/modules/admin-access
+git add apps/api/src/common/guards/admin-access-coverage.spec.ts
 git commit -m "feat(api): add the root-only /admin/access grant management API"
 ```
 
@@ -3528,6 +3551,8 @@ git commit -m "test(api): cover admin access levels end to end"
 
 ### Task 14: Documentation
 
+Part of PR C.
+
 **Files:**
 - Modify: `apps/web/src/content/docs/build/architecture.mdx`, `build/local-setup.mdx`, `build/decisions.mdx`
 - Modify: `docs/superpowers/specs/2026-10-07-admin-permissions-design.md` (one sentence)
@@ -3591,7 +3616,9 @@ git commit -m "docs: describe admin access levels and root"
 
 ---
 
-### Task 15: Final verification and pull request
+### Task 15: Verification and pull request (run once per PR)
+
+Run the steps below at the end of each of PR A, B and C, on that PR's branch. For PR A skip the e2e run and the `docs:api` regeneration; for PR B run the full e2e suite; PR C runs everything. In Step 4 use the branch and title of the PR you are opening (see "Delivery in three pull requests") and describe only what that PR contains.
 
 - [ ] **Step 1: Lint (this script runs `--fix`), typecheck, unit tests with coverage**
 
