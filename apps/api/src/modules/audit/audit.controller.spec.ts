@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuditController, MonitoringController } from './audit.controller';
 import { AuditService } from './audit.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockAuditService = {
   getAuditLogs: jest.fn(),
@@ -18,7 +18,7 @@ describe('AuditController', () => {
       controllers: [AuditController],
       providers: [{ provide: AuditService, useValue: mockAuditService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(AuditController);
@@ -58,7 +58,7 @@ describe('MonitoringController', () => {
       controllers: [MonitoringController],
       providers: [{ provide: AuditService, useValue: mockAuditService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(MonitoringController);

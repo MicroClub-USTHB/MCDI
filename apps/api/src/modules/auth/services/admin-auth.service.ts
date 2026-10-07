@@ -244,7 +244,7 @@ export class AdminAuthService {
 
   /**
    * Return the currently authenticated system admin's profile.
-   * The token is already validated by SystemAdminGuard before reaching here.
+   * The token is already validated by AdminAccessGuard before reaching here.
    */
   async getMe(token: string) {
     const session = await this.sessionRepository.findValidByToken(token);

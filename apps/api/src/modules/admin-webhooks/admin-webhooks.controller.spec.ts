@@ -7,7 +7,7 @@ import {
 import request from 'supertest';
 import { AdminWebhooksController } from './admin-webhooks.controller';
 import { WebhooksService } from '../webhooks/webhooks.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const PROJECT_ID = '3f6f7f9a-4c1a-4a9e-9d7b-2f1f4b6a8c0d';
 const WEBHOOK_ID = '11111111-1111-4111-8111-111111111111';
@@ -28,7 +28,7 @@ describe('AdminWebhooksController (integration)', () => {
       controllers: [AdminWebhooksController],
       providers: [{ provide: WebhooksService, useValue: mockService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue(allow)
       .compile();
 
@@ -49,12 +49,12 @@ describe('AdminWebhooksController (integration)', () => {
 
   afterEach(() => jest.clearAllMocks());
 
-  it('is guarded by SystemAdminGuard, not the project API key', () => {
+  it('is guarded by AdminAccessGuard, not the project API key', () => {
     const guards = Reflect.getMetadata(
       '__guards__',
       AdminWebhooksController,
     ) as unknown[];
-    expect(guards).toEqual([SystemAdminGuard]);
+    expect(guards).toEqual([AdminAccessGuard]);
   });
 
   describe('GET /admin/projects/:projectId/webhooks', () => {

@@ -69,7 +69,7 @@ export interface AdminContext {
 }
 
 /**
- * Seeds the minimum data required for `SystemAdminGuard` to pass:
+ * Seeds the minimum data required for `AdminAccessGuard` to resolve a root admin:
  *   main server → member → server membership → Executive role → session
  *
  * Returns auth context containing the bearer token and key IDs.

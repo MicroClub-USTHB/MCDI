@@ -30,7 +30,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { InboundWebhooksService } from './inbound-webhooks.service';
 import type { DocsFormat } from './inbound-webhooks.service';
 import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
@@ -47,7 +48,7 @@ type RequestWithUser = Request & {
 @ApiTags('Inbound Webhooks (Admin)')
 @ApiBearerAuth('session-token')
 @Controller('admin/inbound-webhooks')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class InboundWebhooksController {
   constructor(private readonly service: InboundWebhooksService) {}
@@ -57,6 +58,7 @@ export class InboundWebhooksController {
   }
 
   @Post()
+  @RequirePermission('inbound_webhooks', 'write')
   @ApiOperation({
     summary: 'Create an inbound webhook',
     description:
@@ -78,6 +80,7 @@ export class InboundWebhooksController {
   }
 
   @Get()
+  @RequirePermission('inbound_webhooks', 'read')
   @ApiOperation({ summary: 'List inbound webhooks' })
   @ApiQuery({ name: 'projectId', required: false })
   @ApiOkResponse({ description: 'Webhooks, newest first.' })
@@ -87,6 +90,7 @@ export class InboundWebhooksController {
 
   // Declared before `:id` so "settings" is never read as a webhook id.
   @Get('settings')
+  @RequirePermission('inbound_webhooks', 'read')
   @ApiOperation({
     summary: 'Get the inbound webhook settings',
     description:
@@ -99,6 +103,7 @@ export class InboundWebhooksController {
   }
 
   @Put('settings')
+  @RequirePermission('inbound_webhooks', 'write')
   @ApiOperation({
     summary: 'Replace the default reader roles',
     description:
@@ -118,6 +123,7 @@ export class InboundWebhooksController {
   }
 
   @Post('schema/preview')
+  @RequirePermission('inbound_webhooks', 'read')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Check a schema and preview its docs',
@@ -137,6 +143,7 @@ export class InboundWebhooksController {
   }
 
   @Get(':id')
+  @RequirePermission('inbound_webhooks', 'read')
   @ApiOperation({ summary: 'Get one inbound webhook' })
   @ApiParam({ name: 'id' })
   @ApiNotFoundResponse({ description: 'No such webhook.' })
@@ -145,6 +152,7 @@ export class InboundWebhooksController {
   }
 
   @Get(':id/docs')
+  @RequirePermission('inbound_webhooks', 'read')
   @ApiOperation({
     summary: 'Export developer documentation for this webhook',
     description:
@@ -188,6 +196,7 @@ export class InboundWebhooksController {
   }
 
   @Patch(':id')
+  @RequirePermission('inbound_webhooks', 'write')
   @ApiOperation({ summary: 'Update an inbound webhook' })
   @ApiBadRequestResponse({ description: 'Invalid schema.' })
   async update(
@@ -199,6 +208,7 @@ export class InboundWebhooksController {
   }
 
   @Get(':id/roles')
+  @RequirePermission('inbound_webhooks', 'read')
   @ApiOperation({
     summary: 'List the Discord roles permitted to read submissions',
   })
@@ -207,6 +217,7 @@ export class InboundWebhooksController {
   }
 
   @Put(':id/roles')
+  @RequirePermission('inbound_webhooks', 'write')
   @ApiOperation({
     summary: 'Replace the read-access role grants',
     description:
@@ -229,6 +240,7 @@ export class InboundWebhooksController {
   }
 
   @Post(':id/rotate-secret')
+  @RequirePermission('inbound_webhooks', 'write')
   @ApiOperation({
     summary: 'Rotate the signing secret',
     description:
@@ -240,6 +252,7 @@ export class InboundWebhooksController {
   }
 
   @Delete(':id')
+  @RequirePermission('inbound_webhooks', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete an inbound webhook and all its submissions',
