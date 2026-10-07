@@ -2254,6 +2254,33 @@
         ],
         "type": "object"
       },
+      "SetGrantsDto": {
+        "additionalProperties": false,
+        "properties": {
+          "grants": {
+            "additionalProperties": {
+              "enum": [
+                "none",
+                "read",
+                "write",
+                "manage"
+              ],
+              "type": "string"
+            },
+            "description": "Level per resource. Resources not listed get no grant. For a role, `none` removes the grant. For a member, `none` denies access that the roles would give.",
+            "example": {
+              "audit": "read",
+              "members": "read",
+              "messages": "none"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "type": "object"
+      },
       "SetProjectServerAccessDto": {
         "additionalProperties": false,
         "properties": {
@@ -3310,6 +3337,289 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/api/admin/access/catalog": {
+      "get": {
+        "description": "The resources a grant can name and the four levels, with descriptions.",
+        "operationId": "AdminAccessController_getCatalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Resources and levels."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "List the admin resources and levels",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/members/{memberId}": {
+      "get": {
+        "operationId": "AdminAccessController_getMemberOverrides",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memberId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The overrides of the member."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          },
+          "404": {
+            "description": "Member not found."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "Get a member's overrides",
+        "tags": [
+          "Admin Access"
+        ]
+      },
+      "put": {
+        "description": "An override replaces what the roles grant for that resource, for this member only. `none` denies.",
+        "operationId": "AdminAccessController_setMemberOverrides",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memberId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGrantsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The overrides now held by the member."
+          },
+          "400": {
+            "description": "Unknown resource or level, or a root member."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          },
+          "404": {
+            "description": "Member not found."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "Replace a member's overrides",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/members/{memberId}/effective": {
+      "get": {
+        "description": "The resolved level per resource and where it comes from: root, an override, or the role that supplied it.",
+        "operationId": "AdminAccessController_getMemberEffective",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memberId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effective access with sources."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          },
+          "404": {
+            "description": "Member not found."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "Explain a member's effective access",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/members/{memberId}/{resource}": {
+      "delete": {
+        "description": "The member falls back to what their roles grant for that resource.",
+        "operationId": "AdminAccessController_removeMemberOverride",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memberId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "resource",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Override removed."
+          },
+          "400": {
+            "description": "Unknown resource."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          },
+          "404": {
+            "description": "Member or override not found."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "Remove one override",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/roles": {
+      "get": {
+        "description": "Root roles are flagged and cannot be given grants.",
+        "operationId": "AdminAccessController_listRoles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Roles with their grants."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "List main-server roles with their grants",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
+    "/api/admin/access/roles/{roleId}": {
+      "put": {
+        "description": "Replaces every grant of the role. Resources left out, or set to `none`, have no grant.",
+        "operationId": "AdminAccessController_setRoleGrants",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roleId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetGrantsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The grants now held by the role."
+          },
+          "400": {
+            "description": "Unknown resource or level, or a root role."
+          },
+          "401": {
+            "description": "Missing or invalid admin session."
+          },
+          "403": {
+            "description": "Root admin access required."
+          },
+          "404": {
+            "description": "Role not found in the main server."
+          }
+        },
+        "security": [
+          {
+            "session-token": []
+          }
+        ],
+        "summary": "Replace a role's grants",
+        "tags": [
+          "Admin Access"
+        ]
+      }
+    },
     "/api/admin/audit/logs": {
       "get": {
         "description": "Query audit logs with filtering and pagination.",
