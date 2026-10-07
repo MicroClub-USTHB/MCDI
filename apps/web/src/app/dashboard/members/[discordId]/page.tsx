@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, RefreshCcw } from 'lucide-react';
 
@@ -14,6 +15,8 @@ import { useMemberPermissionsQueries, useMemberQuery } from '@/features/members/
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { LoadingSkeleton } from '@/shared/components/common';
+import { ROOT_ONLY } from '@/shared/lib/access';
+import { useCanAccess } from '@/shared/lib/use-access';
 
 function MemberDetailSkeleton() {
   return (
@@ -28,6 +31,7 @@ function MemberDetailSkeleton() {
 export default function MemberDetailPage() {
   const params = useParams<{ discordId: string }>();
   const router = useRouter();
+  const isRoot = useCanAccess(ROOT_ONLY);
   const value = params.discordId;
   const discordId =
     typeof value === 'string' ? value : Array.isArray(value) ? (value[0] ?? '') : '';
@@ -69,16 +73,25 @@ export default function MemberDetailPage() {
           <ArrowLeft className="size-4" aria-hidden="true" />
           Back to members
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => {
-            void memberQuery.refetch();
-            void permissionsQuery.refetch();
-          }}
-        >
-          <RefreshCcw className="size-4" aria-hidden="true" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {isRoot ? (
+            <Button variant="secondary" asChild>
+              <Link href={`/dashboard/members/${encodeURIComponent(discordId)}/access`}>
+                Access
+              </Link>
+            </Button>
+          ) : null}
+          <Button
+            variant="secondary"
+            onClick={() => {
+              void memberQuery.refetch();
+              void permissionsQuery.refetch();
+            }}
+          >
+            <RefreshCcw className="size-4" aria-hidden="true" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <MemberProfileCard member={memberQuery.data} />
