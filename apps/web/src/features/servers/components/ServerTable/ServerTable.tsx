@@ -6,6 +6,7 @@ import type { ColumnDef, SortingState } from '@tanstack/react-table';
 import { Button } from '@/shared/components/ui/button';
 import { DataTable } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
+import { useCan } from '@/shared/lib/use-access';
 import type { ServerListItemDto } from '@/features/servers/types';
 import { ServerAvatar } from '@/features/servers/components/ServerAvatar';
 import { ServerStatusBadge } from '@/features/servers/components/ServerStatusBadge';
@@ -35,9 +36,10 @@ function formatLastSync(value: string | null): string {
 }
 
 function buildDefaultColumns(
-  onAction: (action: ServerAction, server: ServerListItemDto) => void
+  onAction: (action: ServerAction, server: ServerListItemDto) => void,
+  access: { canWrite: boolean; canManage: boolean }
 ): ColumnDef<ServerListItemDto>[] {
-  return [
+  const columns: ColumnDef<ServerListItemDto>[] = [
     {
       accessorKey: 'name',
       header: 'Server',
@@ -97,28 +99,34 @@ function buildDefaultColumns(
             className="flex items-center justify-end gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onAction(server.isActive ? 'disable' : 'enable', server)}
-            >
-              {server.isActive ? 'Disable' : 'Enable'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-error hover:bg-error/12"
-              onClick={() => onAction('delete', server)}
-            >
-              Delete
-            </Button>
+            {access.canWrite ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onAction(server.isActive ? 'disable' : 'enable', server)}
+              >
+                {server.isActive ? 'Disable' : 'Enable'}
+              </Button>
+            ) : null}
+            {access.canManage ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-error hover:bg-error/12"
+                onClick={() => onAction('delete', server)}
+              >
+                Delete
+              </Button>
+            ) : null}
           </div>
         );
       },
     },
   ];
+
+  return columns.filter((column) => column.id !== 'actions' || access.canWrite || access.canManage);
 }
 
 function ServerTable({
@@ -133,7 +141,9 @@ function ServerTable({
   emptyState,
 }: ServerTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const resolvedColumns = columns ?? buildDefaultColumns(onAction);
+  const canWrite = useCan('servers', 'write');
+  const canManage = useCan('servers', 'manage');
+  const resolvedColumns = columns ?? buildDefaultColumns(onAction, { canWrite, canManage });
   const pageCount = Math.max(1, Math.ceil(servers.length / pageSize));
 
   return (

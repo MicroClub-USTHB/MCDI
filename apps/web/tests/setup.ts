@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { configure } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -22,6 +22,9 @@ export const server = setupServer(...handlers);
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterAll(() => server.close());
 afterEach(async () => {
+  // Unmount first: components subscribe to the auth store through `useCan`, and resetting the store
+  // under a mounted tree would re-render it (and re-run its effects) after the test has ended.
+  cleanup();
   server.resetHandlers();
   localStorage.clear();
   sessionStorage.clear();

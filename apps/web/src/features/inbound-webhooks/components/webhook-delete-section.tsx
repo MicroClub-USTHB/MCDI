@@ -8,6 +8,7 @@ import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { Input } from '@/shared/components/ui/input';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 /** Deletes the webhook and every submission it holds, after the slug is typed back. */
@@ -17,6 +18,9 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
   const remove = useDeleteInboundWebhookMutation(webhook.id, webhook.projectId);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
+  const canDelete = useCan('inbound_webhooks', 'manage');
+
+  if (!canDelete) return null;
 
   const count = webhook.submissionCount;
 

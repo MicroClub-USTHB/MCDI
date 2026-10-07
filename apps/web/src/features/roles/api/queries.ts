@@ -10,26 +10,29 @@ import {
   fetchRoleStats,
 } from '@/features/roles/api/service';
 import type { ImpactPreviewPayload, ListInheritanceRulesParams } from '@/features/roles/types';
+import { useCan } from '@/shared/lib/use-access';
 
 export function useRoleStatsQuery(serverId: string) {
+  const allowed = useCan('stats', 'read');
   return useQuery({
     queryKey: roleKeys.stats(serverId),
     queryFn: async () => {
       const response = await fetchRoleStats(serverId);
       return response.data;
     },
-    enabled: serverId.length > 0,
+    enabled: allowed && serverId.length > 0,
   });
 }
 
 export function useRolePermissionsQuery(serverId: string, roleId: string) {
+  const allowed = useCan('roles', 'read');
   return useQuery({
     queryKey: roleKeys.permissions(serverId, roleId),
     queryFn: async () => {
       const response = await fetchRolePermissions(serverId, roleId);
       return response.data;
     },
-    enabled: serverId.length > 0 && roleId.length > 0,
+    enabled: allowed && serverId.length > 0 && roleId.length > 0,
   });
 }
 
@@ -38,28 +41,32 @@ export function useImpactPreviewQuery(
   roleId: string,
   payload: ImpactPreviewPayload
 ) {
+  const allowed = useCan('roles', 'read');
   return useQuery({
     queryKey: roleKeys.impact(serverId, roleId, payload),
     queryFn: async () => {
       const response = await fetchImpactPreview(serverId, roleId, payload);
       return response.data;
     },
-    enabled: serverId.length > 0 && roleId.length > 0 && payload.permissionIds.length > 0,
+    enabled:
+      allowed && serverId.length > 0 && roleId.length > 0 && payload.permissionIds.length > 0,
   });
 }
 
 export function useInheritanceRulesQuery(params?: ListInheritanceRulesParams) {
+  const allowed = useCan('roles', 'read');
   return useQuery({
     queryKey: roleKeys.inheritance(params),
     queryFn: async () => {
       const response = await fetchInheritanceRules(params);
       return response.data;
     },
-    enabled: params?.serverId != null,
+    enabled: allowed && params?.serverId != null,
   });
 }
 
 export function useAllRolePermissionsQuery(serverId: string, roleIds: string[]) {
+  const allowed = useCan('roles', 'read');
   const combine = useCallback(
     (
       results: Array<{ data?: { roleId: string; count: number } | undefined; isLoading: boolean }>
@@ -83,7 +90,7 @@ export function useAllRolePermissionsQuery(serverId: string, roleIds: string[]) 
         const response = await fetchRolePermissions(serverId, roleId);
         return response.data;
       },
-      enabled: serverId.length > 0 && roleIds.length > 0,
+      enabled: allowed && serverId.length > 0 && roleIds.length > 0,
       select: (data: Awaited<ReturnType<typeof fetchRolePermissions>>['data']) => ({
         roleId,
         count: data.permissions.length,

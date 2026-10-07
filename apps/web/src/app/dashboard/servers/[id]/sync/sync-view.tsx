@@ -20,6 +20,7 @@ import {
 } from '@/features/sync/components';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { LoadingSkeleton } from '@/shared/components/common';
+import { useCan } from '@/shared/lib/use-access';
 
 /** Sync status and history of the server in the URL. Syncing every server lives on the Servers page. */
 export function SyncView({ serverId }: { serverId: string }) {
@@ -27,6 +28,7 @@ export function SyncView({ serverId }: { serverId: string }) {
   const serversQuery = useServersQuery();
   const statusQuery = useSyncStatusAllQuery();
   const triggerMutation = useTriggerSyncMutation();
+  const canSync = useCan('sync', 'write');
   const [logsPage, setLogsPage] = useState(1);
   const logsQuery = useSyncLogsQuery(serverId, logsPage);
 
@@ -67,14 +69,16 @@ export function SyncView({ serverId }: { serverId: string }) {
             serverName={serverName}
             status={status}
             action={
-              <SyncTriggerButton
-                target="server"
-                serverIds={[serverId]}
-                size="sm"
-                onTrigger={(payload) => triggerMutation.mutate(payload)}
-                isPending={triggerMutation.isPending}
-                disabled={active}
-              />
+              canSync ? (
+                <SyncTriggerButton
+                  target="server"
+                  serverIds={[serverId]}
+                  size="sm"
+                  onTrigger={(payload) => triggerMutation.mutate(payload)}
+                  isPending={triggerMutation.isPending}
+                  disabled={active}
+                />
+              ) : undefined
             }
           />
         </div>

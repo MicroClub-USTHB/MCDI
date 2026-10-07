@@ -9,6 +9,8 @@ import { MaskedInput } from '@/shared/components/ui/masked-input';
 interface ApiKeyDisplayProps {
   prefix: string | null;
   isActive: boolean;
+  /** Render the regenerate action — false hides it entirely. */
+  canRegenerate?: boolean;
   onReveal: () => void;
   onRegenerate: () => void;
 }
@@ -18,7 +20,13 @@ interface ApiKeyDisplayProps {
  * once create/regenerate is done); "Reveal" opens the info modal, "Regenerate"
  * starts the rotation-confirm flow.
  */
-function ApiKeyDisplay({ prefix, isActive, onReveal, onRegenerate }: ApiKeyDisplayProps) {
+function ApiKeyDisplay({
+  prefix,
+  isActive,
+  canRegenerate = true,
+  onReveal,
+  onRegenerate,
+}: ApiKeyDisplayProps) {
   return (
     <div className="flex flex-col gap-3">
       <Label>API key</Label>
@@ -32,16 +40,18 @@ function ApiKeyDisplay({ prefix, isActive, onReveal, onRegenerate }: ApiKeyDispl
           <Eye aria-hidden="true" />
           Reveal
         </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={onRegenerate}
-          disabled={!isActive}
-        >
-          <RefreshCw aria-hidden="true" />
-          Regenerate key
-        </Button>
+        {canRegenerate && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onRegenerate}
+            disabled={!isActive}
+          >
+            <RefreshCw aria-hidden="true" />
+            Regenerate key
+          </Button>
+        )}
         {!isActive && (
           <p className="text-overline text-warning">
             Reactivate the project before rotating its key.

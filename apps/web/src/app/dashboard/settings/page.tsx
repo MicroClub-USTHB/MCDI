@@ -20,6 +20,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { SkeletonCard } from '@/shared/components/common';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 function SettingsPage() {
@@ -28,6 +29,10 @@ function SettingsPage() {
 
   const settingsQuery = useSettingsQuery();
   const profileQuery = useProfileQuery();
+
+  const canRead = useCan('settings', 'read');
+  const canWrite = useCan('settings', 'write');
+  const canReset = useCan('settings', 'manage');
 
   const updateSettingsMutation = useUpdateSettingsMutation();
   const resetSettingsMutation = useResetSettingsMutation();
@@ -51,7 +56,6 @@ function SettingsPage() {
   }
 
   const settings = settingsQuery.data;
-  const isError = settingsQuery.isError || profileQuery.isError;
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -60,9 +64,11 @@ function SettingsPage() {
           <p className="text-overline text-brand-light uppercase">Operations</p>
           <h1 className="mt-1 text-hero text-text-primary">Settings</h1>
           <p className="mt-1 max-w-2xl text-body text-text-muted">
-            Configure MCDI behavior and manage your admin profile.
+            {canRead
+              ? 'Configure MCDI behavior and manage your admin profile.'
+              : 'Manage your admin profile.'}
           </p>
-          {settings?.meta.updatedAt ? (
+          {canRead && settings?.meta.updatedAt ? (
             <p
               className="mt-1 text-overline text-text-faint"
               title={formatAbsoluteTime(settings.meta.updatedAt) ?? undefined}
@@ -71,76 +77,93 @@ function SettingsPage() {
             </p>
           ) : null}
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => setResetOpen(true)}
-          disabled={settingsQuery.isPending}
-        >
-          <RotateCcw aria-hidden="true" /> Reset to defaults
-        </Button>
+        {canReset ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setResetOpen(true)}
+            disabled={settingsQuery.isPending}
+          >
+            <RotateCcw aria-hidden="true" /> Reset to defaults
+          </Button>
+        ) : null}
       </header>
 
-      {isError ? (
-        <Card>
-          <CardContent className="flex flex-col items-start gap-3 py-6 text-body text-error">
-            <p>Settings could not be loaded.</p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                void settingsQuery.refetch();
-                void profileQuery.refetch();
-              }}
-            >
-              <RefreshCw aria-hidden="true" /> Retry
-            </Button>
-          </CardContent>
-        </Card>
-      ) : settingsQuery.isPending || profileQuery.isPending || !settings ? (
-        <div className="columns-1 gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <SkeletonCard key={index} showAvatar={false} lines={3} />
-          ))}
-        </div>
-      ) : (
-        <div className="columns-1 gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
-          {profileQuery.data ? (
-            <ProfileSettings
-              profile={profileQuery.data}
-              isSaving={updateProfileMutation.isPending}
-              onSave={(payload) =>
-                updateProfileMutation.mutate(payload, {
-                  onSuccess: () => showToast('Profile saved', 'success'),
-                  onError: (error) => showToast(error.message || 'Failed to save profile', 'error'),
-                })
-              }
-            />
-          ) : null}
-
-          <DiscordConfigForm config={settings.discord} />
-
-          <CacheSettings
-            settings={settings.cache}
-            isSaving={updateSettingsMutation.isPending}
-            onSave={handleSaveSettings}
+      <div className="columns-1 gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
+        {profileQuery.isError ? (
+          <Card>
+            <CardContent className="flex flex-col items-start gap-3 py-6 text-body text-error">
+              <p>Your profile could not be loaded.</p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void profileQuery.refetch()}
+              >
+                <RefreshCw aria-hidden="true" /> Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : profileQuery.data ? (
+          <ProfileSettings
+            profile={profileQuery.data}
+            isSaving={updateProfileMutation.isPending}
+            onSave={(payload) =>
+              updateProfileMutation.mutate(payload, {
+                onSuccess: () => showToast('Profile saved', 'success'),
+                onError: (error) => showToast(error.message || 'Failed to save profile', 'error'),
+              })
+            }
           />
+        ) : (
+          <SkeletonCard showAvatar={false} lines={3} />
+        )}
 
-          <RateLimitSettings
-            limits={settings.rateLimit}
-            isSaving={updateSettingsMutation.isPending}
-            onSave={handleSaveSettings}
-          />
-
-          <PreferencesSettings
-            preferences={settings.preferences}
-            isSaving={updateSettingsMutation.isPending}
-            onSave={handleSaveSettings}
-          />
-        </div>
-      )}
+        {canRead ? (
+          settingsQuery.isError ? (
+            <Card>
+              <CardContent className="flex flex-col items-start gap-3 py-6 text-body text-error">
+                <p>Settings could not be loaded.</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void settingsQuery.refetch()}
+                >
+                  <RefreshCw aria-hidden="true" /> Retry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : settings ? (
+            <>
+              <DiscordConfigForm config={settings.discord} />
+              <CacheSettings
+                settings={settings.cache}
+                isSaving={updateSettingsMutation.isPending}
+                onSave={handleSaveSettings}
+                readOnly={!canWrite}
+              />
+              <RateLimitSettings
+                limits={settings.rateLimit}
+                isSaving={updateSettingsMutation.isPending}
+                onSave={handleSaveSettings}
+                readOnly={!canWrite}
+              />
+              <PreferencesSettings
+                preferences={settings.preferences}
+                isSaving={updateSettingsMutation.isPending}
+                onSave={handleSaveSettings}
+                readOnly={!canWrite}
+              />
+            </>
+          ) : (
+            Array.from({ length: 4 }).map((_, index) => (
+              <SkeletonCard key={index} showAvatar={false} lines={3} />
+            ))
+          )
+        ) : null}
+      </div>
 
       <ConfirmDialog
         open={resetOpen}

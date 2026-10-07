@@ -9,9 +9,11 @@ import {
   useInboundSettingsQuery,
 } from '@/features/inbound-webhooks/api/queries';
 import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
+import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 /** The roles every new inbound webhook starts with. Changing them leaves existing webhooks alone. */
@@ -21,6 +23,10 @@ export function DefaultReadersSettings() {
   const roles = useAllRoleOptions();
   const update = useUpdateInboundSettingsMutation();
   const [picked, setPicked] = useState<string[] | null>(null);
+  const canWrite = useCan('inbound_webhooks', 'write');
+  const canServers = useCan('servers', 'read');
+  const canStats = useCan('stats', 'read');
+  const canEdit = canWrite && canServers && canStats;
 
   if (settings.isError) {
     return (
@@ -55,23 +61,40 @@ export function DefaultReadersSettings() {
           These come from the server configuration until you save a list of your own.
         </p>
       ) : null}
-      <RolePicker
-        options={roles.options}
-        selected={selected}
-        onChange={setPicked}
-        isLoading={roles.isLoading}
-      />
-      <p className="text-body text-text-muted">
-        An empty list is allowed: new webhooks then need their readers picked by hand.
-      </p>
-      <Button
-        type="button"
-        className="self-end"
-        disabled={!changed || update.isPending}
-        onClick={save}
-      >
-        {update.isPending ? 'Saving…' : 'Save'}
-      </Button>
+      {canEdit ? (
+        <>
+          <RolePicker
+            options={roles.options}
+            selected={selected}
+            onChange={setPicked}
+            isLoading={roles.isLoading}
+          />
+          <p className="text-body text-text-muted">
+            An empty list is allowed: new webhooks then need their readers picked by hand.
+          </p>
+          <Button
+            type="button"
+            className="self-end"
+            disabled={!changed || update.isPending}
+            onClick={save}
+          >
+            {update.isPending ? 'Saving…' : 'Save'}
+          </Button>
+        </>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <Badge variant="secondary" className="self-start">
+            Read only
+          </Badge>
+          <ul className="flex flex-wrap gap-2">
+            {settings.data.defaultReaderRoles.map((role) => (
+              <li key={role.id}>
+                <Badge variant="outline">{role.name}</Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
