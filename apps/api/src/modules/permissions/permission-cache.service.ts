@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
 import { SettingsService } from '../admin-settings/settings.service';
+import type { EffectiveAccess } from '../../common/permissions/resolve-access';
 
 const INDEX_TTL_BUFFER_MS = 60_000;
 
@@ -14,6 +15,12 @@ export interface CachedPermissions {
     hierarchy: string[];
     inherited: string[];
   };
+}
+
+/** Cached effective admin access for a member (see AdminAccessService). */
+export interface CachedAdminAccess {
+  root: boolean;
+  access: EffectiveAccess;
 }
 
 /**
@@ -78,6 +85,10 @@ export class PermissionCacheService implements OnModuleInit {
     return `${this.namespace()}:idx:server:${serverId}`;
   }
 
+  private adminEntryKey(memberId: string): string {
+    return `${this.namespace()}:admin-entry:${memberId}`;
+  }
+
   private indexTtlSeconds(): number {
     return Math.ceil((this.ttlMs + INDEX_TTL_BUFFER_MS) / 1000);
   }
@@ -96,8 +107,52 @@ export class PermissionCacheService implements OnModuleInit {
     serverId: string,
     value: CachedPermissions,
   ): Promise<void> {
-    const entryKey = this.entryKey(memberId, serverId);
+    await this.writeEntry(
+      this.entryKey(memberId, serverId),
+      memberId,
+      serverId,
+      value,
+    );
+  }
 
+  async getAdminAccess(memberId: string): Promise<CachedAdminAccess | null> {
+    return this.redisService.getJson<CachedAdminAccess>(
+      this.adminEntryKey(memberId),
+    );
+  }
+
+  /**
+   * Admin entries are indexed under the main server as well as the member, so
+   * `invalidateMember` and `invalidateServer`, which the sync handlers already
+   * call, drop them too.
+   */
+  async setAdminAccess(
+    memberId: string,
+    mainServerId: string,
+    value: CachedAdminAccess,
+  ): Promise<void> {
+    await this.writeEntry(
+      this.adminEntryKey(memberId),
+      memberId,
+      mainServerId,
+      value,
+    );
+  }
+
+  /** Drop every admin entry. Used when a role grant changes: any member may hold the role. */
+  async invalidateAllAdminAccess(): Promise<void> {
+    const keys = await this.redisService.scanKeys(
+      `${this.namespace()}:admin-entry:*`,
+    );
+    await this.redisService.delete(...keys);
+  }
+
+  private async writeEntry(
+    entryKey: string,
+    memberId: string,
+    serverId: string,
+    value: unknown,
+  ): Promise<void> {
     await Promise.all([
       this.redisService.setJson(entryKey, value, this.ttlMs),
       this.redisService.sAdd(this.memberIndexKey(memberId), entryKey),
