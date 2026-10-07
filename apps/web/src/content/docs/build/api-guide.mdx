@@ -49,7 +49,7 @@ A route is protected by the guards you attach with `@UseGuards`, usually on the 
 | --- | --- | --- |
 | `ApiKeyGuard` | The caller is a project backend. | `project` |
 | `SessionGuard` | The caller is a member with any valid session. | `memberId`, `sessionToken` |
-| `SystemAdminGuard` | The route is for admins only. | `memberId` |
+| `AdminAccessGuard` | The route is for admins. Each handler, or its controller, declares `@RequirePermission(resource, level)`, `@AdminSessionOnly()` or `@RootOnly()`. A route that declares none of them is refused. | `memberId` |
 | `ProjectThrottlerGuard` | The route is limited per project, not per IP. Pair it with `@Throttle({ default: { ttl, limit } })` and `@SkipGlobalThrottle()`, or the IP limit counts it too. | |
 | `ChannelAccessGuard` | A channel route needs the project's channel grant. | |
 | `InboundWebhookReadGuard` | A submission read must check the member's reader roles. | `matchedViaRoleId` |
@@ -90,7 +90,7 @@ The worked example is a real feature, the inbound webhook **default reader roles
 
 ### Step 1: Decide the route, the audience and the guard
 
-This one is for admins, so the controller uses `SystemAdminGuard` and `@ApiBearerAuth('session-token')`, and it lives under `admin/inbound-webhooks`.
+This one is for admins, so the controller uses `AdminAccessGuard` and `@ApiBearerAuth('session-token')`, each handler declares the level it needs with `@RequirePermission`, and it lives under `admin/inbound-webhooks`.
 
 ### Step 2: Describe the data and add a migration
 

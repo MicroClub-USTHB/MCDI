@@ -798,7 +798,8 @@ export class AuthController {
   }
 
   // ─── POST /auth/admin/set-password has been removed.
-  // Admin access is gated solely on the configured Discord admin role ID.
+  // Admin access is decided by the level the member holds on each resource
+  // (AdminAccessGuard); root comes from the configured Discord root role IDs.
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
 
