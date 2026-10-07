@@ -112,6 +112,56 @@ export class AdminAccessRepository {
     return Boolean(row);
   }
 
+  async findMemberProfile(memberId: string): Promise<{
+    id: string;
+    username: string;
+    globalName: string | null;
+    displayName: string | null;
+    avatar: string | null;
+  } | null> {
+    const [row] = await this.db
+      .select({
+        id: schema.members.id,
+        username: schema.members.username,
+        globalName: schema.members.globalName,
+        displayName: schema.members.displayName,
+        avatar: schema.members.avatar,
+      })
+      .from(schema.members)
+      .where(eq(schema.members.id, memberId))
+      .limit(1);
+    return row ?? null;
+  }
+
+  /** Every override row with the member it belongs to. */
+  async listOverrideRows(): Promise<
+    Array<{
+      memberId: string;
+      resource: string;
+      level: AccessLevel;
+      username: string;
+      globalName: string | null;
+      displayName: string | null;
+      avatar: string | null;
+    }>
+  > {
+    return this.db
+      .select({
+        memberId: schema.adminMemberAccess.memberId,
+        resource: schema.adminMemberAccess.resource,
+        level: schema.adminMemberAccess.level,
+        username: schema.members.username,
+        globalName: schema.members.globalName,
+        displayName: schema.members.displayName,
+        avatar: schema.members.avatar,
+      })
+      .from(schema.adminMemberAccess)
+      .innerJoin(
+        schema.members,
+        eq(schema.adminMemberAccess.memberId, schema.members.id),
+      );
+  }
+
   /** Replaces all grants of a role in one transaction. */
   async replaceRoleGrants(
     roleId: string,

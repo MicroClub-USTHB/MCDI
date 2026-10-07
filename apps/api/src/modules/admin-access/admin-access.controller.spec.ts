@@ -13,6 +13,7 @@ describe('AdminAccessController', () => {
     setMemberOverrides: jest.fn(),
     removeMemberOverride: jest.fn(),
     getMemberEffective: jest.fn(),
+    listMemberOverrides: jest.fn(),
   };
   const req = {
     memberId: 'actor-1',
@@ -93,6 +94,13 @@ describe('AdminAccessController', () => {
     await expect(controller.getMemberEffective('m')).resolves.toEqual({
       memberId: 'm',
       root: false,
+    });
+  });
+
+  it('lists the members that have overrides', async () => {
+    grants.listMemberOverrides.mockResolvedValue({ members: [] });
+    await expect(controller.listMemberOverrides()).resolves.toEqual({
+      members: [],
     });
   });
 });
