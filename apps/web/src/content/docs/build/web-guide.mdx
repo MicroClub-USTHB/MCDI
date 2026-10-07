@@ -49,14 +49,14 @@ The panel is dark only. There is no light mode, no theme switch and no `dark:` c
 
 Use the token as a utility class: `bg-surface-raised`, `text-text-muted`, `border-border`. The groups are:
 
-| Group      | Tokens                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Brand      | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
-| Surfaces   | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated`                |
-| Text       | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint`                                               |
-| State      | `success`, `error`, `warning`, `info`, `accent`                                                                        |
-| Borders    | `border`, `border-subtle`, `border-hover`, `border-focus`                                                              |
-| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code`    |
+| Group | Tokens |
+| --- | --- |
+| Brand | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
+| Surfaces | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated` |
+| Text | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint` |
+| State | `success`, `error`, `warning`, `info`, `accent` |
+| Borders | `border`, `border-subtle`, `border-hover`, `border-focus` |
+| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code` |
 
 Rules that keep it consistent:
 
@@ -114,13 +114,13 @@ Server state lives in TanStack Query, client-only state in Zustand. The provider
 
 Each feature's `api/` folder follows the same five-file pattern:
 
-| File           | What it holds                                                                                                        |
-| -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `service.ts`   | One function per endpoint. Plain functions that call `apiClient` and return its response. No React.                  |
-| `keys.ts`      | The query key factory. Every key starts with the feature name, so one `invalidateQueries` can clear a whole feature. |
-| `queries.ts`   | `useQuery` hooks that call a service function and map the result.                                                    |
-| `mutations.ts` | `useMutation` hooks. After a success they update or invalidate the keys the change affects.                          |
-| `mappers.ts`   | Pure functions that turn API DTOs into the view models components render, and form values into request payloads.     |
+| File | What it holds |
+| --- | --- |
+| `service.ts` | One function per endpoint. Plain functions that call `apiClient` and return its response. No React. |
+| `keys.ts` | The query key factory. Every key starts with the feature name, so one `invalidateQueries` can clear a whole feature. |
+| `queries.ts` | `useQuery` hooks that call a service function and map the result. |
+| `mutations.ts` | `useMutation` hooks. After a success they update or invalidate the keys the change affects. |
+| `mappers.ts` | Pure functions that turn API DTOs into the view models components render, and form values into request payloads. |
 
 Components use these hooks instead of calling a service function themselves, and they render the view model, not the raw DTO. Mapping in one place means a component cannot show a field it should not, for example a secret that arrived by accident.
 
