@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '../../../setup';
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
 
 const nav = vi.hoisted(() => ({ pathname: '/dashboard/members', push: vi.fn() }));
 
@@ -234,6 +235,8 @@ describe('Sidebar', () => {
           email: 'dev@example.com',
           avatar: null,
           isSystemAdmin: true,
+          root: true,
+          permissions: ROOT_PERMISSIONS,
         },
       });
       renderSidebar();

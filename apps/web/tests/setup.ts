@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { configure } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 
@@ -34,6 +34,13 @@ afterEach(async () => {
     isAuthenticated: false,
     hasHydrated: false,
   });
+});
+
+// Feature tests render with full access. A test that needs a limited or an anonymous user says so
+// with `signInAs({ permissions })` or `signOut()` from `tests/helpers/auth.ts`.
+beforeEach(async () => {
+  const { signInAsRoot } = await import('./helpers/auth');
+  signInAsRoot();
 });
 
 Object.defineProperty(window, 'matchMedia', {

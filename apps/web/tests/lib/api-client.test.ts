@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../setup';
+import { ROOT_PERMISSIONS } from '../helpers/auth';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -11,6 +12,8 @@ const mockUser = {
   email: 'admin@mcdi.dev',
   avatar: null,
   isSystemAdmin: true,
+  root: true,
+  permissions: ROOT_PERMISSIONS,
 };
 
 async function authenticatedStore() {

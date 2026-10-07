@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
+
 const replace = vi.fn();
 const logoutAdminMock = vi.fn();
 
@@ -21,6 +23,8 @@ const mockUser = {
   email: 'admin@mcdi.dev',
   avatar: null,
   isSystemAdmin: true,
+  root: true,
+  permissions: ROOT_PERMISSIONS,
 };
 
 function wrapper({ children }: { children: ReactNode }) {
