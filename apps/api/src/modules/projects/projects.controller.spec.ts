@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NotFoundException } from '@nestjs/common';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockProjectsService = {
   create: jest.fn(),
@@ -39,7 +39,7 @@ describe('ProjectsController', () => {
         },
       ],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(ProjectsController);
