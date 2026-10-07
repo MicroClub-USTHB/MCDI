@@ -1,14 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Users } from 'lucide-react';
 
-import {
-  useAccessCatalogQuery,
-  useAccessRolesQuery,
-  useOverridesListQuery,
-} from '@/features/access';
-import { OverridesList } from '@/features/access/components/OverridesList';
+import { useAccessCatalogQuery, useAccessRolesQuery } from '@/features/access';
+import { MemberAccessEditor } from '@/features/access/components/MemberAccessEditor';
+import { MemberPicker } from '@/features/access/components/MemberPicker';
 import { RoleEditor } from '@/features/access/components/RoleEditor';
 import { RoleList } from '@/features/access/components/RoleList';
 import { LoadingSkeleton } from '@/shared/components/common';
@@ -52,21 +49,25 @@ function RolesTab() {
   );
 }
 
-function OverridesTab() {
-  const overrides = useOverridesListQuery();
+function MembersTab() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (overrides.isError) {
-    return (
-      <EmptyState
-        icon={AlertCircle}
-        title="Couldn’t load the overrides"
-        actionLabel="Retry"
-        onAction={() => void overrides.refetch()}
-      />
-    );
-  }
-  if (!overrides.data) return <LoadingSkeleton className="h-48 rounded-lg" />;
-  return <OverridesList members={overrides.data.members} />;
+  return (
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+      <MemberPicker selectedId={selectedId} onSelect={setSelectedId} />
+      <div className="min-w-0">
+        {selectedId ? (
+          <MemberAccessEditor key={selectedId} memberId={selectedId} />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="Select a member"
+            description="Pick someone on the left to see what they can do, and change it for them alone."
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** Who may do what in the admin API: role grants and per-person overrides. Root only. */
@@ -85,13 +86,13 @@ export function AccessView() {
       <Tabs defaultValue="roles" className="flex flex-col gap-4">
         <TabsList aria-label="Access sections">
           <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="overrides">Members with overrides</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
         </TabsList>
         <TabsContent value="roles">
           <RolesTab />
         </TabsContent>
-        <TabsContent value="overrides">
-          <OverridesTab />
+        <TabsContent value="members">
+          <MembersTab />
         </TabsContent>
       </Tabs>
     </div>

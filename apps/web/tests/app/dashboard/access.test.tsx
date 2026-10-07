@@ -72,12 +72,55 @@ describe('AccessView', () => {
     expect(screen.getByText(/cannot be edited here/i)).toBeInTheDocument();
   });
 
-  it('shows the members with overrides on the second tab', async () => {
+  it('opens a member’s permissions from the Members tab', async () => {
     mockAccess();
+    server.use(
+      http.get(`${API}/admin/members`, () =>
+        HttpResponse.json({
+          data: [
+            {
+              memberId: 'm1',
+              username: 'ada',
+              globalName: 'Ada',
+              avatar: null,
+              isClubMember: true,
+              serverCount: 1,
+              servers: [],
+            },
+          ],
+          total: 1,
+          page: 1,
+          limit: 25,
+          totalPages: 1,
+        })
+      ),
+      http.get(`${API}/admin/access/members/m1`, () =>
+        HttpResponse.json({ memberId: 'm1', overrides: { messages: 'none' } })
+      ),
+      http.get(`${API}/admin/access/members/m1/effective`, () =>
+        HttpResponse.json({
+          memberId: 'm1',
+          username: 'ada',
+          displayName: 'Ada',
+          avatar: null,
+          root: false,
+          access: Object.fromEntries(
+            ACCESS_RESOURCES.map((key) => [
+              key,
+              { level: 'none', source: { type: 'role', roleId: 'r-hr' } },
+            ])
+          ),
+        })
+      )
+    );
     render(<AccessView />, { wrapper });
 
-    await userEvent.click(await screen.findByRole('tab', { name: /members with overrides/i }));
-    expect(await screen.findByText('Messages: none')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('tab', { name: /^members$/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /ada/i }));
+
+    const messages = await screen.findByRole('group', { name: 'Messages' });
+    expect(within(messages).getByText('Effective: none · Role: HR')).toBeInTheDocument();
+    expect(within(messages).getByRole('radio', { name: 'None' })).toBeChecked();
   });
 
   it('shows a retry when the roles cannot be loaded', async () => {

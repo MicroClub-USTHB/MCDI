@@ -30,15 +30,15 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 
 ## Decisions taken
 
-| Question | Decision |
-|---|---|
-| Scope | Both the permission-aware panel and the Access screen, as one spec delivered in three PRs |
-| Depth of gating | Sidebar, pages and actions |
-| Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcdi/contracts` |
-| Where overrides are managed | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page and from an overview list on the Access screen (needs one new API endpoint) |
-| Role editor layout | A role list and a one-role editor, with one Save per role |
-| Buttons below the member's level | Hidden, not disabled. A readable form that cannot be changed is shown read-only |
-| Unmapped dashboard routes | Denied by default, like the API |
+| Question                         | Decision                                                                                                                                                                                                                          |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope                            | Both the permission-aware panel and the Access screen, as one spec delivered in three PRs                                                                                                                                         |
+| Depth of gating                  | Sidebar, pages and actions                                                                                                                                                                                                        |
+| Rule approach                    | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcdi/contracts`                                                                                                                |
+| Where overrides are managed      | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page, and opened in place from the Members tab of the Access screen (one new API endpoint marks who already has an override) |
+| Role editor layout               | A role list and a one-role editor, with one Save per role                                                                                                                                                                         |
+| Buttons below the member's level | Hidden, not disabled. A readable form that cannot be changed is shown read-only                                                                                                                                                   |
+| Unmapped dashboard routes        | Denied by default, like the API                                                                                                                                                                                                   |
 
 ## Part 1: the permission-aware panel (PRs 1 and 2)
 
@@ -88,57 +88,57 @@ Requirement =
 
 Opening a page needs `read`. The actions on a page need more, and are listed below the table.
 
-| Route | Requirement |
-|---|---|
-| `/dashboard` | `anyAccess`. Each card needs its own resource, see "Mixed pages" |
-| `/dashboard/members`, `/dashboard/members/[discordId]` | `members:read` |
-| `/dashboard/members/[discordId]/access` (new, PR 3) | `root` |
-| `/dashboard/stats` | `stats:read` |
-| `/dashboard/servers`, `/dashboard/servers/[id]` | `servers:read` |
-| `/dashboard/servers/[id]/members` | all of `servers:read`, `members:read` |
-| `/dashboard/servers/[id]/roles`, `.../roles/[roleId]` | all of `servers:read`, `roles:read`, `stats:read`. The role list is built from `/admin/stats/roles`, so statistics are primary data here |
-| `/dashboard/servers/[id]/channels` | all of `servers:read`, `channels:read` |
-| `/dashboard/servers/[id]/sync`, `.../sync/logs/[syncLogId]` | all of `servers:read`, `sync:read` |
-| `/dashboard/roles` (redirects into a server) | all of `servers:read`, `roles:read`, `stats:read` |
-| `/dashboard/channels` (redirects into a server) | all of `servers:read`, `channels:read` |
-| `/dashboard/sync`, `/dashboard/sync/logs/[syncLogId]` | all of `servers:read`, `sync:read` |
-| `/dashboard/projects`, `/dashboard/projects/[id]` | `projects:read`. The API key panel on the project page needs `project_keys:read` |
-| `/dashboard/projects/[id]/access` | all of `projects:read`, `servers:read` (the server list is how access is granted) |
-| `/dashboard/projects/[id]/webhooks` | all of `projects:read`, `webhooks:read` |
-| `/dashboard/projects/[id]/inbound-webhooks`, `.../[webhookId]` | all of `projects:read`, `inbound_webhooks:read` |
-| `/dashboard/projects/[id]/inbound-webhooks/new` | all of `projects:read`, `inbound_webhooks:write` |
-| `/dashboard/webhooks` (redirects into a project) | all of `projects:read`, `webhooks:read` |
-| `/dashboard/monitoring` | any of `monitoring:read`, `audit:read`. Sections are gated, see below |
-| `/dashboard/settings` | `open`. The profile section is always available, every other section follows the rules in "The settings page" |
-| `/dashboard/settings/inbound-webhooks` | `inbound_webhooks:read`. Changing the default readers needs more, see "Secondary data" |
-| `/dashboard/access` (new, PR 3) | `root` |
+| Route                                                          | Requirement                                                                                                                              |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `/dashboard`                                                   | `anyAccess`. Each card needs its own resource, see "Mixed pages"                                                                         |
+| `/dashboard/members`, `/dashboard/members/[discordId]`         | `members:read`                                                                                                                           |
+| `/dashboard/members/[discordId]/access` (new, PR 3)            | `root`                                                                                                                                   |
+| `/dashboard/stats`                                             | `stats:read`                                                                                                                             |
+| `/dashboard/servers`, `/dashboard/servers/[id]`                | `servers:read`                                                                                                                           |
+| `/dashboard/servers/[id]/members`                              | all of `servers:read`, `members:read`                                                                                                    |
+| `/dashboard/servers/[id]/roles`, `.../roles/[roleId]`          | all of `servers:read`, `roles:read`, `stats:read`. The role list is built from `/admin/stats/roles`, so statistics are primary data here |
+| `/dashboard/servers/[id]/channels`                             | all of `servers:read`, `channels:read`                                                                                                   |
+| `/dashboard/servers/[id]/sync`, `.../sync/logs/[syncLogId]`    | all of `servers:read`, `sync:read`                                                                                                       |
+| `/dashboard/roles` (redirects into a server)                   | all of `servers:read`, `roles:read`, `stats:read`                                                                                        |
+| `/dashboard/channels` (redirects into a server)                | all of `servers:read`, `channels:read`                                                                                                   |
+| `/dashboard/sync`, `/dashboard/sync/logs/[syncLogId]`          | all of `servers:read`, `sync:read`                                                                                                       |
+| `/dashboard/projects`, `/dashboard/projects/[id]`              | `projects:read`. The API key panel on the project page needs `project_keys:read`                                                         |
+| `/dashboard/projects/[id]/access`                              | all of `projects:read`, `servers:read` (the server list is how access is granted)                                                        |
+| `/dashboard/projects/[id]/webhooks`                            | all of `projects:read`, `webhooks:read`                                                                                                  |
+| `/dashboard/projects/[id]/inbound-webhooks`, `.../[webhookId]` | all of `projects:read`, `inbound_webhooks:read`                                                                                          |
+| `/dashboard/projects/[id]/inbound-webhooks/new`                | all of `projects:read`, `inbound_webhooks:write`                                                                                         |
+| `/dashboard/webhooks` (redirects into a project)               | all of `projects:read`, `webhooks:read`                                                                                                  |
+| `/dashboard/monitoring`                                        | any of `monitoring:read`, `audit:read`. Sections are gated, see below                                                                    |
+| `/dashboard/settings`                                          | `open`. The profile section is always available, every other section follows the rules in "The settings page"                            |
+| `/dashboard/settings/inbound-webhooks`                         | `inbound_webhooks:read`. Changing the default readers needs more, see "Secondary data"                                                   |
+| `/dashboard/access` (new, PR 3)                                | `root`                                                                                                                                   |
 
 ### Actions
 
 An action is shown only when the member's level on its resource reaches the level below. Levels are cumulative, so `manage` also satisfies `write` and `read`.
 
-| Area | Action | Needs |
-|---|---|---|
-| Servers | Add, edit, enable, disable | `servers:write` |
-| Servers | Delete | `servers:manage` |
-| Roles | Add a role permission, create or update an inheritance rule | `roles:write` |
-| Roles | Remove a role permission | `roles:manage` |
-| Roles | Impact preview (read-only) | `roles:read` |
-| Projects | Create, edit, set the redirect URI, grant server access | `projects:write` |
-| Projects | Delete a project, revoke server access | `projects:manage` |
-| Project API key | View the key prefix and metadata | `project_keys:read` |
-| Project API key | Regenerate, restore | `project_keys:write` |
-| Project API key | Revoke | `project_keys:manage` |
-| Outbound webhooks | Delete | `webhooks:manage` |
-| Inbound webhooks | Create, edit, set reader roles, rotate the secret, save settings | `inbound_webhooks:write` |
-| Inbound webhooks | Delete | `inbound_webhooks:manage` |
-| Sync | Trigger a full sync, including "Sync all" on the Servers page | `sync:write` |
-| Settings | Save | `settings:write` |
-| Settings | Reset to defaults | `settings:manage` |
-| Profile | Edit your own profile | always |
-| Messages | Message history inside the channels page | `messages:read` (the tab is omitted without it) |
-| Projects | Create or edit a project with its server choice | `projects:write`, and `servers:read` for the form's server list (the field is omitted without it) |
-| Inbound webhooks | Change the default readers (settings sub-page) | `inbound_webhooks:write`, and `servers:read` plus `stats:read` for the role picker, which lists every role of every server. Without those the current readers are shown read-only |
+| Area              | Action                                                           | Needs                                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Servers           | Add, edit, enable, disable                                       | `servers:write`                                                                                                                                                                   |
+| Servers           | Delete                                                           | `servers:manage`                                                                                                                                                                  |
+| Roles             | Add a role permission, create or update an inheritance rule      | `roles:write`                                                                                                                                                                     |
+| Roles             | Remove a role permission                                         | `roles:manage`                                                                                                                                                                    |
+| Roles             | Impact preview (read-only)                                       | `roles:read`                                                                                                                                                                      |
+| Projects          | Create, edit, set the redirect URI, grant server access          | `projects:write`                                                                                                                                                                  |
+| Projects          | Delete a project, revoke server access                           | `projects:manage`                                                                                                                                                                 |
+| Project API key   | View the key prefix and metadata                                 | `project_keys:read`                                                                                                                                                               |
+| Project API key   | Regenerate, restore                                              | `project_keys:write`                                                                                                                                                              |
+| Project API key   | Revoke                                                           | `project_keys:manage`                                                                                                                                                             |
+| Outbound webhooks | Delete                                                           | `webhooks:manage`                                                                                                                                                                 |
+| Inbound webhooks  | Create, edit, set reader roles, rotate the secret, save settings | `inbound_webhooks:write`                                                                                                                                                          |
+| Inbound webhooks  | Delete                                                           | `inbound_webhooks:manage`                                                                                                                                                         |
+| Sync              | Trigger a full sync, including "Sync all" on the Servers page    | `sync:write`                                                                                                                                                                      |
+| Settings          | Save                                                             | `settings:write`                                                                                                                                                                  |
+| Settings          | Reset to defaults                                                | `settings:manage`                                                                                                                                                                 |
+| Profile           | Edit your own profile                                            | always                                                                                                                                                                            |
+| Messages          | Message history inside the channels page                         | `messages:read` (the tab is omitted without it)                                                                                                                                   |
+| Projects          | Create or edit a project with its server choice                  | `projects:write`, and `servers:read` for the form's server list (the field is omitted without it)                                                                                 |
+| Inbound webhooks  | Change the default readers (settings sub-page)                   | `inbound_webhooks:write`, and `servers:read` plus `stats:read` for the role picker, which lists every role of every server. Without those the current readers are shown read-only |
 
 A form the member can read but not change is rendered read-only with a "Read only" badge. For example, the settings form for a member with `settings:read`.
 
@@ -149,33 +149,33 @@ The panel audit (every hook of every page and component against the endpoint it 
 - **Primary data** is what the page is made of. The page needs it, and the route table says so with `all of`.
 - **Secondary data** feeds a filter, a picker, a label or an extra card. Without access to it the page still opens and that part degrades: the control or card is omitted, and names fall back to ids. The page never shows an error card for a resource the member was never allowed to read, and a query the member cannot make is not sent (`enabled` is false).
 
-| Page | Primary (opens the page) | Secondary (degrades without) |
-|---|---|---|
-| Dashboard home | `anyAccess` | Servers card `servers:read`, Projects card `projects:read`, Members card `stats:read`, Sync card `sync:read`. When no card applies the page points at the sidebar |
-| Members list | `members:read` | Server filter needs `servers:read`, role filter needs `stats:read` |
-| Server overview | `servers:read` | The statistics card needs `stats:read` |
-| Servers list | `servers:read` | The sync status column needs `sync:read`, "Sync all" needs `sync:write` |
-| Roles list and role page | `servers:read`, `roles:read`, `stats:read` | Add, remove and rule actions as in the actions table |
-| Project page | `projects:read` | The API key panel needs `project_keys:read` |
-| Project access | `projects:read`, `servers:read` | |
-| Inbound webhooks (list, detail, new) | `projects:read`, `inbound_webhooks:read` | |
-| Default readers (settings sub-page) | `inbound_webhooks:read` | The role picker needs `servers:read` and `stats:read`, plus `inbound_webhooks:write` to save |
-| Stats | `stats:read` | The server filter needs `servers:read` |
-| Monitoring | any of `monitoring:read`, `audit:read` | Health, usage and failures need `monitoring:read`. The audit log needs `audit:read`. The project filter needs `projects:read`. Actor names and the actor filter in the audit log need `members:read`, otherwise the ids are shown |
+| Page                                 | Primary (opens the page)                   | Secondary (degrades without)                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard home                       | `anyAccess`                                | Servers card `servers:read`, Projects card `projects:read`, Members card `stats:read`, Sync card `sync:read`. When no card applies the page points at the sidebar                                                                 |
+| Members list                         | `members:read`                             | Server filter needs `servers:read`, role filter needs `stats:read`                                                                                                                                                                |
+| Server overview                      | `servers:read`                             | The statistics card needs `stats:read`                                                                                                                                                                                            |
+| Servers list                         | `servers:read`                             | The sync status column needs `sync:read`, "Sync all" needs `sync:write`                                                                                                                                                           |
+| Roles list and role page             | `servers:read`, `roles:read`, `stats:read` | Add, remove and rule actions as in the actions table                                                                                                                                                                              |
+| Project page                         | `projects:read`                            | The API key panel needs `project_keys:read`                                                                                                                                                                                       |
+| Project access                       | `projects:read`, `servers:read`            |                                                                                                                                                                                                                                   |
+| Inbound webhooks (list, detail, new) | `projects:read`, `inbound_webhooks:read`   |                                                                                                                                                                                                                                   |
+| Default readers (settings sub-page)  | `inbound_webhooks:read`                    | The role picker needs `servers:read` and `stats:read`, plus `inbound_webhooks:write` to save                                                                                                                                      |
+| Stats                                | `stats:read`                               | The server filter needs `servers:read`                                                                                                                                                                                            |
+| Monitoring                           | any of `monitoring:read`, `audit:read`     | Health, usage and failures need `monitoring:read`. The audit log needs `audit:read`. The project filter needs `projects:read`. Actor names and the actor filter in the audit log need `members:read`, otherwise the ids are shown |
 
 ### The settings page
 
 `/dashboard/settings` is open to every signed-in admin, because it holds the member's own profile. Everything else on it follows the permission system, section by section:
 
-| Part of the page | Needs |
-|---|---|
-| Profile card (view and save) | Always available. It loads and fails independently of the rest |
-| Discord configuration (read-only display), cache, rate limit and preferences sections | `settings:read`. The query is not sent without it |
-| Saving those sections | `settings:write`. With only `settings:read` the forms are read-only with a "Read only" badge and no Save button |
-| "Reset to defaults" button and its confirmation | `settings:manage` |
-| "Last changed" line in the header | `settings:read`, because the data comes from the same endpoint |
-| Header description | "Configure MCDI behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
-| Link to the inbound webhook settings (on the inbound webhooks page) | `inbound_webhooks:read`. The sub-page is gated as above |
+| Part of the page                                                                      | Needs                                                                                                               |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Profile card (view and save)                                                          | Always available. It loads and fails independently of the rest                                                      |
+| Discord configuration (read-only display), cache, rate limit and preferences sections | `settings:read`. The query is not sent without it                                                                   |
+| Saving those sections                                                                 | `settings:write`. With only `settings:read` the forms are read-only with a "Read only" badge and no Save button     |
+| "Reset to defaults" button and its confirmation                                       | `settings:manage`                                                                                                   |
+| "Last changed" line in the header                                                     | `settings:read`, because the data comes from the same endpoint                                                      |
+| Header description                                                                    | "Configure MCDI behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
+| Link to the inbound webhook settings (on the inbound webhooks page)                   | `inbound_webhooks:read`. The sub-page is gated as above                                                             |
 
 Today one loading and one error state cover the profile and the system settings together, so a member who cannot read settings would be stuck on skeletons or see "Settings could not be loaded". The page is restructured so each part has its own loading, error and empty state. A member with no `settings:read` simply sees the profile card, and the page does not mention what it hides.
 
@@ -207,7 +207,7 @@ This means browsing anything under a server needs `servers:read`, because the se
 
 ### Where it lives
 
-`/dashboard/access`, root only, in the sidebar's System group, and a root-only **Access page for one member** at `/dashboard/members/[discordId]/access`. The member page links to it (a link visible to root only), and so does the overrides list. Both are entries in the route table.
+`/dashboard/access`, root only, in the sidebar's System group, and a root-only **Access page for one member** at `/dashboard/members/[discordId]/access`. The member page links to it (a link visible to root only), and the Access screen's Members tab opens the same editor in place. Both are entries in the route table.
 
 The member's Access view is its own page and not a tab on the member page, because the member page cannot load today: it calls `GET /api/admin/members/:discordId`, which the API does not have (only `.../servers`, the list, `cross-server` and `export` exist), and its permissions panel calls an API-key-only endpoint. Fixing that page is separate work, tracked on its own, and the Access page does not depend on it.
 
@@ -228,11 +228,11 @@ The page shows the member's name and avatar and a table: resource, the member's 
 - A member who currently holds a root role shows "Full access, cannot be changed" and no controls. The API refuses overrides on them.
 - A member id the API does not know shows a not-found state (the API answers 404).
 
-### Members with overrides tab
+### Members tab
 
-A list of every member who has overrides: avatar, name, a summary such as "messages: none, projects: manage", and a link to that member's Access page. A member whose overrides are inactive because they currently hold a root role is marked.
+A master-detail view: on the left, every member of the server (avatar, name and username) in a list with a search box and page controls (the paginated `GET /api/admin/members` list, filtered by `search`/`page`/`limit`), with members who already carry an override marked. Selecting a member on the left opens the member editor from the section above on the right, so root can see and change one person's access without leaving the screen; nothing selected shows a prompt to pick someone. The same editor still backs the member's Access page at `/dashboard/members/[discordId]/access`.
 
-**New API endpoint:** `GET /api/admin/access/overrides`, root only.
+**Endpoint used for the marks:** `GET /api/admin/access/overrides`, root only.
 
 ```
 { "members": [
@@ -258,15 +258,15 @@ React Query keys under an `access` feature: catalog (static), roles, a member's 
 ### Tests (PR 3)
 
 - API: unit tests for the new service method and controller, the coverage entry, and an e2e test (root sees a seeded override, a non-root member gets 403, a root member is flagged).
-- Web: the role editor (renders per resource, dirty state, Save sends the full set without `none`, Discard, root role locked), the member Access page (sources, Inherit leaves a resource out, root member locked, unknown member), the overrides list, the confirm dialog on lowering, the prerequisite hint, and that none of it renders for a non-root member.
+- Web: the role editor (renders per resource, dirty state, Save sends the full set without `none`, Discard, root role locked), the member Access page (sources, Inherit leaves a resource out, root member locked, unknown member), the member picker (list, search, paging, override marks, selection drives the editor), the confirm dialog on lowering, the prerequisite hint, and that none of it renders for a non-root member.
 
 ## Delivery
 
-| PR | Branch | Contents |
-|---|---|---|
-| 1. Foundations | `benabdou/admin-panel-foundations` | The spec and the three plans, the contracts catalog and API re-export, `/me` data in the store, the rules library, `useCan` and `<Can>`, the route table, the page guard and no-access states, the sidebar, the 403 refresh, test helpers |
-| 2. Gating | `benabdou/admin-panel-gating` | Every query hook gated, secondary data degrading, every write and manage action gated across the features, the settings page restructured, docs |
-| 3. Access screen | `benabdou/admin-panel-access` | The overrides endpoint and the extended `effective` response, the Access screen and the member Access page, safety features, audit filter, tests, docs |
+| PR               | Branch                             | Contents                                                                                                                                                                                                                                  |
+| ---------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Foundations   | `benabdou/admin-panel-foundations` | The spec and the three plans, the contracts catalog and API re-export, `/me` data in the store, the rules library, `useCan` and `<Can>`, the route table, the page guard and no-access states, the sidebar, the 403 refresh, test helpers |
+| 2. Gating        | `benabdou/admin-panel-gating`      | Every query hook gated, secondary data degrading, every write and manage action gated across the features, the settings page restructured, docs                                                                                           |
+| 3. Access screen | `benabdou/admin-panel-access`      | The overrides endpoint and the extended `effective` response, the Access screen and the member Access page, safety features, audit filter, tests, docs                                                                                    |
 
 PR 2 and PR 3 both build on PR 1 and do not depend on each other. Each starts from the latest `dev` after PR 1 has merged. The plans live in `docs/superpowers/plans`: `2026-10-07-admin-panel-foundations.md`, `2026-10-07-admin-panel-gating.md` and `2026-10-07-admin-panel-access-screen.md`.
 
@@ -281,7 +281,7 @@ PR 2 and PR 3 both build on PR 1 and do not depend on each other. Each starts fr
 - **PR 2 touches many features.** Mitigated by the route-table coverage test and per-feature tests, and by keeping each action change to a single `useCan` or `<Can>` wrap.
 - **The UI can be briefly out of date.** A grant change reaches an open panel within about a minute, or immediately when the member tries a refused action. The API is always right, so the worst case is a visible button that answers 403.
 - **A grant can be unreachable in the panel** (for example `channels` without `servers`). The prerequisite hints reduce it; the API still allows the grant, so API clients are unaffected.
-- **The overrides list has no pagination.** Fine for the club's size; add paging if it ever grows.
+- **The overrides endpoint has no pagination.** It only marks who has overrides now (the picker pages the members list); fine for the club's size, add paging if it ever grows.
 
 ## Follow-ups
 
