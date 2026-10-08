@@ -7,6 +7,9 @@ import * as schema from '../../../database/entities';
 export interface CreateAdminOAuthStateDto {
   state: string;
   expiresAt: Date;
+  /** CLI login only: loopback URL and PKCE S256 challenge. */
+  redirectUri?: string;
+  codeChallenge?: string;
 }
 
 @Injectable()
@@ -16,7 +19,12 @@ export class AdminOAuthStateRepository {
   async create(data: CreateAdminOAuthStateDto) {
     const states = await this.db
       .insert(schema.adminOauthStates)
-      .values({ state: data.state, expiresAt: data.expiresAt })
+      .values({
+        state: data.state,
+        expiresAt: data.expiresAt,
+        redirectUri: data.redirectUri ?? null,
+        codeChallenge: data.codeChallenge ?? null,
+      })
       .returning();
     return states[0];
   }

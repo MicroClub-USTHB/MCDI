@@ -19,6 +19,45 @@
         },
         "type": "object"
       },
+      "AdminCliTokenDto": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "The one-time code from the CLI login redirect",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "codeVerifier": {
+            "description": "The PKCE code_verifier whose S256 challenge started the login (RFC 7636)",
+            "maxLength": 128,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "codeVerifier"
+        ],
+        "type": "object"
+      },
+      "AdminCliTokenResponseDto": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "description": "When the session expires",
+            "format": "date-time",
+            "type": "string"
+          },
+          "token": {
+            "description": "Admin session token (Bearer), valid 24 hours",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
       "AdminMeResponseDto": {
         "additionalProperties": false,
         "properties": {
@@ -7252,9 +7291,43 @@
     },
     "/api/auth/admin/discord": {
       "get": {
-        "description": "Returns a Discord authorization URL. The admin opens the URL, authenticates with Discord, and is redirected to the admin callback endpoint.",
+        "description": "Returns a Discord authorization URL. The admin opens the URL, authenticates with Discord, and is redirected to the admin callback endpoint.\n\nA CLI (m-forge) can instead receive the result itself: pass a loopback `redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). After Discord, MCDI redirects to that URL with `?code=&state=` (or `?error=&state=`), and the CLI exchanges the code at `POST /auth/admin/token`.",
         "operationId": "AuthController_adminDiscordLogin",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "CLI login only: the loopback URL (http, 127.0.0.1 / localhost / [::1], explicit port) MCDI redirects to with ?code=&state= (or ?error=&state=) once Discord is done.",
+            "in": "query",
+            "name": "redirect_uri",
+            "required": false,
+            "schema": {
+              "example": "http://127.0.0.1:53123/callback",
+              "maxLength": 2048,
+              "type": "string"
+            }
+          },
+          {
+            "description": "CLI login only: PKCE challenge, BASE64URL(SHA256(code_verifier)) (RFC 7636).",
+            "in": "query",
+            "name": "code_challenge",
+            "required": false,
+            "schema": {
+              "example": "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+              "maxLength": 128,
+              "type": "string"
+            }
+          },
+          {
+            "description": "CLI login only: must be S256.",
+            "in": "query",
+            "name": "code_challenge_method",
+            "required": false,
+            "schema": {
+              "example": "S256",
+              "maxLength": 16,
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -7267,6 +7340,9 @@
               }
             },
             "description": "Discord authorization URL."
+          },
+          "400": {
+            "description": "Invalid CLI login parameters (non-loopback redirect_uri, missing or malformed PKCE challenge)."
           }
         },
         "summary": "Initiate system admin Discord OAuth2 login",
@@ -7332,6 +7408,42 @@
           }
         ],
         "summary": "Get current system admin profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/admin/token": {
+      "post": {
+        "description": "Second half of the CLI admin login (m-forge). Exchanges the one-time code MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 challenge started the login, for a 24-hour admin session token. A code works once and expires quickly; every failure returns the same 401.",
+        "operationId": "AuthController_adminCliToken",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCliTokenDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCliTokenResponseDto"
+                }
+              }
+            },
+            "description": "Admin session issued."
+          },
+          "401": {
+            "description": "Unknown, used or expired code, or a code_verifier that does not match."
+          }
+        },
+        "summary": "Exchange a CLI login code for an admin session",
         "tags": [
           "Authentication"
         ]

@@ -61,6 +61,9 @@ import {
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
+  AdminDiscordLoginQueryDto,
+  AdminCliTokenDto,
+  AdminCliTokenResponseDto,
   SsoSessionStatusDto,
   SsoSessionUnauthenticatedDto,
   SsoProjectSessionListDto,
@@ -289,6 +292,17 @@ export class AuthController {
         this.configService.get<string>('app.nodeEnv') === 'production';
 
       try {
+        // A CLI login hands its result back to the CLI's own loopback URL.
+        if (await this.adminAuthService.findCliRedirect(state)) {
+          return res.redirect(
+            await this.adminAuthService.handleAdminCliCallback(
+              code,
+              state,
+              extractClientInfo(req),
+            ),
+          );
+        }
+
         const result = await this.adminAuthService.handleAdminDiscordCallback(
           code,
           state,
@@ -809,7 +823,12 @@ export class AuthController {
     description:
       'Returns a Discord authorization URL. ' +
       'The admin opens the URL, authenticates with Discord, ' +
-      'and is redirected to the admin callback endpoint.',
+      'and is redirected to the admin callback endpoint.\n\n' +
+      'A CLI (m-forge) can instead receive the result itself: pass a loopback ' +
+      '`redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). ' +
+      'After Discord, MCDI redirects to that URL with `?code=&state=` ' +
+      '(or `?error=&state=`), and the CLI exchanges the code at ' +
+      '`POST /auth/admin/token`.',
   })
   @ApiOkResponse({
     description: 'Discord authorization URL.',
@@ -817,8 +836,20 @@ export class AuthController {
       example: { url: 'https://discord.com/api/oauth2/authorize?...' },
     },
   })
-  async adminDiscordLogin(@Req() req: Request, @Res() res: Response) {
-    const result = await this.adminAuthService.buildAdminDiscordLoginUrl();
+  @ApiBadRequestResponse({
+    description:
+      'Invalid CLI login parameters (non-loopback redirect_uri, missing or malformed PKCE challenge).',
+  })
+  async adminDiscordLogin(
+    @Query() query: AdminDiscordLoginQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const result = await this.adminAuthService.buildAdminDiscordLoginUrl({
+      redirectUri: query.redirect_uri,
+      codeChallenge: query.code_challenge,
+      codeChallengeMethod: query.code_challenge_method,
+    });
     const accept = req.headers.accept || '';
 
     if (accept.includes('text/html')) {
@@ -826,6 +857,34 @@ export class AuthController {
     }
 
     return res.json(result);
+  }
+
+  @Post('admin/token')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @ApiOperation({
+    summary: 'Exchange a CLI login code for an admin session',
+    description:
+      'Second half of the CLI admin login (m-forge). Exchanges the one-time code ' +
+      'MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 ' +
+      'challenge started the login, for a 24-hour admin session token. A code ' +
+      'works once and expires quickly; every failure returns the same 401.',
+  })
+  @ApiBody({ type: AdminCliTokenDto })
+  @ApiOkResponse({
+    description: 'Admin session issued.',
+    type: AdminCliTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'Unknown, used or expired code, or a code_verifier that does not match.',
+  })
+  async adminCliToken(@Body() dto: AdminCliTokenDto, @Req() req: Request) {
+    return this.adminAuthService.exchangeAdminCliCode(
+      dto.code,
+      dto.codeVerifier,
+      extractClientInfo(req),
+    );
   }
 
   @Get('admin/discord/callback')
@@ -842,6 +901,17 @@ export class AuthController {
       this.configService.get<string>('app.nodeEnv') === 'production';
 
     try {
+      // A CLI login hands its result back to the CLI's own loopback URL.
+      if (await this.adminAuthService.findCliRedirect(state)) {
+        return res.redirect(
+          await this.adminAuthService.handleAdminCliCallback(
+            code,
+            state,
+            extractClientInfo(req),
+          ),
+        );
+      }
+
       const result = await this.adminAuthService.handleAdminDiscordCallback(
         code,
         state,
