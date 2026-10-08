@@ -36,6 +36,13 @@ export interface Config {
 
 export const DEFAULT_PROFILE = 'default';
 
+/** PRD §5.2: a profile name is a bare identifier, never part of a URL or shell-escaped. */
+export const PROFILE_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+export function isValidProfileName(name: string): boolean {
+  return PROFILE_NAME_PATTERN.test(name);
+}
+
 export function configDir(): string {
   return join(homedir(), '.m-forge');
 }
@@ -144,6 +151,55 @@ export function removeWebhookSecret(config: Config, profileName: string, webhook
   const webhookSecrets = { ...profile.webhookSecrets };
   delete webhookSecrets[webhookId];
   return { ...config, profiles: { ...config.profiles, [profileName]: { ...profile, webhookSecrets } } };
+}
+
+/**
+ * Adds a new profile with no session, becoming the active profile only if
+ * none is active yet (same rule as `setSession`'s first-login case). Refuses
+ * an invalid name or one that already exists, before anything is saved.
+ */
+export function addProfile(config: Config, name: string, baseUrl: string): Config {
+  if (!isValidProfileName(name)) {
+    throw new CliError(
+      `invalid profile name "${name}"; use only letters, digits, "_" or "-" (1-64 characters)`,
+      ExitCode.PrecheckFailed,
+    );
+  }
+  if (config.profiles[name]) {
+    throw new CliError(`profile "${name}" already exists`, ExitCode.PrecheckFailed);
+  }
+  return {
+    ...config,
+    activeProfile: config.activeProfile ?? name,
+    profiles: { ...config.profiles, [name]: { baseUrl, session: null } },
+  };
+}
+
+/** Sets the active profile. Throws the same "no profile named" error `resolveSession` callers rely on when it doesn't exist. */
+export function setActiveProfile(config: Config, name: string): Config {
+  if (!config.profiles[name]) {
+    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+  }
+  return { ...config, activeProfile: name };
+}
+
+/**
+ * Removes a profile unconditionally — callers that need to refuse while a
+ * session or webhook secrets are still present (PRD §5.2, `m-forge profile
+ * remove`) must check that before calling this. Nulls `activeProfile` when
+ * the removed profile was active; other profiles are untouched.
+ */
+export function removeProfile(config: Config, name: string): Config {
+  if (!config.profiles[name]) {
+    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+  }
+  const profiles = { ...config.profiles };
+  delete profiles[name];
+  return {
+    ...config,
+    activeProfile: config.activeProfile === name ? null : config.activeProfile,
+    profiles,
+  };
 }
 
 /** Clears a profile's session (e.g. on logout), keeping its baseUrl, the other profiles, and activeProfile untouched. */
