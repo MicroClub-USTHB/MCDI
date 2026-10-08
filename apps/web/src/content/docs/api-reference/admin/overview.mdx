@@ -4,7 +4,7 @@ These endpoints serve the admin dashboard and are not meant for projects. They n
 
 The endpoints for projects are in the [Project API](/docs/api-reference/project/overview).
 
-87 endpoints in 15 groups.
+88 endpoints in 15 groups.
 
 ## Admin Access
 
@@ -43,6 +43,7 @@ The endpoints for projects are in the [Project API](/docs/api-reference/project/
 | `GET` | `/api/auth/admin/discord` | [Initiate system admin Discord OAuth2 login](/docs/api-reference/admin/authentication#initiate-system-admin-discord-oauth2-login) |
 | `POST` | `/api/auth/admin/logout` | [Log out of the admin dashboard](/docs/api-reference/admin/authentication#log-out-of-the-admin-dashboard) |
 | `GET` | `/api/auth/admin/me` | [Get current system admin profile](/docs/api-reference/admin/authentication#get-current-system-admin-profile) |
+| `POST` | `/api/auth/admin/token` | [Exchange a CLI login code for an admin session](/docs/api-reference/admin/authentication#exchange-a-cli-login-code-for-an-admin-session) |
 | `POST` | `/api/auth/cleanup` | [Cleanup expired sessions (maintenance)](/docs/api-reference/admin/authentication#cleanup-expired-sessions-maintenance) |
 
 ## Channels

@@ -13,6 +13,7 @@ import { MemberRepository } from './repositories/member.repository';
 import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
+import { AdminCliCodeRepository } from './repositories/admin-cli-code.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
 import { SsoSessionRepository } from './repositories/sso-session.repository';
 import { SessionGuard } from '../../common/guards/session.guard';
@@ -37,6 +38,7 @@ import { AuditModule } from '../audit/audit.module';
     OAuthStateRepository,
     AuthRequestRepository,
     AdminOAuthStateRepository,
+    AdminCliCodeRepository,
     CallbackCodeRepository,
     SsoSessionRepository,
     SessionGuard,

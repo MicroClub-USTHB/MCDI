@@ -118,19 +118,17 @@ export class SyncLogService {
 
     return {
       total,
-      logs: logs.map(
-        (log): SyncLogDto => ({
-          id: log.id,
-          serverId: log.serverId,
-          syncType: log.syncType,
-          status: log.status,
-          membersSynced: log.membersSynced,
-          rolesSynced: log.rolesSynced,
-          message: log.message ?? undefined,
-          startedAt: log.startedAt.toISOString(),
-          finishedAt: log.finishedAt?.toISOString(),
-        }),
-      ),
+      logs: logs.map((log): SyncLogDto => ({
+        id: log.id,
+        serverId: log.serverId,
+        syncType: log.syncType,
+        status: log.status,
+        membersSynced: log.membersSynced,
+        rolesSynced: log.rolesSynced,
+        message: log.message ?? undefined,
+        startedAt: log.startedAt.toISOString(),
+        finishedAt: log.finishedAt?.toISOString(),
+      })),
     };
   }
 
@@ -149,19 +147,17 @@ export class SyncLogService {
 
     return {
       total,
-      changes: changes.map(
-        (c): SyncChangeDetailDto => ({
-          id: c.id,
-          syncLogId: c.syncLogId,
-          serverId: c.serverId,
-          entityType: c.entityType,
-          entityId: c.entityId,
-          action: c.action,
-          description: c.description ?? undefined,
-          details: c.details ?? undefined,
-          createdAt: c.createdAt.toISOString(),
-        }),
-      ),
+      changes: changes.map((c): SyncChangeDetailDto => ({
+        id: c.id,
+        syncLogId: c.syncLogId,
+        serverId: c.serverId,
+        entityType: c.entityType,
+        entityId: c.entityId,
+        action: c.action,
+        description: c.description ?? undefined,
+        details: c.details ?? undefined,
+        createdAt: c.createdAt.toISOString(),
+      })),
     };
   }
 }

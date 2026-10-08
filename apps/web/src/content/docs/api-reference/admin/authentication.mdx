@@ -8,13 +8,24 @@ Project-scoped login (`/auth/authorize`), backend-to-backend session API (`/auth
 
 Returns a Discord authorization URL. The admin opens the URL, authenticates with Discord, and is redirected to the admin callback endpoint.
 
+A CLI (m-forge) can instead receive the result itself: pass a loopback `redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). After Discord, MCDI redirects to that URL with `?code=&state=` (or `?error=&state=`), and the CLI exchanges the code at `POST /auth/admin/token`.
+
 **Authentication:** None, this endpoint is public.
+
+**Parameters**
+
+| Name | In | Type | Required | Description |
+| --- | --- | --- | --- | --- |
+| `redirect_uri` | query | `string` | no | CLI login only: the loopback URL (http, 127.0.0.1 / localhost / [::1], explicit port) MCDI redirects to with ?code=&state= (or ?error=&state=) once Discord is done. |
+| `code_challenge` | query | `string` | no | CLI login only: PKCE challenge, BASE64URL(SHA256(code_verifier)) (RFC 7636). |
+| `code_challenge_method` | query | `string` | no | CLI login only: must be S256. |
 
 **Responses**
 
 | Status | Description | Body |
 | --- | --- | --- |
 | `200` | Discord authorization URL. | `any` |
+| `400` | Invalid CLI login parameters (non-loopback redirect_uri, missing or malformed PKCE challenge). |  |
 
 <SwaggerLink tag="Authentication" operationId="AuthController_adminDiscordLogin" />
 
@@ -52,6 +63,25 @@ Returns the profile of the authenticated system admin based on their Bearer sess
 
 <SwaggerLink tag="Authentication" operationId="AuthController_adminMe" />
 
+## Exchange a CLI login code for an admin session
+
+<Endpoint method="POST" path="/api/auth/admin/token" />
+
+Second half of the CLI admin login (m-forge). Exchanges the one-time code MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 challenge started the login, for a 24-hour admin session token. A code works once and expires quickly; every failure returns the same 401.
+
+**Authentication:** None, this endpoint is public.
+
+**Request body** (JSON, required): [AdminCliTokenDto schema](#adminclitokendto-schema).
+
+**Responses**
+
+| Status | Description | Body |
+| --- | --- | --- |
+| `200` | Admin session issued. | `AdminCliTokenResponseDto` |
+| `401` | Unknown, used or expired code, or a code_verifier that does not match. |  |
+
+<SwaggerLink tag="Authentication" operationId="AuthController_adminCliToken" />
+
 ## Cleanup expired sessions (maintenance)
 
 <Endpoint method="POST" path="/api/auth/cleanup" />
@@ -69,6 +99,20 @@ Removes expired sessions. Should be called by a scheduled job.
 <SwaggerLink tag="Authentication" operationId="AuthController_cleanupExpired" />
 
 ## Schemas
+
+### AdminCliTokenDto schema
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `code` | `string` | yes | The one-time code from the CLI login redirect |
+| `codeVerifier` | `string` | yes | The PKCE code_verifier whose S256 challenge started the login (RFC 7636) |
+
+### AdminCliTokenResponseDto schema
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `expiresAt` | `string (date-time)` | yes | When the session expires |
+| `token` | `string` | yes | Admin session token (Bearer), valid 24 hours |
 
 ### AdminMeResponseDto schema
 
