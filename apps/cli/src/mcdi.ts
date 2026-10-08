@@ -35,13 +35,22 @@ async function readJson(res: Response, what: string): Promise<unknown> {
   }
 }
 
+/** The query that starts a CLI login (loopback redirect + PKCE S256). Exported for tests. */
+export function adminLoginQuery(redirectUri: string, codeChallenge: string): URLSearchParams {
+  return new URLSearchParams({
+    redirect_uri: redirectUri,
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+  });
+}
+
 /**
- * GET /auth/admin/discord → the Discord consent URL.
- * `redirectUri` is the CLI's loopback callback; MCDI ignores it until issue #2 lands.
+ * GET /auth/admin/discord → the Discord consent URL. With `redirect_uri` and a
+ * PKCE challenge, MCDI hands the result back to the CLI's loopback listener as
+ * a one-time code (MCDI's CLI login, mcdi-cli issue #2).
  */
-export async function getAdminLoginUrl(baseUrl: string, redirectUri: string): Promise<string> {
-  const query = new URLSearchParams({ redirect_uri: redirectUri });
-  const res = await request(baseUrl, `/auth/admin/discord?${query}`, {
+export async function getAdminLoginUrl(baseUrl: string, redirectUri: string, codeChallenge: string): Promise<string> {
+  const res = await request(baseUrl, `/auth/admin/discord?${adminLoginQuery(redirectUri, codeChallenge)}`, {
     headers: { Accept: 'application/json' },
   });
   if (!res.ok) {
@@ -52,6 +61,49 @@ export async function getAdminLoginUrl(baseUrl: string, redirectUri: string): Pr
     throw new CliError('MCDI login response is missing the Discord URL', ExitCode.Unexpected);
   }
   return body.url;
+}
+
+export interface AdminLoginSession {
+  token: string;
+  expiresAt: string;
+}
+
+/** Validates the shape of a successful POST /auth/admin/token body. Exported for tests. */
+export function parseAdminLoginSession(body: unknown): AdminLoginSession {
+  const b = body as Partial<AdminLoginSession> | null;
+  if (typeof b?.token !== 'string' || b.token === '' || typeof b.expiresAt !== 'string') {
+    throw new CliError('MCDI login token response has an unexpected shape', ExitCode.Unexpected);
+  }
+  return { token: b.token, expiresAt: b.expiresAt };
+}
+
+/**
+ * POST /auth/admin/token → the admin session, in exchange for the one-time
+ * code from the loopback redirect and the PKCE verifier that started the login.
+ */
+export async function exchangeAdminLoginCode(
+  baseUrl: string,
+  code: string,
+  codeVerifier: string,
+): Promise<AdminLoginSession> {
+  const res = await request(baseUrl, '/auth/admin/token', {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, codeVerifier }),
+  });
+  if (res.status === 401) {
+    throw new CliError(
+      'MCDI rejected the login code (expired, already used, or not from this login); run `mcdi-cli login` again',
+      ExitCode.Auth,
+    );
+  }
+  if (res.status === 429) {
+    throw new CliError('MCDI is rate-limiting login attempts; wait a minute and try again', ExitCode.Unexpected);
+  }
+  if (!res.ok) {
+    throw new CliError(`MCDI returned HTTP ${res.status} for the login code exchange`, ExitCode.Unexpected);
+  }
+  return parseAdminLoginSession(await readJson(res, 'the login token'));
 }
 
 export interface AdminMeResponse {
