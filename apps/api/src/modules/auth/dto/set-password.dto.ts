@@ -1,3 +1,4 @@
+import { ACCESS_LEVELS } from '../../../common/permissions/catalog';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AdminMeResponseDto {
@@ -61,4 +62,20 @@ export class AdminMeResponseDto {
     example: '2026-03-13T05:00:00.000Z',
   })
   sessionExpiresAt: Date;
+
+  @ApiProperty({
+    description:
+      'True when the member holds a root role. Root has manage on every resource.',
+    example: false,
+  })
+  root: boolean;
+
+  @ApiProperty({
+    description:
+      'The effective access level per admin resource. The admin panel builds its navigation from this; the API enforces it on every request.',
+    type: 'object',
+    additionalProperties: { type: 'string', enum: [...ACCESS_LEVELS] },
+    example: { members: 'read', messages: 'none', projects: 'write' },
+  })
+  permissions: Record<string, string>;
 }

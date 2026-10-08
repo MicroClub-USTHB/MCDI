@@ -8,7 +8,7 @@ import { AdminAuthService } from './services/admin-auth.service';
 import { SsoService } from './services/sso.service';
 import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 import { SessionGuard } from '../../common/guards/session.guard';
 
 const mockAuthService = {
@@ -93,7 +93,7 @@ describe('AuthController', () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SessionGuard)
       .useValue({ canActivate: () => true })

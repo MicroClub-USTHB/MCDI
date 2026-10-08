@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Server as ServerIcon } from 'lucide-react';
 
+import { Can } from '@/shared/components/common';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Skeleton } from '@/shared/components/ui/skeleton';
@@ -56,7 +57,9 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
             <Skeleton className="h-4 w-24" />
           </div>
         </div>
-        <ServerStatsCard stats={undefined} isLoading />
+        <Can resource="stats" level="read">
+          <ServerStatsCard stats={undefined} isLoading />
+        </Can>
         <Skeleton className="h-64 w-full" />
       </div>
     );
@@ -104,40 +107,46 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={server.isMain}
-            title={server.isMain ? 'The main server cannot be disabled' : undefined}
-            onClick={() => {
-              if (server.isActive) {
-                setDisableOpen(true);
-              } else {
-                enableMutation.mutate(server.id, {
-                  onSuccess: () => showToast(`${server.name} enabled`, 'success'),
-                  onError: (mutationError) =>
-                    showToast(mutationError.message || 'Failed to enable server', 'error'),
-                });
-              }
-            }}
-          >
-            {server.isActive ? 'Disable' : 'Enable'}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            disabled={server.isMain}
-            title={server.isMain ? 'The main server cannot be deleted' : undefined}
-            onClick={() => setDeleteOpen(true)}
-          >
-            Delete
-          </Button>
+          <Can resource="servers" level="write">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={server.isMain}
+              title={server.isMain ? 'The main server cannot be disabled' : undefined}
+              onClick={() => {
+                if (server.isActive) {
+                  setDisableOpen(true);
+                } else {
+                  enableMutation.mutate(server.id, {
+                    onSuccess: () => showToast(`${server.name} enabled`, 'success'),
+                    onError: (mutationError) =>
+                      showToast(mutationError.message || 'Failed to enable server', 'error'),
+                  });
+                }
+              }}
+            >
+              {server.isActive ? 'Disable' : 'Enable'}
+            </Button>
+          </Can>
+          <Can resource="servers" level="manage">
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              disabled={server.isMain}
+              title={server.isMain ? 'The main server cannot be deleted' : undefined}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete
+            </Button>
+          </Can>
         </div>
       </div>
 
-      <ServerStatsCard stats={stats} isLoading={isStatsPending} />
+      <Can resource="stats" level="read">
+        <ServerStatsCard stats={stats} isLoading={isStatsPending} />
+      </Can>
 
       <ServerForm
         mode="edit"

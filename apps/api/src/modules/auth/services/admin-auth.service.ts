@@ -23,6 +23,11 @@ import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
 import { AuditService } from '../../audit/audit.service';
+import { AdminAccessService } from '../../admin-access/admin-access.service';
+import {
+  ACCESS_RESOURCES,
+  type AccessLevel,
+} from '../../../common/permissions/catalog';
 import type { ClientInfo } from '../../../common/utils/client-info.util';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
@@ -44,7 +49,6 @@ export class AdminAuthService {
   private readonly discordClientId: string;
   private readonly discordAdminRedirectUri: string;
   private readonly mainGuildId: string;
-  private readonly adminRoleIds: string[];
   private readonly cliCodeTtlSec: number;
 
   constructor(
@@ -57,25 +61,15 @@ export class AdminAuthService {
     private readonly sessionIssuanceService: SessionIssuanceService,
     private readonly discordService: DiscordService,
     private readonly auditService: AuditService,
+    private readonly adminAccessService: AdminAccessService,
   ) {
     this.discordClientId = this.configService.get<string>('discord.clientId')!;
     this.discordAdminRedirectUri = this.configService.get<string>(
       'discord.adminRedirectUri',
     )!;
     this.mainGuildId = this.configService.get<string>('discord.mainGuildId')!;
-    this.adminRoleIds = this.buildAdminRoleIds();
     this.cliCodeTtlSec =
       this.configService.get<number>('app.callbackCodeTtlSec') || 120;
-  }
-
-  private buildAdminRoleIds(): string[] {
-    const executiveRoleId =
-      this.configService.get<string>('discord.executiveRoleId') || '';
-    const devLeadRoleId =
-      this.configService.get<string>('discord.devLeadRoleId') || '';
-    const itLeadRoleId =
-      this.configService.get<string>('discord.itLeadRoleId') || '';
-    return [executiveRoleId, devLeadRoleId, itLeadRoleId].filter(Boolean);
   }
 
   // ─── System Admin Discord OAuth2 Login ───────────────────
@@ -169,10 +163,9 @@ export class AdminAuthService {
    *  2. Exchange the Discord code for an access token (using admin redirect URI)
    *  3. Fetch the Discord profile & upsert the member
    *  4. Verify the user is a member of the main MCDI guild
-   *  5. Verify the user holds the configured admin role ID in the main guild
-   *  6. Sync roles into the DB
-   *  7. Issue a 24-hour session token
-   *  8. Return token + member info
+   *  5. Sync roles into the DB and clear the member's cached admin access
+   *  6. Issue a 24-hour session token
+   *  7. Return token + member info
    */
   async handleAdminDiscordCallback(
     discordCode: string,
@@ -190,7 +183,7 @@ export class AdminAuthService {
       );
     }
 
-    // 2-6. Discord identity, main guild membership, admin role, role sync
+    // 2-5. Discord identity, main guild membership, role sync
     const member = await this.verifyAdminIdentity(discordCode, clientInfo);
 
     // 7. Issue a 24-hour session token
@@ -323,8 +316,9 @@ export class AdminAuthService {
 
   /**
    * Steps shared by the web panel and CLI logins: exchange the Discord code,
-   * resolve the profile, require main-guild membership and an admin role, and
-   * sync the member's roles. Every refusal is audited by `rejectLogin`.
+   * resolve the profile, require main-guild membership, and sync the
+   * member's roles (clearing their cached admin access). Every refusal is
+   * audited by `rejectLogin`.
    */
   private async verifyAdminIdentity(
     discordCode: string,
@@ -372,19 +366,6 @@ export class AdminAuthService {
       );
     }
 
-    if (!this.adminRoleIds.length) {
-      this.logger.error(
-        'Admin login blocked because no admin role ids are configured',
-      );
-      throw this.rejectLogin(
-        new ForbiddenException(
-          'Server configuration error: no admin roles set',
-        ),
-        clientInfo,
-        identity,
-      );
-    }
-
     const guildMember = await this.discordService.fetchOAuthGuildMember(
       this.mainGuildId,
       accessToken,
@@ -403,34 +384,18 @@ export class AdminAuthService {
       );
     }
 
-    // 5. Verify the user holds at least one configured admin role
-    const hasAdminRole = guildMember.roleIds.some((rid) =>
-      this.adminRoleIds.includes(rid),
-    );
-    if (!hasAdminRole) {
-      this.logger.warn(
-        `Admin login rejected: user ${profile.id} has none of the configured admin roles`,
-      );
-      throw this.rejectLogin(
-        new ForbiddenException(
-          'Only members with a configured admin role can access the admin panel',
-        ),
-        clientInfo,
-        identity,
-      );
-    }
-
     const guildRoles = await this.discordService.fetchGuildRolesForMember(
       this.mainGuildId,
       guildMember.roleIds,
     );
 
-    // 6. Sync roles into the DB so guard checks work correctly
+    // 5. Sync roles into the DB so access checks see the current roles
     await this.memberRepository.syncMemberServerData(
       member.id,
       this.mainGuildId,
       guildRoles,
     );
+    await this.adminAccessService.invalidateMember(member.id);
 
     return member;
   }
@@ -464,7 +429,7 @@ export class AdminAuthService {
 
   /**
    * Return the currently authenticated system admin's profile.
-   * The token is already validated by SystemAdminGuard before reaching here.
+   * The token is already validated by AdminAccessGuard before reaching here.
    */
   async getMe(token: string) {
     const session = await this.sessionRepository.findValidByToken(token);
@@ -477,6 +442,10 @@ export class AdminAuthService {
       throw new UnauthorizedException('Member not found');
     }
 
+    const { root, access } = await this.adminAccessService.getEffectiveAccess(
+      member.id,
+    );
+
     return {
       id: member.id,
       username: member.username,
@@ -487,6 +456,10 @@ export class AdminAuthService {
       email: member.email,
       isSystemAdmin: member.isSystemAdmin,
       sessionExpiresAt: session.expiresAt,
+      root,
+      permissions: Object.fromEntries(
+        ACCESS_RESOURCES.map((resource) => [resource, access[resource].level]),
+      ) as Record<(typeof ACCESS_RESOURCES)[number], AccessLevel>,
     };
   }
 }

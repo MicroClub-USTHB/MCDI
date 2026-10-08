@@ -265,4 +265,89 @@ describe('PermissionCacheService', () => {
       expect(mockRedisService.scanKeys).not.toHaveBeenCalled();
     });
   });
+
+  describe('admin access entries', () => {
+    const adminValue = {
+      root: false,
+      access: {} as never,
+    };
+
+    it('returns null when nothing is cached for the member', async () => {
+      mockRedisService.getJson.mockResolvedValue(null);
+      const svc = await buildService();
+
+      await expect(svc.getAdminAccess('m1')).resolves.toBeNull();
+      expect(mockRedisService.getJson).toHaveBeenCalledWith(
+        'mcdi:perm-cache:admin-entry:m1',
+      );
+    });
+
+    it('stores the entry with the cache TTL and indexes it by member and by server', async () => {
+      const svc = await buildService();
+
+      await svc.setAdminAccess('m1', 'main-server', adminValue);
+
+      expect(mockRedisService.setJson).toHaveBeenCalledWith(
+        'mcdi:perm-cache:admin-entry:m1',
+        adminValue,
+        DEFAULT_TTL_MS,
+      );
+      expect(mockRedisService.sAdd).toHaveBeenCalledWith(
+        'mcdi:perm-cache:idx:member:m1',
+        'mcdi:perm-cache:admin-entry:m1',
+      );
+      expect(mockRedisService.sAdd).toHaveBeenCalledWith(
+        'mcdi:perm-cache:idx:server:main-server',
+        'mcdi:perm-cache:admin-entry:m1',
+      );
+    });
+
+    it('is cleared by invalidateMember, which the sync handlers already call', async () => {
+      mockRedisService.sMembers.mockResolvedValue([
+        'mcdi:perm-cache:admin-entry:m1',
+      ]);
+      const svc = await buildService();
+
+      await svc.invalidateMember('m1');
+
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        'mcdi:perm-cache:idx:member:m1',
+        'mcdi:perm-cache:admin-entry:m1',
+      );
+    });
+
+    it('is cleared by invalidateServer for the main server', async () => {
+      mockRedisService.sMembers.mockResolvedValue([
+        'mcdi:perm-cache:admin-entry:m1',
+        'mcdi:perm-cache:admin-entry:m2',
+      ]);
+      const svc = await buildService();
+
+      await svc.invalidateServer('main-server');
+
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        'mcdi:perm-cache:idx:server:main-server',
+        'mcdi:perm-cache:admin-entry:m1',
+        'mcdi:perm-cache:admin-entry:m2',
+      );
+    });
+
+    it('invalidateAllAdminAccess deletes every admin entry and nothing else', async () => {
+      mockRedisService.scanKeys.mockResolvedValue([
+        'mcdi:perm-cache:admin-entry:m1',
+        'mcdi:perm-cache:admin-entry:m2',
+      ]);
+      const svc = await buildService();
+
+      await svc.invalidateAllAdminAccess();
+
+      expect(mockRedisService.scanKeys).toHaveBeenCalledWith(
+        'mcdi:perm-cache:admin-entry:*',
+      );
+      expect(mockRedisService.delete).toHaveBeenCalledWith(
+        'mcdi:perm-cache:admin-entry:m1',
+        'mcdi:perm-cache:admin-entry:m2',
+      );
+    });
+  });
 });

@@ -41,7 +41,7 @@ A request goes through these steps, in this order:
 
 5. **`ServerActiveGuard`, a global guard.** When the request carries credentials and names a server (as `serverId` or `guildId` in the path, `serverId` in the query or body, or an `x-server-id` header), the server must exist and be active, or the answer is a 403 `Server is disabled`. Routes under `/servers` are exempt, so admins can manage disabled servers.
 
-6. **The route's guards.** `ApiKeyGuard`, `SessionGuard`, `SystemAdminGuard`, and on a few routes `ProjectThrottlerGuard`.
+6. **The route's guards.** `ApiKeyGuard`, `SessionGuard`, `AdminAccessGuard`, and on a few routes `ProjectThrottlerGuard`.
 
 7. **The global `ValidationPipe`.** It runs with `whitelist` and `forbidNonWhitelisted`, so a body or query with a field the DTO does not declare is a 400. It also has `transform` on, so values reach the handler as the DTO's types.
 
@@ -59,13 +59,13 @@ A request goes through these steps, in this order:
 | --- | --- | --- | --- |
 | A project backend | API key in `X-API-Key` (or as a Bearer token) | `ApiKeyGuard` | Which project is calling. Access is then scoped per project and server. |
 | A member | Session token as a Bearer token | `SessionGuard` | Which member is calling. Any valid session works, including one issued to a project at login. |
-| A system admin | The `admin_session` cookie, or a Bearer token | `SessionGuard` then `SystemAdminGuard` | A member, with a session from the admin login (not a project's), who holds an admin role. |
+| A system admin | The `admin_session` cookie, or a Bearer token | `AdminAccessGuard` | A member, with a session from the admin login (not a project's), whose level on the endpoint's resource reaches the level the endpoint declares. |
 
 **Projects.** `ApiKeyGuard` finds the project by the key's prefix, compares a SHA-256 hash of the secret in constant time, and caches the result. When the request names a server, it then checks that the project may perform the operation the route declares with `@RequireProjectOperation` (`READ` by default) and holds the scope declared with `@RequireScope`. Both are stored per project and server pair.
 
 **Members.** A member signs in with Discord and receives a session token, either through the admin login or through a project's login flow. `SessionGuard` accepts any valid, unexpired session. It is used for routes that act on the member's own data, such as their sessions and the inbound webhook submissions they may read.
 
-**Admins.** Admins sign in with Discord OAuth. `SystemAdminGuard` accepts only sessions issued by the admin login, never one a project holds, and then requires the member to belong to the main server and hold one of the configured admin roles there: `MC_EXECUTIVE_ROLE_ID`, and optionally `MC_DEV_LEADS_ROLE_ID` and `MC_IT_LEADS_ROLE_ID`. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. A command-line tool such as m-forge can run the same login itself: it starts `GET /api/auth/admin/discord` with a loopback `redirect_uri` (`127.0.0.1`, `localhost` or `[::1]`, with a port) and a PKCE S256 `code_challenge`. After the same guild and role checks, MCDI redirects to that address with a one-time code instead of setting a cookie, and the tool exchanges the code and its PKCE verifier at `POST /api/auth/admin/token` for a Bearer session.
+**Admins.** Admins sign in with Discord OAuth, and any member of the main server can sign in. `AdminAccessGuard` accepts only sessions issued by the admin login, never one a project holds. It then compares the member's effective level on the endpoint's resource (`none`, `read`, `write` or `manage`, each including the one before it) with the level the endpoint declares through `@RequirePermission`. An endpoint with no declaration is refused. Members who hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, are root: they hold `manage` on everything, and only root edits grants. Root grants a level on a resource to a Discord role of the main server through `/api/admin/access`, and can give one person an override that replaces what their roles grant for that resource, including `none` to deny it. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. `GET /api/auth/admin/me` returns the member's effective level per resource, which the panel uses to build its navigation. The admin panel's Access screen edits grants through these endpoints, and the panel adds a root-only list of the members who have overrides, `GET /api/admin/access/overrides`. A command-line tool such as m-forge can run the same login itself: it starts `GET /api/auth/admin/discord` with a loopback `redirect_uri` (`127.0.0.1`, `localhost` or `[::1]`, with a port) and a PKCE S256 `code_challenge`. After the same guild check and role sync, MCDI redirects to that address with a one-time code instead of setting a cookie, and the tool exchanges the code and its PKCE verifier at `POST /api/auth/admin/token` for a Bearer session.
 
 For the full login flow a project integrates with, see [Login with MicroClub](/docs/integrate/sso).
 
@@ -109,7 +109,7 @@ If the bot token is missing or wrong, the API still starts and serves everything
 
 `InboundWebhooksModule` has three controllers, which is why it looks different from the others:
 
-- an **admin** controller (`/admin/inbound-webhooks`), behind `SystemAdminGuard`, to create and manage webhooks;
+- an **admin** controller (`/admin/inbound-webhooks`), behind `AdminAccessGuard`, to create and manage webhooks;
 - an **ingest** controller, behind `ApiKeyGuard`, where projects send submissions;
 - a **read** controller, behind `SessionGuard` and a guard that checks the member's Discord roles, where members read what was received.
 
@@ -117,4 +117,4 @@ It imports `ProjectsModule` only to get the dependencies of `ApiKeyGuard`. Keep 
 
 The behaviour a project sees is described in [Inbound webhooks: overview](/docs/integrate/inbound-webhooks/overview).
 
-Source: `apps/api/src/main.ts`, `apps/api/src/app.module.ts`, `apps/api/src/openapi/create-document.ts`, `apps/api/src/common/guards`, `apps/api/src/modules/auth/services/admin-auth.service.ts`, `apps/api/src/common/filters/drizzle.filter.ts`, `apps/api/src/modules/audit/middleware/audit-logging.middleware.ts`, `apps/api/src/modules/servers/server.guard.ts`, `apps/api/src/modules/discord/discord.module.ts`, `apps/api/src/modules/sync`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.module.ts`, `turbo.json`.
+Source: `apps/api/src/main.ts`, `apps/api/src/app.module.ts`, `apps/api/src/openapi/create-document.ts`, `apps/api/src/common/guards`, `apps/api/src/modules/auth/services/admin-auth.service.ts`, `apps/api/src/common/filters/drizzle.filter.ts`, `apps/api/src/modules/audit/middleware/audit-logging.middleware.ts`, `apps/api/src/modules/servers/server.guard.ts`, `apps/api/src/modules/discord/discord.module.ts`, `apps/api/src/modules/sync`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.module.ts`, `turbo.json`, `apps/api/src/modules/admin-access`, `apps/api/src/common/permissions`.

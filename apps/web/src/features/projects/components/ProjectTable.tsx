@@ -9,6 +9,7 @@ import { Button } from '@/shared/components/ui/button';
 import { DataTable } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { Switch } from '@/shared/components/ui/switch';
+import { useCan } from '@/shared/lib/use-access';
 
 type ProjectAction = 'deactivate' | 'reactivate' | 'delete';
 
@@ -25,10 +26,17 @@ interface ProjectTableProps {
   emptyState?: React.ReactNode;
 }
 
+interface ColumnAccess {
+  canDeactivate: boolean;
+  canReactivate: boolean;
+  canDelete: boolean;
+}
+
 function buildDefaultColumns(
-  onAction: (action: ProjectAction, project: ProjectView) => void
+  onAction: (action: ProjectAction, project: ProjectView) => void,
+  access: ColumnAccess
 ): ColumnDef<ProjectView>[] {
-  return [
+  const columns: ColumnDef<ProjectView>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
@@ -75,17 +83,19 @@ function buildDefaultColumns(
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
-          <Switch
-            checked={row.original.isActive}
-            aria-label={
-              row.original.isActive
-                ? `Deactivate ${row.original.name}`
-                : `Reactivate ${row.original.name}`
-            }
-            onCheckedChange={() =>
-              onAction(row.original.isActive ? 'deactivate' : 'reactivate', row.original)
-            }
-          />
+          {(row.original.isActive ? access.canDeactivate : access.canReactivate) && (
+            <Switch
+              checked={row.original.isActive}
+              aria-label={
+                row.original.isActive
+                  ? `Deactivate ${row.original.name}`
+                  : `Reactivate ${row.original.name}`
+              }
+              onCheckedChange={() =>
+                onAction(row.original.isActive ? 'deactivate' : 'reactivate', row.original)
+              }
+            />
+          )}
         </div>
       ),
     },
@@ -98,19 +108,27 @@ function buildDefaultColumns(
           className="flex items-center justify-end gap-2"
           onClick={(event) => event.stopPropagation()}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-error hover:bg-error/12"
-            onClick={() => onAction('delete', row.original)}
-          >
-            Delete
-          </Button>
+          {access.canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-error hover:bg-error/12"
+              onClick={() => onAction('delete', row.original)}
+            >
+              Delete
+            </Button>
+          )}
         </div>
       ),
     },
   ];
+
+  return columns.filter(
+    (column) =>
+      (column.id !== 'active' || access.canDeactivate || access.canReactivate) &&
+      (column.id !== 'actions' || access.canDelete)
+  );
 }
 
 function ProjectTable({
@@ -125,7 +143,11 @@ function ProjectTable({
   emptyState,
 }: ProjectTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
-  const resolvedColumns = columns ?? buildDefaultColumns(onAction);
+  const canDeactivate = useCan('project_keys', 'manage');
+  const canReactivate = useCan('project_keys', 'write');
+  const canDelete = useCan('projects', 'manage');
+  const resolvedColumns =
+    columns ?? buildDefaultColumns(onAction, { canDeactivate, canReactivate, canDelete });
   const pageCount = Math.max(1, Math.ceil(projects.length / pageSize));
 
   return (

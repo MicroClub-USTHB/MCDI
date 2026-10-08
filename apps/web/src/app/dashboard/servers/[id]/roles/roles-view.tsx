@@ -14,6 +14,7 @@ import { RoleTable, InheritanceRuleForm } from '@/features/roles/components';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
 import { Button } from '@/shared/components/ui/button';
+import { useCan } from '@/shared/lib/use-access';
 import { Shield, Plus } from 'lucide-react';
 import type { CreateInheritanceRulePayload } from '@/features/roles/types';
 
@@ -24,6 +25,7 @@ export function RolesView({ serverId }: { serverId: string }) {
   // Bumped on every close so the form remounts with fresh state instead of
   // using an effect-based reset (which would trip the compiler rule).
   const [formKey, setFormKey] = useState(0);
+  const canWrite = useCan('roles', 'write');
 
   const statsQuery = useRoleStatsQuery(serverId);
 
@@ -62,7 +64,7 @@ export function RolesView({ serverId }: { serverId: string }) {
             Manage this server&apos;s role-permission mappings and inheritance rules.
           </p>
         </div>
-        {stats && stats.roles.length > 0 && (
+        {canWrite && stats && stats.roles.length > 0 && (
           <Button
             type="button"
             variant="secondary"
@@ -146,7 +148,7 @@ export function RolesView({ serverId }: { serverId: string }) {
         </>
       )}
 
-      {stats && (
+      {canWrite && stats && (
         <InheritanceRuleForm
           key={formKey}
           open={ruleDialogOpen}

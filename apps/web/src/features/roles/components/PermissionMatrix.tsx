@@ -12,6 +12,8 @@ interface PermissionMatrixProps {
   savingIds: Set<number>;
   /** Freeze every checkbox (executive role, or a batch being applied). */
   locked?: boolean;
+  /** Permission ids the member may not touch (below their level). */
+  lockedIds?: Set<number>;
   onToggle: (permissionId: number, checked: boolean) => void;
 }
 
@@ -19,6 +21,7 @@ function PermissionMatrix({
   assignedIds,
   savingIds,
   locked = false,
+  lockedIds,
   onToggle,
 }: PermissionMatrixProps) {
   const [query, setQuery] = useState('');
@@ -81,7 +84,7 @@ function PermissionMatrix({
                       permission={perm}
                       checked={checked}
                       isSaving={savingIds.has(perm.id)}
-                      disabled={locked}
+                      disabled={locked || (lockedIds?.has(perm.id) ?? false)}
                       onChange={(_id, next) => onToggle(perm.id, next)}
                     />
                   </label>

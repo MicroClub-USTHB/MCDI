@@ -18,6 +18,7 @@ import {
   disableNock,
   enableNock,
   mockDiscordGuildMember,
+  mockDiscordGuildMemberNotFound,
   mockDiscordGuildRoles,
   mockDiscordProfile,
   mockDiscordToken,
@@ -202,10 +203,12 @@ describe('Admin CLI login (e2e)', () => {
       .expect(401);
   });
 
-  it('hands a refusal (no admin role) back to the CLI as ?error=&state=', async () => {
+  it('hands a refusal (not a member of the main guild) back to the CLI as ?error=&state=', async () => {
     const { challenge } = pkcePair();
     const state = await startCliLogin(challenge);
-    mockDiscordConsent(['111111111111111111']);
+    mockDiscordToken('cli-discord-access-token');
+    mockDiscordProfile({ id: ADMIN_DISCORD_ID, username: 'cliadmin' });
+    mockDiscordGuildMemberNotFound(guildId());
 
     const res = await callback('/api/auth/admin/discord/callback', state);
     const target = new URL(res.headers.location);
@@ -213,7 +216,7 @@ describe('Admin CLI login (e2e)', () => {
     expect(target.origin + target.pathname).toBe(LOOPBACK);
     expect(target.searchParams.get('state')).toBe(state);
     expect(target.searchParams.get('error')).toBe(
-      'Only members with a configured admin role can access the admin panel',
+      'You must be a member of the main MCDI Discord server to access the admin panel',
     );
     expect(target.searchParams.has('code')).toBe(false);
     expect(await db.select().from(adminCliCodes)).toHaveLength(0);

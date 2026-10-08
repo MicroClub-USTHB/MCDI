@@ -12,6 +12,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { useCan } from '@/shared/lib/use-access';
 
 interface ProjectFormProps {
   /** Present in edit mode to seed the fields; null in create mode. */
@@ -44,6 +45,8 @@ function ProjectForm({
   onSubmit,
 }: ProjectFormProps) {
   const { data: servers = [], isLoading: serversLoading } = useServersQuery();
+
+  const canServers = useCan('servers', 'read');
 
   const [name, setName] = useState(project?.name ?? '');
   const [description, setDescription] = useState(project?.description ?? '');
@@ -132,46 +135,48 @@ function ProjectForm({
             {errors.scopes && <p className="text-overline text-error">{errors.scopes}</p>}
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-body font-medium text-text-normal">Server access</span>
-              <span className="text-overline text-text-subtle">{serverIds.length} selected</span>
+          {canServers ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-body font-medium text-text-normal">Server access</span>
+                <span className="text-overline text-text-subtle">{serverIds.length} selected</span>
+              </div>
+              {serversLoading ? (
+                <div className="rounded-md border border-border p-4 text-overline text-text-faint">
+                  Loading servers…
+                </div>
+              ) : servers.length === 0 ? (
+                <div className="rounded-md border border-border p-4 text-body text-text-muted">
+                  No servers available.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {servers.map((server) => {
+                    const checked = serverIds.includes(server.id);
+                    return (
+                      <Label
+                        key={server.id}
+                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-main p-3 transition-colors select-none hover:bg-surface-hover"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleServer(server.id)}
+                          disabled={!server.isActive || isSubmitting}
+                          aria-label={`Grant access to ${server.name}`}
+                        />
+                        <span className="flex flex-col gap-0.5">
+                          <span className="text-body text-text-normal">{server.name}</span>
+                          {!server.isActive && (
+                            <span className="text-overline text-text-faint">Inactive server</span>
+                          )}
+                        </span>
+                      </Label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            {serversLoading ? (
-              <div className="rounded-md border border-border p-4 text-overline text-text-faint">
-                Loading servers…
-              </div>
-            ) : servers.length === 0 ? (
-              <div className="rounded-md border border-border p-4 text-body text-text-muted">
-                No servers available.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {servers.map((server) => {
-                  const checked = serverIds.includes(server.id);
-                  return (
-                    <Label
-                      key={server.id}
-                      className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-main p-3 transition-colors select-none hover:bg-surface-hover"
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={() => toggleServer(server.id)}
-                        disabled={!server.isActive || isSubmitting}
-                        aria-label={`Grant access to ${server.name}`}
-                      />
-                      <span className="flex flex-col gap-0.5">
-                        <span className="text-body text-text-normal">{server.name}</span>
-                        {!server.isActive && (
-                          <span className="text-overline text-text-faint">Inactive server</span>
-                        )}
-                      </span>
-                    </Label>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          ) : null}
         </>
       )}
 

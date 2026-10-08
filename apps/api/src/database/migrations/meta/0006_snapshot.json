@@ -1,64 +1,50 @@
 {
-  "id": "9447d487-15b9-46e5-8c7b-49b3be317160",
+  "id": "8a402fc8-d8ed-4c8f-b22e-945050d021f0",
   "prevId": "d2f32940-21a8-47a1-beee-24d7b7d55c0a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.admin_cli_codes": {
-      "name": "admin_cli_codes",
+    "public.admin_member_access": {
+      "name": "admin_member_access",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "code_hash": {
-          "name": "code_hash",
-          "type": "varchar(64)",
-          "primaryKey": false,
-          "notNull": true
-        },
         "member_id": {
           "name": "member_id",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
         },
-        "code_challenge": {
-          "name": "code_challenge",
-          "type": "varchar(128)",
+        "resource": {
+          "name": "resource",
+          "type": "varchar(32)",
           "primaryKey": false,
           "notNull": true
         },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
+        "level": {
+          "name": "level",
+          "type": "varchar(16)",
           "primaryKey": false,
           "notNull": true
         },
-        "used": {
-          "name": "used",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "admin_cli_codes_member_id_members_id_fk": {
-          "name": "admin_cli_codes_member_id_members_id_fk",
-          "tableFrom": "admin_cli_codes",
+        "admin_member_access_member_id_members_id_fk": {
+          "name": "admin_member_access_member_id_members_id_fk",
+          "tableFrom": "admin_member_access",
           "tableTo": "members",
           "columnsFrom": [
             "member_id"
@@ -70,18 +56,23 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "admin_cli_codes_code_hash_unique": {
-          "name": "admin_cli_codes_code_hash_unique",
-          "nullsNotDistinct": false,
+      "compositePrimaryKeys": {
+        "admin_member_access_member_id_resource_pk": {
+          "name": "admin_member_access_member_id_resource_pk",
           "columns": [
-            "code_hash"
+            "member_id",
+            "resource"
           ]
         }
       },
+      "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "admin_member_access_level_check": {
+          "name": "admin_member_access_level_check",
+          "value": "\"admin_member_access\".\"level\" in ('none', 'read', 'write', 'manage')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.admin_oauth_states": {
@@ -114,18 +105,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "redirect_uri": {
-          "name": "redirect_uri",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "code_challenge": {
-          "name": "code_challenge",
-          "type": "varchar(128)",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -148,6 +127,77 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.admin_role_access": {
+      "name": "admin_role_access",
+      "schema": "",
+      "columns": {
+        "role_id": {
+          "name": "role_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource": {
+          "name": "resource",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "admin_role_access_role_id_roles_id_fk": {
+          "name": "admin_role_access_role_id_roles_id_fk",
+          "tableFrom": "admin_role_access",
+          "tableTo": "roles",
+          "columnsFrom": [
+            "role_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "admin_role_access_role_id_resource_pk": {
+          "name": "admin_role_access_role_id_resource_pk",
+          "columns": [
+            "role_id",
+            "resource"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "admin_role_access_level_check": {
+          "name": "admin_role_access_level_check",
+          "value": "\"admin_role_access\".\"level\" in ('read', 'write', 'manage')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.app_settings": {
@@ -3529,7 +3579,8 @@
         "webhook",
         "member",
         "sync",
-        "permission"
+        "permission",
+        "access"
       ]
     },
     "public.audit_severity": {

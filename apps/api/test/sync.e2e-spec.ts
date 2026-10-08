@@ -4,7 +4,7 @@
  * Requires a running PostgreSQL database (`DATABASE_URL`).
  * Skips entire suite when DATABASE_URL is not set.
  *
- * Auth model: SystemAdminGuard (Bearer token).
+ * Auth model: AdminAccessGuard (Bearer token), as a root admin.
  *
  * Note: `POST /admin/sync/full` queues a durable sync job.
  *   - The endpoint returns 202 immediately after creating the queued log entry.

@@ -21,6 +21,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Textarea } from '@/shared/components/ui/textarea';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 
 const SchemaEditor = dynamic(
@@ -42,6 +43,8 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
   const showToast = useToastStore((state) => state.show);
   const create = useCreateInboundWebhookMutation();
   const roles = useProjectRoleOptions(projectId);
+  // The role list comes from the statistics; without it only the default readers can be used.
+  const canListRoles = useCan('stats', 'read');
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -179,6 +182,11 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
             selected={selectedRoles}
             onChange={setPickedRoles}
             isLoading={roles.isLoading}
+            unavailable={
+              canListRoles
+                ? undefined
+                : 'Listing roles needs access to Statistics, so the default readers are used.'
+            }
           />
         </section>
 

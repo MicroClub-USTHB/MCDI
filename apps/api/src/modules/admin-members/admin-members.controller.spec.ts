@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AdminMembersController } from './admin-members.controller';
 import { AdminMembersService } from './admin-members.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockAdminMembersService = {
   getMemberCrossServerView: jest.fn(),
@@ -25,7 +25,7 @@ describe('AdminMembersController', () => {
         { provide: AdminMembersService, useValue: mockAdminMembersService },
       ],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(AdminMembersController);

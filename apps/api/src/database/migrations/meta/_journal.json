@@ -47,8 +47,15 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1791158543575,
-      "tag": "0006_admin_cli_login",
+      "when": 1791333087929,
+      "tag": "0006_abandoned_rawhide_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791501437242,
+      "tag": "0007_admin_cli_login",
       "breakpoints": true
     }
   ]

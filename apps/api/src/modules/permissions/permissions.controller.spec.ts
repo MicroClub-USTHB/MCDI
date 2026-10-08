@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PermissionsController } from './permissions.controller';
 import { PermissionsService } from './permissions.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { CheckMode } from './dto/check-permissions-batch.dto';
 
@@ -30,7 +30,7 @@ describe('PermissionsController', () => {
     })
       .overrideGuard(ApiKeyGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(PermissionsController);

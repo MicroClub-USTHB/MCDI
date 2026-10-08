@@ -1,4 +1,5 @@
 import type * as ReactQuery from '@tanstack/react-query';
+import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-query', async () => {
@@ -16,7 +17,7 @@ import { useSystemHealthQuery } from '@/features/monitoring/api/queries';
 
 describe('monitoring query wiring', () => {
   it('wires the 60 second health refetch interval', () => {
-    useSystemHealthQuery();
+    renderHook(() => useSystemHealthQuery());
 
     expect(useQuery).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -19,6 +19,7 @@ export const auditActionTypeEnum = pgEnum('audit_action_type', [
   'member',
   'sync',
   'permission',
+  'access',
 ]);
 
 export const auditSeverityEnum = pgEnum('audit_severity', [

@@ -16,31 +16,36 @@ import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Switch } from '@/shared/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
 import type { ApiError } from '@/shared/types';
 
 function ActiveSwitch({ webhookId, isActive }: { webhookId: string; isActive: boolean }) {
   const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhookId);
+  const canWrite = useCan('inbound_webhooks', 'write');
 
   return (
     <div className="flex items-center gap-3">
       <Badge variant={isActive ? 'success' : 'secondary'}>{isActive ? 'Active' : 'Disabled'}</Badge>
-      <Switch
-        aria-label="Active"
-        checked={isActive}
-        disabled={update.isPending}
-        onCheckedChange={(next) =>
-          update.mutate(
-            { isActive: next },
-            {
-              onSuccess: () => showToast(next ? 'Webhook enabled' : 'Webhook disabled', 'success'),
-              onError: (error) =>
-                showToast(error.message || 'Failed to update the webhook', 'error'),
-            }
-          )
-        }
-      />
+      {canWrite && (
+        <Switch
+          aria-label="Active"
+          checked={isActive}
+          disabled={update.isPending}
+          onCheckedChange={(next) =>
+            update.mutate(
+              { isActive: next },
+              {
+                onSuccess: () =>
+                  showToast(next ? 'Webhook enabled' : 'Webhook disabled', 'success'),
+                onError: (error) =>
+                  showToast(error.message || 'Failed to update the webhook', 'error'),
+              }
+            )
+          }
+        />
+      )}
     </div>
   );
 }

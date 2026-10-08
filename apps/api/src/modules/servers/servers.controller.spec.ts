@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ServersController } from './servers.controller';
 import { ServersService } from './servers.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockServersService = {
   registerServer: jest.fn(),
@@ -22,7 +22,7 @@ describe('ServersController', () => {
       controllers: [ServersController],
       providers: [{ provide: ServersService, useValue: mockServersService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

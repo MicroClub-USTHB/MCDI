@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,7 +9,9 @@ import { X } from 'lucide-react';
 import { LogoutButton } from '@/features/auth/components/LogoutButton';
 import { useAuthStore } from '@/features/auth/stores/auth';
 import { ProjectContextNav, ServerContextNav } from '@/shared/components/layout/context-nav';
-import { NAV_GROUPS, isLinkActive } from '@/shared/components/layout/nav-items';
+import { isLinkActive } from '@/shared/components/layout/nav-items';
+import { visibleNavGroups } from '@/shared/components/layout/visible-nav';
+import { useAccessSubject } from '@/shared/lib/use-access';
 import { cn } from '@/shared/lib/utils';
 
 interface SidebarProps {
@@ -29,6 +31,8 @@ function getInitials(name: string): string {
 function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const subject = useAccessSubject();
+  const groups = useMemo(() => visibleNavGroups(subject), [subject]);
   const asideRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -102,7 +106,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
           </button>
         </div>
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
-          {NAV_GROUPS.map((group) => {
+          {groups.map(({ group, items, context }) => {
             const headingId = `nav-group-${group.label.toLowerCase()}`;
             return (
               <div
@@ -114,7 +118,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
                 <p id={headingId} className="px-3 text-overline text-text-faint uppercase">
                   {group.label}
                 </p>
-                {group.items.map((item) => {
+                {items.map((item) => {
                   const isActive = isLinkActive(pathname, item);
                   const Icon = item.icon;
 
@@ -135,11 +139,11 @@ function Sidebar({ open, onClose }: SidebarProps) {
                     </Link>
                   );
                 })}
-                {group.context?.kind === 'server' && (
-                  <ServerContextNav context={group.context} pathname={pathname} />
+                {context?.kind === 'server' && (
+                  <ServerContextNav context={context} pathname={pathname} />
                 )}
-                {group.context?.kind === 'project' && (
-                  <ProjectContextNav context={group.context} pathname={pathname} />
+                {context?.kind === 'project' && (
+                  <ProjectContextNav context={context} pathname={pathname} />
                 )}
               </div>
             );

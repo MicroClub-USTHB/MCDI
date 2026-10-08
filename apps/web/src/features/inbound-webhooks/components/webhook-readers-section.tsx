@@ -12,7 +12,12 @@ import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useCan } from '@/shared/lib/use-access';
 import { useToastStore } from '@/shared/stores/toast';
+
+/** Shown in place of the role list when the member cannot read the statistics it is built from. */
+const ROLES_NEED_STATISTICS =
+  'Listing roles needs access to Statistics, so the readers cannot be changed from here.';
 
 /** Who may read the submissions. The list is replaced as a whole and may not be empty. */
 export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto }) {
@@ -21,6 +26,10 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
   const roles = useProjectRoleOptions(webhook.projectId);
   const replace = useReplaceAllowedRolesMutation(webhook.id);
   const [picked, setPicked] = useState<string[] | null>(null);
+  const canWrite = useCan('inbound_webhooks', 'write');
+  // The role list comes from the statistics; without it the readers can be seen but not changed.
+  const canListRoles = useCan('stats', 'read');
+  const canEdit = canWrite && canListRoles;
 
   if (granted.isError) {
     return <p className="text-body text-error">The reader roles could not be loaded.</p>;
@@ -61,15 +70,19 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
         selected={selected}
         onChange={setPicked}
         isLoading={roles.isLoading}
+        disabled={!canWrite}
+        unavailable={canListRoles ? undefined : ROLES_NEED_STATISTICS}
       />
-      <Button
-        type="button"
-        className="self-end"
-        disabled={!changed || selected.length === 0 || replace.isPending}
-        onClick={save}
-      >
-        {replace.isPending ? 'Saving…' : 'Save readers'}
-      </Button>
+      {canEdit && (
+        <Button
+          type="button"
+          className="self-end"
+          disabled={!changed || selected.length === 0 || replace.isPending}
+          onClick={save}
+        >
+          {replace.isPending ? 'Saving…' : 'Save readers'}
+        </Button>
+      )}
     </div>
   );
 }
