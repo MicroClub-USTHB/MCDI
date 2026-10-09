@@ -13,6 +13,16 @@ import { ServersRepository, ListServersFilters } from './servers.repository';
 import { DisableServerDto } from './dto/disable-server.dto';
 import { ProjectAccessCacheService } from '../projects/project-access-cache.service';
 
+const MAIN_CONFLICT =
+  'Another server was set as the main server at the same time. Retry the request.';
+
+/** True when a write was rejected by the servers_single_main_idx unique index. */
+function isMainServerConflict(error: unknown): boolean {
+  const err = error as { code?: string; constraint?: string; cause?: unknown };
+  const pg = err?.code === '23505' ? err : (err?.cause as typeof err);
+  return pg?.code === '23505' && pg.constraint === 'servers_single_main_idx';
+}
+
 @Injectable()
 export class ServersService {
   private readonly DEFAULTS = {
@@ -50,11 +60,9 @@ export class ServersService {
         updatedAt: now,
       };
 
-      if (dto.isMain) {
-        await this.serversRepository.clearMainServer(now);
-      }
-
-      const server = await this.serversRepository.upsertServer(serverData);
+      const server = dto.isMain
+        ? await this.serversRepository.upsertMainServer(serverData, now)
+        : await this.serversRepository.upsertServer(serverData);
       await this.projectAccessCache.invalidateServer(server.id);
       return server;
     } catch (error) {
@@ -62,6 +70,8 @@ export class ServersService {
         `registerServer failed for guildId=${dto.guildId}`,
         error instanceof Error ? error.stack : String(error),
       );
+      if (isMainServerConflict(error))
+        throw new ConflictException(MAIN_CONFLICT);
       if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException('Failed to register server');
     }
@@ -94,8 +104,20 @@ export class ServersService {
     }
 
     if (dto.isMain) {
-      await this.serversRepository.clearMainServer(now);
-      patch.isMain = true;
+      try {
+        const row = await this.serversRepository.updateByIdAsMain(
+          serverId,
+          patch,
+          now,
+        );
+        await this.projectAccessCache.invalidateServer(serverId);
+        return row;
+      } catch (error) {
+        if (isMainServerConflict(error)) {
+          throw new ConflictException(MAIN_CONFLICT);
+        }
+        throw error;
+      }
     } else if (dto.isMain === false) {
       if (existing.isMain) {
         throw new ConflictException(

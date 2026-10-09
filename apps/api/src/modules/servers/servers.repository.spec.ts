@@ -140,12 +140,32 @@ describe('ServersRepository', () => {
     });
   });
 
-  describe('clearMainServer', () => {
-    it('calls update without returning a value', async () => {
-      const db = buildDb([]);
+  describe('upsertMainServer', () => {
+    it('clears the old main and upserts in one transaction', async () => {
+      const server = fakeServer();
+      const db = buildDb([server]);
       const repo = await buildRepo(db);
-      await expect(repo.clearMainServer(new Date())).resolves.toBeUndefined();
+      const result = await repo.upsertMainServer(server as any, new Date());
+      expect(result).toEqual(server);
+      expect(db.transaction).toHaveBeenCalledTimes(1);
       expect(db.update).toHaveBeenCalledTimes(1);
+      expect(db.insert).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateByIdAsMain', () => {
+    it('clears the old main and updates in one transaction', async () => {
+      const updated = fakeServer({ name: 'Updated' });
+      const db = buildDb([updated]);
+      const repo = await buildRepo(db);
+      const result = await repo.updateByIdAsMain(
+        'srv-1',
+        { name: 'Updated' },
+        new Date(),
+      );
+      expect(result).toMatchObject({ name: 'Updated' });
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+      expect(db.update).toHaveBeenCalledTimes(2);
     });
   });
 
