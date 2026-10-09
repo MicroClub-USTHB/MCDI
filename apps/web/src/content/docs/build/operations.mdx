@@ -44,7 +44,7 @@ The API container's command is `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migr
 
 The SQL that `drizzle-kit generate` writes is not idempotent. Edit it before you commit it. CI protects you: its end to end job applies the concatenated file twice and fails when the second run errors.
 
-The API also tries to migrate when it starts, but the production image has no `src` folder, so it logs that it found no migrations folder and skips. What it does on every start is create the main server record from `MC_GUILD_ID` when the `servers` table is empty.
+The API also tries to migrate when it starts, but the production image has no `src` folder, so it logs that it found no migrations folder and skips. What it does on every start is create the main server record from `MC_GUILD_ID` when the `servers` table is empty. The database allows only one main server: a unique index (`servers_single_main_idx`) rejects a second row with `is_main = true`, and the migration that adds it stops with a list of the servers when more than one is already main.
 
 ## Configuration that stops the boot on purpose
 
@@ -60,7 +60,7 @@ With everything but the inbound key set:
 ERROR [ExceptionHandler] Error: Config validation error: INBOUND_WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32
 ```
 
-A key that is present but not 64 hex characters stops it too. The full list of variables is in [Local setup](/docs/build/local-setup#environment-variables). The two encryption keys deserve care: there is no key rotation, so a lost or changed key makes the stored secrets it encrypted unreadable. Back the keys up with the other secrets.
+A key that is present but not 64 hex characters stops it too. So does a main server mismatch: when the `servers` table has a main server and `MC_GUILD_ID` names another guild, the API logs `The main server in the database (...) differs from MC_GUILD_ID (...)` and exits, because admin login (which uses `MC_GUILD_ID`) and the permission guard (which uses the main server) would disagree. Outside production it logs the same text as a warning. The full list of variables is in [Local setup](/docs/build/local-setup#environment-variables). The two encryption keys deserve care: there is no key rotation, so a lost or changed key makes the stored secrets it encrypted unreadable. Back the keys up with the other secrets.
 
 ## Health
 
@@ -251,4 +251,4 @@ The requested resource isn't a valid image for /landing/admin-panel.webp receive
 
 **Fix.** If you add a new kind of public file, make sure `proxy.ts` does not redirect it. The matcher lists the image extensions that are let through, so a new extension must be added there. See [Web guide](/docs/build/web-guide#who-gets-in).
 
-Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/proxy.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.
+Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/database/entities/server.entity.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/proxy.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.

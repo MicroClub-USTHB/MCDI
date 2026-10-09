@@ -15,7 +15,7 @@ The words MCDI uses, in alphabetical order. Where a term has a page of its own, 
 | Hierarchy level | A number on a role of a server where a lower number is a higher rank. A member inherits the permissions of roles ranked at or below their best one. |
 | Inbound webhook | A schema-validated address a project sends data to. Members with a reader role read what it receives. See [Inbound webhooks: overview](/docs/integrate/inbound-webhooks/overview). |
 | Inheritance rule | A rule that makes a role of the main server count on other servers, matched to the role of the same name there. See [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions). |
-| Main server | The one Discord server that decides admin access and from which inheritance rules start. It is set with `MC_GUILD_ID`. |
+| Main server | The one Discord server that decides admin access and from which inheritance rules start. It is set with `MC_GUILD_ID`, and the database allows only one. |
 | Member | A person, identified by their Discord account, with the roles they hold on each server. |
 | Operation | What a project may do on a server: `READ`, `SEND_MESSAGES` or `MANAGE_WEBHOOKS`. An admin grants them per project and server. |
 | Permission | A named capability, such as `MANAGE_EVENTS`, attached to roles. A member holds it through their roles. `ADMINISTRATOR` grants every permission. |
