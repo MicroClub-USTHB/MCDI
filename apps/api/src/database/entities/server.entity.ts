@@ -32,6 +32,8 @@ export const servers = pgTable(
   },
   (t) => [
     // At most one row can have is_main = true.
-    uniqueIndex('servers_single_main_idx').on(t.isMain).where(sql`${t.isMain}`),
+    uniqueIndex('servers_single_main_idx')
+      .on(t.isMain)
+      .where(sql`${t.isMain}`),
   ],
 );
