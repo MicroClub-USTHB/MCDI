@@ -40,7 +40,7 @@ export function Hero() {
             For MCDI system admins
           </McBadge>
           <h1 id="hero-title" className="header-md font-bold text-foreground sm:header-lg">
-            Inbound Webhooks, from your terminal.
+            Create your own backend schema.
           </h1>
           <p className="max-w-xl paragraph-lg text-muted-foreground">
             Log in once, pre-check your form schemas offline, then create and manage MCDI webhooks without

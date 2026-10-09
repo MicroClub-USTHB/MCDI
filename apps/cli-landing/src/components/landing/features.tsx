@@ -21,7 +21,7 @@ const FEATURES = [
     icon: Webhook,
     title: 'Manage webhooks',
     description:
-      'Create, list, inspect, update and delete Inbound Webhooks, and choose which Discord roles can read submissions.',
+      'Create, list, inspect, update and delete backends, and choose which Discord roles can read submissions.',
   },
   {
     icon: LockKeyhole,

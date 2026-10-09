@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'm-forge, the MCDI Inbound Webhooks CLI';
+export const alt = 'm-forge, the MCDI backend CLI';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -62,8 +62,8 @@ export default function OpengraphImage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', fontSize: 72, fontWeight: 800, lineHeight: 1.05, letterSpacing: -2 }}>
-            <span style={{ color: FOREGROUND }}>Inbound Webhooks,</span>
-            <span style={{ color: PRIMARY }}>from your terminal.</span>
+            <span style={{ color: FOREGROUND }}>Create your own</span>
+            <span style={{ color: PRIMARY }}>backend schema.</span>
           </div>
           <div style={{ fontSize: 28, color: MUTED, maxWidth: 820 }}>
             Log in once, pre-check form schemas offline, and manage MCDI webhooks from the CLI.
