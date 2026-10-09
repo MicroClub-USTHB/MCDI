@@ -5,7 +5,8 @@ and manages MCDI Inbound Webhooks from the terminal — pre-checking schemas
 locally before anything hits the server.
 
 Full requirements: [`docs/mcdi-cli-PRD.md`](docs/mcdi-cli-PRD.md).
-Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Custom validation
+Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Writing a
+backend schema: [`docs/form-schema.md`](docs/form-schema.md). Custom validation
 rules: [`docs/custom-rules.md`](docs/custom-rules.md). Working
 conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
 
