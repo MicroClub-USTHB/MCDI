@@ -63,6 +63,7 @@ const ERROR_CODE = {
   UNKNOWN_OPERATOR: 'UNKNOWN_OPERATOR',
   UNRESOLVABLE_REFERENCE: 'UNRESOLVABLE_REFERENCE',
   FORWARD_REFERENCE: 'FORWARD_REFERENCE',
+  RELATIVE_REFERENCE_OUTSIDE_ITEM: 'RELATIVE_REFERENCE_OUTSIDE_ITEM',
   MISSING_VALUE: 'MISSING_VALUE',
   INVALID_VALUE: 'INVALID_VALUE',
 } as const;
@@ -70,6 +71,18 @@ const ERROR_CODE = {
 const CONDITION_OPERATORS = new Set([
   'eq', 'ne', 'gt', 'lt', 'gte', 'lte', 'in', 'contains', 'exists',
 ]);
+
+/** `./field` inside an array item means "this entry's own field", resolved against `ItemScope`. */
+const ITEM_REF_PREFIX = './';
+
+interface ItemScope {
+  /** The item root's absolute field path, e.g. "identity.members.member". */
+  root: string;
+  /** Paths relative to `root` declared so far, in document order. */
+  declared: Set<string>;
+  /** True only while validating the item's own root field, which is the `./` root, not a field of it. */
+  awaitingRoot: boolean;
+}
 
 const BASE_PROPERTIES = new Set([
   'key', 'type', 'label', 'description', 'required', 'condition', 'default',
@@ -132,6 +145,8 @@ class SchemaChecker {
   private readonly declaredFields = new Set<string>();
   /** Fields within array items cannot be addressed by a dotted condition path. */
   private readonly arrayItemFields = new Set<string>();
+  /** The innermost array item we're currently validating fields of, if any. */
+  private readonly itemScopeStack: ItemScope[] = [];
 
   constructor(private readonly schema: unknown) {}
 
@@ -220,10 +235,16 @@ class SchemaChecker {
       this.add(`${path}.required`, ERROR_CODE.MISSING_REQUIRED_FLAG, '`required` must be a boolean');
     }
 
+    const itemScope = this.itemScopeStack[this.itemScopeStack.length - 1];
+    const isItemRoot = itemScope?.awaitingRoot === true;
+
     if (value.condition !== undefined) this.validateCondition(value.condition, `${path}.condition`);
+    if (itemScope) itemScope.awaitingRoot = false;
 
     const fieldPath = `${parentPath}.${key}`;
     (insideArray ? this.arrayItemFields : this.declaredFields).add(fieldPath);
+    // The item itself is the `./` root, not a field of it.
+    if (itemScope && !isItemRoot) itemScope.declared.add(fieldPath.slice(itemScope.root.length + 1));
 
     this.validateProperties(value, type as FieldType, path);
     this.validateTypeConstraints(value, type as FieldType, path, fieldPath, depth, insideArray);
@@ -334,7 +355,10 @@ class SchemaChecker {
       this.add(`${path}.item`, ERROR_CODE.MISSING_ITEM, 'Array must declare an `item` field');
       return;
     }
+    const itemKey = isRecord(field.item) && typeof field.item.key === 'string' ? field.item.key : '<item>';
+    this.itemScopeStack.push({ root: `${fieldPath}.${itemKey}`, declared: new Set(), awaitingRoot: true });
     this.validateField(field.item, `${path}.item`, fieldPath, new Set(), depth + 1, true);
+    this.itemScopeStack.pop();
   }
 
   private validateFile(field: Record<string, unknown>, type: FieldType, path: string): void {
@@ -393,8 +417,15 @@ class SchemaChecker {
       this.add(`${path}.field`, ERROR_CODE.INVALID_CONDITION, 'Condition requires a `field` path');
       return;
     }
-    if (this.arrayItemFields.has(value.field)) {
-      this.add(`${path}.field`, ERROR_CODE.UNRESOLVABLE_REFERENCE, `Condition references "${value.field}", which is inside an array and cannot be addressed by a path`);
+    if (value.field.startsWith(ITEM_REF_PREFIX)) {
+      this.validateItemReference(value.field, `${path}.field`);
+    } else if (this.arrayItemFields.has(value.field)) {
+      this.add(
+        `${path}.field`,
+        ERROR_CODE.UNRESOLVABLE_REFERENCE,
+        `Condition references "${value.field}", which is inside an array and cannot be addressed by a path. ` +
+          'To use a field of the same array item, write it relative to the item, for example ./role',
+      );
     } else if (!this.declaredFields.has(value.field)) {
       this.add(`${path}.field`, ERROR_CODE.FORWARD_REFERENCE, `Condition references "${value.field}", which is not declared in an earlier step`);
     }
@@ -403,6 +434,27 @@ class SchemaChecker {
     }
     if (operator === 'in' && !Array.isArray(value.value)) {
       this.add(`${path}.value`, ERROR_CODE.INVALID_VALUE, '"in" requires an array `value`');
+    }
+  }
+
+  /** Resolves a `./field` condition against the innermost array item, per MCDI's ITEM_REF_PREFIX rule. */
+  private validateItemReference(field: string, path: string): void {
+    const itemScope = this.itemScopeStack[this.itemScopeStack.length - 1];
+    if (!itemScope || itemScope.awaitingRoot) {
+      this.add(
+        path,
+        ERROR_CODE.RELATIVE_REFERENCE_OUTSIDE_ITEM,
+        `"${field}" is only valid on a field inside an array of objects: elsewhere there is no entry for ./ to point at`,
+      );
+      return;
+    }
+    const relative = field.slice(ITEM_REF_PREFIX.length);
+    if (relative === '') {
+      this.add(path, ERROR_CODE.INVALID_CONDITION, 'A ./ reference needs a field name after it, for example ./role');
+      return;
+    }
+    if (!itemScope.declared.has(relative)) {
+      this.add(path, ERROR_CODE.FORWARD_REFERENCE, `Condition references "${field}", which is not declared earlier in the same array item`);
     }
   }
 
