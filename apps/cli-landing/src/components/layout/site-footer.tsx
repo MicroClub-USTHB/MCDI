@@ -13,11 +13,7 @@ export function SiteFooter() {
         <div className="flex max-w-sm flex-col gap-3">
           <Logo />
           <p className="paragraph-sm text-muted-foreground">
-            The MCDI admin CLI for Inbound Webhooks. Built by the MicroClub Dev Department with{' '}
-            <a href={MCOLI_URL} className="font-medium text-foreground underline-offset-4 hover:underline">
-              mcoli-ui
-            </a>
-            .
+            The MCDI admin CLI for Inbound Webhooks. Built by the MicroClub Dev Department.
           </p>
         </div>
 
