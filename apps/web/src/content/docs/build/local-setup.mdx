@@ -214,7 +214,7 @@ The API reads `apps/api/.env`. Four of the values below (`PERMISSION_CACHE_TTL_M
 | `DISCORD_CALLBACK_URL` | production | empty | The member login callback, a valid URL, for example `http://localhost:3000/api/auth/discord/callback`. |
 | `DISCORD_ADMIN_CALLBACK_URL` | no | derived | The admin login callback. When unset it is `DISCORD_CALLBACK_URL` with `/auth/discord/callback` replaced by `/auth/admin/discord/callback`. |
 | `DISCORD_LOGIN_RETRY_DELAY_MS` | no | `30000` | How long to wait before retrying a failed bot login. |
-| `MC_GUILD_ID` | production | empty | The ID of the main server. Admin access is decided there, and an empty database is bootstrapped with it. |
+| `MC_GUILD_ID` | production | empty | The ID of the main server. Admin access is decided there, and an empty database is bootstrapped with it. In production the API refuses to start when the main server in the database is another guild. |
 | `MC_EXECUTIVE_ROLE_ID` | production | empty | The root role in the main server: full access to the admin API. |
 | `MC_DEV_LEADS_ROLE_ID` | no | empty | An extra root role in the main server. |
 | `MC_IT_LEADS_ROLE_ID` | no | empty | Another extra root role. |

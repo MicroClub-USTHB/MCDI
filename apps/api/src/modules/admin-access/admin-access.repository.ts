@@ -29,8 +29,7 @@ export class AdminAccessRepository {
     const [row] = await this.db
       .select({ id: schema.servers.id })
       .from(schema.servers)
-      .where(eq(schema.servers.isMain, true))
-      .limit(1);
+      .where(eq(schema.servers.isMain, true));
     return row?.id ?? null;
   }
 

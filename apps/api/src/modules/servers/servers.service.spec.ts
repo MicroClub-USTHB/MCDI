@@ -8,8 +8,9 @@ import { ProjectAccessCacheService } from '../projects/project-access-cache.serv
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 const mockServersRepo = {
-  clearMainServer: jest.fn(),
   upsertServer: jest.fn(),
+  upsertMainServer: jest.fn(),
+  updateByIdAsMain: jest.fn(),
   listServersWithLastSync: jest.fn(),
   findById: jest.fn(),
   updateById: jest.fn(),
@@ -94,18 +95,31 @@ describe('ServersService', () => {
       );
     });
 
-    it('calls clearMainServer when isMain is true', async () => {
+    it('upserts atomically as the main server when isMain is true', async () => {
       const server = fakeServer({ isMain: true });
       mockDiscordService.getGuildById.mockResolvedValue(null);
-      mockServersRepo.clearMainServer.mockResolvedValue(undefined);
-      mockServersRepo.upsertServer.mockResolvedValue(server);
+      mockServersRepo.upsertMainServer.mockResolvedValue(server);
 
-      await service.registerServer({
+      const result = await service.registerServer({
         guildId: 'guild-1',
         name: 'G',
         isMain: true,
       });
-      expect(mockServersRepo.clearMainServer).toHaveBeenCalled();
+      expect(result).toEqual(server);
+      expect(mockServersRepo.upsertMainServer).toHaveBeenCalled();
+      expect(mockServersRepo.upsertServer).not.toHaveBeenCalled();
+    });
+
+    it('maps a servers_single_main_idx violation to 409', async () => {
+      mockDiscordService.getGuildById.mockResolvedValue(null);
+      mockServersRepo.upsertMainServer.mockRejectedValue({
+        cause: { code: '23505', constraint: 'servers_single_main_idx' },
+      });
+
+      await expect(
+        service.registerServer({ guildId: 'guild-1', isMain: true }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockProjectAccessCache.invalidateServer).not.toHaveBeenCalled();
     });
 
     it('uses guild name from Discord when name is not provided', async () => {
@@ -160,6 +174,45 @@ describe('ServersService', () => {
       await expect(service.updateServer('missing', {})).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('switches the main server through updateByIdAsMain', async () => {
+      const server = fakeServer({ isMain: true });
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
+      mockServersRepo.updateByIdAsMain.mockResolvedValue(server);
+
+      const result = await service.updateServer('guild-1', { isMain: true });
+      expect(result).toEqual(server);
+      expect(mockServersRepo.updateByIdAsMain).toHaveBeenCalledWith(
+        'guild-1',
+        expect.any(Object),
+        expect.any(Date),
+      );
+      expect(mockServersRepo.updateById).not.toHaveBeenCalled();
+      expect(mockProjectAccessCache.invalidateServer).toHaveBeenCalledWith(
+        'guild-1',
+      );
+    });
+
+    it('maps a servers_single_main_idx violation to 409 on switch', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
+      mockServersRepo.updateByIdAsMain.mockRejectedValue({
+        code: '23505',
+        constraint: 'servers_single_main_idx',
+      });
+
+      await expect(
+        service.updateServer('guild-1', { isMain: true }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rethrows other errors from the main switch', async () => {
+      mockServersRepo.findById.mockResolvedValue(fakeServer());
+      mockServersRepo.updateByIdAsMain.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        service.updateServer('guild-1', { isMain: true }),
+      ).rejects.toThrow('boom');
     });
 
     it('throws ConflictException when trying to unset the main server', async () => {
