@@ -1,6 +1,6 @@
 import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import { DRIZZLE, DrizzleDB } from './database.constants';
@@ -31,6 +31,7 @@ export class DatabaseInitService implements OnModuleInit {
     }
 
     await this.bootstrapMainServer();
+    await this.checkMainServer();
   }
 
   private async bootstrapMainServer(): Promise<void> {
@@ -59,5 +60,31 @@ export class DatabaseInitService implements OnModuleInit {
     this.logger.log(
       `Bootstrapped main server from MC_GUILD_ID env (${guildId})`,
     );
+  }
+
+  /**
+   * Admin login uses MC_GUILD_ID while the permission guard uses the server
+   * flagged is_main, so the two must name the same guild. A mismatch fails the
+   * boot in production and logs a warning elsewhere.
+   */
+  async checkMainServer(): Promise<void> {
+    const guildId = process.env.MC_GUILD_ID;
+    if (!guildId) return;
+
+    const [main] = await this.db
+      .select({ id: servers.id })
+      .from(servers)
+      .where(eq(servers.isMain, true));
+    if (!main || main.id === guildId) return;
+
+    const message =
+      `The main server in the database (${main.id}) differs from MC_GUILD_ID ` +
+      `(${guildId}). Admin login and the permission guard would use different ` +
+      'servers. Change MC_GUILD_ID or set the right server as main.';
+    if (process.env.NODE_ENV === 'production') {
+      this.logger.error(message);
+      throw new Error(message);
+    }
+    this.logger.warn(message);
   }
 }
