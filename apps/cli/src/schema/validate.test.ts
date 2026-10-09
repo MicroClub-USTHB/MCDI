@@ -139,3 +139,236 @@ describe('validateSchema (MCDI Layer 1 parity)', () => {
     expect(validateSchema(null).errors[0]?.source).toBe('local');
   });
 });
+
+describe('validateSchema: complex schema-acceptance edge cases', () => {
+  /** An array-of-objects field: `member` is an object with the given child fields. */
+  const membersArray = (overrides: Record<string, unknown> = {}, memberFields: unknown[] = []) =>
+    field({
+      key: 'members',
+      type: 'array',
+      maxItems: 5,
+      item: { key: 'member', type: 'object', required: true, fields: memberFields, ...overrides },
+    });
+
+  describe('./ relative conditions inside array items (MCDI ITEM_REF_PREFIX parity)', () => {
+    it('accepts a sibling field referencing an earlier field in the same item via ./', () => {
+      const valid = schema([
+        membersArray({}, [
+          field({ key: 'role', type: 'enum', options: [{ value: 'lead' }, { value: 'member' }] }),
+          field({ key: 'title', type: 'string', required: false, condition: { op: 'eq', field: './role', value: 'lead' } }),
+        ]),
+      ]);
+      expect(validateSchema(valid).valid).toBe(true);
+    });
+
+    it('resolves a nested dotted path relative to the item root (./address.city)', () => {
+      const valid = schema([
+        membersArray({}, [
+          field({ key: 'address', type: 'object', fields: [field({ key: 'city' })] }),
+          field({ key: 'isLocal', type: 'boolean', condition: { op: 'eq', field: './address.city', value: 'Algiers' } }),
+        ]),
+      ]);
+      expect(validateSchema(valid).valid).toBe(true);
+    });
+
+    it('rejects ./field when it is not declared earlier in the same item (item-local forward reference)', () => {
+      const forward = schema([
+        membersArray({}, [
+          field({ key: 'title', condition: { op: 'eq', field: './role', value: 'lead' } }),
+          field({ key: 'role' }),
+        ]),
+      ]);
+      expect(codes(forward)).toContain('FORWARD_REFERENCE');
+    });
+
+    it('rejects ./ used outside any array item', () => {
+      expect(codes(schema([field({ condition: { op: 'eq', field: './role', value: 'x' } })])))
+        .toContain('RELATIVE_REFERENCE_OUTSIDE_ITEM');
+    });
+
+    it('rejects ./ on the item root\'s own condition (nothing in the item is declared yet)', () => {
+      const rootCondition = schema([
+        membersArray({ condition: { op: 'eq', field: './role', value: 'lead' } }, [field({ key: 'role' })]),
+      ]);
+      expect(codes(rootCondition)).toContain('RELATIVE_REFERENCE_OUTSIDE_ITEM');
+    });
+
+    it('rejects a bare "./" with no field name', () => {
+      const bare = schema([
+        membersArray({}, [
+          field({ key: 'role' }),
+          field({ key: 'title', condition: { op: 'eq', field: './', value: 'x' } }),
+        ]),
+      ]);
+      expect(codes(bare)).toContain('INVALID_CONDITION');
+    });
+
+    it('still rejects an absolute dotted path into an array item, now hinting at ./ as the fix', () => {
+      const result = validateSchema(schema([
+        membersArray({}, [field({ key: 'role' })]),
+        field({ key: 'other', condition: { op: 'exists', field: 'identity.members.member.role' } }),
+      ]));
+      const err = result.errors.find((e) => e.code === 'UNRESOLVABLE_REFERENCE');
+      expect(err?.message).toMatch(/\.\/role/);
+    });
+
+    it('scopes ./ to the innermost item when arrays are nested: outer item fields are not visible inside the inner item', () => {
+      const nested = schema([
+        field({
+          key: 'teams',
+          type: 'array',
+          maxItems: 3,
+          item: {
+            key: 'team',
+            type: 'object',
+            required: true,
+            fields: [
+              field({ key: 'teamName' }),
+              field({
+                key: 'members',
+                type: 'array',
+                maxItems: 5,
+                item: {
+                  key: 'member',
+                  type: 'object',
+                  required: true,
+                  fields: [
+                    field({ key: 'role' }),
+                    // References the OUTER item's field, not reachable from inside the inner item.
+                    field({ key: 'bad', required: false, condition: { op: 'eq', field: './teamName', value: 'x' } }),
+                  ],
+                },
+              }),
+            ],
+          },
+        }),
+      ]);
+      expect(codes(nested)).toContain('FORWARD_REFERENCE');
+    });
+
+    it('restores the outer item scope after a nested array finishes, so the outer item can still reference its own earlier fields', () => {
+      const nested = schema([
+        field({
+          key: 'teams',
+          type: 'array',
+          maxItems: 3,
+          item: {
+            key: 'team',
+            type: 'object',
+            required: true,
+            fields: [
+              field({ key: 'teamName' }),
+              field({
+                key: 'members',
+                type: 'array',
+                maxItems: 5,
+                item: { key: 'member', type: 'object', required: true, fields: [field({ key: 'role' })] },
+              }),
+              // Back in the outer item, after the nested array: ./teamName is still in scope.
+              field({ key: 'teamNote', required: false, condition: { op: 'exists', field: './teamName' } }),
+            ],
+          },
+        }),
+      ]);
+      expect(validateSchema(nested).valid).toBe(true);
+    });
+  });
+
+  describe('step and field ordering', () => {
+    it('allows a field to reference an earlier field declared in the same step (not just an earlier step)', () => {
+      const sameStep = schema([
+        field({ key: 'status', type: 'enum', options: [{ value: 'yes' }] }),
+        field({ key: 'reason', required: false, condition: { op: 'eq', field: 'identity.status', value: 'yes' } }),
+      ]);
+      expect(validateSchema(sameStep).valid).toBe(true);
+    });
+
+    it('rejects a field referencing itself or a later field in the same step', () => {
+      const selfRef = schema([field({ key: 'a', condition: { op: 'exists', field: 'identity.a' } })]);
+      expect(codes(selfRef)).toContain('FORWARD_REFERENCE');
+
+      const laterRef = schema([
+        field({ key: 'a', condition: { op: 'exists', field: 'identity.b' } }),
+        field({ key: 'b', required: false }),
+      ]);
+      expect(codes(laterRef)).toContain('FORWARD_REFERENCE');
+    });
+
+    it('rejects a step condition referencing a field declared in a later step', () => {
+      const result = {
+        version: 1,
+        steps: [
+          { key: 'a', condition: { op: 'exists', field: 'b.x' }, fields: [field({ key: 'y' })] },
+          { key: 'b', fields: [field({ key: 'x' })] },
+        ],
+      };
+      expect(codes(result)).toContain('FORWARD_REFERENCE');
+    });
+  });
+
+  describe('combined / simultaneous errors', () => {
+    it('reports both a missing maxItems and an out-of-order range on the same array field', () => {
+      const broken = schema([field({ type: 'array', item: field({ key: 'item' }), minItems: 5, maxItems: -1 })]);
+      const result = codes(broken);
+      expect(result).toContain('MISSING_MAX_ITEMS');
+      expect(result).toContain('INVALID_RANGE');
+    });
+
+    it('still counts a too-deep node against the node budget', () => {
+      const nestedField = (depth: number): Record<string, unknown> => {
+        let current: Record<string, unknown> = field({ key: `leaf_${depth}` });
+        for (let level = depth - 1; level >= 1; level -= 1) {
+          current = field({ key: `object_${level}`, type: 'object', fields: [current] });
+        }
+        return current;
+      };
+      // depth 7 trips TOO_DEEP at the bottom node, but every node on the way down is still counted.
+      const result = validateSchema(schema([nestedField(7)]));
+      expect(result.errors.map((e) => e.code)).toContain('TOO_DEEP');
+    });
+  });
+
+  describe('type-specific property scoping', () => {
+    it('rejects minCount/maxCount on a `file` field (they only belong to `files`)', () => {
+      expect(codes(schema([field({ type: 'file', accept: ['application/pdf'], maxSizeBytes: 10, minCount: 1 })])))
+        .toContain('UNKNOWN_PROPERTY');
+    });
+
+    it('rejects `options` on a plain `string` field', () => {
+      expect(codes(schema([field({ options: [{ value: 'a' }] })]))).toContain('UNKNOWN_PROPERTY');
+    });
+  });
+
+  describe('condition AST shape', () => {
+    it('rejects "not" when `of` is an array instead of a single condition object', () => {
+      expect(codes(schema([
+        field({ key: 'a', type: 'enum', options: [{ value: 'x' }] }),
+        field({ key: 'b', required: false, condition: { op: 'not', of: [{ op: 'exists', field: 'identity.a' }] } }),
+      ]))).toContain('INVALID_CONDITION');
+    });
+
+    it('accepts deeply nested and/or/not up to the depth limit and rejects beyond it', () => {
+      const nestedCondition = (depth: number): Record<string, unknown> => {
+        let current: Record<string, unknown> = { op: 'exists', field: 'identity.a' };
+        for (let i = 0; i < depth; i += 1) current = { op: 'not', of: current };
+        return current;
+      };
+      const base = [field({ key: 'a', type: 'boolean' })];
+      expect(validateSchema(schema([...base, field({ key: 'b', required: false, condition: nestedCondition(5) })])).valid).toBe(true);
+      expect(codes(schema([...base, field({ key: 'c', required: false, condition: nestedCondition(6) })])))
+        .toContain('CONDITION_TOO_DEEP');
+    });
+  });
+
+  describe('calendar correctness', () => {
+    it('accepts a real leap day and rejects the same date in a non-leap year', () => {
+      expect(validateSchema(schema([field({ type: 'date', min: '2024-02-29' })])).valid).toBe(true);
+      expect(codes(schema([field({ type: 'date', min: '2023-02-29' })]))).toContain('INVALID_CONSTRAINT');
+    });
+
+    it('requires a "T" separator for datetime, rejecting a space even with a valid timezone', () => {
+      expect(codes(schema([field({ type: 'datetime', min: '2026-01-01 00:00:00Z' })]))).toContain('INVALID_CONSTRAINT');
+      expect(validateSchema(schema([field({ type: 'datetime', min: '2026-01-01T00:00:00+01:00' })])).valid).toBe(true);
+    });
+  });
+});
