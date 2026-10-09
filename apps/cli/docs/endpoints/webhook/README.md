@@ -27,7 +27,7 @@ Request body (`CreateInboundWebhookDto`):
   name: string;                // required, 1-255 chars
   slug: string;                 // required, ^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$, unique per project
   schema: FormSchema;           // required — see m-forge-CLI-PRD.md §8
-  allowedRoleIds: string[];     // required, non-empty, each a Discord snowflake (\d{17,20})
+  allowedRoleIds?: string[];    // optional, each a Discord snowflake (\d{17,20}); omitted → project default reader roles
   acceptedOrigins?: string[];   // optional, empty = no origin check
   requireSignature?: boolean;   // optional, default true
   rejectUnknownFields?: boolean;// optional, default true
@@ -37,14 +37,19 @@ Request body (`CreateInboundWebhookDto`):
 
 - `201` on success — **includes the signing secret, returned exactly once.**
   m-forge must surface/store it the same way it handles `rotate-secret`
-  (§12.2 of the PRD) — never persisted to the config file or logs.
+  (§12.2 of the PRD) — never persisted to the config file or logs. The
+  response's `allowedRoleIds` reflects what was actually applied, including
+  the fallback when the request omitted it.
 - `400` invalid schema, or unknown/foreign roles.
 - `409` slug already used within the project.
-- `allowedRoleIds` is **required and non-empty by design** — unlike
-  `project_roles`, an empty set here would mean nobody (not everybody),
-  so the API fails closed and rejects an empty array outright.
+- `allowedRoleIds` is optional: when omitted, MCDI applies the project's
+  configured default reader roles (MC Executive unless changed); when
+  given, exactly those roles are used. Either way at least one role must
+  result — unlike `project_roles`, an empty set here would mean nobody (not
+  everybody), so the API still fails closed against an empty array.
 
-Maps to `m-forge webhook create <schema-path> --name <name> --project <project-id> --roles <roleId>[,<roleId>...] [--accept-origin <origin>]...`.
+Maps to `m-forge webhook create <schema-path> --name <name> --project <project-id> [--roles <roleId>[,<roleId>...]] [--accept-origin <origin>]...`
+(`--roles` omitted → the project's default reader roles).
 
 ## `GET /admin/inbound-webhooks` — list
 

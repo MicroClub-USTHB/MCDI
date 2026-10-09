@@ -17,6 +17,7 @@ import {
   deleteInboundWebhook,
   getInboundWebhook,
   listInboundWebhooks,
+  listProjects,
   rotateInboundWebhookSecret,
   setInboundWebhookRoles,
   updateInboundWebhook,
@@ -268,8 +269,10 @@ export interface WebhookCreateOptions {
   /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
   profile: string;
   name: string;
-  project: string;
-  roles: string;
+  /** Omitted → prompted for interactively from `GET /admin/projects` (requires a TTY). */
+  project?: string;
+  /** Omitted → MCDI falls back to the project's configured default reader roles. */
+  roles?: string;
   acceptOrigin: string[];
   slug?: string;
   reveal?: boolean;
@@ -332,13 +335,38 @@ async function readCheckedSchema(path: string, deps: WebhookDeps): Promise<Recor
   return parsed as Record<string, unknown>;
 }
 
+/** Prompts for a project when `--project` was omitted; requires a TTY (PRD §11). */
+async function resolveProjectId(session: Session, options: WebhookCreateOptions, deps: WebhookDeps): Promise<string> {
+  if (options.project) return options.project;
+  if (!deps.isInteractive) {
+    throw new CliError('no interactive terminal to pick a project; pass --project <projectId>', ExitCode.PrecheckFailed);
+  }
+  const projects = await listProjects(session);
+  if (projects.length === 0) {
+    throw new CliError('no projects are available to create a webhook on; pass --project <projectId>', ExitCode.NotFound);
+  }
+  if (projects.length === 1) return projects[0]!.id;
+
+  deps.info('Projects:');
+  projects.forEach((p, i) => deps.info(`  ${i + 1}) ${p.name} (${p.id})`));
+  const answer = (await deps.ask(`Pick one [1-${projects.length}]: `)).trim();
+  const choice = /^\d+$/.test(answer) ? projects[Number(answer) - 1] : undefined;
+  if (!choice) throw new CliError(`"${answer}" is not one of 1-${projects.length}`, ExitCode.PrecheckFailed);
+  return choice.id;
+}
+
 export async function webhookCreate(schemaPath: string, options: WebhookCreateOptions, deps: WebhookDeps): Promise<void> {
-  const allowedRoleIds = parseRoleIds(options.roles, 'MCDI requires at least one role allowed to read submissions');
+  const allowedRoleIds =
+    options.roles === undefined
+      ? undefined
+      : parseRoleIds(options.roles, 'omit --roles to fall back to the project\'s default reader roles');
   const slug = resolveSlug(options);
   const schema = await readCheckedSchema(schemaPath, deps);
 
   const session = await loadSession(options.profile, deps);
-  const body: CreateInboundWebhookBody = { projectId: options.project, name: options.name, slug, schema, allowedRoleIds };
+  const projectId = await resolveProjectId(session, options, deps);
+  const body: CreateInboundWebhookBody = { projectId, name: options.name, slug, schema };
+  if (allowedRoleIds !== undefined) body.allowedRoleIds = allowedRoleIds;
   if (options.acceptOrigin.length > 0) body.acceptedOrigins = options.acceptOrigin;
   const created = await createInboundWebhook(session, body);
   const { webhook } = created;
@@ -361,6 +389,10 @@ export async function webhookCreate(schemaPath: string, options: WebhookCreateOp
   deps.out(`ID:             ${webhook.id}`);
   deps.out(`Submit URL:     ${created.submitUrl}`);
   deps.out(`Docs:           ${created.docsUrl}`);
+  deps.out(
+    `Allowed roles:  ${created.allowedRoleIds.join(', ')}` +
+      (allowedRoleIds === undefined ? ' (project default)' : ''),
+  );
   deps.out(`Signing secret: ${options.reveal ? created.signingSecret : maskSecret(created.signingSecret)}`);
   deps.info(
     `The signing secret is stored encrypted; get it again with \`m-forge webhook secret get --profile ${session.profileName}\`` +

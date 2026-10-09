@@ -282,6 +282,28 @@ async function adminRequest(
   throw new CliError(`MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`, ExitCode.Unexpected);
 }
 
+export interface Project {
+  id: string;
+  name: string;
+}
+
+function toProject(raw: unknown): Project {
+  const r = raw as Partial<Record<keyof Project, unknown>> | null;
+  if (typeof r?.id !== 'string' || typeof r.name !== 'string') {
+    throw new CliError('MCDI project response has an unexpected shape', ExitCode.Unexpected);
+  }
+  return { id: r.id, name: r.name };
+}
+
+/** GET /admin/projects → active projects this admin can create webhooks on. */
+export async function listProjects(session: Session): Promise<Project[]> {
+  const body = await adminRequest(session.baseUrl, session.token, session.profileName, 'GET', '/admin/projects');
+  if (!Array.isArray(body)) {
+    throw new CliError('MCDI project list response is not an array', ExitCode.Unexpected);
+  }
+  return body.map(toProject);
+}
+
 /** GET /admin/inbound-webhooks[?projectId=] → webhooks, newest first. */
 export async function listInboundWebhooks(session: Session, projectId?: string): Promise<InboundWebhook[]> {
   const query = projectId ? `?${new URLSearchParams({ projectId })}` : '';
@@ -342,7 +364,8 @@ export interface CreateInboundWebhookBody {
   name: string;
   slug: string;
   schema: Record<string, unknown>;
-  allowedRoleIds: string[];
+  /** Omitted → MCDI falls back to the project's configured default reader roles. */
+  allowedRoleIds?: string[];
   acceptedOrigins?: string[];
 }
 
