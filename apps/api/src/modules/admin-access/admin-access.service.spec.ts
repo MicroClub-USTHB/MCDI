@@ -1,5 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { RedisService } from '../../common/redis/redis.service';
+import { SettingsService } from '../admin-settings/settings.service';
 import { PermissionCacheService } from '../permissions/permission-cache.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -106,5 +108,37 @@ describe('AdminAccessService', () => {
   it('invalidates one member through the cache', async () => {
     await service.invalidateMember('m1');
     expect(cache.invalidateMember).toHaveBeenCalledWith('m1');
+  });
+
+  describe('with Redis unavailable', () => {
+    // A RedisService that never connected: isReady is false, as when Redis is down.
+    const redisConfig = new ConfigService({ redis: { host: 'localhost' } });
+    const downCache = new PermissionCacheService(
+      redisConfig,
+      new RedisService(redisConfig),
+      { getPermissionCacheTtlMs: () => 300_000 } as unknown as SettingsService,
+    );
+
+    it('answers from the database, and invalidating does not throw', async () => {
+      const downService = new AdminAccessService(
+        repo as unknown as AdminAccessRepository,
+        downCache,
+        { get: (k: string) => roots[k] } as unknown as ConfigService,
+      );
+      repo.findMainServerId.mockResolvedValue('main');
+      repo.findMemberRoleIdsInServer.mockResolvedValue(['root-exec']);
+
+      const result = await downService.getEffectiveAccess('m1');
+
+      expect(result.root).toBe(true);
+      await expect(downService.getEffectiveAccess('m1')).resolves.toEqual(
+        result,
+      );
+      expect(repo.findMainServerId).toHaveBeenCalledTimes(2);
+      await expect(downService.invalidateMember('m1')).resolves.toBeUndefined();
+      await expect(
+        downCache.invalidateAllAdminAccess(),
+      ).resolves.toBeUndefined();
+    });
   });
 });
