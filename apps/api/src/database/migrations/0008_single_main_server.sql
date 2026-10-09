@@ -10,4 +10,4 @@ BEGIN
     RAISE EXCEPTION 'Cannot enforce a single main server: more than one server has is_main = true: %. Set is_main = false on all but one of them and run the migration again.', main_servers;
   END IF;
 END $$;--> statement-breakpoint
-CREATE UNIQUE INDEX "servers_single_main_idx" ON "servers" USING btree ("is_main") WHERE "servers"."is_main";
+CREATE UNIQUE INDEX IF NOT EXISTS "servers_single_main_idx" ON "servers" USING btree ("is_main") WHERE "servers"."is_main";
