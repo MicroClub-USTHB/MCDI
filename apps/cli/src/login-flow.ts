@@ -85,8 +85,56 @@ export function extractState(discordUrl: string): string {
   return state;
 }
 
-const page = (title: string, body: string) =>
-  `<!doctype html><meta charset="utf-8"><title>mcdi-cli</title><h1>${title}</h1><p>${body}</p>`;
+const page = (title: string, body: string, variant: 'success' | 'error' = 'success') => {
+  const accent = variant === 'success' ? '#22c55e' : '#f87171';
+  const icon =
+    variant === 'success'
+      ? '<path d="M5 13l4 4L19 7" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+      : '<path d="M6 6l12 12M18 6L6 18" stroke="#f87171" stroke-width="2" stroke-linecap="round" fill="none"/>';
+  return `<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mcdi-cli</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0b0f14;
+    color: #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .card {
+    text-align: center;
+    padding: 2.5rem 3rem;
+    border-radius: 12px;
+    background: #111823;
+    border: 1px solid #1f2a37;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+  .icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: ${accent}1a;
+    border: 1px solid ${accent}55;
+  }
+  h1 { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600; }
+  p { margin: 0; color: #9ca3af; font-size: 0.95rem; }
+</style>
+<div class="card">
+  <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24">${icon}</svg></div>
+  <h1>${title}</h1>
+  <p>${body}</p>
+</div>`;
+};
 
 interface CallbackListener {
   redirectUri: string;
@@ -109,12 +157,14 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Connection', 'close');
     if (result.kind === 'code') {
-      res.writeHead(200).end(page('Login complete', 'You can close this tab and return to the terminal.'));
+      res.writeHead(200).end(page('Login complete', 'You can close this tab and return to the terminal.', 'success'));
     } else if (result.kind === 'error') {
-      res.writeHead(400).end(page('Login failed', 'Check the terminal for details.'));
+      res.writeHead(400).end(page('Login failed', 'Check the terminal for details.', 'error'));
     } else {
       warn(`ignored a callback request: ${result.reason}`);
-      res.writeHead(400).end(page('Ignored', 'This request does not belong to the current mcdi-cli login.'));
+      res
+        .writeHead(400)
+        .end(page('Ignored', 'This request does not belong to the current mcdi-cli login.', 'error'));
     }
   });
 
