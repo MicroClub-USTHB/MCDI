@@ -282,7 +282,7 @@ teams that want a starting point closer to a real form.
 
 | Tier | Source of rules | Examples |
 |---|---|---|
-| **Built-in (mirrors MCDI Layer 1)** | Hardcoded, matches `docs/MCDI-INBOUND-WEBHOOKS-PRD.md §6.4` exactly | Unknown `type`, duplicate keys in a step/object, nesting depth > 5, node count > 200, missing mandatory `maxItems`/`maxCount`/`maxBytes`, uncompilable or >200-char `pattern`, a `condition` referencing an unknown field or a later step |
+| **Built-in (mirrors MCDI Layer 1)** | Hardcoded to MCDI's schema types and validator implementation | Unknown `type` or field property, duplicate step/field keys or option values, unsafe or overlong keys, too many steps, missing or malformed type-specific properties, nesting depth > 5, more than 200 field nodes, invalid ranges or enum options, invalid/overlong patterns, malformed conditions, or a condition referencing an unknown, later, or array-item field |
 | **Custom rule engine** | User/org-defined, loaded from `.m-forge/rules/*.json` (project-local) or `~/.m-forge/rules/*.json` (global), merged with built-ins | Reject `<`/`>` in any `string`/`text` field's `pattern` test values or `default`; enforce `label` is present on every field; enforce `key` naming convention (`^[a-z][a-z0-9_]*$`); cap `maxLength` at a house maximum; require at least one `file`/`files` field to have `accept` restricted to an allowlist of MIME types |
 
 Built-in rules can never be disabled — they exist so a schema that passes
@@ -330,7 +330,7 @@ layer caught the problem:
 
 ```
 ✗ 2 validation errors (source: local)
-  steps[1].fields[2].pattern     UNCOMPILABLE_REGEX     Pattern exceeds 200 characters
+  steps[1].fields[2].pattern     PATTERN_TOO_LONG       Pattern exceeds 200 characters
   steps[2].fields[0].default     NO_ANGLE_BRACKETS       Field defaults must not contain '<' or '>'
 ```
 

@@ -3,7 +3,9 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 import { notImplemented } from '../not-implemented.js';
 import { getSchemaTemplate } from '../schema/templates.js';
-import { validateSchema } from '../schema/validate.js';
+import { CliError } from '../errors.js';
+import { precheckSchema } from '../schema/custom-rules.js';
+import { defaultRuleLocations, loadCustomRules, RuleFileError } from '../schema/rules.js';
 
 const DEFAULT_TEMPLATE = 'minimal';
 const DEFAULT_OUTPUT_PATH = 'schema.json';
@@ -75,7 +77,20 @@ export function registerSchemaCommand(program: Command): void {
         return;
       }
 
-      const result = validateSchema(parsed);
+      let result;
+      try {
+        result = precheckSchema(parsed, await loadCustomRules(defaultRuleLocations()));
+      } catch (error) {
+        if (error instanceof RuleFileError) {
+          printError(`Could not load custom rules (source: ${OUTPUT_SOURCE})`, error.file, 'INVALID_RULE', error.problem);
+        } else if (error instanceof CliError) {
+          printError(`Custom rule failed (source: ${OUTPUT_SOURCE})`, path, 'RULE_TIMEOUT', error.message);
+        } else {
+          throw error;
+        }
+        process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+        return;
+      }
       if (!result.valid) {
         printValidationErrors(result.errors);
         process.exitCode = EXIT_CODE.VALIDATION_ERROR;

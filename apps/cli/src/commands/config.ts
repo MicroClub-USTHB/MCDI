@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { notImplemented } from '../not-implemented.js';
+import { configShow, configShowPath, defaultConfigDeps } from '../config-show.js';
+import { exitWithError } from '../errors.js';
 
 export function registerConfigCommand(program: Command): void {
   const config = program.command('config').description('Inspect the m-forge config file');
@@ -7,11 +8,23 @@ export function registerConfigCommand(program: Command): void {
   config
     .command('path')
     .description('Print the resolved config file location')
-    .action(() => notImplemented('config path'));
+    .action(() => {
+      try {
+        configShowPath(defaultConfigDeps());
+      } catch (err) {
+        exitWithError('config path', err);
+      }
+    });
 
   config
     .command('show')
     .description('Print a profile with secrets redacted')
     .option('--profile <name>', 'profile to show')
-    .action(() => notImplemented('config show'));
+    .action(async (options: { profile?: string }) => {
+      try {
+        await configShow(options, defaultConfigDeps());
+      } catch (err) {
+        exitWithError('config show', err);
+      }
+    });
 }
