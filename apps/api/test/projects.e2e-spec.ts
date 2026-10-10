@@ -133,6 +133,47 @@ describeIf('/api/admin/projects (e2e)', () => {
       ]);
     });
 
+    it('creates a project with an inbound webhook and returns both credentials', async () => {
+      const res = await request(app.getHttpServer())
+        .post(BASE)
+        .set('Authorization', auth())
+        .send({
+          name: 'E2E Webhook Project',
+          inboundWebhook: {
+            name: 'Registration Form',
+            slug: 'registration-form',
+            schema: {
+              version: 1,
+              fields: [
+                {
+                  key: 'email',
+                  type: 'string',
+                  required: true,
+                },
+              ],
+            },
+            acceptedOrigins: ['https://microclub.dz'],
+          },
+        })
+        .expect(201);
+
+      expect(res.body).toMatchObject({
+        apiKey: expect.stringMatching(/^pk_/),
+        project: {
+          name: 'E2E Webhook Project',
+          isActive: true,
+        },
+        inboundWebhook: {
+          webhook: {
+            name: 'Registration Form',
+            slug: 'registration-form',
+          },
+          signingSecret: expect.any(String),
+        },
+      });
+      expect(res.body.inboundWebhook.submitUrl).toBeDefined();
+    });
+
     it('returns 400 when name is missing', async () => {
       await request(app.getHttpServer())
         .post(BASE)

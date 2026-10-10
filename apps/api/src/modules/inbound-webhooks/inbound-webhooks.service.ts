@@ -15,6 +15,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { isUUID } from 'class-validator';
 import { AuditRepository } from '../audit/audit.repository';
+import { DrizzleDB } from '../../database/database.constants';
 import { RedisService } from '../../common/redis/redis.service';
 import {
   encryptSecret,
@@ -50,8 +51,22 @@ export interface CreateInboundWebhookResult {
   allowedRoleIds: string[];
   /** Where to send this webhook's submissions. */
   submitUrl: string;
-  /** Developer documentation generated from the schema just declared. */
+  /** Link to auto-generated documentation. */
   docsUrl: string;
+}
+
+export interface PreparedWebhookData {
+  name: string;
+  slug: string;
+  schema: FormSchema;
+  acceptedOrigins: string[];
+  signingSecret: string;
+  signingSecretEnc: string;
+  requireSignature: boolean;
+  rejectUnknownFields: boolean;
+  allowRoleInheritance: boolean;
+  allowedRoleIds: string[];
+  actor: string | null;
 }
 
 export type DocsFormat = 'markdown' | 'openapi';
@@ -105,59 +120,102 @@ export class InboundWebhooksService {
 
   // ─── Management ─────────────────────────────────────────────────────────
 
-  async create(
-    dto: CreateInboundWebhookDto,
+  async prepare(
+    dto: Omit<CreateInboundWebhookDto, 'projectId'>,
     actor: string | null,
-  ): Promise<CreateInboundWebhookResult> {
+    skipSlugConflictCheck = false,
+    projectId?: string,
+    skipServerAccessCheck = false,
+  ): Promise<PreparedWebhookData> {
     const formSchema = this.assertValidSchema(dto.schema);
 
-    const existing = await this.repository.findBySlug(dto.projectId, dto.slug);
-    if (existing) {
-      throw new ConflictException(
-        `Project already has a webhook with slug "${dto.slug}"`,
-      );
+    if (!skipSlugConflictCheck && projectId) {
+      const existing = await this.repository.findBySlug(projectId, dto.slug);
+      if (existing) {
+        throw new ConflictException(
+          `Project already has a webhook with slug "${dto.slug}"`,
+        );
+      }
     }
 
     const allowedRoleIds = await this.resolveReaderRoles(
-      dto.projectId,
+      projectId ?? 'new-project',
       dto.allowedRoleIds,
+      skipServerAccessCheck,
     );
 
     const signingSecret = generateSigningSecret();
 
-    const webhook = await this.repository.create({
-      projectId: dto.projectId,
+    return {
       name: dto.name,
       slug: dto.slug,
       schema: formSchema,
       acceptedOrigins: dto.acceptedOrigins ?? [],
+      signingSecret,
       signingSecretEnc: encryptSecret(signingSecret, this.encryptionKey()),
       requireSignature: dto.requireSignature ?? true,
       rejectUnknownFields: dto.rejectUnknownFields ?? true,
       allowRoleInheritance: dto.allowRoleInheritance ?? false,
-      createdBy: actor,
       allowedRoleIds,
-    });
+      actor,
+    };
+  }
+
+  async persist(
+    projectId: string,
+    prepared: PreparedWebhookData,
+    tx?: DrizzleDB,
+  ): Promise<CreateInboundWebhookResult> {
+    const webhook = await this.repository.create(
+      {
+        projectId,
+        name: prepared.name,
+        slug: prepared.slug,
+        schema: prepared.schema,
+        acceptedOrigins: prepared.acceptedOrigins,
+        signingSecretEnc: prepared.signingSecretEnc,
+        requireSignature: prepared.requireSignature,
+        rejectUnknownFields: prepared.rejectUnknownFields,
+        allowRoleInheritance: prepared.allowRoleInheritance,
+        createdBy: prepared.actor,
+        allowedRoleIds: prepared.allowedRoleIds,
+      },
+      tx,
+    );
 
     await this.audit({
       action: 'webhook.created',
       entityId: webhook.id,
-      actorId: actor,
+      actorId: prepared.actor,
       details: {
-        projectId: dto.projectId,
-        slug: dto.slug,
-        allowedRoleIds,
+        projectId,
+        slug: prepared.slug,
+        allowedRoleIds: prepared.allowedRoleIds,
       },
     });
 
     const baseUrl = this.baseUrl();
     return {
       webhook,
-      signingSecret,
-      allowedRoleIds,
+      signingSecret: prepared.signingSecret,
+      allowedRoleIds: prepared.allowedRoleIds,
       submitUrl: `${baseUrl}/inbound-webhooks/${webhook.id}/submit`,
       docsUrl: `${baseUrl}/admin/inbound-webhooks/${webhook.id}/docs`,
     };
+  }
+
+  async create(
+    dto: CreateInboundWebhookDto,
+    actor: string | null,
+  ): Promise<CreateInboundWebhookResult> {
+    const prepared = await this.prepare(
+      dto,
+      actor,
+      false,
+      dto.projectId,
+      false,
+    );
+    return this.persist(dto.projectId, prepared);
   }
 
   async findById(id: string): Promise<InboundWebhookRow> {
@@ -231,6 +289,7 @@ export class InboundWebhooksService {
       webhook.projectId,
       roleIds,
       new Set(await this.getDefaultReaderRoleIds()),
+      false,
     );
 
     const previous = await this.repository.findAllowedRoleIds(id);
@@ -344,6 +403,7 @@ export class InboundWebhooksService {
     projectId: string,
     roleIds: string[],
     exempt: Set<string> = new Set(),
+    skipServerAccessCheck = false,
   ): Promise<void> {
     const unique = Array.from(new Set(roleIds));
     const found = await this.repository.findExistingRoles(unique);
@@ -353,6 +413,8 @@ export class InboundWebhooksService {
     if (unknown.length > 0) {
       throw new BadRequestException(`Unknown role IDs: ${unknown.join(', ')}`);
     }
+
+    if (skipServerAccessCheck) return;
 
     const projectServerIds = new Set(
       await this.repository.findProjectServerIds(projectId),
@@ -824,13 +886,19 @@ export class InboundWebhooksService {
   private async resolveReaderRoles(
     projectId: string,
     requested: string[] | undefined,
+    skipServerAccessCheck = false,
   ): Promise<string[]> {
     const defaults = await this.getDefaultReaderRoleIds();
 
     if (requested !== undefined) {
       const roleIds = [...new Set(requested)];
       if (roleIds.length === 0) throw this.noReaders();
-      await this.assertRolesGrantable(projectId, roleIds, new Set(defaults));
+      await this.assertRolesGrantable(
+        projectId,
+        roleIds,
+        new Set(defaults),
+        skipServerAccessCheck,
+      );
       return roleIds;
     }
 

@@ -7,6 +7,9 @@ import {
   ValidateNested,
   IsBoolean,
   IsUrl,
+  IsObject,
+  Matches,
+  MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -32,6 +35,50 @@ export class ProjectServerAccessDto {
   @IsEnum(ProjectScope, { each: true })
   @IsOptional()
   scopes?: ProjectScope[];
+}
+
+export class ProjectInboundWebhookDto {
+  @ApiProperty({ example: 'Recruitment 2026' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(255)
+  name: string;
+
+  @ApiPropertyOptional({
+    description:
+      'URL-safe identifier, unique within the project. Auto-generated if omitted.',
+    example: 'recruitment-2026',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/, {
+    message: 'slug must be lowercase alphanumeric with dashes',
+  })
+  slug?: string;
+
+  @ApiProperty({ description: 'The shape of what callers send.' })
+  @IsObject()
+  schema: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    description: 'Discord role IDs permitted to READ submissions.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Matches(/^\d{17,20}$/, {
+    each: true,
+    message: 'each role must be a Discord snowflake',
+  })
+  allowedRoleIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Origins permitted to call this webhook. Empty = no check.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acceptedOrigins?: string[];
 }
 
 export class CreateProjectDto {
@@ -81,4 +128,14 @@ export class CreateProjectDto {
   @Type(() => ProjectServerAccessDto)
   @IsOptional()
   serverAccess?: ProjectServerAccessDto[];
+
+  @ApiPropertyOptional({
+    description:
+      'Optional inbound webhook to provision along with the project.',
+    type: ProjectInboundWebhookDto,
+  })
+  @ValidateNested()
+  @Type(() => ProjectInboundWebhookDto)
+  @IsOptional()
+  inboundWebhook?: ProjectInboundWebhookDto;
 }
