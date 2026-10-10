@@ -1,5 +1,25 @@
 import { Command } from 'commander';
+import { exitWithError } from '../errors.js';
 import { notImplemented } from '../not-implemented.js';
+import {
+  defaultWebhookDeps,
+  webhookCreate,
+  webhookDelete,
+  webhookGet,
+  webhookList,
+  webhookRolesSet,
+  webhookRotateSecret,
+  webhookSecretGet,
+  webhookUpdate,
+  type WebhookCreateOptions,
+  type WebhookDeleteOptions,
+  type WebhookGetOptions,
+  type WebhookListOptions,
+  type WebhookRolesSetOptions,
+  type WebhookRotateSecretOptions,
+  type WebhookSecretGetOptions,
+  type WebhookUpdateOptions,
+} from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
   const webhook = program
@@ -8,12 +28,21 @@ export function registerWebhookCommand(program: Command): void {
 
   webhook
     .command('create <schema-path>')
-    .description('Pre-check a schema, then create the webhook on MCDI')
+    .description('Create a webhook on MCDI from a schema file and store its signing secret')
     .requiredOption('--name <name>', 'webhook display name')
-    .requiredOption('--project <projectId>', 'owning MCDI project id')
-    .requiredOption('--roles <roleIds>', 'comma-separated allowed Discord role ids')
+    .option('--project <projectId>', 'owning MCDI project id (omit to pick interactively)')
+    .option('--roles <roleIds>', 'comma-separated allowed Discord role ids (omit to use project defaults)')
     .option('--accept-origin <origin>', 'accepted origin (repeatable)', collect, [])
-    .action(() => notImplemented('webhook create', 7));
+    .option('--slug <slug>', 'URL-safe id, unique in the project (default: derived from --name)')
+    .option('--reveal', 'print the signing secret in plain text')
+    .requiredOption('--profile <name>', 'profile to create on')
+    .action(async (schemaPath: string, options: WebhookCreateOptions) => {
+      try {
+        await webhookCreate(schemaPath, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook create', err);
+      }
+    });
 
   webhook
     .command('update <id>')
@@ -22,39 +51,82 @@ export function registerWebhookCommand(program: Command): void {
     .option('--name <name>', 'new display name')
     .option('--active', 'mark the webhook active')
     .option('--inactive', 'mark the webhook inactive')
-    .action(() => notImplemented('webhook update', 11));
+    .requiredOption('--profile <name>', 'profile to update on')
+    .action(async (id: string, options: WebhookUpdateOptions) => {
+      try {
+        await webhookUpdate(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook update', err);
+      }
+    });
 
   webhook
     .command('list')
     .description('List webhooks')
     .option('--project <projectId>', 'filter by project id')
-    .action(() => notImplemented('webhook list', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (options: WebhookListOptions) => {
+      try {
+        await webhookList(options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook list', err);
+      }
+    });
 
   webhook
     .command('get <id>')
     .description('Inspect one webhook')
     .option('--schema-only', 'print only the schema')
     .option('--json', 'emit machine-readable JSON')
-    .action(() => notImplemented('webhook get', 11));
+    .option('--profile <name>', 'profile to use')
+    .action(async (id: string, options: WebhookGetOptions) => {
+      try {
+        await webhookGet(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook get', err);
+      }
+    });
 
   webhook
     .command('delete <id>')
     .description('Delete a webhook and all its submissions')
     .option('--yes', 'skip the confirmation prompt')
-    .action(() => notImplemented('webhook delete', 11));
+    .requiredOption('--profile <name>', 'profile to delete on')
+    .action(async (id: string, options: WebhookDeleteOptions) => {
+      try {
+        await webhookDelete(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook delete', err);
+      }
+    });
 
   const roles = webhook.command('roles').description('Manage allowed reader roles');
   roles
     .command('set <id>')
     .description('Replace the allowed-reader role list')
     .requiredOption('--roles <roleIds>', 'comma-separated Discord role ids')
-    .action(() => notImplemented('webhook roles set', 10));
+    .requiredOption('--profile <name>', 'profile to update on')
+    .action(async (id: string, options: WebhookRolesSetOptions) => {
+      try {
+        await webhookRolesSet(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook roles set', err);
+      }
+    });
 
   webhook
     .command('rotate-secret <id>')
     .description("Rotate a webhook's signing secret")
     .option('--reveal', 'print the secret in plain text')
-    .action(() => notImplemented('webhook rotate-secret', 8));
+    .option('--yes', 'skip the confirmation prompt')
+    .requiredOption('--profile <name>', 'profile to rotate on')
+    .action(async (id: string, options: WebhookRotateSecretOptions) => {
+      try {
+        await webhookRotateSecret(id, options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook rotate-secret', err);
+      }
+    });
 
   const secret = webhook.command('secret').description('Read a locally stored signing secret');
   secret
@@ -62,7 +134,13 @@ export function registerWebhookCommand(program: Command): void {
     .description('Retrieve a stored signing secret (prompts if more than one is stored)')
     .option('--reveal', 'print the secret in plain text')
     .option('--profile <name>', 'profile to read from')
-    .action(() => notImplemented('webhook secret get', 9));
+    .action(async (options: WebhookSecretGetOptions) => {
+      try {
+        await webhookSecretGet(options, defaultWebhookDeps());
+      } catch (err) {
+        exitWithError('webhook secret get', err);
+      }
+    });
 
   webhook
     .command('diff <id> <schema-path>')

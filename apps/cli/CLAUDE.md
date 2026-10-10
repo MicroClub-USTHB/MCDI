@@ -34,8 +34,10 @@ re-verify against `MicroClub-USTHB/MCDI` before relying on a documented shape.
 
 ## Status
 
-Pre-implementation. This repository currently holds product/requirements
-docs only — no CLI code yet. Milestones (from the PRD):
+The command surface is mostly scaffolded. `schema init` and `schema validate`
+are implemented, including a local validator aligned with MCDI's Layer 1
+schema validator. The remaining commands and milestones are tracked in the
+PRD:
 
 | Phase | Scope |
 |---|---|
