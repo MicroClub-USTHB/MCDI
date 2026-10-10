@@ -796,6 +796,14 @@
             "example": "Main club website",
             "type": "string"
           },
+          "inboundWebhook": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectInboundWebhookDto"
+              }
+            ],
+            "description": "Optional inbound webhook to provision along with the project."
+          },
           "isActive": {
             "description": "Whether the project is active. Defaults to true.",
             "example": true,
@@ -1890,6 +1898,47 @@
           }
         },
         "required": [
+          "schema"
+        ],
+        "type": "object"
+      },
+      "ProjectInboundWebhookDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedOrigins": {
+            "description": "Origins permitted to call this webhook. Empty = no check.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "allowedRoleIds": {
+            "description": "Discord role IDs permitted to READ submissions.",
+            "items": {
+              "pattern": "/^\\d{17,20}$/",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "example": "Recruitment 2026",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          },
+          "schema": {
+            "description": "The shape of what callers send.",
+            "type": "object"
+          },
+          "slug": {
+            "description": "URL-safe identifier, unique within the project. Auto-generated if omitted.",
+            "example": "recruitment-2026",
+            "pattern": "/^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
           "schema"
         ],
         "type": "object"
@@ -5156,6 +5205,16 @@
                 "schema": {
                   "example": {
                     "apiKey": "mcdi_pk_live_ab12cd34.64hexsecret...",
+                    "inboundWebhook": {
+                      "docsUrl": "https://api.microclub.dz/admin/inbound-webhooks/uuid/docs",
+                      "signingSecret": "mcdi_whsec_live_5678",
+                      "submitUrl": "https://api.microclub.dz/inbound-webhooks/uuid/submit",
+                      "webhook": {
+                        "id": "uuid",
+                        "name": "Recruitment 2026",
+                        "slug": "recruitment-2026"
+                      }
+                    },
                     "project": {
                       "apiKeyPrefix": "mcdi_pk_live_ab12cd34",
                       "createdAt": "2026-02-20T00:00:00.000Z",
