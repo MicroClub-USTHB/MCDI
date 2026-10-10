@@ -123,6 +123,63 @@ describe('toCreateProjectDto', () => {
     expect(dto.serverAccess).toBeUndefined();
     expect(dto.isInternal).toBeUndefined();
   });
+
+  it('maps inboundWebhook when enabled with valid name and schema', () => {
+    const schema = { version: 1, fields: [] };
+    const dto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: true,
+        name: '  Contact Form  ',
+        slug: 'contact-form',
+        schema,
+        origins: 'https://microclub.dz\nhttps://sub.microclub.dz',
+      },
+    });
+
+    expect(dto.inboundWebhook).toEqual({
+      name: 'Contact Form',
+      slug: 'contact-form',
+      schema,
+      acceptedOrigins: ['https://microclub.dz', 'https://sub.microclub.dz'],
+    });
+  });
+
+  it('omits inboundWebhook when disabled or when name is whitespace', () => {
+    const schema = { version: 1, fields: [] };
+    const disabledDto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: false,
+        name: 'Contact Form',
+        slug: 'contact-form',
+        schema,
+      },
+    });
+    expect(disabledDto.inboundWebhook).toBeUndefined();
+
+    const emptyNameDto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: true,
+        name: '   ',
+        schema,
+      },
+    });
+    expect(emptyNameDto.inboundWebhook).toBeUndefined();
+  });
 });
 
 describe('splitRedirectUris', () => {

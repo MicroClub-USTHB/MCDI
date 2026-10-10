@@ -6,7 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InboundWebhooksService } from '../inbound-webhooks/inbound-webhooks.service';
-import type { CreateInboundWebhookResult } from '../inbound-webhooks/inbound-webhooks.service';
+import type {
+  CreateInboundWebhookResult,
+  PreparedWebhookData,
+} from '../inbound-webhooks/inbound-webhooks.service';
 import type { ProjectServerOperations } from '../../database/entities/project-server.entity';
 import { generateApiKey } from '../../common/utils/api-key.util';
 import { CreateProjectDto, ProjectScope } from './dto/create-project.dto';
@@ -79,7 +82,7 @@ export class ProjectsService {
       );
     }
 
-    let preparedWebhook;
+    let preparedWebhook: PreparedWebhookData | undefined;
     if (dto.inboundWebhook) {
       let slug = dto.inboundWebhook.slug;
       if (!slug) {

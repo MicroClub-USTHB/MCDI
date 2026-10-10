@@ -69,7 +69,7 @@ export function mapApiKeyResponse(dto: ApiKeyInfoDto): ApiKeyView {
  * selected, and empty description is dropped (the DTO treats absence as null).
  */
 export function toCreateProjectDto(form: ProjectFormValues): CreateProjectPayload {
-  return {
+  const payload: CreateProjectPayload = {
     name: form.name.trim(),
     ...(form.description.trim() !== '' ? { description: form.description.trim() } : {}),
     ...(form.isInternal ? { isInternal: true } : {}),
@@ -82,6 +82,25 @@ export function toCreateProjectDto(form: ProjectFormValues): CreateProjectPayloa
         }
       : {}),
   };
+
+  if (form.inboundWebhook?.enabled && form.inboundWebhook.name.trim() !== '') {
+    const rawSlug = form.inboundWebhook.slug?.trim();
+    const origins = form.inboundWebhook.origins
+      ? form.inboundWebhook.origins
+          .split(/[\n,]/)
+          .map((origin) => origin.trim())
+          .filter(Boolean)
+      : [];
+
+    payload.inboundWebhook = {
+      name: form.inboundWebhook.name.trim(),
+      ...(rawSlug && rawSlug !== '' ? { slug: rawSlug } : {}),
+      schema: form.inboundWebhook.schema,
+      ...(origins.length > 0 ? { acceptedOrigins: [...new Set(origins)] } : {}),
+    };
+  }
+
+  return payload;
 }
 
 /** Looks up a project's current URI list from the stored comma-separated string. */

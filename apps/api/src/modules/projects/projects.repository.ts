@@ -108,7 +108,7 @@ export class ProjectsRepository {
   ) {}
 
   async runInTransaction<T>(fn: (tx: DrizzleDB) => Promise<T>): Promise<T> {
-    return this.db.transaction(fn as any);
+    return this.db.transaction(fn);
   }
 
   async create(data: CreateProjectData, tx?: DrizzleDB): Promise<ProjectRow> {
