@@ -11,8 +11,10 @@ import {
 } from '@/features/members/api/service';
 import { mapMemberListResponse, mapMemberServersResponse } from '@/features/members/api/mappers';
 import type { MemberFilters } from '@/features/members/types';
+import { useCan } from '@/shared/lib/use-access';
 
 export function useMembersQuery(filters: MemberFilters) {
+  const allowed = useCan('members', 'read');
   return useQuery({
     queryKey: memberKeys.list(filters),
     queryFn: async () => {
@@ -21,29 +23,32 @@ export function useMembersQuery(filters: MemberFilters) {
     },
     retry: false,
     placeholderData: (previousData) => previousData,
+    enabled: allowed,
   });
 }
 
 export function useMemberQuery(discordId: string) {
+  const allowed = useCan('members', 'read');
   return useQuery({
     queryKey: memberKeys.detail(discordId),
     queryFn: async () => {
       const response = await fetchMemberServers(discordId);
       return mapMemberServersResponse(response.data);
     },
-    enabled: Boolean(discordId),
+    enabled: allowed && Boolean(discordId),
     retry: false,
   });
 }
 
 export function useMemberServersQuery(discordId: string) {
+  const allowed = useCan('members', 'read');
   return useQuery({
     queryKey: memberKeys.servers(discordId),
     queryFn: async () => {
       const response = await fetchMemberServers(discordId);
       return mapMemberServersResponse(response.data);
     },
-    enabled: Boolean(discordId),
+    enabled: allowed && Boolean(discordId),
     retry: false,
   });
 }
@@ -76,13 +81,14 @@ export function useMemberPermissionsQueries(discordId: string, serverIds: string
 }
 
 export function useServerRolesQuery(serverId: string) {
+  const allowed = useCan('stats', 'read');
   return useQuery({
     queryKey: memberKeys.roles(serverId),
     queryFn: async () => {
       const response = await fetchServerRoles(serverId);
       return response.data;
     },
-    enabled: Boolean(serverId),
+    enabled: allowed && Boolean(serverId),
     retry: false,
   });
 }

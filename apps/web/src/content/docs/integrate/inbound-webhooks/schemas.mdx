@@ -1,0 +1,244 @@
+The schema of a webhook is the contract: it lists the fields a payload may have, their types and their limits. An admin writes it in the admin panel, which also offers templates and checks it as they type. This page is the reference for what a schema can contain. If you only send data, you need it to know what a webhook expects.
+
+## Two shapes
+
+A schema has `version: 1` and then either `steps` or `fields`, never both.
+
+| Shape    | Use it for                                                              | The payload                                               |
+| -------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
+| `steps`  | A form with several parts, such as identity, background and motivation. | An object keyed by step, each holding that step's fields. |
+| `fields` | A flat payload with no steps, such as an event or any non-form data.    | The fields directly at the top.                           |
+
+<InboundContract name="schema-properties" />
+
+### A form with steps
+
+```json
+{
+  "version": 1,
+  "steps": [
+    {
+      "key": "identity",
+      "fields": [
+        { "key": "firstname", "type": "string", "required": true, "maxLength": 80, "trim": true },
+        { "key": "email", "type": "email", "required": true },
+        {
+          "key": "status",
+          "type": "enum",
+          "required": true,
+          "options": [
+            { "value": "student", "label": "Student" },
+            { "value": "professional", "label": "Professional" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "background",
+      "fields": [
+        {
+          "key": "university",
+          "type": "string",
+          "required": true,
+          "maxLength": 120,
+          "condition": { "op": "eq", "field": "identity.status", "value": "student" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+The payload that matches it:
+
+```json
+{
+  "identity": { "firstname": "Amina", "email": "amina@usthb.dz", "status": "student" },
+  "background": { "university": "USTHB" }
+}
+```
+
+A step has these properties:
+
+<InboundContract name="step-properties" />
+
+### A flat payload
+
+```json
+{
+  "version": 1,
+  "fields": [
+    { "key": "memberId", "type": "string", "required": true, "maxLength": 32 },
+    {
+      "key": "plan",
+      "type": "enum",
+      "required": false,
+      "options": [
+        { "value": "free", "label": "Free" },
+        { "value": "pro", "label": "Pro" }
+      ]
+    }
+  ]
+}
+```
+
+```json
+{ "memberId": "42", "plan": "pro" }
+```
+
+## Fields
+
+Every field has these properties, whatever its type. `key` and `type` are required, and so is `required`: a field without an explicit `true` or `false` is refused when the admin saves the schema, with `MISSING_REQUIRED_FLAG`.
+
+<InboundContract name="base-properties" />
+
+A `key` starts with a letter or underscore, continues with letters, digits and underscores, and is at most 64 characters. Keys are unique within their step or object.
+
+### Field types
+
+<InboundContract name="field-types" />
+
+### What each type accepts
+
+<InboundContract name="field-properties" />
+
+Notes on a few types:
+
+- **`string`** applies `trim` before checking lengths and the `pattern`. A `pattern` is a regular expression of at most 200 characters, and MCDI stops evaluating one that takes longer than 50 ms.
+- **`email`** has a practical format check and a maximum of 254 characters. With `allowedDomains`, other domains give `DOMAIN_NOT_ALLOWED`.
+- **`phone`** accepts an optional leading `+` then 6 to 20 digits, spaces, brackets and hyphens.
+- **`date`** is `YYYY-MM-DD`. **`datetime`** is ISO 8601 and must include a timezone, for example `2026-01-31T09:00:00Z`.
+- **`url`** with `allowedSchemes` of `["https"]` refuses `http` addresses.
+- **`enum` and `multi_enum`** take `options`, each with a `value` and a `label`. Only the `value` is sent in a payload.
+
+Option properties:
+
+<InboundContract name="option-properties" />
+
+### Objects and arrays
+
+An `object` holds a group of fields. An `array` repeats one `item` field and needs `maxItems`, so a payload cannot be unbounded. Here a team lists up to five members, and each member's `github` address is asked only of developers:
+
+```json
+{
+  "version": 1,
+  "fields": [
+    { "key": "team", "type": "string", "required": true, "maxLength": 60, "trim": true },
+    {
+      "key": "members",
+      "type": "array",
+      "required": true,
+      "minItems": 1,
+      "maxItems": 5,
+      "item": {
+        "key": "member",
+        "type": "object",
+        "required": true,
+        "fields": [
+          { "key": "name", "type": "string", "required": true, "maxLength": 80 },
+          {
+            "key": "role",
+            "type": "enum",
+            "required": true,
+            "options": [
+              { "value": "dev", "label": "Developer" },
+              { "value": "design", "label": "Designer" }
+            ]
+          },
+          {
+            "key": "github",
+            "type": "url",
+            "required": true,
+            "allowedSchemes": ["https"],
+            "condition": { "op": "eq", "field": "./role", "value": "dev" }
+          }
+        ]
+      }
+    },
+    { "key": "wantsMentor", "type": "boolean", "required": false, "default": false }
+  ]
+}
+```
+
+```json
+{
+  "team": "Rocket",
+  "members": [
+    { "name": "Sara", "role": "dev", "github": "https://github.com/sara" },
+    { "name": "Lina", "role": "design" }
+  ],
+  "wantsMentor": true
+}
+```
+
+In an error, array entries are addressed by position, for example `members[0].github`.
+
+## Conditions
+
+A `condition` makes a field, or a whole step, apply only when something else holds. When it does not hold, the field is ignored: it is not required, and a value sent for it is dropped and not stored. Sending `github` for a designer in the example above succeeds, and the stored submission has no `github`.
+
+A condition has an operator, `op`, and what it needs:
+
+<InboundContract name="condition-operators" />
+
+<InboundContract name="condition-properties" />
+
+The `field` is the path of the field to read. In a form with steps it is `step.field`, as in `identity.status`. In a flat schema it is just the key. Inside an array item, `./role` means the `role` of the same entry, which is how each team member's `github` depends on their own role. A condition can only refer to a field that comes earlier, so a forward reference is refused when the schema is saved.
+
+Combine conditions with `and`, `or` and `not`, which list their conditions in `of`:
+
+```json
+{
+  "op": "and",
+  "of": [
+    { "op": "eq", "field": "identity.status", "value": "student" },
+    { "op": "exists", "field": "identity.email" }
+  ]
+}
+```
+
+## Defaults and unknown fields
+
+A field with a `default` takes that value when none is sent, and the default is stored: the first example submission above that omitted `wantsMentor` was stored with `"wantsMentor": false`. With "reject unknown fields" on, which is the default, any key the schema does not declare gives `UNKNOWN_FIELD`, or `UNKNOWN_STEP` for a stray top-level key in a form with steps.
+
+## Limits
+
+| Limit                               | Value          |
+| ----------------------------------- | -------------- |
+| Steps                               | 20             |
+| Fields in the whole schema          | 200            |
+| Nesting depth of objects and arrays | 5              |
+| Length of a field key               | 64 characters  |
+| Length of a `pattern`               | 200 characters |
+
+A schema over a limit is refused when the admin saves it, with `TOO_MANY_STEPS`, `TOO_MANY_NODES`, `TOO_DEEP`, `KEY_TOO_LONG` or `PATTERN_TOO_LONG`. The payload size is limited too: the API accepts a request body up to 512 KB.
+
+## Templates
+
+The admin panel starts a new webhook from one of these. They are real schemas you can use as they are or change.
+
+<InboundContract name="templates" />
+
+## When a schema is refused
+
+When an admin saves a schema that breaks a rule, the API answers 400 with every problem and its position:
+
+```json
+{
+  "statusCode": 400,
+  "error": "InvalidSchema",
+  "errors": [
+    {
+      "path": "fields[1].required",
+      "code": "MISSING_REQUIRED_FLAG",
+      "message": "`required` must be a boolean"
+    }
+  ]
+}
+```
+
+The codes you are most likely to see are `MISSING_REQUIRED_FLAG`, `MISSING_MAX_ITEMS`, `MISSING_MAX_COUNT`, `MISSING_MAX_SIZE`, `MISSING_MAX_BYTES` (a limit the type needs), `NO_OPTIONS`, `DUPLICATE_KEY`, `INVALID_PATTERN`, `FORWARD_REFERENCE` and `UNKNOWN_PROPERTY` (a property the type does not have).
+
+The tables on this page come straight from the shared contracts package that the admin editor also uses, so they list exactly the types and properties the editor offers. The API's validator is the final authority.
+
+Source: `packages/contracts/src/inbound-webhooks.ts`, `apps/api/src/modules/inbound-webhooks/schema/schema.validator.ts`, `apps/api/src/modules/inbound-webhooks/schema/payload.validator.ts`, `apps/api/src/modules/inbound-webhooks/schema/form-schema.types.ts`, `apps/api/src/modules/inbound-webhooks/schema/condition.evaluator.ts`.

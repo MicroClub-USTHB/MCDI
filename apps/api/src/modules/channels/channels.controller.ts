@@ -27,6 +27,7 @@ import {
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { SkipGlobalThrottle } from '../../common/guards/app-throttler.guard';
 import { ChannelsService } from './channels.service';
 import { ChannelAccessGuard } from './guards/channel-access.guard';
 import { ProjectThrottlerGuard } from './guards/project-throttler.guard';
@@ -133,6 +134,7 @@ export class ChannelsController {
 
   @Get(':channelId/messages')
   @RequireProjectOperation('READ')
+  @SkipGlobalThrottle()
   @UseGuards(ProjectThrottlerGuard, ChannelAccessGuard)
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({
@@ -203,6 +205,7 @@ export class ChannelsController {
 
   @Post(':channelId/messages')
   @RequireProjectOperation('SEND_MESSAGES')
+  @SkipGlobalThrottle()
   @UseGuards(ProjectThrottlerGuard, ChannelAccessGuard)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.CREATED)

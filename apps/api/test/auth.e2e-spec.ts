@@ -29,6 +29,7 @@ import {
   callbackCodes,
   roles,
   ssoSessions,
+  members,
 } from '../src/database/entities';
 import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
@@ -251,6 +252,35 @@ describeIf('/api/auth (e2e)', () => {
         },
         roles: expect.any(Array),
       });
+    });
+
+    it('returns only public member fields, never the internal columns', async () => {
+      const { bearerToken, project } = await seedProjectSessionContext(
+        'E2E Validate Public Fields',
+      );
+      await db
+        .update(members)
+        .set({ passwordHash: 'secret-hash', email: 'alice@example.com' })
+        .where(eq(members.id, '800000000000000001'));
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/validate')
+        .set('x-api-key', project.apiKey)
+        .send({ token: bearerToken })
+        .expect(200);
+
+      expect(Object.keys(res.body.member).sort()).toEqual([
+        'avatar',
+        'displayName',
+        'email',
+        'globalName',
+        'id',
+        'isClubMember',
+        'joinedAt',
+        'preferredName',
+        'username',
+      ]);
+      expect(JSON.stringify(res.body)).not.toContain('secret-hash');
     });
 
     it('returns 400 when token field is missing', async () => {

@@ -1,5 +1,7 @@
 # MCDI Auth Integration Guide
 
+> **Note:** The maintained version of this guide is in the developer docs, at [Login with MicroClub](/docs/integrate/sso) (`apps/web/src/content/docs/integrate/sso.mdx`). It was checked against the code and its examples were run. This file is kept as the original record and is no longer updated.
+
 This is the integrator-facing reference for platforms that want to use MCDI as their identity provider. There are **two ways** to start a login. They share the same callback, the same token exchange, and the same session API — the only thing that differs is the entry point.
 
 > **TL;DR**

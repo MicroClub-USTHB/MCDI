@@ -26,7 +26,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { ListWebhooksQueryDto } from '../webhooks/dto/list-webhooks-query.dto';
 import {
@@ -39,7 +40,7 @@ import { WebhooksExceptionFilter } from '../webhooks/filters/webhooks-exception.
  * Admin-session oversight of project webhooks: read and delete only.
  *
  * Same `WebhooksService` as `WebhooksController`, but authenticated with the
- * `admin_session` cookie / bearer token via `SystemAdminGuard`. A System
+ * `admin_session` cookie / bearer token via `AdminAccessGuard`. A System
  * Admin is not a project, so there is no ownership check. Create, update and
  * execute stay project-only: they belong to the project's own
  * `MANAGE_WEBHOOKS` grant and channel choice.
@@ -47,7 +48,8 @@ import { WebhooksExceptionFilter } from '../webhooks/filters/webhooks-exception.
 @ApiTags('Webhooks')
 @ApiBearerAuth('session-token')
 @Controller('admin')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('webhooks', 'read')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 @UseFilters(WebhooksExceptionFilter)
 export class AdminWebhooksController {
@@ -128,6 +130,7 @@ export class AdminWebhooksController {
   }
 
   @Delete('webhooks/:webhookId')
+  @RequirePermission('webhooks', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a webhook (admin session)',

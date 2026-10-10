@@ -2,6 +2,8 @@
 dist
 node_modules
 build
+# ...except the docs track named "build" (Build MCDI)
+!apps/web/src/content/docs/build/
 .next
 .turbo
 .vercel

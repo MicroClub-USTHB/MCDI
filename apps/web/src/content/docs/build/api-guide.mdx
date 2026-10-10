@@ -1,0 +1,343 @@
+This guide shows how the API is built and how to add to it. It starts with the anatomy of a module, covers the pieces every module shares, and ends with a step-by-step walk through a real endpoint. Read [Architecture](/docs/build/architecture) first if you have not.
+
+## Anatomy of a module
+
+A feature lives in `apps/api/src/modules/<name>/`. A module follows controller, service, repository:
+
+| File | Its job |
+| --- | --- |
+| `<name>.controller.ts` | The HTTP surface: routes, guards, Swagger decorators. No business rules. |
+| `<name>.service.ts` | The rules: validation beyond shape, orchestration, audit, cache invalidation. |
+| `<name>.repository.ts` | The only code that talks to PostgreSQL. |
+| `dto/*.dto.ts` | The shape of request bodies and queries, as classes with `class-validator` decorators. |
+| `<name>.module.ts` | Wires the above together and lists what the module imports and exports. |
+| `*.spec.ts` | Unit tests, next to the file they test. |
+
+Shared code lives next to the modules:
+
+| Folder | What is in it |
+| --- | --- |
+| `src/common` | Guards, decorators, exception filters, middleware, Redis, and utilities (hashing, encryption, signatures). |
+| `src/database` | The Drizzle entities, the migrations, the seeders, and the startup service that migrates. |
+| `src/config` | Environment loading and validation. |
+| `src/openapi` | Building the OpenAPI document, shared by the server and the export script. |
+
+### The database in a repository
+
+Repositories receive the Drizzle database through the `DRIZZLE` token, whose type is `DrizzleDB`. `DatabaseModule` is global, so a module does not import it to use the token, though most do for clarity.
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/inbound-webhooks.repository.ts */}
+
+```ts
+export class InboundWebhooksRepository {
+  constructor(
+    @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
+```
+
+Entities are in `src/database/entities/*.entity.ts` and exported from `index.ts`. After you change an entity, generate a migration with `pnpm run db:generate`, read the SQL it wrote in `src/database/migrations`, make it idempotent, and commit both. Production applies the whole set again on every boot, so each statement must be safe to run twice: use `IF NOT EXISTS` for tables, indexes and columns, and guard `ADD CONSTRAINT` with a `DO $$` block. The SQL that `drizzle-kit generate` writes is not idempotent as it comes, and CI fails when the second run errors. Locally, the API applies pending migrations when it starts. See [Deployment and operations](/docs/build/operations#migrations-run-on-every-boot-so-they-must-be-idempotent).
+
+### Registering a module
+
+Add the module class to the `imports` of `AppModule` in `src/app.module.ts`. A module that needs another's provider imports that module, and one that others need lists the provider in `exports`. Keep imports one-way: when two modules need each other, move the shared piece into a third module instead of using `forwardRef`.
+
+## Guards and decorators
+
+A route is protected by the guards you attach with `@UseGuards`, usually on the controller class.
+
+| Guard | Use it when | Sets on the request |
+| --- | --- | --- |
+| `ApiKeyGuard` | The caller is a project backend. | `project` |
+| `SessionGuard` | The caller is a member with any valid session. | `memberId`, `sessionToken` |
+| `AdminAccessGuard` | The route is for admins. Each handler, or its controller, declares `@RequirePermission(resource, level)`, `@AdminSessionOnly()` or `@RootOnly()`. A route that declares none of them is refused. | `memberId` |
+| `ProjectThrottlerGuard` | The route is limited per project, not per IP. Pair it with `@Throttle({ default: { ttl, limit } })` and `@SkipGlobalThrottle()`, or the IP limit counts it too. | |
+| `ChannelAccessGuard` | A channel route needs the project's channel grant. | |
+| `InboundWebhookReadGuard` | A submission read must check the member's reader roles. | `matchedViaRoleId` |
+
+`ServerActiveGuard` is global, so you do not attach it.
+
+Two decorators declare what a project needs on a server, and `ApiKeyGuard` enforces them:
+
+- `@RequireProjectOperation('READ' | 'SEND_MESSAGES' | 'MANAGE_WEBHOOKS')` on the controller or the route. `READ` is the default.
+- `@RequireScope('read_members')` on a route that returns member data. The scope is checked against the server in the request, so the route must have a `serverId` in its path, its query or its JSON body.
+
+### Tell Swagger who calls it
+
+Every route also declares its audience to Swagger, with `@ApiSecurity('api-key')` for project routes or `@ApiBearerAuth('session-token')` for session routes. That is not decoration. The generated [API reference](/docs/api-reference/project/overview) uses it to put each endpoint in the Project API or the Admin API, and `@ApiTags('Name')` decides the group page. A new tag needs a page in `apps/web/src/features/docs/nav.ts`, and the docs test fails until it has one.
+
+## Caching and invalidation
+
+The API caches reads that are expensive and rarely change, in Redis. [Architecture](/docs/build/architecture#redis) lists what is cached and for how long. The rule for your code is short: **whoever changes the data clears the cache, in the same method.** The inbound webhook service does it when it replaces a webhook's reader roles, and the permission cache is cleared by the sync and by role-permission changes. A cache you forget to clear serves the old value until its time runs out.
+
+Redis can be unavailable, and the API keeps running. A cache read that cannot be answered is a miss, so write your code to work from the database alone.
+
+## Audit logging
+
+There are two kinds of audit entry:
+
+- **The route map.** `AuditLoggingMiddleware` holds a list of method and path patterns for admin mutations, such as creating a project or regenerating a key. A successful request that matches an entry writes an audit row with the actor, the entity and the request details. To audit a new admin mutation, add a pattern to `ROUTE_MAP` in `src/modules/audit/middleware/audit-logging.middleware.ts`.
+- **Service-level entries.** When the middleware cannot know enough (no actor, or a domain event), the service writes the entry itself with `AuditRepository.insert`. The inbound webhook service does this for settings changes and submissions, through a small private `audit` method that never lets a failed audit write fail the request.
+
+Rejected API keys and sessions are recorded by the middleware on their own.
+
+## The Discord sync
+
+Code that needs Discord asks `DiscordModule` for `DiscordService` or the client. Do not call Discord from a request handler for data the sync already keeps in PostgreSQL: read the tables. When a change you make depends on Discord data staying fresh, see how `SyncListener` and the sync services clear the permission cache, and do the same.
+
+## Add an endpoint, step by step
+
+The worked example is a real feature, the inbound webhook **default reader roles**. An admin can read them with `GET /api/admin/inbound-webhooks/settings` and replace them with `PUT` on the same path. Every excerpt below is copied from the repository, and a docs test fails if one drifts from its file.
+
+### Step 1: Decide the route, the audience and the guard
+
+This one is for admins, so the controller uses `AdminAccessGuard` and `@ApiBearerAuth('session-token')`, each handler declares the level it needs with `@RequirePermission`, and it lives under `admin/inbound-webhooks`.
+
+### Step 2: Describe the data and add a migration
+
+It is a single row, so the entity pins the id to 1 with a check constraint:
+
+{/* excerpt: apps/api/src/database/entities/inbound-webhook-settings.entity.ts */}
+
+```ts
+export const inboundWebhookSettings = pgTable(
+  'inbound_webhook_settings',
+  {
+    id: integer('id').primaryKey().default(1),
+    defaultReaderRoleIds: jsonb('default_reader_role_ids').$type<string[]>(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    // Discord member id of the admin who last changed it; no FK so the row
+    // survives a member being pruned.
+    updatedBy: varchar('updated_by', { length: 255 }),
+  },
+  (t) => [check('inbound_webhook_settings_single_row', sql`${t.id} = 1`)],
+);
+
+export type InboundWebhookSettingsRow =
+  typeof inboundWebhookSettings.$inferSelect;
+```
+
+The matching migration, committed with the entity. `pnpm run db:generate` writes it from the entity, and it was edited to be idempotent: note the `IF NOT EXISTS`, which makes it safe to run again.
+
+{/* excerpt: apps/api/src/database/migrations/0005_inbound_webhook_settings.sql */}
+
+```sql
+CREATE TABLE IF NOT EXISTS "inbound_webhook_settings" (
+	"id" integer PRIMARY KEY DEFAULT 1 NOT NULL,
+	"default_reader_role_ids" jsonb,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_by" varchar(255),
+	CONSTRAINT "inbound_webhook_settings_single_row" CHECK ("inbound_webhook_settings"."id" = 1)
+```
+
+### Step 3: Write the DTO
+
+It is the contract of the request body, and the global pipe rejects anything else:
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/dto/update-inbound-webhook-settings.dto.ts */}
+
+```ts
+export class UpdateInboundWebhookSettingsDto {
+  @ApiProperty({
+    description:
+      'Discord role IDs given read access to every NEW inbound webhook whose creator names no roles. ' +
+      'An empty list means no defaults. Existing webhooks keep the roles they already have.',
+    example: ['1234567890123456789'],
+  })
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @Matches(/^\d{17,20}$/, {
+    each: true,
+    message: 'each role must be a Discord snowflake',
+  })
+  defaultReaderRoleIds!: string[];
+}
+```
+
+### Step 4: Write the repository methods
+
+The repository knows the table and nothing about HTTP or rules:
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/inbound-webhooks.repository.ts */}
+
+```ts
+/** The single settings row, or null while nothing has been saved. */
+async getSettings(): Promise<InboundWebhookSettingsRow | null> {
+  const [row] = await this.db
+    .select()
+    .from(inboundWebhookSettings)
+    .where(eq(inboundWebhookSettings.id, 1))
+    .limit(1);
+  return row ?? null;
+}
+
+async upsertSettings(
+  defaultReaderRoleIds: string[],
+  updatedBy: string | null,
+): Promise<void> {
+  await this.db
+    .insert(inboundWebhookSettings)
+    .values({ id: 1, defaultReaderRoleIds, updatedBy })
+    .onConflictDoUpdate({
+      target: inboundWebhookSettings.id,
+      set: { defaultReaderRoleIds, updatedBy, updatedAt: new Date() },
+    });
+}
+```
+
+### Step 5: Write the service method
+
+It holds the rules: drop duplicates, refuse unknown roles, remember the previous value, save, write an audit entry, and answer with the new state:
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts */}
+
+```ts
+async updateSettings(
+  defaultReaderRoleIds: string[],
+  actor: string | null,
+): Promise<InboundWebhookSettingsView> {
+  const roleIds = [...new Set(defaultReaderRoleIds)];
+
+  const known = new Set(
+    (await this.repository.findExistingRoles(roleIds)).map((r) => r.id),
+  );
+  const unknown = roleIds.filter((id) => !known.has(id));
+  if (unknown.length > 0) {
+    throw new BadRequestException(`Unknown role IDs: ${unknown.join(', ')}`);
+  }
+
+  const previous = await this.getDefaultReaderRoleIds();
+  await this.repository.upsertSettings(roleIds, actor);
+
+  await this.audit({
+    action: 'settings.updated',
+    entityType: 'inbound_webhook_settings',
+    entityId: 'settings',
+    actorId: actor,
+    details: { from: previous, to: roleIds },
+  });
+
+  return this.getSettings();
+}
+```
+
+### Step 6: Add the routes to the controller
+
+The `GET` is declared before the `:id` routes so that `settings` is never read as a webhook ID:
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/inbound-webhooks.controller.ts */}
+
+```ts
+// Declared before `:id` so "settings" is never read as a webhook id.
+@Get('settings')
+@ApiOperation({
+  summary: 'Get the inbound webhook settings',
+  description:
+    'The default reader roles new webhooks get when their creator names none. ' +
+    '`source` is `environment` until the setting is first saved, when it falls back to the executive role.',
+})
+@ApiOkResponse({ description: 'The effective settings.' })
+async getSettings() {
+  return this.service.getSettings();
+}
+
+@Put('settings')
+@ApiOperation({
+  summary: 'Replace the default reader roles',
+  description:
+    'Applies to webhooks created afterwards; existing webhooks keep their roles. ' +
+    'An empty list means no defaults.',
+})
+@ApiOkResponse({ description: 'The settings after the change.' })
+@ApiBadRequestResponse({ description: 'Unknown role IDs.' })
+async updateSettings(
+  @Body() dto: UpdateInboundWebhookSettingsDto,
+  @Req() req: RequestWithUser,
+) {
+  return this.service.updateSettings(
+    dto.defaultReaderRoleIds,
+    this.actor(req),
+  );
+}
+```
+
+### Step 7: Write the tests
+
+Three layers, each at its own speed. A controller test with the service mocked checks routing, validation and what reaches the service:
+
+{/* excerpt: apps/api/src/modules/inbound-webhooks/inbound-webhooks.controller.spec.ts */}
+
+```ts
+  it('replaces the default reader roles for the signed-in admin', async () => {
+    service.updateSettings.mockResolvedValue({ defaultReaderRoleIds: [ROLE] });
+
+    await request(app.getHttpServer())
+      .put('/admin/inbound-webhooks/settings')
+      .send({ defaultReaderRoleIds: [ROLE] })
+      .expect(200);
+
+    expect(service.updateSettings).toHaveBeenCalledWith([ROLE], 'admin-1');
+  });
+// ...
+  it.each([
+    [{}],
+    [{ defaultReaderRoleIds: 'nope' }],
+    [{ defaultReaderRoleIds: ['not-a-snowflake'] }],
+    [{ defaultReaderRoleIds: [ROLE], extra: true }],
+  ])('rejects an invalid body %j', async (body) => {
+    await request(app.getHttpServer())
+      .put('/admin/inbound-webhooks/settings')
+      .send(body)
+      .expect(400);
+    expect(service.updateSettings).not.toHaveBeenCalled();
+  });
+```
+
+The service has its own unit tests with a mocked repository, in `inbound-webhooks.defaults.spec.ts`. A database test in `test/` runs the repository against a real PostgreSQL:
+
+{/* excerpt: apps/api/test/inbound-webhook-settings.e2e-spec.ts */}
+
+```ts
+it('stores the default reader roles and who set them', async () => {
+  await repository.upsertSettings([ROLE_A, ROLE_B], 'admin-1');
+
+  await expect(repository.getSettings()).resolves.toMatchObject({
+    id: 1,
+    defaultReaderRoleIds: [ROLE_A, ROLE_B],
+    updatedBy: 'admin-1',
+  });
+});
+```
+
+### Step 8: Refresh the generated API reference
+
+Run `pnpm docs:api` and commit `apps/api/openapi.json` and the changed pages under `apps/web/src/content/docs/api-reference`. CI fails when they are out of date.
+
+### Step 9: Run the checks
+
+From the repository root:
+
+
+```bash
+pnpm turbo run lint typecheck
+pnpm --filter @mcdi/api run test
+pnpm --filter @mcdi/api run test:e2e   # needs PostgreSQL, and clears its tables
+```
+
+<Callout type="warning">
+  The end to end tests empty every table of the database in `DATABASE_URL`. Point them at a throwaway database, for example `mcdi_test`, never at the one you develop in.
+</Callout>
+
+The unit tests enforce coverage thresholds in `jest.config.cjs`: 80 percent of lines and statements, 75 of functions, and 68 of branches.
+
+## Conventions
+
+- **Errors.** Throw Nest's HTTP exceptions from the service (`NotFoundException`, `BadRequestException`, `ConflictException`). The body shape is described in [Conventions](/docs/integrate/conventions#errors). A database error that escapes is mapped by `PostgresExceptionFilter`.
+- **Unknown fields are rejected.** The global `ValidationPipe` uses `whitelist` and `forbidNonWhitelisted`, so a DTO is a strict contract. The OpenAPI document is patched to say the same: every schema with properties gets `additionalProperties: false` in `createOpenApiDocument`, because the fuzzers that test the API (Schemathesis and RESTler) treat a 400 for an extra field as a bug when the spec allows extras.
+- **IDs and secrets.** Discord IDs are strings. API keys, sessions and signing secrets are never stored in a form that can be read back: keys and tokens are hashed, signing secrets are encrypted.
+- **One way across modules.** A module imports another only for what it needs, and the dependency does not run both ways.
+- **Match `main.ts`.** `test/helpers/create-app.ts` mirrors the setup in `main.ts`. When you change a global pipe, filter or parser in one, change the other.
+
+Source: `apps/api/src/modules/inbound-webhooks`, `apps/api/src/database/entities/inbound-webhook-settings.entity.ts`, `apps/api/src/database/migrations/0005_inbound_webhook_settings.sql`, `apps/api/test/inbound-webhook-settings.e2e-spec.ts`, `apps/api/src/common/guards`, `apps/api/src/common/decorators`, `apps/api/src/modules/audit/middleware/audit-logging.middleware.ts`, `apps/api/src/openapi/create-document.ts`, `apps/api/jest.config.cjs`.

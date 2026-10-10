@@ -48,7 +48,7 @@ src/
 │   ├── lib/                      # api-client, env, utils (cn)
 │   ├── styles/globals.css        # Design tokens (@theme)
 │   └── types/index.ts            # Shared interfaces
-└── middleware.ts                 # Cookie-based auth redirect
+└── proxy.ts                      # Cookie-based auth redirect
 ```
 
 **Path alias**: `@/` → `./src/`
@@ -72,7 +72,7 @@ src/
 4. **Auth singleton**: `apiClient` reads Zustand state via `getState()` — no React context needed. Never create a second instance.
 5. **Token refresh dedup**: Concurrent 401s share a single refresh promise. Don't bypass this.
 6. **Env validation**: `env.ts` throws at import time if vars are missing. Intentional.
-7. **Middleware deprecation**: Next.js 16 warns about `middleware.ts`. Use `proxy` convention when migrating.
+7. **Access levels**: every page under `app/dashboard` needs an entry in `src/shared/lib/route-access.ts` (a test fails without it, and an unlisted route is denied). A write or manage action is wrapped in `<Can resource level>` or checked with `useCan`, and a new query hook calls `useCan(resource, 'read')` into its `enabled`. The panel adapts to the member's levels; the API enforces them.
 
 ## 4. UI & Design System
 
@@ -153,7 +153,7 @@ You are a **senior frontend engineer** building a Discord-inspired admin panel. 
 
 ### Auth Flow
 
-1. Protected route → middleware checks `auth-token` cookie → redirect to `/login` if missing
+1. Protected route → proxy checks `auth-token` cookie → redirect to `/login` if missing
 2. Discord OAuth → backend returns `AuthTokens` (access, refresh, expiresAt)
 3. Zustand store (persisted to `localStorage` key `auth-storage`)
 4. `ApiClient` auto-attaches Bearer token, auto-refreshes on 401

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { AppThrottlerGuard } from '../../src/common/guards/app-throttler.guard';
 import { join } from 'path';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../../src/app.module';
@@ -27,7 +27,7 @@ export async function createTestApp(): Promise<INestApplication> {
     imports: [AppModule],
   })
     // Disable rate limiting in E2E tests so tests don't trip over each other
-    .overrideGuard(ThrottlerGuard)
+    .overrideGuard(AppThrottlerGuard)
     .useValue({ canActivate: () => true })
     // E2E tests manage their own DB schema — skip auto-migration
     .overrideProvider(DatabaseInitService)

@@ -2,6 +2,9 @@
 
 ## MicroClub Discord Interface
 
+> **Historical design record.** This file is the requirements of the MVP release as they stood when it shipped. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 > This document reflects the requirements implemented in the current backend release.
 > For next-phase roadmap and architecture direction, see `specefication_document_last_version.md`.
 > For schema details, see `database_architecture_mvp.md`.

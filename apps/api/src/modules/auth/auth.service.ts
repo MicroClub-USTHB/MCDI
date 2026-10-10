@@ -12,6 +12,7 @@ import { OAuthStateRepository } from './repositories/oauth-state.repository';
 import { AuthRequestRepository } from './repositories/auth-request.repository';
 import { AdminOAuthStateRepository } from './repositories/admin-oauth-state.repository';
 import { CallbackCodeRepository } from './repositories/callback-code.repository';
+import { AdminCliCodeRepository } from './repositories/admin-cli-code.repository';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsRepository } from '../projects/projects.repository';
 import { randomBytes, createHash } from 'crypto';
@@ -21,6 +22,7 @@ import { buildDiscordOAuthUrl, buildErrorRedirect } from './utils';
 import { DiscordIdentityService } from './services/discord-identity.service';
 import { SessionIssuanceService } from './services/session-issuance.service';
 import type { ClientInfo } from '../../common/utils/client-info.util';
+import { toAuthMemberResponse } from './dto/response.dto';
 
 @Injectable()
 export class AuthService {
@@ -39,6 +41,7 @@ export class AuthService {
     private readonly authRequestRepository: AuthRequestRepository,
     private readonly adminOAuthStateRepository: AdminOAuthStateRepository,
     private readonly callbackCodeRepository: CallbackCodeRepository,
+    private readonly adminCliCodeRepository: AdminCliCodeRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly configService: ConfigService,
     private readonly discordService: DiscordService,
@@ -613,6 +616,10 @@ export class AuthService {
         tx,
       );
 
+      if (!member) {
+        throw new BadRequestException('Member not found');
+      }
+
       const roles = callbackCode.serverId
         ? await this.memberRepository.getMemberRolesInServer(
             callbackCode.memberId,
@@ -625,7 +632,7 @@ export class AuthService {
         token,
         refreshToken,
         expiresAt,
-        member,
+        member: toAuthMemberResponse(member),
         roles,
       };
     });
@@ -652,6 +659,10 @@ export class AuthService {
       throw new UnauthorizedException('Session expired');
     }
 
+    if (!session.member) {
+      throw new UnauthorizedException('Invalid session');
+    }
+
     const roles = session.serverId
       ? await this.memberRepository.getMemberRolesInServer(
           session.memberId,
@@ -660,7 +671,7 @@ export class AuthService {
       : [];
 
     return {
-      member: session.member,
+      member: toAuthMemberResponse(session.member),
       roles,
     };
   }
@@ -703,6 +714,7 @@ export class AuthService {
       this.authRequestRepository.deleteExpired(),
       this.adminOAuthStateRepository.deleteExpired(),
       this.callbackCodeRepository.deleteExpired(),
+      this.adminCliCodeRepository.deleteExpired(),
     ]);
     return { success: true };
   }

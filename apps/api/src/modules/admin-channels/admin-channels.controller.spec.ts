@@ -4,7 +4,7 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 import request from 'supertest';
 import { AdminChannelsController } from './admin-channels.controller';
 import { ChannelsService } from '../channels/channels.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 describe('AdminChannelsController (integration)', () => {
   let app: INestApplication;
@@ -22,7 +22,7 @@ describe('AdminChannelsController (integration)', () => {
       controllers: [AdminChannelsController],
       providers: [{ provide: ChannelsService, useValue: mockService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue(allow)
       .overrideGuard(ThrottlerGuard)
       .useValue(allow)

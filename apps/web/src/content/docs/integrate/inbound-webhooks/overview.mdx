@@ -1,0 +1,69 @@
+An inbound webhook is an address your project sends structured data to. MCDI checks every request against a schema, stores what is valid, and lets chosen members read it. Use one for a sign-up form, an application, an event your system wants to record, or any data a club team needs to see.
+
+## What it gives you
+
+- **A schema as the contract.** Each webhook has a schema that says which fields exist, their types and their limits. MCDI rejects anything that does not match, and returns every problem at once. See [Schemas](/docs/integrate/inbound-webhooks/schemas).
+- **Proof the data is yours.** Requests carry your API key and, by default, a signature computed with a secret only you and MCDI know. See [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending).
+- **Reading controlled by Discord roles.** Only members who hold a role the webhook names can read what it received. See [Reading submissions](/docs/integrate/inbound-webhooks/reading-submissions).
+
+## One webhook per kind of data
+
+Create one webhook for each kind of form or event, not one for everything. A recruitment form, a workshop sign-up and a "member joined" event are three webhooks, each with its own schema, readers and secret. The schema then describes one thing exactly, and the readers of one form never see another.
+
+A webhook belongs to one project. Its slug, a short lowercase name such as `recruitment-2026`, is unique inside that project. The webhook's ID, a UUID, is what appears in its address.
+
+## The lifecycle
+
+<Steps>
+
+1. An admin creates the webhook in the admin panel, for your project. They choose a name and a slug, write or pick a schema, and name the Discord roles that may read the submissions. The panel then shows the **signing secret** once, and the address to send to.
+
+2. The admin gives you the webhook ID and the signing secret. Your project already has its API key.
+
+3. Your backend sends JSON to `POST /api/inbound-webhooks/{id}/submit`. MCDI answers 201 with the submission's ID, or an error that says what to fix.
+
+4. Members with a reader role read the submissions, in the admin panel or through the API. The panel can also export them as CSV.
+
+5. When a secret may have leaked, an admin rotates it. The old secret stops working at once and a new one is shown once. An admin can also switch a webhook off, which makes it answer 410, or delete it.
+
+</Steps>
+
+Creating and managing webhooks is an admin task, done in the admin panel. Your project does not create webhooks through its API key.
+
+## What an admin can set
+
+| Setting                | Default      | Effect                                                                                                                                                                                                                    |
+| ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Require signature      | on           | Every request must carry a valid `X-MCDI-Signature`. Switching it off lets any holder of the API key submit.                                                                                                              |
+| Reject unknown fields  | on           | A payload with a field the schema does not declare is refused with `UNKNOWN_FIELD`.                                                                                                                                       |
+| Accepted origins       | none         | When the list is not empty, a request must carry an `Origin` header from the list.                                                                                                                                        |
+| Allow role inheritance | off          | Members whose role inherits a reader role may read too. See [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions).                                                                                  |
+| Active                 | on           | An inactive webhook answers 410.                                                                                                                                                                                          |
+| Reader roles           | at least one | The roles that may read. They must belong to a server your project has access to. When the admin names none, the default reader roles of the admin settings apply, and a webhook with no reader at all cannot be created. |
+
+## Send your first submission
+
+For a webhook that does not require a signature, this is all it takes:
+
+```bash
+curl -s -X POST "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submit" \
+  -H "X-API-Key: $MCDI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "memberId": "42", "plan": "pro" }'
+```
+
+```json
+{ "id": "e258e77a-7242-46e8-9ccd-493aa17024d9", "receivedAt": "2026-10-05T18:18:39.839Z" }
+```
+
+Most webhooks require a signature. [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending) has runnable Node and Python examples.
+
+## Good to know
+
+- A webhook that belongs to another project answers 404, the same as one that does not exist, so a key cannot be used to find out which webhooks exist.
+- Your project can send, but cannot read back what it sent. Reading needs a member session with a reader role.
+- Files are not usable yet. The schema accepts `file` and `files` fields, but there is no upload endpoint yet, so a webhook that needs a file cannot receive it. Work on uploads is tracked in issue #136.
+
+For the endpoint's exact fields, see [Inbound webhooks (Ingest)](/docs/api-reference/project/inbound-webhooks-ingest) in the reference.
+
+Source: `apps/api/src/modules/inbound-webhooks/inbound-webhook-ingest.controller.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/api/src/modules/inbound-webhooks/dto/create-inbound-webhook.dto.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.controller.ts`.

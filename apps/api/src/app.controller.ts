@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import { extractSessionToken } from './common/utils/auth.util';
 import { DRIZZLE, DrizzleDB } from './database/database.module';
 import { RedisService } from './common/redis/redis.service';
+import { SkipGlobalThrottle } from './common/guards/app-throttler.guard';
 
 @ApiExcludeController()
 @Controller()
@@ -49,6 +50,7 @@ export class AppController {
   }
 
   @Get('health')
+  @SkipGlobalThrottle()
   async getHealth(@Res() res?: Response) {
     const [databaseUp, redisUp] = await Promise.all([
       this.checkDatabase(),

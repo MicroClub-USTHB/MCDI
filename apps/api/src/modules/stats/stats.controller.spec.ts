@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StatsController } from './stats.controller';
 import { StatsService } from './stats.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockStatsService = {
   getMemberStats: jest.fn(),
@@ -20,7 +20,7 @@ describe('StatsController', () => {
       controllers: [StatsController],
       providers: [{ provide: StatsService, useValue: mockStatsService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
     controller = module.get(StatsController);

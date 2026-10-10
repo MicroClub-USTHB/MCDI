@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
+import { ROOT_PERMISSIONS } from '../../../helpers/auth';
+
 const mockUser = {
   id: '1',
   username: 'admin',
@@ -7,6 +9,8 @@ const mockUser = {
   email: 'admin@mcdi.dev',
   avatar: null,
   isSystemAdmin: true,
+  root: true,
+  permissions: ROOT_PERMISSIONS,
 };
 
 const EXPIRES_AT = '2026-08-07T10:00:00.000Z';

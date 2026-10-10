@@ -10,10 +10,14 @@ packages/
   contracts/           Types and constants shared by api and web (compiled, CJS + .d.ts)
   typescript-config/   Base / nestjs / nextjs / library tsconfig presets
   eslint-config/       Shared ESLint flat-config base (typescript-eslint + prettier)
-docs/                  Specifications and architecture notes
+docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
 Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
+
+## Documentation
+
+The developer documentation is in the admin panel app, at `/docs` (`http://localhost:3002/docs` when you run it). It covers how to integrate a project with MCDI, how to run and change MCDI, the generated API reference, and the reasons behind past decisions. It is MDX in [`apps/web/src/content/docs`](apps/web/src/content/docs), and tests keep it in step with the code. The files in [`docs/`](docs/README.md) are historical design records.
 
 ## Getting started
 
@@ -81,4 +85,4 @@ Add the Vercel domain to `CORS_ORIGINS` on the API.
 
 ## CI
 
-`.github/workflows/ci.yml` runs lint + typecheck, unit tests with coverage and a full build for every push/PR to `main` and `dev`, API e2e tests against Postgres, and the API image build on `main`.
+`.github/workflows/ci.yml` runs lint + typecheck, unit tests with coverage, a full build and a check that the generated API docs are current for every push/PR to `main` and `dev`, API e2e tests against Postgres, and the API image build on `main`.

@@ -11,12 +11,14 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ServersModule } from './modules/servers/servers.module';
 import { MembersModule } from './modules/members/members.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
+import { AdminAccessModule } from './modules/admin-access/admin-access.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { AdminMembersModule } from './modules/admin-members/admin-members.module';
 import { AdminChannelsModule } from './modules/admin-channels/admin-channels.module';
 import { AdminSettingsModule } from './modules/admin-settings/admin-settings.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ServerActiveGuard } from './modules/servers/server.guard';
+import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
 import { SyncModule } from './modules/sync/sync.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
@@ -47,6 +49,7 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
     ServersModule,
     MembersModule,
     PermissionsModule,
+    AdminAccessModule,
     ProjectsModule,
     SyncModule,
     AdminMembersModule,
@@ -61,6 +64,8 @@ import { AuditLoggingMiddleware } from './modules/audit/middleware/audit-logging
   ],
   controllers: [AppController],
   providers: [
+    // Registered first so a rejected flood costs no database lookups
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     {
       provide: APP_GUARD,
       useClass: ServerActiveGuard,

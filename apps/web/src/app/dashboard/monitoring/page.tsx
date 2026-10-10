@@ -5,6 +5,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 import { useProjectsQuery } from '@/features/projects';
 import { useMembersQuery } from '@/features/members/api/queries';
+import { useCan } from '@/shared/lib/use-access';
 import type { MemberFilters } from '@/features/members/types';
 import {
   AuditLogFilters,
@@ -66,6 +67,10 @@ function MonitoringPage() {
   const healthQuery = useSystemHealthQuery();
   const failuresQuery = useAuthFailuresQuery();
   const auditQuery = useAuditLogsQuery(auditPage, auditFilters);
+  const canMonitoring = useCan('monitoring', 'read');
+  const canAudit = useCan('audit', 'read');
+  const canProjects = useCan('projects', 'read');
+  const canMembers = useCan('members', 'read');
   const health = healthQuery.data;
   const serviceDown = health
     ? health.discord.status === 'disconnected' ||
@@ -129,169 +134,180 @@ function MonitoringPage() {
         </div>
       ) : null}
 
-      <section aria-labelledby="health-heading" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 id="health-heading" className="text-heading text-text-primary">
-            System health
-          </h2>
-          {healthQuery.isError ? (
-            <Button variant="link" size="sm" onClick={() => void healthQuery.refetch()}>
-              <RefreshCw aria-hidden="true" /> Retry
-            </Button>
-          ) : null}
-        </div>
-        {healthQuery.isPending ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {['API', 'Discord Bot', 'PostgreSQL', 'Redis'].map((service) => (
-              <LoadingSkeleton key={service} className="h-28 rounded-lg" />
-            ))}
-          </div>
-        ) : healthQuery.isError ? (
-          <Card>
-            <CardContent className="py-6 text-body text-error">
-              System health could not be loaded.
-            </CardContent>
-          </Card>
-        ) : health ? (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <HealthIndicator
-              service="API"
-              status={
-                health.api.responseTime > DEGRADED_THRESHOLDS.apiResponseMs
-                  ? 'degraded'
-                  : health.api.status
-              }
-              details={`${health.api.responseTime} ms response · ${Math.floor(health.api.uptime / 3600)}h uptime`}
-            />
-            <HealthIndicator
-              service="Discord Bot"
-              status={
-                health.discord.status === 'connected' &&
-                health.discord.latency > DEGRADED_THRESHOLDS.discordLatencyMs
-                  ? 'degraded'
-                  : health.discord.status
-              }
-              details={`${health.discord.guilds} guilds · ${health.discord.latency >= 0 ? `${health.discord.latency} ms latency` : 'Latency unavailable'}`}
-            />
-            <HealthIndicator
-              service="PostgreSQL"
-              status={
-                health.database.status === 'connected' &&
-                health.database.queryTime > DEGRADED_THRESHOLDS.dbQueryMs
-                  ? 'degraded'
-                  : health.database.status
-              }
-              details={`${health.database.queryTime} ms query · ${health.database.connections} connections`}
-            />
-            <HealthIndicator
-              service="Redis"
-              status={
-                health.redis.status === 'connected' &&
-                health.redis.hitRate < DEGRADED_THRESHOLDS.redisHitRate
-                  ? 'degraded'
-                  : health.redis.status
-              }
-              details={`${(health.redis.hitRate * 100).toFixed(1)}% hit rate · ${health.redis.memoryUsed}`}
-            />
-          </div>
-        ) : null}
-      </section>
-
-      <section aria-labelledby="usage-heading" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="usage-heading" className="text-heading text-text-primary">
-            API usage
-          </h2>
-          {usageQuery.isError ? (
-            <Button variant="link" size="sm" onClick={() => void usageQuery.refetch()}>
-              <RefreshCw aria-hidden="true" /> Retry
-            </Button>
-          ) : null}
-          <label className="flex items-center gap-2 text-overline text-text-muted">
-            Project
-            <select
-              value={projectId ?? ''}
-              onChange={(event) => setProjectId(event.target.value || undefined)}
-              className="h-9 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
-            >
-              <option value="">All projects</option>
-              {projectsQuery.data?.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {usageQuery.isPending ? <LoadingSkeleton className="h-64 rounded-lg" /> : null}
-        {usageQuery.isError ? (
-          <Card>
-            <CardContent className="py-6 text-body text-error">
-              API usage could not be loaded.
-            </CardContent>
-          </Card>
-        ) : null}
-        {usageQuery.data ? (
-          <div className="grid gap-3 xl:grid-cols-[1.35fr_0.85fr]">
-            <UsageChart data={usageQuery.data} />
-            <ErrorRateChart data={usageQuery.data} />
-          </div>
-        ) : null}
-      </section>
-
-      <section aria-labelledby="failures-heading" className="space-y-3">
-        <h2 id="failures-heading" className="text-heading text-text-primary">
-          Recent authentication failures
-        </h2>
-        {failuresQuery.isError ? (
-          <Card>
-            <CardContent className="py-6 text-body text-error">
-              Authentication failures could not be loaded.
-            </CardContent>
-          </Card>
-        ) : null}
-        <AuthFailureTable
-          failures={failuresQuery.data?.failures ?? []}
-          isLoading={failuresQuery.isPending}
-        />
-      </section>
-
-      <section aria-labelledby="audit-heading" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="audit-heading" className="text-heading text-text-primary">
-            Audit logs
-          </h2>
-          <div className="flex items-center gap-3">
-            {auditQuery.isError ? (
-              <Button variant="link" size="sm" onClick={() => void auditQuery.refetch()}>
+      {canMonitoring ? (
+        <section aria-labelledby="health-heading" className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="health-heading" className="text-heading text-text-primary">
+              System health
+            </h2>
+            {healthQuery.isError ? (
+              <Button variant="link" size="sm" onClick={() => void healthQuery.refetch()}>
                 <RefreshCw aria-hidden="true" /> Retry
               </Button>
             ) : null}
-            <ExportAuditButton filters={auditFilters} />
           </div>
-        </div>
-        <AuditLogFilters
-          filters={auditFilters}
-          onChange={updateAuditFilters}
-          actors={membersQuery.data?.data ?? []}
-        />
-        {auditQuery.isError ? (
-          <Card>
-            <CardContent className="py-6 text-body text-error">
-              Audit logs could not be loaded.
-            </CardContent>
-          </Card>
-        ) : (
-          <AuditLogTable
-            logs={auditQuery.data?.logs ?? []}
-            total={auditQuery.data?.total ?? 0}
-            page={auditPage}
-            pageSize={auditQuery.data?.limit ?? 50}
-            isLoading={auditQuery.isPending}
-            onPageChange={setAuditPage}
+          {healthQuery.isPending ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {['API', 'Discord Bot', 'PostgreSQL', 'Redis'].map((service) => (
+                <LoadingSkeleton key={service} className="h-28 rounded-lg" />
+              ))}
+            </div>
+          ) : healthQuery.isError ? (
+            <Card>
+              <CardContent className="py-6 text-body text-error">
+                System health could not be loaded.
+              </CardContent>
+            </Card>
+          ) : health ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <HealthIndicator
+                service="API"
+                status={
+                  health.api.responseTime > DEGRADED_THRESHOLDS.apiResponseMs
+                    ? 'degraded'
+                    : health.api.status
+                }
+                details={`${health.api.responseTime} ms response · ${Math.floor(health.api.uptime / 3600)}h uptime`}
+              />
+              <HealthIndicator
+                service="Discord Bot"
+                status={
+                  health.discord.status === 'connected' &&
+                  health.discord.latency > DEGRADED_THRESHOLDS.discordLatencyMs
+                    ? 'degraded'
+                    : health.discord.status
+                }
+                details={`${health.discord.guilds} guilds · ${health.discord.latency >= 0 ? `${health.discord.latency} ms latency` : 'Latency unavailable'}`}
+              />
+              <HealthIndicator
+                service="PostgreSQL"
+                status={
+                  health.database.status === 'connected' &&
+                  health.database.queryTime > DEGRADED_THRESHOLDS.dbQueryMs
+                    ? 'degraded'
+                    : health.database.status
+                }
+                details={`${health.database.queryTime} ms query · ${health.database.connections} connections`}
+              />
+              <HealthIndicator
+                service="Redis"
+                status={
+                  health.redis.status === 'connected' &&
+                  health.redis.hitRate < DEGRADED_THRESHOLDS.redisHitRate
+                    ? 'degraded'
+                    : health.redis.status
+                }
+                details={`${(health.redis.hitRate * 100).toFixed(1)}% hit rate · ${health.redis.memoryUsed}`}
+              />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {canMonitoring ? (
+        <section aria-labelledby="usage-heading" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="usage-heading" className="text-heading text-text-primary">
+              API usage
+            </h2>
+            {usageQuery.isError ? (
+              <Button variant="link" size="sm" onClick={() => void usageQuery.refetch()}>
+                <RefreshCw aria-hidden="true" /> Retry
+              </Button>
+            ) : null}
+            {canProjects ? (
+              <label className="flex items-center gap-2 text-overline text-text-muted">
+                Project
+                <select
+                  value={projectId ?? ''}
+                  onChange={(event) => setProjectId(event.target.value || undefined)}
+                  className="h-9 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+                >
+                  <option value="">All projects</option>
+                  {projectsQuery.data?.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+          {usageQuery.isPending ? <LoadingSkeleton className="h-64 rounded-lg" /> : null}
+          {usageQuery.isError ? (
+            <Card>
+              <CardContent className="py-6 text-body text-error">
+                API usage could not be loaded.
+              </CardContent>
+            </Card>
+          ) : null}
+          {usageQuery.data ? (
+            <div className="grid gap-3 xl:grid-cols-[1.35fr_0.85fr]">
+              <UsageChart data={usageQuery.data} />
+              <ErrorRateChart data={usageQuery.data} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {canMonitoring ? (
+        <section aria-labelledby="failures-heading" className="space-y-3">
+          <h2 id="failures-heading" className="text-heading text-text-primary">
+            Recent authentication failures
+          </h2>
+          {failuresQuery.isError ? (
+            <Card>
+              <CardContent className="py-6 text-body text-error">
+                Authentication failures could not be loaded.
+              </CardContent>
+            </Card>
+          ) : null}
+          <AuthFailureTable
+            failures={failuresQuery.data?.failures ?? []}
+            isLoading={failuresQuery.isPending}
           />
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {canAudit ? (
+        <section aria-labelledby="audit-heading" className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="audit-heading" className="text-heading text-text-primary">
+              Audit logs
+            </h2>
+            <div className="flex items-center gap-3">
+              {auditQuery.isError ? (
+                <Button variant="link" size="sm" onClick={() => void auditQuery.refetch()}>
+                  <RefreshCw aria-hidden="true" /> Retry
+                </Button>
+              ) : null}
+              <ExportAuditButton filters={auditFilters} />
+            </div>
+          </div>
+          <AuditLogFilters
+            filters={auditFilters}
+            onChange={updateAuditFilters}
+            actors={membersQuery.data?.data ?? []}
+            showActorFilter={canMembers}
+          />
+          {auditQuery.isError ? (
+            <Card>
+              <CardContent className="py-6 text-body text-error">
+                Audit logs could not be loaded.
+              </CardContent>
+            </Card>
+          ) : (
+            <AuditLogTable
+              logs={auditQuery.data?.logs ?? []}
+              total={auditQuery.data?.total ?? 0}
+              page={auditPage}
+              pageSize={auditQuery.data?.limit ?? 50}
+              isLoading={auditQuery.isPending}
+              onPageChange={setAuditPage}
+            />
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

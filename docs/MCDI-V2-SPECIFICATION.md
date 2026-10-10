@@ -1,6 +1,9 @@
 # MCDI V2 — Full Specification Document
 ## MicroClub Discord Interface — Version 2
 
+> **Historical design record.** This file is the full V2 specification, written before the work it describes. Parts of it were built differently or not at all. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 > **Status**: Draft — Ready for GitHub Issue Creation
 > **Focus**: Front-End Application + Backend Extensions (Discord Operations, Webhooks, Analytics)
 > **Target Audience**: Development Team (Frontend + Backend)

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
  * Component — so it can still export `metadata` — and avoids the Suspense
  * boundary a statically-rendered page would otherwise be required to wrap the
  * hook in. Bouncing an already-authenticated admin away from this page is
- * handled in `middleware.ts`, where it happens before any HTML is sent
+ * handled in `proxy.ts`, where it happens before any HTML is sent
  * instead of as a post-hydration flash.
  */
 export default async function LoginPage({

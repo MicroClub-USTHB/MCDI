@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 import { InboundWebhooksController } from './inbound-webhooks.controller';
 import { InboundWebhooksService } from './inbound-webhooks.service';
 
@@ -22,7 +22,7 @@ describe('InboundWebhooksController settings routes', () => {
       controllers: [InboundWebhooksController],
       providers: [{ provide: InboundWebhooksService, useValue: service }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({
         canActivate: (context: {
           switchToHttp: () => { getRequest: () => Record<string, unknown> };

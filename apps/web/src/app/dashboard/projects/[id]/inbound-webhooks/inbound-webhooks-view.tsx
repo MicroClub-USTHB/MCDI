@@ -7,19 +7,21 @@ import { useInboundWebhooksQuery } from '@/features/inbound-webhooks/api/queries
 import { WebhookList } from '@/features/inbound-webhooks/components/webhook-list';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
+import { useCan } from '@/shared/lib/use-access';
 
 export function InboundWebhooksView({ projectId }: { projectId: string }) {
   const query = useInboundWebhooksQuery(projectId);
   const newHref = `/dashboard/projects/${encodeURIComponent(projectId)}/inbound-webhooks/new`;
 
-  const newButton = (
+  const canCreate = useCan('inbound_webhooks', 'write');
+  const newButton = canCreate ? (
     <Button asChild>
       <Link href={newHref}>
         <Plus aria-hidden="true" />
         New inbound webhook
       </Link>
     </Button>
-  );
+  ) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,7 +62,7 @@ export function InboundWebhooksView({ projectId }: { projectId: string }) {
               icon={Inbox}
               title="No inbound webhooks"
               description="Create one to start receiving data from outside MCDI, such as a form or a project event."
-              action={newButton}
+              action={newButton ?? undefined}
               className="rounded-none border-0"
             />
           }

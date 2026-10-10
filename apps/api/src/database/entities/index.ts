@@ -26,6 +26,7 @@ export * from './project-server-access-audit.entity';
 export * from './sync-change-detail.entity';
 export * from './auth-request.entity';
 export * from './admin-oauth-state.entity';
+export * from './admin-cli-code.entity';
 export * from './audit-log.entity';
 export * from './sso-session.entity';
 export * from './webhook.entity';
@@ -37,6 +38,8 @@ export * from './inbound-webhook-submission.entity';
 export * from './inbound-webhook-file.entity';
 export * from './inbound-webhook-settings.entity';
 export * from './app-settings.entity';
+export * from './admin-role-access.entity';
+export * from './admin-member-access.entity';
 
 export function transaction(_arg0: (tx: unknown) => Promise<unknown>) {
   throw new Error('Function not implemented.');

@@ -18,7 +18,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { StatsService } from './stats.service';
 import {
   DATE_RANGES,
@@ -34,7 +35,8 @@ import {
 @ApiTags('Statistics')
 @ApiBearerAuth('session-token')
 @Controller('admin/stats')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('stats', 'read')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class StatsController {
   constructor(private readonly statsService: StatsService) {}

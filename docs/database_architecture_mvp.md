@@ -1,5 +1,8 @@
 # MCDI - Current Database Architecture
 
+> **Historical design record.** This file is the database as it was at the MVP. Tables have been added since, so read the entities in `apps/api/src/database/entities` for the current schema. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 > This document describes the database shape used by the current backend implementation.
 > For current product requirements, see `specefication_document_mvp.md`.
 > For future-phase planning and architecture direction, see `specefication_document_last_version.md`.

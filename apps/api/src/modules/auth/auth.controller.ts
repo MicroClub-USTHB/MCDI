@@ -16,7 +16,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
-import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -38,7 +38,8 @@ import { AdminAuthService } from './services/admin-auth.service';
 import { SsoService } from './services/sso.service';
 import { SessionLifecycleService } from './services/session-lifecycle.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { AdminSessionOnly } from '../../common/decorators/admin-access.decorator';
 import {
   SessionGuard,
   RequestWithSession,
@@ -60,6 +61,9 @@ import {
   AdminMeResponseDto,
   ExchangeCodeDto,
   TokenResponseDto,
+  AdminDiscordLoginQueryDto,
+  AdminCliTokenDto,
+  AdminCliTokenResponseDto,
   SsoSessionStatusDto,
   SsoSessionUnauthenticatedDto,
   SsoProjectSessionListDto,
@@ -288,6 +292,17 @@ export class AuthController {
         this.configService.get<string>('app.nodeEnv') === 'production';
 
       try {
+        // A CLI login hands its result back to the CLI's own loopback URL.
+        if (await this.adminAuthService.findCliRedirect(state)) {
+          return res.redirect(
+            await this.adminAuthService.handleAdminCliCallback(
+              code,
+              state,
+              extractClientInfo(req),
+            ),
+          );
+        }
+
         const result = await this.adminAuthService.handleAdminDiscordCallback(
           code,
           state,
@@ -332,7 +347,7 @@ export class AuthController {
   @Post('token')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Exchange callback code for session token (backend-to-backend)',
@@ -383,7 +398,7 @@ export class AuthController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, ApiKeyGuard)
+  @UseGuards(ApiKeyGuard)
   @ApiBearerAuth('api-key')
   @ApiOperation({
     summary: 'Validate session token (project-scoped)',
@@ -633,7 +648,7 @@ export class AuthController {
   @Post('token/refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   @ApiOperation({
@@ -671,7 +686,7 @@ export class AuthController {
 
   @Get('sessions')
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'List active sessions for the current member',
@@ -700,7 +715,7 @@ export class AuthController {
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
-  @UseGuards(ThrottlerGuard, SessionGuard)
+  @UseGuards(SessionGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Revoke a specific session',
@@ -737,13 +752,17 @@ export class AuthController {
   // ─── System Admin — Me ────────────────────────────────────────────────
 
   @Get('admin/me')
-  @UseGuards(SystemAdminGuard)
+  @AdminSessionOnly()
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Get current system admin profile',
     description:
       'Returns the profile of the authenticated system admin based on their Bearer session token ' +
       'or the `admin_session` httpOnly cookie set after Discord OAuth2 login. ' +
+      'Also returns `root` and the effective access level per admin resource (`permissions`), ' +
+      'which the admin panel uses to decide what to show. Any valid admin session succeeds, ' +
+      'including one whose member holds no access yet. ' +
       'Useful for verifying a token is still valid and retrieving up-to-date profile data.',
   })
   @ApiOkResponse({
@@ -753,18 +772,15 @@ export class AuthController {
   @ApiUnauthorizedResponse({
     description: 'Missing, invalid, or expired session token.',
   })
-  @ApiForbiddenResponse({
-    description:
-      'Valid session but the member lacks the configured admin role.',
-  })
   async adminMe(@Req() req: Request) {
     const token = extractSessionToken(req)!;
     return this.adminAuthService.getMe(token);
   }
 
   @Post('admin/logout')
+  @AdminSessionOnly()
   @HttpCode(HttpStatus.OK)
-  @UseGuards(SystemAdminGuard)
+  @UseGuards(AdminAccessGuard)
   @ApiBearerAuth('session-token')
   @ApiOperation({
     summary: 'Log out of the admin dashboard',
@@ -796,7 +812,8 @@ export class AuthController {
   }
 
   // ─── POST /auth/admin/set-password has been removed.
-  // Admin access is gated solely on the configured Discord admin role ID.
+  // Admin access is decided by the level the member holds on each resource
+  // (AdminAccessGuard); root comes from the configured Discord root role IDs.
 
   // ─── System Admin Discord OAuth2 Login ─────────────────────────
 
@@ -806,7 +823,12 @@ export class AuthController {
     description:
       'Returns a Discord authorization URL. ' +
       'The admin opens the URL, authenticates with Discord, ' +
-      'and is redirected to the admin callback endpoint.',
+      'and is redirected to the admin callback endpoint.\n\n' +
+      'A CLI (m-forge) can instead receive the result itself: pass a loopback ' +
+      '`redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). ' +
+      'After Discord, MCDI redirects to that URL with `?code=&state=` ' +
+      '(or `?error=&state=`), and the CLI exchanges the code at ' +
+      '`POST /auth/admin/token`.',
   })
   @ApiOkResponse({
     description: 'Discord authorization URL.',
@@ -814,8 +836,20 @@ export class AuthController {
       example: { url: 'https://discord.com/api/oauth2/authorize?...' },
     },
   })
-  async adminDiscordLogin(@Req() req: Request, @Res() res: Response) {
-    const result = await this.adminAuthService.buildAdminDiscordLoginUrl();
+  @ApiBadRequestResponse({
+    description:
+      'Invalid CLI login parameters (non-loopback redirect_uri, missing or malformed PKCE challenge).',
+  })
+  async adminDiscordLogin(
+    @Query() query: AdminDiscordLoginQueryDto,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const result = await this.adminAuthService.buildAdminDiscordLoginUrl({
+      redirectUri: query.redirect_uri,
+      codeChallenge: query.code_challenge,
+      codeChallengeMethod: query.code_challenge_method,
+    });
     const accept = req.headers.accept || '';
 
     if (accept.includes('text/html')) {
@@ -823,6 +857,34 @@ export class AuthController {
     }
 
     return res.json(result);
+  }
+
+  @Post('admin/token')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @ApiOperation({
+    summary: 'Exchange a CLI login code for an admin session',
+    description:
+      'Second half of the CLI admin login (m-forge). Exchanges the one-time code ' +
+      'MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 ' +
+      'challenge started the login, for a 24-hour admin session token. A code ' +
+      'works once and expires quickly; every failure returns the same 401.',
+  })
+  @ApiBody({ type: AdminCliTokenDto })
+  @ApiOkResponse({
+    description: 'Admin session issued.',
+    type: AdminCliTokenResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'Unknown, used or expired code, or a code_verifier that does not match.',
+  })
+  async adminCliToken(@Body() dto: AdminCliTokenDto, @Req() req: Request) {
+    return this.adminAuthService.exchangeAdminCliCode(
+      dto.code,
+      dto.codeVerifier,
+      extractClientInfo(req),
+    );
   }
 
   @Get('admin/discord/callback')
@@ -839,6 +901,17 @@ export class AuthController {
       this.configService.get<string>('app.nodeEnv') === 'production';
 
     try {
+      // A CLI login hands its result back to the CLI's own loopback URL.
+      if (await this.adminAuthService.findCliRedirect(state)) {
+        return res.redirect(
+          await this.adminAuthService.handleAdminCliCallback(
+            code,
+            state,
+            extractClientInfo(req),
+          ),
+        );
+      }
+
       const result = await this.adminAuthService.handleAdminDiscordCallback(
         code,
         state,

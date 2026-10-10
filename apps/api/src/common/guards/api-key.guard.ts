@@ -166,7 +166,9 @@ export class ApiKeyGuard implements CanActivate {
   }
 
   private extractServerId(request: RequestWithProject): string | null {
-    const serverId = request.params['serverId'] ?? request.query['serverId'];
+    const body = request.body as { serverId?: unknown } | undefined;
+    const serverId =
+      request.params['serverId'] ?? request.query['serverId'] ?? body?.serverId;
     return typeof serverId === 'string' ? serverId : null;
   }
 }

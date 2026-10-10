@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
 
 const mockSyncService = {
   triggerMultipleSyncs: jest.fn(),
@@ -20,7 +20,7 @@ describe('SyncController', () => {
       controllers: [SyncController],
       providers: [{ provide: SyncService, useValue: mockSyncService }],
     })
-      .overrideGuard(SystemAdminGuard)
+      .overrideGuard(AdminAccessGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

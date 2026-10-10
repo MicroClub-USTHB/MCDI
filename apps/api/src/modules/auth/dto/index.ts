@@ -3,6 +3,7 @@ export * from './logout.dto';
 export * from './response.dto';
 export * from './authorize.dto';
 export * from './admin-login.dto';
+export * from './admin-cli-login.dto';
 export * from './set-password.dto';
 export * from './exchange-code.dto';
 export * from './token-response.dto';

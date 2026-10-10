@@ -9,6 +9,8 @@ import { Label } from '@/shared/components/ui/label';
 
 interface RedirectUriManagerProps {
   uris: string[];
+  /** Render as a plain list — hides the add form and remove actions. */
+  readOnly?: boolean;
   onAdd: (uri: string) => void;
   onRemove: (uri: string) => void;
   isSubmitting?: boolean;
@@ -31,6 +33,7 @@ function isValidUri(uri: string): boolean {
  */
 function RedirectUriManager({
   uris,
+  readOnly = false,
   onAdd,
   onRemove,
   isSubmitting = false,
@@ -54,20 +57,22 @@ function RedirectUriManager({
   return (
     <div className="flex flex-col gap-3">
       <Label>Redirect URIs</Label>
-      <form onSubmit={handleAdd} className="flex gap-2">
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          aria-invalid={error ? true : undefined}
-          aria-label="New redirect URI"
-          placeholder="https://app.example.com/auth/callback"
-          disabled={isSubmitting}
-        />
-        <Button type="submit" variant="secondary" size="sm" disabled={isSubmitting}>
-          <Plus aria-hidden="true" />
-          Add
-        </Button>
-      </form>
+      {!readOnly && (
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <Input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            aria-invalid={error ? true : undefined}
+            aria-label="New redirect URI"
+            placeholder="https://app.example.com/auth/callback"
+            disabled={isSubmitting}
+          />
+          <Button type="submit" variant="secondary" size="sm" disabled={isSubmitting}>
+            <Plus aria-hidden="true" />
+            Add
+          </Button>
+        </form>
+      )}
       {error && <p className="text-overline text-error">{error}</p>}
       {uris.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
@@ -79,16 +84,18 @@ function RedirectUriManager({
               <code className="min-w-0 flex-1 truncate font-mono text-code text-text-normal">
                 {uri}
               </code>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Remove ${uri}`}
-                disabled={isSubmitting}
-                onClick={() => onRemove(uri)}
-              >
-                <X aria-hidden="true" />
-              </Button>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Remove ${uri}`}
+                  disabled={isSubmitting}
+                  onClick={() => onRemove(uri)}
+                >
+                  <X aria-hidden="true" />
+                </Button>
+              )}
             </li>
           ))}
         </ul>

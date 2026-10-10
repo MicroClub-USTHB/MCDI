@@ -18,7 +18,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { AdminSessionOnly } from '../../common/decorators/admin-access.decorator';
 import { AdminProfileService } from './services/admin-profile.service';
 import {
   AdminProfileResponseDto,
@@ -35,7 +36,8 @@ type RequestWithMember = Request & { memberId: string };
 @ApiTags('Admin Settings')
 @ApiBearerAuth('session-token')
 @Controller('admin/profile')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@AdminSessionOnly()
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AdminProfileController {
   constructor(private readonly profileService: AdminProfileService) {}

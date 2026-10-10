@@ -1,0 +1,149 @@
+This page explains how MCDI is tested, which command runs what, and what to test first. Read the warning about the end to end tests before you run them.
+
+<Callout type="warning">
+  **The API end to end tests empty every table of the database they connect to.** `clearAllTables` in `apps/api/test/helpers/db.ts` truncates every table in the public schema, and twelve of the thirteen end to end files call it, most of them before every test. Run them only against a throwaway database, for example `mcdi_test`, and never against the database you develop in. Passing your development `DATABASE_URL` wipes your members, projects and sessions.
+</Callout>
+
+## The layers
+
+| Layer | Tool | Where it lives | Speed | Needs |
+| --- | --- | --- | --- | --- |
+| API unit | Jest | `apps/api/src/**/*.spec.ts`, next to the file | seconds | nothing |
+| API end to end | Jest and Supertest | `apps/api/test/*.e2e-spec.ts` | about 90 seconds | PostgreSQL |
+| Web unit and component | Vitest, React Testing Library, MSW | `apps/web/tests/**` | about a minute | nothing |
+| Web browser | Playwright | `apps/web/e2e` | slow | a running panel and a real admin login |
+
+## Write the test first
+
+For new behaviour and for bug fixes, write a failing test, run it and check it fails for the right reason, then write the code that makes it pass. Reviewers look for this. A test that passes before you change the code proves nothing.
+
+Choose the lowest layer that can show the behaviour:
+
+1. **A pure function** (a mapper, a validator, a formatter): a plain unit test, no setup.
+2. **A service with rules**: a unit test with the repository mocked.
+3. **A route's contract** (path, guard, validation, status): a controller test with Supertest and the service mocked.
+4. **A query that must behave on a real database** (constraints, upserts, joins): an end to end spec against PostgreSQL.
+5. **A web screen**: a component or page test that answers the API with MSW.
+
+## API unit tests
+
+```bash
+pnpm --filter @mcdi/api run test
+```
+
+Run on this repository, that was 97 suites and 1375 tests in about 25 seconds. To run one file, or one test by name:
+
+```bash
+pnpm --filter @mcdi/api exec jest src/modules/auth/auth.service.spec.ts
+pnpm --filter @mcdi/api exec jest src/modules/auth/auth.service.spec.ts -t "name of the test"
+```
+
+Specs sit next to the code they test and mock their collaborators. A controller test builds a Nest testing module with the controller only, overrides the guard, and talks to it with Supertest:
+
+```ts
+const moduleRef = await Test.createTestingModule({
+  controllers: [InboundWebhooksController],
+  providers: [{ provide: InboundWebhooksService, useValue: service }],
+})
+  .overrideGuard(AdminAccessGuard)
+  .useValue({ canActivate: () => true })
+  .compile();
+```
+
+The tests also enforce coverage thresholds from `jest.config.cjs`: 80 percent of lines, 75 of functions, 68 of branches and 80 of statements. They apply when coverage is collected, which is how CI runs them:
+
+```bash
+pnpm --filter @mcdi/api run test:ci
+```
+
+A build that drops below a threshold fails.
+
+## API end to end tests
+
+These start the whole Nest application against a real PostgreSQL and a mocked Discord. They live in `apps/api/test/`, and three helpers in `test/helpers` do the work:
+
+| Helper | What it does |
+| --- | --- |
+| `create-app.ts` | Builds the app the way `main.ts` does (global prefix, validation pipe, filters, body limits), with rate limiting off and the startup migrations skipped. It must stay in step with `main.ts`. |
+| `db.ts` | Connects to `DATABASE_URL`, clears every table, and seeds fixtures: an admin with a session, a project with a usable key, a member with a role. |
+| `discord-mock.ts` | `nock` interceptors for the Discord calls of the OAuth flow, so no test reaches the real Discord. |
+
+### Run them on a throwaway database
+
+Point `DATABASE_URL` at a database that exists only for tests. With the compose database running (see [Local setup](/docs/build/local-setup)), `mcdi_test` is one:
+
+```bash
+cd apps/api
+export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi_test
+
+RESET_DB=1 pnpm run db:migrate   # drops and recreates mcdi_test, then applies the migrations
+pnpm run test:e2e
+```
+
+`RESET_DB=1` makes the migration script drop and recreate the database named in `DATABASE_URL`, so double-check the name before you press enter. The run on this repository was 13 suites and 211 tests in about 90 seconds. The reset command creates the database when it does not exist yet.
+
+<Callout type="warning">
+  Twelve of the thirteen end to end files start with a guard that skips them when `DATABASE_URL` is not set. Without it they are reported as skipped, not failed, and the run looks green while checking nothing. Always set `DATABASE_URL`.
+</Callout>
+
+## Web tests
+
+```bash
+pnpm --filter @mcdi/web run test            # all, once
+pnpm --filter @mcdi/web exec vitest run tests/path/to/file.test.tsx
+pnpm --filter @mcdi/web run test:watch
+pnpm --filter @mcdi/web run test:coverage
+```
+
+- Tests live only under `apps/web/tests`, mirroring `src`, and not next to the source. Vitest includes only that folder.
+- The environment is jsdom. `tests/setup.ts` runs before every test: it sets the `NEXT_PUBLIC_*` variables, starts the MSW server, and after each test resets the handlers, clears storage and resets the auth store.
+- **MSW** answers the API. Register a handler for the route you need with `server.use(http.get(...))`, and import `server` from `tests/setup`. A request with no handler logs a warning, so read warnings in the output.
+- **React Testing Library** renders. A page needs a fresh `QueryClient` with `retry: false`, so a failing request fails the test at once instead of retrying.
+- Mock `next/navigation` for anything that uses the router, and replace heavy editors (the CodeMirror schema editor) with a textarea.
+- Name tests after the behaviour, like "lists the webhooks with their readers and counts".
+
+A page test looks like this. [Add a page](/docs/build/web-guide#add-a-page-step-by-step) shows the whole pattern with the real file.
+
+```tsx
+server.use(
+  http.get(`${API_URL}/admin/inbound-webhooks`, () => HttpResponse.json([webhook('wh_1', 'Recruitment')]))
+);
+
+render(<InboundWebhooksView projectId="proj_1" />, { wrapper });
+
+expect(await screen.findByText('Recruitment')).toBeInTheDocument();
+```
+
+### Docs tests
+
+The tests in `tests/features/docs` check the docs themselves: that every page compiles, that links and anchors resolve, that code blocks name their language, that the generated API reference is current, that every environment variable is documented, that code excerpts match their files, and that every cited file is in the repository. Run them with:
+
+```bash
+pnpm --filter @mcdi/web exec vitest run tests/features/docs
+```
+
+### Browser tests
+
+Playwright tests in `apps/web/e2e` drive a real browser. They need a real Discord admin login, so they are not part of CI:
+
+```bash
+pnpm --filter @mcdi/web run e2e:install   # once: installs Chromium
+pnpm --filter @mcdi/web run e2e:auth      # opens a browser, you sign in with Discord, the session is saved
+pnpm --filter @mcdi/web run e2e:test
+```
+
+`e2e:auth` stores the session in `apps/web/e2e/.auth/admin.json`. Git already ignores that folder, and the file is a live admin session, so never commit or share it.
+
+## What CI runs
+
+On every pull request to `dev` or `main`, and on pushes to them, the workflow in `.github/workflows/ci.yml` runs these steps in order, and a pull request is ready when all of them are green:
+
+1. `pnpm turbo run lint typecheck`
+2. `pnpm turbo run test:ci`, the unit tests of both apps, with coverage
+3. `pnpm turbo run build`
+4. `pnpm docs:api`, which fails when `openapi.json` or the generated reference pages are out of date
+5. In a second job against PostgreSQL 16: the migrations are applied twice to check they can be re-applied, the database is reset and migrated, and `pnpm turbo run test:e2e --filter=@mcdi/api` runs
+
+The workflow uses Node 24.
+
+Source: `apps/api/jest.config.cjs`, `apps/api/test/helpers/create-app.ts`, `apps/api/test/helpers/db.ts`, `apps/api/test/helpers/discord-mock.ts`, `apps/api/test/jest-e2e.config.cjs`, `apps/api/scripts/migrate.ts`, `apps/api/package.json`, `apps/web/vitest.config.ts`, `apps/web/tests/setup.ts`, `apps/web/playwright.config.ts`, `apps/web/e2e/auth.setup.ts`, `.github/workflows/ci.yml`.

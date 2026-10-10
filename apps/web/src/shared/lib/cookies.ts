@@ -11,7 +11,7 @@ function secureAttribute(): string {
 /**
  * The real session is the backend's `admin_session` httpOnly cookie, set on
  * the API's origin and unreadable from JS. This cookie is a same-origin flag
- * that only signals "a validated session exists" so `middleware.ts` — which
+ * that only signals "a validated session exists" so `proxy.ts` — which
  * runs server-side and can't read localStorage — can redirect unauthenticated
  * requests without a round trip to the API. It is set only after
  * `/auth/admin/me` returns 200, never from unvalidated input.

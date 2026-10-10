@@ -10,6 +10,8 @@ interface AuditLogFiltersProps {
   filters: AuditLogFilterState;
   onChange: (filters: AuditLogFilterState) => void;
   actors?: CrossServerListItemDto[];
+  /** The actor list needs `members:read`; without it the filter is not offered. */
+  showActorFilter?: boolean;
 }
 
 const ACTIONS: Array<{ value: AuditActionType; label: string }> = [
@@ -21,9 +23,15 @@ const ACTIONS: Array<{ value: AuditActionType; label: string }> = [
   { value: 'member', label: 'Member' },
   { value: 'sync', label: 'Sync' },
   { value: 'permission', label: 'Permission' },
+  { value: 'access', label: 'Access' },
 ];
 
-function AuditLogFilters({ filters, onChange, actors = [] }: AuditLogFiltersProps) {
+function AuditLogFilters({
+  filters,
+  onChange,
+  actors = [],
+  showActorFilter = true,
+}: AuditLogFiltersProps) {
   const update = (next: Partial<AuditLogFilterState>) => onChange({ ...filters, ...next });
 
   return (
@@ -50,21 +58,23 @@ function AuditLogFilters({ filters, onChange, actors = [] }: AuditLogFiltersProp
             className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
           />
         </label>
-        <label className="space-y-1 text-overline text-text-subtle">
-          <span>Actor</span>
-          <select
-            value={filters.actorId ?? ''}
-            onChange={(event) => update({ actorId: event.target.value || undefined })}
-            className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
-          >
-            <option value="">All actors</option>
-            {actors.map((actor) => (
-              <option key={actor.memberId} value={actor.memberId}>
-                {actor.globalName ?? actor.username}
-              </option>
-            ))}
-          </select>
-        </label>
+        {showActorFilter ? (
+          <label className="space-y-1 text-overline text-text-subtle">
+            <span>Actor</span>
+            <select
+              value={filters.actorId ?? ''}
+              onChange={(event) => update({ actorId: event.target.value || undefined })}
+              className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+            >
+              <option value="">All actors</option>
+              {actors.map((actor) => (
+                <option key={actor.memberId} value={actor.memberId}>
+                  {actor.globalName ?? actor.username}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="space-y-1 text-overline text-text-subtle">
           <span>Severity</span>
           <select

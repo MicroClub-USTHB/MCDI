@@ -1,5 +1,8 @@
 # MCDI - Documentation Index
 
+> **Historical design record.** This file is an index of the MVP-era specification files. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+
+
 This documentation set has been updated to match the current implementation more closely.
 
 ## Documents

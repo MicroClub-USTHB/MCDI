@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { AuthMemberResponseDto } from './response.dto';
 
 export class AuthMemberRoleDto {
   @ApiProperty({
@@ -27,63 +28,6 @@ export class AuthMemberRoleDto {
   rolePosition: number | null;
 }
 
-export class AuthMemberProfileDto {
-  @ApiProperty({
-    description: 'Discord user ID',
-    example: '123456789012345678',
-  })
-  id: string;
-
-  @ApiProperty({ description: 'Discord username', example: 'john_doe' })
-  username: string;
-
-  @ApiProperty({
-    description: 'Global display name',
-    required: false,
-    example: 'John Doe',
-    nullable: true,
-  })
-  globalName: string | null;
-
-  @ApiProperty({
-    description: 'Server nickname',
-    required: false,
-    example: 'John',
-    nullable: true,
-  })
-  displayName: string | null;
-
-  @ApiProperty({
-    description: 'Avatar URL',
-    required: false,
-    example: 'https://cdn.discordapp.com/avatars/.../...png',
-    nullable: true,
-  })
-  avatar: string | null;
-
-  @ApiProperty({
-    description: 'Primary email associated with the Discord account',
-    required: false,
-    example: 'alice@example.com',
-    nullable: true,
-  })
-  email: string | null;
-
-  @ApiProperty({
-    description: 'Whether the member is in the main club server',
-    example: true,
-  })
-  isClubMember: boolean;
-
-  @ApiProperty({
-    description: 'Date the member joined Discord',
-    required: false,
-    example: '2025-01-15T14:30:00.000Z',
-    nullable: true,
-  })
-  joinedAt: Date | null;
-}
-
 export class TokenResponseDto {
   @ApiProperty({
     description: 'Long-lived session token (Bearer token)',
@@ -106,9 +50,9 @@ export class TokenResponseDto {
 
   @ApiProperty({
     description: 'Basic profile information for the authenticated member',
-    type: AuthMemberProfileDto,
+    type: AuthMemberResponseDto,
   })
-  member: AuthMemberProfileDto;
+  member: AuthMemberResponseDto;
 
   @ApiProperty({
     description: 'List of roles the member has in the associated server',

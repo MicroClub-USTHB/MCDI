@@ -33,11 +33,12 @@ import { SyncStatusDto } from './dto/sync-status.dto';
 import { SyncLogsQueryDto } from './dto/sync-logs-query.dto';
 import { SyncLogsResponseDto } from './dto/sync-log.dto';
 import { SyncChangeDetailsResponseDto } from './dto/sync-change-detail.dto';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 
 @ApiTags('Sync')
 @ApiBearerAuth('session-token')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
 @Controller('admin/sync')
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
@@ -45,6 +46,7 @@ export class SyncController {
   // ─── Trigger Sync ──────────────────────────────────────────────
 
   @Post('full')
+  @RequirePermission('sync', 'write')
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
     summary: 'Trigger a full sync',
@@ -84,6 +86,7 @@ export class SyncController {
   // ─── Sync Status ───────────────────────────────────────────────
 
   @Get('status')
+  @RequirePermission('sync', 'read')
   @ApiOperation({ summary: 'Get the latest sync status for a specific server' })
   @ApiQuery({
     name: 'serverId',
@@ -110,6 +113,7 @@ export class SyncController {
   }
 
   @Get('status/all')
+  @RequirePermission('sync', 'read')
   @ApiOperation({
     summary: 'Get latest sync status for all active servers',
     description:
@@ -129,6 +133,7 @@ export class SyncController {
   // ─── Sync Logs ─────────────────────────────────────────────────
 
   @Get('logs')
+  @RequirePermission('sync', 'read')
   @ApiOperation({
     summary: 'Get paginated sync logs for a server',
     description:
@@ -162,6 +167,7 @@ export class SyncController {
   // ─── Sync Change Details ───────────────────────────────────
 
   @Get('logs/:syncLogId/changes')
+  @RequirePermission('sync', 'read')
   @ApiOperation({
     summary: 'Get granular change details for a specific sync log',
     description:

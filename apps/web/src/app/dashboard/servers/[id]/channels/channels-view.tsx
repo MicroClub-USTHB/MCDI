@@ -11,11 +11,14 @@ import {
 import { ChannelDetail, ChannelTree, MessageHistory } from '@/features/channels/components';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { LoadingSkeleton } from '@/shared/components/common';
+import { useCan } from '@/shared/lib/use-access';
 
 /** Channels of the server in the URL; the sidebar's server switcher picks the server. */
 export function ChannelsView({ serverId }: { serverId: string }) {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [historyEnabled, setHistoryEnabled] = useState(false);
+
+  const canReadMessages = useCan('messages', 'read');
 
   const channelsQuery = useChannelsQuery(serverId);
   const tree = channelsQuery.data;
@@ -87,7 +90,7 @@ export function ChannelsView({ serverId }: { serverId: string }) {
                 <LoadingSkeleton className="h-24 rounded-lg" />
               )}
 
-              {activeChannelNode?.hasMessages ? (
+              {!canReadMessages ? null : activeChannelNode?.hasMessages ? (
                 <MessageHistory
                   messages={historyQuery.data?.messages ?? []}
                   hasMore={historyQuery.data?.hasMore ?? false}

@@ -29,18 +29,20 @@ import {
 import { ServersService } from './servers.service';
 import { CreateServerDto } from './dto/create-server.dto';
 import { UpdateServerDto } from './dto/update-server.dto';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { DisableServerDto } from './dto/disable-server.dto';
 import { ListServersDto } from './dto/list-servers.dto';
 
 @ApiTags('Servers')
 @ApiBearerAuth('session-token')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
 @Controller('servers')
 export class ServersController {
   constructor(private readonly serversService: ServersService) {}
 
   @Post()
+  @RequirePermission('servers', 'write')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Register a server',
@@ -58,6 +60,7 @@ export class ServersController {
   }
 
   @Get()
+  @RequirePermission('servers', 'read')
   @ApiOperation({
     summary: 'List all servers',
     description:
@@ -96,6 +99,7 @@ export class ServersController {
   }
 
   @Get(':serverId')
+  @RequirePermission('servers', 'read')
   @ApiOperation({
     summary: 'Get a server by ID',
     description:
@@ -116,6 +120,7 @@ export class ServersController {
   }
 
   @Patch(':serverId')
+  @RequirePermission('servers', 'write')
   @ApiOperation({
     summary: 'Update server settings',
     description: 'Updates the server name or other mutable settings.',
@@ -136,6 +141,7 @@ export class ServersController {
   }
 
   @Patch(':serverId/disable')
+  @RequirePermission('servers', 'write')
   @ApiOperation({
     summary: 'Disable a server',
     description:
@@ -157,6 +163,7 @@ export class ServersController {
   }
 
   @Patch(':serverId/enable')
+  @RequirePermission('servers', 'write')
   @ApiOperation({
     summary: 'Enable a server',
     description: 'Re-activates a previously disabled server.',
@@ -176,6 +183,7 @@ export class ServersController {
   }
 
   @Delete(':serverId')
+  @RequirePermission('servers', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Delete a server',

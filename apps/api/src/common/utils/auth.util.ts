@@ -8,7 +8,7 @@ import { hashSessionToken } from './session-token.util';
 
 /**
  * Extracts the Bearer token from the Authorization header.
- * Used by SystemAdminGuard for session token extraction.
+ * Used by AdminAccessGuard for session token extraction.
  *
  * @example
  * Authorization: Bearer <token>  →  "<token>"

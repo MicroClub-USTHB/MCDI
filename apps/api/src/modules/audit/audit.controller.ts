@@ -18,7 +18,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { AuditService } from './audit.service';
 import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
 import { QueryAuthFailuresDto } from './dto/query-auth-failures.dto';
@@ -29,7 +30,8 @@ import { QueryUsageDto } from './dto/query-usage.dto';
 @ApiTags('Audit')
 @ApiBearerAuth('session-token')
 @Controller('admin/audit')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('audit', 'read')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -146,7 +148,8 @@ export class AuditController {
 @ApiTags('Monitoring')
 @ApiBearerAuth('session-token')
 @Controller('admin/monitoring')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('monitoring', 'read')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class MonitoringController {
   constructor(private readonly auditService: AuditService) {}

@@ -32,7 +32,8 @@ import {
 } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, ProjectScope } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -55,7 +56,7 @@ type RequestWithUser = Request & {
 @ApiTags('Projects')
 @ApiBearerAuth('session-token')
 @Controller('admin/projects')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 export class ProjectsController {
   constructor(
@@ -75,6 +76,7 @@ export class ProjectsController {
   }
 
   @Post()
+  @RequirePermission('projects', 'write')
   @ApiOperation({
     summary: 'Create a project',
     description:
@@ -116,6 +118,7 @@ export class ProjectsController {
   }
 
   @Get()
+  @RequirePermission('projects', 'read')
   @ApiOperation({ summary: 'List all projects' })
   @ApiQuery({
     name: 'isActive',
@@ -147,6 +150,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @RequirePermission('projects', 'read')
   @ApiOperation({ summary: 'Get a project by ID' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiOkResponse({ description: 'Project retrieved successfully.' })
@@ -159,6 +163,7 @@ export class ProjectsController {
   }
 
   @Patch(':id')
+  @RequirePermission('projects', 'write')
   @ApiOperation({ summary: 'Update a project' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
   @ApiBody({ type: UpdateProjectDto })
@@ -172,6 +177,7 @@ export class ProjectsController {
   }
 
   @Get(':id/api-key')
+  @RequirePermission('project_keys', 'read')
   @ApiOperation({
     summary: 'Reveal project API key info',
     description:
@@ -201,6 +207,7 @@ export class ProjectsController {
   }
 
   @Delete(':id/key')
+  @RequirePermission('project_keys', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke API key' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
@@ -214,6 +221,7 @@ export class ProjectsController {
   }
 
   @Post(':id/restore-key')
+  @RequirePermission('project_keys', 'write')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Restore a revoked API key' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
@@ -227,6 +235,7 @@ export class ProjectsController {
   }
 
   @Delete(':id')
+  @RequirePermission('projects', 'manage')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a project' })
   @ApiParam({ name: 'id', description: 'Project UUID' })
@@ -242,6 +251,7 @@ export class ProjectsController {
   // ── Admin-only operations ────────────────────────────────────────────
 
   @Post(':id/regenerate-api-key')
+  @RequirePermission('project_keys', 'write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Regenerate project API key (admin)',
@@ -280,6 +290,7 @@ export class ProjectsController {
   }
 
   @Patch(':id/redirect-uri')
+  @RequirePermission('projects', 'write')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update allowed redirect URI(s)',
@@ -324,6 +335,7 @@ export class ProjectsController {
   // ─── Project-Server Access ─────────────────────────────────────────
 
   @Put(':projectId/servers/:serverId')
+  @RequirePermission('projects', 'write')
   @ApiOperation({
     summary: 'Grant or update project access to a server',
     description:
@@ -377,6 +389,7 @@ export class ProjectsController {
   }
 
   @Delete(':projectId/servers/:serverId')
+  @RequirePermission('projects', 'manage')
   @ApiOperation({ summary: 'Revoke project access to a server' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiParam({
@@ -404,6 +417,7 @@ export class ProjectsController {
   }
 
   @Get(':projectId/servers')
+  @RequirePermission('projects', 'read')
   @ApiOperation({ summary: 'List servers accessible by a project' })
   @ApiParam({ name: 'projectId', description: 'Project UUID' })
   @ApiOkResponse({
@@ -442,6 +456,7 @@ export class ProjectsController {
   }
 
   @Get('servers/:serverId/projects')
+  @RequirePermission('projects', 'read')
   @ApiOperation({ summary: 'List projects that can access a server' })
   @ApiParam({
     name: 'serverId',
@@ -472,6 +487,7 @@ export class ProjectsController {
   }
 
   @Get('access/matrix')
+  @RequirePermission('projects', 'read')
   @ApiOperation({
     summary: 'List full project-server access matrix',
     description:
@@ -529,6 +545,7 @@ export class ProjectsController {
   }
 
   @Get('access/audit')
+  @RequirePermission('projects', 'read')
   @ApiOperation({ summary: 'List access change audit logs' })
   @ApiQuery({
     name: 'limit',

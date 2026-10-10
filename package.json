@@ -15,7 +15,8 @@
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "format": "prettier --write \"**/*.{ts,tsx,mjs,cjs,json,md,yml}\" --ignore-path .gitignore",
-    "clean": "turbo run clean && rm -rf .turbo node_modules"
+    "clean": "turbo run clean && rm -rf .turbo node_modules",
+    "docs:api": "pnpm --filter @mcdi/api run openapi:export && pnpm --filter @mcdi/web run docs:api"
   },
   "devDependencies": {
     "prettier": "^3.8.2",

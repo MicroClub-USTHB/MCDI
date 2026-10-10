@@ -170,7 +170,7 @@ src/
 │   └── types/
 │       └── index.ts                 # Shared TypeScript interfaces
 │
-└── middleware.ts                     # Auth guard (cookie-based redirect)
+└── proxy.ts                          # Auth guard (cookie-based redirect)
 ```
 
 ### Key principles
@@ -532,7 +532,7 @@ await apiClient.delete('/projects/123');
 
 ### Auth flow
 
-1. User visits a protected route → middleware checks `auth-token` cookie
+1. User visits a protected route → proxy checks `auth-token` cookie
 2. No cookie → redirect to `/login?redirect=<original-path>`
 3. Discord OAuth completes → backend returns `AuthTokens` (accessToken, refreshToken, expiresAt)
 4. Tokens stored in Zustand (persisted to `localStorage` key `auth-storage`)

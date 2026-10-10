@@ -1,24 +1,37 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { createHash } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { AdminAuthService } from './admin-auth.service';
 import { SessionRepository } from '../repositories/session.repository';
 import { MemberRepository } from '../repositories/member.repository';
 import { AdminOAuthStateRepository } from '../repositories/admin-oauth-state.repository';
+import { AdminCliCodeRepository } from '../repositories/admin-cli-code.repository';
 import { DiscordIdentityService } from './discord-identity.service';
 import { SessionIssuanceService } from './session-issuance.service';
 import { DiscordService } from '../../discord/discord.service';
 import { AuditService } from '../../audit/audit.service';
+import { AdminAccessService } from '../../admin-access/admin-access.service';
+import { ACCESS_RESOURCES } from '../../../common/permissions/catalog';
 
 describe('AdminAuthService', () => {
   let service: AdminAuthService;
   let sessionRepository: jest.Mocked<SessionRepository>;
   let memberRepository: jest.Mocked<MemberRepository>;
   let adminOAuthStateRepository: jest.Mocked<AdminOAuthStateRepository>;
+  let adminCliCodeRepository: jest.Mocked<AdminCliCodeRepository>;
   let discordIdentityService: jest.Mocked<DiscordIdentityService>;
   let sessionIssuanceService: jest.Mocked<SessionIssuanceService>;
   let discordService: jest.Mocked<DiscordService>;
   let auditService: { logAction: jest.Mock };
+  let adminAccessService: {
+    getEffectiveAccess: jest.Mock;
+    invalidateMember: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mockSessionRepo = {
@@ -33,6 +46,11 @@ describe('AdminAuthService', () => {
       findValidState: jest.fn(),
       consumeValid: jest.fn(),
       markAsUsed: jest.fn(),
+    };
+    const mockAdminCliCodeRepo = {
+      create: jest.fn(),
+      consumeValid: jest.fn(),
+      deleteExpired: jest.fn(),
     };
     const mockConfig = {
       get: jest.fn((key: string) => {
@@ -56,6 +74,10 @@ describe('AdminAuthService', () => {
       fetchGuildRolesForMember: jest.fn(),
     };
     auditService = { logAction: jest.fn() };
+    adminAccessService = {
+      getEffectiveAccess: jest.fn(),
+      invalidateMember: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -63,11 +85,13 @@ describe('AdminAuthService', () => {
         { provide: SessionRepository, useValue: mockSessionRepo },
         { provide: MemberRepository, useValue: mockMemberRepo },
         { provide: AdminOAuthStateRepository, useValue: mockAdminOAuthRepo },
+        { provide: AdminCliCodeRepository, useValue: mockAdminCliCodeRepo },
         { provide: ConfigService, useValue: mockConfig },
         { provide: DiscordIdentityService, useValue: mockDiscordIdentity },
         { provide: SessionIssuanceService, useValue: mockSessionIssuance },
         { provide: DiscordService, useValue: mockDiscordService },
         { provide: AuditService, useValue: auditService },
+        { provide: AdminAccessService, useValue: adminAccessService },
       ],
     }).compile();
 
@@ -75,6 +99,7 @@ describe('AdminAuthService', () => {
     sessionRepository = module.get(SessionRepository);
     memberRepository = module.get(MemberRepository);
     adminOAuthStateRepository = module.get(AdminOAuthStateRepository);
+    adminCliCodeRepository = module.get(AdminCliCodeRepository);
     discordIdentityService = module.get(DiscordIdentityService);
     sessionIssuanceService = module.get(SessionIssuanceService);
     discordService = module.get(DiscordService);
@@ -94,7 +119,7 @@ describe('AdminAuthService', () => {
       await expect(service.getMe('t')).rejects.toThrow(UnauthorizedException);
     });
 
-    it('returns member on success', async () => {
+    it('returns the member with root and the effective level per resource', async () => {
       sessionRepository.findValidByToken.mockResolvedValue({
         memberId: '1',
         expiresAt: new Date(),
@@ -103,10 +128,25 @@ describe('AdminAuthService', () => {
         id: '1',
         username: 'a',
       } as any);
+      adminAccessService.getEffectiveAccess.mockResolvedValue({
+        root: false,
+        access: Object.fromEntries(
+          ACCESS_RESOURCES.map((r) => [
+            r,
+            r === 'members'
+              ? { level: 'read', source: { type: 'role', roleId: 'r' } }
+              : { level: 'none', source: { type: 'none' } },
+          ]),
+        ),
+      });
 
       const res = await service.getMe('t');
 
       expect(res.id).toBe('1');
+      expect(res.root).toBe(false);
+      expect(res.permissions.members).toBe('read');
+      expect(res.permissions.messages).toBe('none');
+      expect(Object.keys(res.permissions)).toEqual([...ACCESS_RESOURCES]);
     });
   });
 
@@ -210,17 +250,6 @@ describe('AdminAuthService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws Forbidden if the member lacks the Executive role', async () => {
-      discordService.fetchOAuthGuildMember.mockResolvedValue({
-        ok: true,
-        roleIds: ['role-lead'],
-      } as any);
-
-      await expect(
-        service.handleAdminDiscordCallback('code', 'valid'),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
     it('records a failed login with the reason, and with the Discord id once the profile resolved', async () => {
       adminOAuthStateRepository.consumeValid.mockResolvedValueOnce(null);
       await expect(
@@ -245,8 +274,8 @@ describe('AdminAuthService', () => {
       );
 
       discordService.fetchOAuthGuildMember.mockResolvedValue({
-        ok: true,
-        roleIds: ['role-lead'],
+        ok: false,
+        status: 404,
       } as any);
       await expect(
         service.handleAdminDiscordCallback('code', 'valid'),
@@ -258,7 +287,7 @@ describe('AdminAuthService', () => {
           action: 'login_failed',
           details: {
             reason:
-              'Only members with a configured admin role can access the admin panel',
+              'You must be a member of the main MCDI Discord server to access the admin panel',
             attemptedActor: 'discord123',
           },
         }),
@@ -300,6 +329,273 @@ describe('AdminAuthService', () => {
         ttlSeconds: 24 * 60 * 60,
         clientUserAgent: null,
         clientIpAddress: null,
+      });
+    });
+
+    it('lets a main-server member with no admin role sign in, and clears their cached access', async () => {
+      discordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        roleIds: ['role-hr'],
+      } as any);
+
+      const res = await service.handleAdminDiscordCallback('code', 'valid');
+
+      expect(res.token).toBe('issued-token');
+      expect(adminAccessService.invalidateMember).toHaveBeenCalledWith(
+        'discord123',
+      );
+    });
+  });
+
+  // ─── CLI login (m-forge): loopback redirect + PKCE ─────────────────────
+
+  describe('admin CLI login', () => {
+    // RFC 7636 Appendix B test vector.
+    const VERIFIER = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+    const CHALLENGE = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
+    const LOOPBACK = 'http://127.0.0.1:53123/callback';
+    const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
+
+    beforeEach(() => {
+      adminOAuthStateRepository.consumeValid.mockResolvedValue({
+        state: 'cli-state',
+        redirectUri: LOOPBACK,
+        codeChallenge: CHALLENGE,
+      } as any);
+      discordIdentityService.exchangeCodeForAccessToken.mockResolvedValue(
+        'acc_tok',
+      );
+      discordIdentityService.resolveIdentityFromAccessToken.mockResolvedValue({
+        profile: { id: 'discord123', username: 'admin' },
+        member: { id: 'discord123', username: 'admin', isSystemAdmin: true },
+      } as any);
+      discordService.fetchOAuthGuildMember.mockResolvedValue({
+        ok: true,
+        roleIds: ['role-exec'],
+      } as any);
+      discordService.fetchGuildRolesForMember.mockResolvedValue([] as any);
+      sessionIssuanceService.issueSession.mockResolvedValue({
+        token: 'cli-session-token',
+        expiresAt: new Date('2026-10-06T00:00:00.000Z'),
+      } as any);
+    });
+
+    describe('buildAdminDiscordLoginUrl', () => {
+      it('stores the loopback redirect and PKCE challenge with the state', async () => {
+        const res = await service.buildAdminDiscordLoginUrl({
+          redirectUri: LOOPBACK,
+          codeChallenge: CHALLENGE,
+          codeChallengeMethod: 'S256',
+        });
+
+        expect(res.url).toContain('discord.com');
+        expect(adminOAuthStateRepository.create).toHaveBeenCalledWith({
+          state: expect.any(String),
+          expiresAt: expect.any(Date),
+          redirectUri: LOOPBACK,
+          codeChallenge: CHALLENGE,
+        });
+      });
+
+      it('keeps the web panel login unchanged without CLI parameters', async () => {
+        await service.buildAdminDiscordLoginUrl({});
+        const stored = adminOAuthStateRepository.create.mock.calls[0][0];
+        expect(stored).not.toHaveProperty('redirectUri');
+        expect(stored).not.toHaveProperty('codeChallenge');
+      });
+
+      it.each([
+        [
+          'a non-loopback redirect',
+          {
+            redirectUri: 'https://evil.example/cb',
+            codeChallenge: CHALLENGE,
+            codeChallengeMethod: 'S256',
+          },
+          /redirect_uri/,
+        ],
+        [
+          'a redirect without a port',
+          {
+            redirectUri: 'http://127.0.0.1/cb',
+            codeChallenge: CHALLENGE,
+            codeChallengeMethod: 'S256',
+          },
+          /redirect_uri/,
+        ],
+        [
+          'a missing challenge',
+          { redirectUri: LOOPBACK, codeChallengeMethod: 'S256' },
+          /code_challenge must be/,
+        ],
+        [
+          'a malformed challenge',
+          {
+            redirectUri: LOOPBACK,
+            codeChallenge: 'short',
+            codeChallengeMethod: 'S256',
+          },
+          /code_challenge must be/,
+        ],
+        [
+          'the plain method',
+          {
+            redirectUri: LOOPBACK,
+            codeChallenge: CHALLENGE,
+            codeChallengeMethod: 'plain',
+          },
+          /S256/,
+        ],
+        [
+          'a challenge without a redirect',
+          { codeChallenge: CHALLENGE, codeChallengeMethod: 'S256' },
+          /redirect_uri/,
+        ],
+      ])('refuses %s with 400 and stores nothing', async (_n, cli, msg) => {
+        await expect(service.buildAdminDiscordLoginUrl(cli)).rejects.toThrow(
+          BadRequestException,
+        );
+        await expect(service.buildAdminDiscordLoginUrl(cli)).rejects.toThrow(
+          msg,
+        );
+        expect(adminOAuthStateRepository.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('findCliRedirect', () => {
+      it('returns the loopback URL for a CLI state, null otherwise', async () => {
+        adminOAuthStateRepository.findValidState.mockResolvedValueOnce({
+          redirectUri: LOOPBACK,
+        } as any);
+        await expect(service.findCliRedirect('s')).resolves.toBe(LOOPBACK);
+
+        adminOAuthStateRepository.findValidState.mockResolvedValueOnce({
+          redirectUri: null,
+        } as any);
+        await expect(service.findCliRedirect('s')).resolves.toBeNull();
+
+        adminOAuthStateRepository.findValidState.mockResolvedValueOnce(null);
+        await expect(service.findCliRedirect('s')).resolves.toBeNull();
+      });
+    });
+
+    describe('handleAdminCliCallback', () => {
+      it('hands a one-time code back to the CLI, storing only its hash, without issuing a session', async () => {
+        const target = new URL(
+          await service.handleAdminCliCallback('discord-code', 'cli-state'),
+        );
+
+        expect(target.origin + target.pathname).toBe(LOOPBACK);
+        expect(target.searchParams.get('state')).toBe('cli-state');
+        const code = target.searchParams.get('code')!;
+        expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+        expect(adminCliCodeRepository.create).toHaveBeenCalledWith({
+          codeHash: sha256(code),
+          memberId: 'discord123',
+          codeChallenge: CHALLENGE,
+          expiresAt: expect.any(Date),
+        });
+        const { expiresAt } = adminCliCodeRepository.create.mock.calls[0][0];
+        expect(expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(120_000);
+        expect(sessionIssuanceService.issueSession).not.toHaveBeenCalled();
+      });
+
+      it('hands a refusal back to the CLI as ?error=&state=, audited, with no code', async () => {
+        discordService.fetchOAuthGuildMember.mockResolvedValue({
+          ok: false,
+          status: 404,
+        } as any);
+
+        const target = new URL(
+          await service.handleAdminCliCallback('discord-code', 'cli-state'),
+        );
+
+        expect(target.origin + target.pathname).toBe(LOOPBACK);
+        expect(target.searchParams.get('error')).toBe(
+          'You must be a member of the main MCDI Discord server to access the admin panel',
+        );
+        expect(target.searchParams.get('state')).toBe('cli-state');
+        expect(target.searchParams.has('code')).toBe(false);
+        expect(adminCliCodeRepository.create).not.toHaveBeenCalled();
+        expect(auditService.logAction).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'login_failed' }),
+        );
+      });
+
+      it('throws (no trusted URL) for an unknown state or a state without CLI data', async () => {
+        adminOAuthStateRepository.consumeValid.mockResolvedValueOnce(null);
+        await expect(
+          service.handleAdminCliCallback('c', 'missing'),
+        ).rejects.toThrow(UnauthorizedException);
+
+        adminOAuthStateRepository.consumeValid.mockResolvedValueOnce({
+          state: 'web',
+          redirectUri: null,
+          codeChallenge: null,
+        } as any);
+        await expect(
+          service.handleAdminCliCallback('c', 'web'),
+        ).rejects.toThrow(UnauthorizedException);
+        expect(adminCliCodeRepository.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('exchangeAdminCliCode', () => {
+      const validRow = {
+        memberId: 'discord123',
+        codeChallenge: CHALLENGE,
+      };
+
+      it('issues a 24h admin session for a valid code and matching verifier, audited as a CLI login', async () => {
+        adminCliCodeRepository.consumeValid.mockResolvedValue(validRow as any);
+
+        const res = await service.exchangeAdminCliCode('raw-code', VERIFIER, {
+          ipAddress: '203.0.113.7',
+          userAgent: 'm-forge',
+        });
+
+        expect(adminCliCodeRepository.consumeValid).toHaveBeenCalledWith(
+          sha256('raw-code'),
+        );
+        expect(res).toEqual({
+          token: 'cli-session-token',
+          expiresAt: new Date('2026-10-06T00:00:00.000Z'),
+        });
+        expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
+          memberId: 'discord123',
+          ttlSeconds: 24 * 60 * 60,
+          clientUserAgent: 'm-forge',
+          clientIpAddress: '203.0.113.7',
+        });
+        expect(auditService.logAction).toHaveBeenCalledWith(
+          expect.objectContaining({
+            actorId: 'discord123',
+            action: 'login',
+            details: { via: 'cli' },
+          }),
+        );
+      });
+
+      it('refuses a wrong verifier with the same 401 as an unknown code, and issues nothing', async () => {
+        adminCliCodeRepository.consumeValid.mockResolvedValueOnce(
+          validRow as any,
+        );
+        const wrong = service.exchangeAdminCliCode(
+          'raw-code',
+          `${VERIFIER.slice(0, -1)}A`,
+        );
+        await expect(wrong).rejects.toThrow(UnauthorizedException);
+        await expect(wrong).rejects.toThrow('Invalid or expired login code');
+
+        adminCliCodeRepository.consumeValid.mockResolvedValueOnce(null);
+        const unknown = service.exchangeAdminCliCode('nope', VERIFIER);
+        await expect(unknown).rejects.toThrow('Invalid or expired login code');
+
+        expect(sessionIssuanceService.issueSession).not.toHaveBeenCalled();
+        expect(auditService.logAction).toHaveBeenCalledWith(
+          expect.objectContaining({ action: 'login_failed' }),
+        );
       });
     });
   });

@@ -33,6 +33,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { SkipGlobalThrottle } from '../../common/guards/app-throttler.guard';
 import { Request } from 'express';
 import { WebhooksService } from './webhooks.service';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -221,6 +222,7 @@ export class WebhooksController {
   }
 
   @Post('webhooks/:webhookId/execute')
+  @SkipGlobalThrottle()
   @UseGuards(ProjectThrottlerGuard)
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @HttpCode(HttpStatus.NO_CONTENT)

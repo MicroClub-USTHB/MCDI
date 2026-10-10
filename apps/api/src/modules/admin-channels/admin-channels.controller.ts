@@ -21,9 +21,10 @@ import {
   ApiNotFoundResponse,
   ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { ChannelsService } from '../channels/channels.service';
-import { SystemAdminGuard } from '../../common/guards/system-admin.guard';
+import { AdminAccessGuard } from '../../common/guards/admin-access.guard';
+import { RequirePermission } from '../../common/decorators/admin-access.decorator';
 import { ListChannelsQueryDto } from '../channels/dto/list-channels-query.dto';
 import { ListMessagesQueryDto } from '../channels/dto/list-messages-query.dto';
 import {
@@ -37,16 +38,17 @@ import { ChannelsExceptionFilter } from '../channels/filters/channels-exception.
  * Admin-session, read-only mirror of the project channel GET routes.
  *
  * Same `ChannelsService` read logic as `ChannelsController`, but authenticated
- * with the `admin_session` cookie / bearer token via `SystemAdminGuard`. A
+ * with the `admin_session` cookie / bearer token via `AdminAccessGuard`. A
  * System Admin is not a project and sees every server, so `ChannelAccessGuard`
  * (per-project channel grant) and `ProjectThrottlerGuard` (per-project rate
  * limit) do not apply — the Discord-proxying `messages` route keeps a plain
- * IP-keyed `@Throttle` instead.
+ * IP-keyed `@Throttle` override of the global limit instead.
  */
 @ApiTags('Channels')
 @ApiBearerAuth('session-token')
 @Controller('admin/servers/:serverId/channels')
-@UseGuards(SystemAdminGuard)
+@UseGuards(AdminAccessGuard)
+@RequirePermission('channels', 'read')
 @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 @UseFilters(ChannelsExceptionFilter)
 export class AdminChannelsController {
@@ -126,7 +128,7 @@ export class AdminChannelsController {
   }
 
   @Get(':channelId/messages')
-  @UseGuards(ThrottlerGuard)
+  @RequirePermission('messages', 'read')
   @Throttle({ default: { ttl: 60_000, limit: 30 } })
   @ApiOperation({
     summary: 'Get recent messages from a channel (admin session)',

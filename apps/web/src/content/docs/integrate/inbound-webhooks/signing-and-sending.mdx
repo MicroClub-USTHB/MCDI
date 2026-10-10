@@ -1,0 +1,232 @@
+Each request to an inbound webhook carries your API key and, unless an admin switched it off, a signature. The signature proves the body is exactly what your backend produced and was not replayed. This page shows how to compute it, with runnable examples, and what MCDI answers when something is wrong.
+
+## What you send
+
+```http
+POST /api/inbound-webhooks/{id}/submit
+X-API-Key: pk_xxxxxxxx.your-secret
+X-MCDI-Signature: t=1791234567,v1=9f2c...e1
+Content-Type: application/json
+
+{ ...your JSON... }
+```
+
+| Part               | What it is                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `{id}`             | The webhook's ID, a UUID.                                                           |
+| `X-API-Key`        | Your project's API key. See [API keys and server access](/docs/integrate/api-keys). |
+| `X-MCDI-Signature` | `t=<unix seconds>,v1=<hex signature>`.                                              |
+| Body               | JSON that matches the webhook's [schema](/docs/integrate/inbound-webhooks/schemas). |
+
+The key identifies the project, and the webhook must belong to it. The signature adds proof about this particular request. You need both. A webhook that an admin set to not require a signature needs only the key.
+
+## How the signature is computed
+
+1. Take the current time as whole seconds since 1970. Call it `t`.
+2. Build the string `"<t>.<body>"`: the number, a dot, then the exact bytes of the JSON body you will send.
+3. Compute HMAC-SHA256 of that string, with the webhook's signing secret as the key, and write it as lowercase hex. That is `v1`.
+4. Send `X-MCDI-Signature: t=<t>,v1=<v1>`.
+
+The signing secret is the whole string the admin panel showed, `whsec_` followed by 64 hex characters, prefix included. It is different from your API key.
+
+<Callout type="warning">
+  Sign the exact string you send. MCDI checks the signature against the raw request body, so spaces
+  and key order count. If you build the signature from one serialisation and send another, for
+  example signing compact JSON and then sending it pretty-printed, every request fails with
+  `SIGNATURE_MISMATCH`. Serialise once, then use that same string for both the signature and the
+  body.
+</Callout>
+
+## Examples
+
+Set these environment variables first, then run the script. The signing secret and webhook ID come from an admin.
+
+```bash
+export MCDI_URL=http://localhost:3000/api
+export MCDI_API_KEY=pk_xxxxxxxx.your-secret-here
+export WEBHOOK_ID=00000000-0000-4000-8000-000000000000
+export SIGNING_SECRET=whsec_your-signing-secret
+```
+
+<Tabs defaultValue="node">
+  <TabsList>
+    <TabsTrigger value="node">Node</TabsTrigger>
+    <TabsTrigger value="python">Python</TabsTrigger>
+    <TabsTrigger value="curl">curl</TabsTrigger>
+  </TabsList>
+  <TabsContent value="node">
+
+Save as `send.mjs` and run `node send.mjs`. It needs Node 18 or later and no packages.
+
+```js
+import { createHmac } from 'node:crypto';
+
+const { MCDI_URL, MCDI_API_KEY, WEBHOOK_ID, SIGNING_SECRET } = process.env;
+
+const body = JSON.stringify({
+  identity: { firstname: 'Amina', email: 'amina@usthb.dz', status: 'student' },
+  background: { university: 'USTHB' },
+});
+
+const t = Math.floor(Date.now() / 1000);
+const v1 = createHmac('sha256', SIGNING_SECRET).update(`${t}.${body}`).digest('hex');
+
+const res = await fetch(`${MCDI_URL}/inbound-webhooks/${WEBHOOK_ID}/submit`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': MCDI_API_KEY,
+    'X-MCDI-Signature': `t=${t},v1=${v1}`,
+  },
+  body,
+});
+
+console.log(res.status, await res.json());
+```
+
+  </TabsContent>
+  <TabsContent value="python">
+
+Save as `send.py` and run `python3 send.py`. It needs the `requests` package. `separators` keeps the body compact, and `data=body` sends exactly the string that was signed.
+
+```python
+import hashlib
+import hmac
+import json
+import os
+import time
+
+import requests
+
+url = os.environ["MCDI_URL"]
+webhook_id = os.environ["WEBHOOK_ID"]
+
+body = json.dumps(
+    {
+        "identity": {"firstname": "Amina", "email": "amina@usthb.dz", "status": "student"},
+        "background": {"university": "USTHB"},
+    },
+    separators=(",", ":"),
+)
+
+t = int(time.time())
+v1 = hmac.new(
+    os.environ["SIGNING_SECRET"].encode(), f"{t}.{body}".encode(), hashlib.sha256
+).hexdigest()
+
+res = requests.post(
+    f"{url}/inbound-webhooks/{webhook_id}/submit",
+    data=body,
+    headers={
+        "Content-Type": "application/json",
+        "X-API-Key": os.environ["MCDI_API_KEY"],
+        "X-MCDI-Signature": f"t={t},v1={v1}",
+    },
+)
+print(res.status_code, res.json())
+```
+
+  </TabsContent>
+  <TabsContent value="curl">
+
+With `openssl`, for trying a webhook by hand:
+
+```bash
+BODY='{"identity":{"firstname":"Amina","email":"amina@usthb.dz","status":"student"},"background":{"university":"USTHB"}}'
+T=$(date +%s)
+SIG=$(printf '%s' "$T.$BODY" | openssl dgst -sha256 -hmac "$SIGNING_SECRET" | sed 's/^.* //')
+
+curl -s -X POST "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submit" \
+  -H "X-API-Key: $MCDI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-MCDI-Signature: t=$T,v1=$SIG" \
+  -d "$BODY"
+```
+
+  </TabsContent>
+</Tabs>
+
+All three print the same kind of result, a 201 with the submission's ID and the time MCDI received it:
+
+```json
+{ "id": "c8cf02b1-4831-4791-9d4c-7f21857c272d", "receivedAt": "2026-10-05T18:18:21.024Z" }
+```
+
+Keep the signing secret on your server, like the API key. Rotate it when an admin or a developer who knew it leaves, or when it may have leaked. After a rotation, requests signed with the old secret fail at once.
+
+## What MCDI checks, in order
+
+A request passes these checks one after another and stops at the first that fails:
+
+| Order | Check                                                       | Failure                                        |
+| ----- | ----------------------------------------------------------- | ---------------------------------------------- |
+| 1     | The API key is valid                                        | 401 `API key is required` or `Invalid API key` |
+| 2     | The webhook exists and belongs to your project              | 404 `Inbound webhook not found`                |
+| 3     | The webhook is active                                       | 410 `This webhook is no longer active`         |
+| 4     | The origin is allowed, when the webhook limits origins      | 403                                            |
+| 5     | The signature is valid and has not been used, when required | 401 or 409                                     |
+| 6     | The rate limit holds                                        | 429                                            |
+| 7     | The payload matches the schema                              | 422                                            |
+
+Every failure of the signature has the same shape, with a `reason` that says which:
+
+```json
+{ "statusCode": 401, "error": "InvalidSignature", "reason": "SIGNATURE_MISMATCH" }
+```
+
+| `reason`             | Meaning                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `MALFORMED_HEADER`   | The header is missing, or is not `t=<digits>,v1=<hex>`.                                 |
+| `STALE_TIMESTAMP`    | `t` is more than 5 minutes away from MCDI's clock, in either direction.                 |
+| `SIGNATURE_MISMATCH` | The signature does not match the body: wrong secret, or the body changed after signing. |
+
+## Replay protection
+
+A signature can be used once. The second request with the same signature gets a 409:
+
+```json
+{ "message": "This request has already been processed", "error": "Conflict", "statusCode": 409 }
+```
+
+MCDI remembers each accepted signature for twice the 5 minute tolerance, which covers a timestamp that is slightly in the future. So an attacker who copies a request from the wire cannot send it again.
+
+Two things follow:
+
+- Two requests with the same body signed in the same second have the same signature, so the second is refused as a replay. If your system can legitimately send the same payload twice in a second, add something that differs, such as an ID or a timestamp, to the payload.
+- A request refused with a 422 does not use up its signature. Nothing was stored, so you can fix the problem and send again. A new signature is still the cleanest way.
+
+Replay protection and the rate limit rely on Redis. If Redis is unreachable, MCDI keeps accepting valid requests instead of refusing all of them, so replay checks and the rate limit pause until it is back.
+
+The tolerance is 300 seconds by default. An operator can change it with the `INBOUND_WEBHOOK_SIGNATURE_TOLERANCE_S` setting of the API. Keep your server's clock in sync, because a clock that drifts by more than the tolerance makes every request fail with `STALE_TIMESTAMP`.
+
+## Origin allowlist
+
+An admin can restrict a webhook to specific origins, for example `https://forms.example.com`. MCDI then compares the request's `Origin` header with the list, exactly. A request with another origin, or none, gets a 403:
+
+```json
+{
+  "message": "Origin \"https://evil.example\" is not permitted for this webhook",
+  "error": "Forbidden",
+  "statusCode": 403
+}
+```
+
+Browsers set `Origin` themselves, so this limits which sites can post from a browser. It is not a defence against other clients, because any program can send any `Origin`. Do not rely on it for security, and do not put the API key or signing secret in a page. A webhook that is called from your backend usually has no origins listed. If one does, your backend must send the `Origin` header explicitly.
+
+## Rate limit
+
+Each webhook accepts up to 120 submissions a minute, and the project as a whole up to 120 a minute across all its webhooks. Beyond that MCDI answers 429 until the minute ends:
+
+```json
+{
+  "statusCode": 429,
+  "error": "RateLimited",
+  "message": "Rate limit of 120 requests per minute exceeded"
+}
+```
+
+An operator can change the number with `INBOUND_WEBHOOK_RATE_LIMIT`. Retry later, or batch your data into fewer, larger submissions.
+
+For every error code, see [Errors and limits](/docs/integrate/inbound-webhooks/errors-and-limits).
+
+Source: `apps/api/src/common/utils/inbound-webhook-signature.util.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhook-ingest.controller.ts`, `apps/api/src/common/guards/api-key.guard.ts`.
