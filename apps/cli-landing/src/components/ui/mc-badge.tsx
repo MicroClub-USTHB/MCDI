@@ -71,6 +71,8 @@ function McBadge({
   const groupChildSize = groupSize === 'md' ? 'groupMd' : 'groupLg';
 
   const imageEl = image ? (
+    // `image` is any caller-supplied URL (and unused on this site); next/image would need each host allowlisted.
+    // eslint-disable-next-line @next/next/no-img-element
     <img src={image} alt={imageAlt} className="size-4 shrink-0 rounded-full object-cover" />
   ) : null;
 

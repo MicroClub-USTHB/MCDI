@@ -71,7 +71,7 @@ Two local changes to the copied components are worth knowing about before re-add
 (re-adding overwrites the file):
 
 - `mc-tabs.tsx` adds `McTabsPanel`, which the registry doesn't ship yet (mcoli-ui issue #124).
-- `mc-badge.tsx` has two comments translated to English.
+- `mc-badge.tsx` has two comments translated to English, and a lint exception on its `<img>`.
 
 ## Content rules
 
