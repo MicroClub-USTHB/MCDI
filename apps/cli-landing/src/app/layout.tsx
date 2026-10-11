@@ -16,9 +16,21 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
 const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-plus-jakarta-sans' });
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
+// Share previews need absolute URLs; set SITE_URL to the deployed address. An empty value counts as
+// unset, but a malformed one fails the build with a readable message instead of a bare "Invalid URL".
+function siteUrl(): URL {
+  const value = process.env.SITE_URL?.trim() || 'http://localhost:3000';
+  try {
+    return new URL(value);
+  } catch {
+    throw new Error(
+      'SITE_URL is not a valid URL. On Vercel it must be a Config variable: Secret values are not passed to the build.',
+    );
+  }
+}
+
 export const metadata: Metadata = {
-  // Share previews need absolute URLs; set SITE_URL to the deployed address.
-  metadataBase: new URL(process.env.SITE_URL ?? 'http://localhost:3000'),
+  metadataBase: siteUrl(),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
   openGraph: {
