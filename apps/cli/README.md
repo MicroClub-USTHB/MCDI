@@ -8,7 +8,8 @@ Full requirements: [`docs/m-forge-CLI-PRD.md`](docs/m-forge-CLI-PRD.md).
 Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Writing a
 backend schema: [`docs/form-schema.md`](docs/form-schema.md). Custom validation
 rules: [`docs/custom-rules.md`](docs/custom-rules.md). Working
-conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
+conventions for contributors: [`CLAUDE.md`](CLAUDE.md). Landing page:
+<https://m-forge-cli.vercel.app> (source in [`landing-page/`](landing-page/)).
 
 ## Status
 
