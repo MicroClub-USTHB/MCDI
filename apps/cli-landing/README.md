@@ -28,9 +28,17 @@ pnpm lint
 
 ## Deploy
 
-Set `SITE_URL` to the public address of the site (for example `https://m-forge.microclub.info`).
-Share previews (the Open Graph image from `src/app/opengraph-image.tsx`) need absolute URLs; without
-it they point at `http://localhost:3000`.
+Live at <https://m-forge-cli.vercel.app>. Every push to `main` that touches `landing-page/`
+deploys it to Vercel through `.github/workflows/deploy-landing.yml`; CLI-only pushes don't. To
+redeploy by hand, run that workflow from the repo's Actions tab.
+
+The workflow builds with the Vercel CLI rather than Vercel's GitHub app, and needs three repo
+secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
+
+Set `SITE_URL` on the Vercel project (Production, type **Config**, not Secret: secrets aren't
+passed to the build) to the public address of the site. Share previews (the Open Graph image
+from `src/app/opengraph-image.tsx`) need absolute URLs; without it they point at
+`http://localhost:3000`.
 
 ## Layout
 
