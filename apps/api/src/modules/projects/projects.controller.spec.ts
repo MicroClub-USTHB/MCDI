@@ -53,8 +53,9 @@ describe('ProjectsController', () => {
       project: { id: 'p1' },
     });
     const dto = { name: 'Test Project' } as any;
-    const result = await controller.create(dto);
-    expect(mockProjectsService.create).toHaveBeenCalledWith(dto);
+    const req = { user: { id: 'admin-1' } } as any;
+    const result = await controller.create(dto, req);
+    expect(mockProjectsService.create).toHaveBeenCalledWith(dto, 'admin-1');
     expect(result).toMatchObject({ project: { id: 'p1' } });
   });
 

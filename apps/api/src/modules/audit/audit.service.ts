@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Pool } from 'pg';
 import { DATABASE_POOL } from '../../database/database.module';
+import { ModuleRef } from '@nestjs/core';
 import { RedisService } from '../../common/redis/redis.service';
 import { DiscordService } from '../discord/discord.service';
 import { ProjectsService } from '../projects/projects.service';
@@ -48,9 +49,13 @@ export class AuditService {
     private readonly auditRepository: AuditRepository,
     private readonly redisService: RedisService,
     private readonly discordService: DiscordService,
-    private readonly projectsService: ProjectsService,
+    private readonly moduleRef: ModuleRef,
     @Inject(DATABASE_POOL) private readonly pool: Pool,
   ) {}
+
+  private get projectsService(): ProjectsService {
+    return this.moduleRef.get(ProjectsService, { strict: false });
+  }
 
   // ── Audit Logs ────────────────────────────────────────────────────────
 

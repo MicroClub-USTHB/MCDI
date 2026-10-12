@@ -9,10 +9,12 @@ import { ProjectsService } from './projects.service';
 import { ProjectsRepository } from './projects.repository';
 import { ProjectAuthCacheService } from './project-auth-cache.service';
 import { ProjectAccessCacheService } from './project-access-cache.service';
+import { InboundWebhooksService } from '../inbound-webhooks/inbound-webhooks.service';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────
 
 const mockRepo = {
+  runInTransaction: jest.fn().mockImplementation((cb) => cb('fake-tx')),
   create: jest.fn(),
   findAll: jest.fn(),
   findOne: jest.fn(),
@@ -67,6 +69,10 @@ describe('ProjectsService', () => {
     invalidateProject: jest.fn(),
     invalidateServer: jest.fn(),
   };
+  const mockInboundWebhooksService = {
+    prepare: jest.fn(),
+    persist: jest.fn(),
+  };
 
   beforeEach(async () => {
     mockProjectAuthCache.invalidateProject.mockResolvedValue(undefined);
@@ -84,6 +90,10 @@ describe('ProjectsService', () => {
         {
           provide: ProjectAccessCacheService,
           useValue: mockProjectAccessCache,
+        },
+        {
+          provide: InboundWebhooksService,
+          useValue: mockInboundWebhooksService,
         },
       ],
     }).compile();
@@ -123,6 +133,58 @@ describe('ProjectsService', () => {
       expect(arg).toHaveProperty('apiKeyHash');
       expect(arg).toHaveProperty('apiKeyPrefix');
       expect(arg).not.toHaveProperty('fullKey');
+    });
+
+    it('creates project and inbound webhook in a transaction', async () => {
+      const project = fakeProject();
+      mockRepo.findMainServers.mockResolvedValue([{ id: 'guild-1' }]);
+      mockRepo.findServerById.mockResolvedValue({ id: 'guild-1' });
+      mockRepo.create.mockResolvedValue(project);
+
+      mockInboundWebhooksService.prepare.mockResolvedValue({
+        name: 'Recruitment',
+        slug: 'recruitment',
+        signingSecret: 'sec',
+      });
+      mockInboundWebhooksService.persist.mockResolvedValue({
+        signingSecret: 'sec',
+      });
+
+      const result = await service.create({
+        name: 'Test Project',
+        inboundWebhook: {
+          name: 'Recruitment',
+          schema: {},
+        },
+      });
+
+      expect(mockRepo.runInTransaction).toHaveBeenCalled();
+      expect(mockInboundWebhooksService.prepare).toHaveBeenCalled();
+      expect(mockInboundWebhooksService.persist).toHaveBeenCalledWith(
+        project.id,
+        expect.any(Object),
+        'fake-tx',
+      );
+      expect(result.inboundWebhook?.signingSecret).toBe('sec');
+    });
+
+    it('aborts transaction if webhook persist fails', async () => {
+      const project = fakeProject();
+      mockRepo.findMainServers.mockResolvedValue([{ id: 'guild-1' }]);
+      mockRepo.findServerById.mockResolvedValue({ id: 'guild-1' });
+      mockRepo.create.mockResolvedValue(project);
+
+      mockInboundWebhooksService.prepare.mockResolvedValue({});
+      mockInboundWebhooksService.persist.mockRejectedValue(
+        new Error('DB Error'),
+      );
+
+      await expect(
+        service.create({
+          name: 'Test Project',
+          inboundWebhook: { name: 'Recruitment', schema: {} },
+        }),
+      ).rejects.toThrow('DB Error');
     });
 
     it('throws ConflictException when no main server exists and serverAccess is omitted', async () => {

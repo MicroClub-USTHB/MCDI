@@ -422,11 +422,22 @@ Creates or updates the access mapping between a project and a server. You can se
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `description` | `string` | no |  |
+| `inboundWebhook` | `ProjectInboundWebhookDto` | no | Optional inbound webhook to provision along with the project. |
 | `isActive` | `boolean` | no | Whether the project is active. Defaults to true. |
 | `isInternal` | `boolean` | no | Whether this is an internal MicroClub platform project. Internal projects use the main server automatically. Defaults to false. |
 | `name` | `string` | yes |  |
 | `serverAccess` | `array of ProjectServerAccessDto` | no | Server access configurations. If omitted, the project is automatically granted all available scopes to all servers where is_main = true. |
 | `webhookUrl` | `string (uri)` | no | Optional Discord webhook URL for this project. |
+
+### ProjectInboundWebhookDto schema
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `acceptedOrigins` | `array of string` | no | Origins permitted to call this webhook. Empty = no check. |
+| `allowedRoleIds` | `array of string` | no | Discord role IDs permitted to READ submissions. |
+| `name` | `string` | yes |  |
+| `schema` | `object` | yes | The shape of what callers send. |
+| `slug` | `string` | no | URL-safe identifier, unique within the project. Auto-generated if omitted. |
 
 ### ProjectServerAccessDto schema
 

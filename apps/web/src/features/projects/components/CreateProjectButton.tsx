@@ -4,7 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 
-import { ApiKeyRevealPanel } from '@/features/projects/components/ApiKeyRevealModal';
+import {
+  ApiKeyRevealPanel,
+  type InboundWebhookRevealInfo,
+} from '@/features/projects/components/ApiKeyRevealModal';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { RedirectUriStep } from '@/features/projects/components/RedirectUriStep';
 import { toCreateProjectDto } from '@/features/projects/api/mappers';
@@ -46,6 +49,7 @@ function CreateProjectDialog({
   const [step, setStep] = useState<WizardStep>('form');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [createdWebhook, setCreatedWebhook] = useState<InboundWebhookRevealInfo | null>(null);
 
   // Radix unmounts the dialog's *content* on close, but this component stays
   // mounted, so reset the flow from a render-phase prop diff (no effect) to
@@ -57,6 +61,7 @@ function CreateProjectDialog({
       setStep('form');
       setProjectId(null);
       setApiKey(null);
+      setCreatedWebhook(null);
     }
   }
 
@@ -65,6 +70,15 @@ function CreateProjectDialog({
       onSuccess: (response) => {
         setApiKey(response.data.apiKey);
         setProjectId(response.data.project.id);
+        if (response.data.inboundWebhook) {
+          setCreatedWebhook({
+            signingSecret: response.data.inboundWebhook.signingSecret,
+            submitUrl: response.data.inboundWebhook.submitUrl,
+            webhookName: response.data.inboundWebhook.webhook.name,
+          });
+        } else {
+          setCreatedWebhook(null);
+        }
         setStep('key');
       },
     });
@@ -88,7 +102,7 @@ function CreateProjectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           {step === 'form' && (
             <>
@@ -100,7 +114,9 @@ function CreateProjectDialog({
           )}
           {step === 'key' && (
             <>
-              <DialogTitle>API key created</DialogTitle>
+              <DialogTitle>
+                {createdWebhook ? 'Credentials generated' : 'API key created'}
+              </DialogTitle>
               <DialogDescription>You&apos;ll set the redirect URI next.</DialogDescription>
             </>
           )}
@@ -128,6 +144,7 @@ function CreateProjectDialog({
           <ApiKeyRevealPanel
             apiKey={apiKey}
             projectName="the project"
+            inboundWebhook={createdWebhook}
             onContinue={() => setStep('redirect-uri')}
           />
         )}

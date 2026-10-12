@@ -262,6 +262,7 @@ describe('InboundWebhooksService default reader roles', () => {
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({ schema: flat }),
+        undefined,
       );
     });
 

@@ -15,6 +15,7 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DRIZZLE } from '../../database/database.module';
+import { DrizzleDB } from '../../database/database.constants';
 import * as schema from '../../database/entities';
 import {
   inboundWebhookFiles,
@@ -100,9 +101,12 @@ export class InboundWebhooksRepository {
    * Creates the webhook and its role grants in one transaction. A webhook
    * that exists without its role gate — even for a moment — is an open webhook.
    */
-  async create(data: CreateInboundWebhookData): Promise<InboundWebhookRow> {
-    return this.db.transaction(async (tx) => {
-      const [row] = await tx
+  async create(
+    data: CreateInboundWebhookData,
+    tx?: DrizzleDB,
+  ): Promise<InboundWebhookRow> {
+    const execute = async (t: DrizzleDB) => {
+      const [row] = await t
         .insert(inboundWebhooks)
         .values({
           projectId: data.projectId,
@@ -118,7 +122,7 @@ export class InboundWebhooksRepository {
         })
         .returning(PUBLIC_COLUMNS);
 
-      await tx.insert(inboundWebhookRoles).values(
+      await t.insert(inboundWebhookRoles).values(
         data.allowedRoleIds.map((roleId) => ({
           webhookId: row.id,
           roleId,
@@ -127,7 +131,8 @@ export class InboundWebhooksRepository {
       );
 
       return row as InboundWebhookRow;
-    });
+    };
+    return tx ? execute(tx) : this.db.transaction(execute);
   }
 
   async findById(id: string): Promise<InboundWebhookRow | null> {
