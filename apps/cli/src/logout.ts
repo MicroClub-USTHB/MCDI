@@ -1,4 +1,11 @@
-import { clearSession, configPath, loadConfig, resolveProfileName, saveConfig } from './config.js';
+import {
+  clearSession,
+  configPath,
+  loadConfig,
+  normalizeBaseUrl,
+  resolveProfileName,
+  saveConfig,
+} from './config.js';
 import { decrypt, defaultKeyProvider, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { postAdminLogout } from './mcdi.js';
@@ -70,7 +77,7 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
   let status: number | undefined;
   let serverError: unknown;
   try {
-    status = await postAdminLogout(baseUrl, token);
+    status = await postAdminLogout(normalizeBaseUrl(baseUrl), token);
   } catch (err) {
     serverError = err;
   }

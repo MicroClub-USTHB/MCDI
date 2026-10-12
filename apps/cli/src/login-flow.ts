@@ -16,6 +16,8 @@ import { createPkcePair } from './pkce.js';
 
 export const CALLBACK_PATH = '/callback';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+/** The only host the CLI opens a login URL on: MCDI's login always goes through Discord. */
+const DISCORD_HOST = 'discord.com';
 
 export interface LoginOptions {
   profile?: string;
@@ -81,6 +83,12 @@ export function extractState(discordUrl: string): string {
   if (url.protocol !== 'https:') {
     throw new CliError(
       `refusing to open a non-https login URL from MCDI (${url.protocol})`,
+      ExitCode.Unexpected,
+    );
+  }
+  if (url.hostname !== DISCORD_HOST) {
+    throw new CliError(
+      `refusing to open a login URL that is not on ${DISCORD_HOST} (${url.hostname})`,
       ExitCode.Unexpected,
     );
   }

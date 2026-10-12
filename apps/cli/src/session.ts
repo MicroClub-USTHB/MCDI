@@ -1,4 +1,4 @@
-import type { Config } from './config.js';
+import { normalizeBaseUrl, type Config } from './config.js';
 import { decrypt, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 
@@ -35,5 +35,6 @@ export async function resolveSession(
       ExitCode.Auth,
     );
   }
-  return { profileName, baseUrl: profile.baseUrl, token };
+  // Re-checked here because the config file can be edited by hand.
+  return { profileName, baseUrl: normalizeBaseUrl(profile.baseUrl), token };
 }

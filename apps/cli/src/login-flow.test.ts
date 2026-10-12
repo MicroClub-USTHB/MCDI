@@ -48,6 +48,13 @@ describe('extractState', () => {
     expect(() => extractState('nope')).toThrow('invalid Discord URL');
     expect(() => extractState('https://discord.com/oauth2/authorize')).toThrow('no OAuth state');
   });
+
+  it('refuses a login URL on any host but discord.com', () => {
+    expect(() => extractState('https://evil.example.com/?state=a')).toThrow('not on discord.com');
+    expect(() => extractState('https://discord.com.evil.example/?state=a')).toThrow(
+      'not on discord.com',
+    );
+  });
 });
 
 describe('callback listener', () => {

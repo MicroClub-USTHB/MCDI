@@ -64,4 +64,16 @@ describe('resolveSession', () => {
       /could not decrypt the stored session for profile "prod"[\s\S]*mcdi-cli login --profile prod.*again/,
     );
   });
+
+  it('refuses a stored base URL that is not https', async () => {
+    const keys = fixedKeys();
+    const session = {
+      accessToken: await encrypt('session-token', keys, sessionContext('prod')),
+      expiresAt: '2026-10-05T00:00:00.000Z',
+      adminIdentity: 'kal#1',
+    };
+    const config = setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session);
+    config.profiles.prod!.baseUrl = 'http://mcdi.example.com';
+    await expect(resolveSession(config, 'prod', keys)).rejects.toThrow('must be https');
+  });
 });

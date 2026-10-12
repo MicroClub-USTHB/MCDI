@@ -100,9 +100,27 @@ describe('resolveBaseUrl', () => {
     expect(() => resolveBaseUrl(config, 'new', undefined)).toThrow('--base-url');
   });
 
-  it('rejects invalid and non-http URLs', () => {
+  it('rejects invalid and non-https URLs', () => {
     expect(() => normalizeBaseUrl('not a url')).toThrow('invalid base URL');
-    expect(() => normalizeBaseUrl('file:///etc/passwd')).toThrow('must be http(s)');
+    expect(() => normalizeBaseUrl('file:///etc/passwd')).toThrow('must be https');
+    expect(() => normalizeBaseUrl('http://mcdi.example.com')).toThrow('must be https');
+  });
+
+  it('allows plain http only on a loopback address', () => {
+    expect(normalizeBaseUrl('http://localhost:3000/')).toBe('http://localhost:3000');
+    expect(normalizeBaseUrl('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000');
+    expect(normalizeBaseUrl('http://[::1]:3000')).toBe('http://[::1]:3000');
+    expect(() => normalizeBaseUrl('http://localhost.evil.com')).toThrow('must be https');
+  });
+
+  it('rejects credentials, a query or a fragment', () => {
+    for (const raw of [
+      'https://user:pw@mcdi.example.com',
+      'https://mcdi.example.com/?x=1',
+      'https://mcdi.example.com/#top',
+    ]) {
+      expect(() => normalizeBaseUrl(raw)).toThrow('must not contain');
+    }
   });
 });
 

@@ -116,6 +116,13 @@ export function resolveBaseUrl(
   return normalizeBaseUrl(raw);
 }
 
+/** Hosts that never leave this machine, the only ones a session token may reach over plain http. */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * Validates an MCDI base URL. The admin session token is sent to it, so it
+ * must be https, except for a local MCDI on a loopback address.
+ */
 export function normalizeBaseUrl(raw: string): string {
   let url: URL;
   try {
@@ -123,8 +130,18 @@ export function normalizeBaseUrl(raw: string): string {
   } catch {
     throw new CliError(`invalid base URL "${raw}"`, ExitCode.Unexpected);
   }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new CliError(`base URL must be http(s), got "${raw}"`, ExitCode.Unexpected);
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new CliError(
+      `base URL must be https (http is only allowed for localhost), got "${raw}"`,
+      ExitCode.Unexpected,
+    );
+  }
+  if (url.username || url.password || url.search || url.hash) {
+    throw new CliError(
+      `base URL must not contain credentials, a query or a fragment, got "${raw}"`,
+      ExitCode.Unexpected,
+    );
   }
   return url.toString().replace(/\/+$/, '');
 }
