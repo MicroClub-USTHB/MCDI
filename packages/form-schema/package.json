@@ -2,7 +2,7 @@
   "name": "@mcdi/form-schema",
   "version": "0.0.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "The inbound webhook FormSchema language: types, the Layer 1 schema validator and the condition evaluator, shared by the API and the CLI",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

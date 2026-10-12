@@ -89,3 +89,7 @@ Add the Vercel domain to `CORS_ORIGINS` on the API.
 ## CI
 
 `.github/workflows/ci.yml` runs lint + typecheck, unit tests with coverage, a full build and a check that the generated API docs are current for every push/PR to `main` and `dev`, API e2e tests against Postgres, and the API image build on `main`.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `@mcdi/cli`.
