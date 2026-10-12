@@ -27,7 +27,7 @@ import {
 } from './mcdi.js';
 import { precheckSchema } from './schema/custom-rules.js';
 import { defaultRuleLocations, loadCustomRules, type CustomRule } from './schema/rules.js';
-import type { ValidationError } from './schema/validate.js';
+import type { SchemaError } from '@mcdi/form-schema';
 import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {
@@ -342,7 +342,7 @@ function resolveSlug(options: WebhookCreateOptions): string {
 }
 
 /** Same layout as `mcdi-cli schema validate`. */
-function formatLocalErrors(errors: Pick<ValidationError, 'path' | 'code' | 'message'>[]): string {
+function formatLocalErrors(errors: SchemaError[]): string {
   const noun = errors.length === 1 ? 'error' : 'errors';
   return [
     `✗ ${errors.length} validation ${noun} (source: local); nothing was sent`,

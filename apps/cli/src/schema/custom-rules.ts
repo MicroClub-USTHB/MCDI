@@ -1,13 +1,19 @@
 import { createContext, Script } from 'node:vm';
+import { validateSchema, type SchemaError } from '@mcdi/form-schema';
 import { CliError, ExitCode } from '../errors.js';
 import type { CustomRule } from './rules.js';
-import { validateSchema, type ValidationError, type ValidationResult } from './validate.js';
 
 /**
  * Applies custom rules to a schema. Rules can only add errors on top of the
- * built-in (MCDI Layer 1) checks, never remove or relax one, so the local
- * pre-check can only ever be stricter than MCDI.
+ * built-in checks, which are MCDI's own Layer 1 validator from
+ * `@mcdi/form-schema`, never remove or relax one, so the local pre-check can
+ * only ever be stricter than MCDI.
  */
+
+export interface PrecheckResult {
+  valid: boolean;
+  errors: SchemaError[];
+}
 
 /** A rule pattern that runs longer than this on one value is treated as broken (e.g. `(a+)+$`). */
 export const PATTERN_TIMEOUT_MS = 100;
@@ -48,14 +54,14 @@ function checkField(
   field: Record<string, unknown>,
   path: string,
   rules: readonly CustomRule[],
-  errors: ValidationError[],
+  errors: SchemaError[],
 ): void {
   const type = field.type;
   for (const rule of rules) {
     if (rule.appliesTo !== '*' && (typeof type !== 'string' || !rule.appliesTo.includes(type)))
       continue;
     const add = (at: string) =>
-      errors.push({ path: at, code: ruleCode(rule.id), message: rule.message, source: 'local' });
+      errors.push({ path: at, code: ruleCode(rule.id), message: rule.message });
 
     switch (rule.type) {
       case 'require-present':
@@ -100,20 +106,28 @@ function checkField(
 }
 
 /** Custom-rule errors only. Tolerates malformed schemas: structure problems are the built-in checks' job. */
-export function applyCustomRules(schema: unknown, rules: readonly CustomRule[]): ValidationError[] {
-  const errors: ValidationError[] = [];
-  if (rules.length === 0 || !isRecord(schema) || !Array.isArray(schema.steps)) return errors;
-  schema.steps.forEach((step, s) => {
-    if (!isRecord(step) || !Array.isArray(step.fields)) return;
-    step.fields.forEach((field, f) => {
-      if (isRecord(field)) checkField(field, `steps[${s}].fields[${f}]`, rules, errors);
+export function applyCustomRules(schema: unknown, rules: readonly CustomRule[]): SchemaError[] {
+  const errors: SchemaError[] = [];
+  if (rules.length === 0 || !isRecord(schema)) return errors;
+  const checkFields = (fields: unknown, path: string) => {
+    if (!Array.isArray(fields)) return;
+    fields.forEach((field, f) => {
+      if (isRecord(field)) checkField(field, `${path}[${f}]`, rules, errors);
     });
-  });
+  };
+  // A flat schema lists `fields` at the root; a form lists them per step.
+  checkFields(schema.fields, 'fields');
+  if (Array.isArray(schema.steps)) {
+    schema.steps.forEach((step, s) => {
+      if (isRecord(step)) checkFields(step.fields, `steps[${s}].fields`);
+    });
+  }
   return errors;
 }
 
 /** The full local pre-check: MCDI's Layer 1 checks, plus any custom rules on top. */
-export function precheckSchema(schema: unknown, rules: readonly CustomRule[]): ValidationResult {
-  const errors = [...validateSchema(schema).errors, ...applyCustomRules(schema, rules)];
+export function precheckSchema(schema: unknown, rules: readonly CustomRule[]): PrecheckResult {
+  const builtIn = validateSchema(schema);
+  const errors = [...(builtIn.ok ? [] : builtIn.errors), ...applyCustomRules(schema, rules)];
   return { valid: errors.length === 0, errors };
 }

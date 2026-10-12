@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import { exitWithError } from '../errors.js';
-import { notImplemented } from '../not-implemented.js';
 import {
   defaultWebhookDeps,
   webhookCreate,
@@ -142,11 +141,6 @@ export function registerWebhookCommand(program: Command): void {
         exitWithError('webhook secret get', err);
       }
     });
-
-  webhook
-    .command('diff <id> <schema-path>')
-    .description("Pre-check a schema file and diff it against the webhook's live schema")
-    .action(() => notImplemented('webhook diff'));
 }
 
 function collect(value: string, previous: string[]): string[] {

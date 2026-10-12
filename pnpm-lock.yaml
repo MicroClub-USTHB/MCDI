@@ -181,16 +181,19 @@ importers:
       '@napi-rs/keyring':
         specifier: ^2.1.0
         version: 2.1.1
-      class-validator:
-        specifier: ^0.14.4
-        version: 0.14.4
       commander:
         specifier: ^13.1.0
         version: 13.1.0
     devDependencies:
+      '@mcdi/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@mcdi/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@mcdi/form-schema':
+        specifier: workspace:*
+        version: link:../../packages/form-schema
       '@mcdi/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config

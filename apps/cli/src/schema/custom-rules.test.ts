@@ -4,12 +4,12 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
+import { validateSchema } from '@mcdi/form-schema';
 import { describe, expect, it } from 'vitest';
 import { CliError, ExitCode } from '../errors.js';
 import { applyCustomRules, precheckSchema, ruleCode } from './custom-rules.js';
 import { parseRuleFile, type CustomRule } from './rules.js';
-import { getSchemaTemplate } from './templates.js';
-import { validateSchema } from './validate.js';
 
 const rules = (...defs: object[]): CustomRule[] =>
   parseRuleFile(JSON.stringify({ rules: defs }), '/t/rules.json');
@@ -50,6 +50,11 @@ const noBrackets = {
 };
 
 describe('applyCustomRules', () => {
+  it('checks the root fields of a flat schema', () => {
+    const flat = { version: 1, fields: [field({ key: 'Bad' })] };
+    expect(found(flat, rules(snakeKeys))).toEqual(['fields[0].key SNAKE_KEYS']);
+  });
+
   it('require-present: flags missing, null, blank and empty values', () => {
     const r = rules(requireLabel);
     expect(found(schema(field({ label: 'Name' })), r)).toEqual([]);
@@ -130,7 +135,7 @@ describe('applyCustomRules', () => {
     ]);
   });
 
-  it('reports every failure, in schema order, with the rule message and source "local"', () => {
+  it('reports every failure, in schema order, with the rule message', () => {
     const errors = applyCustomRules(
       schema(field({ key: 'A' }), field({ key: 'b', label: 'B' })),
       rules(requireLabel, snakeKeys),
@@ -140,13 +145,11 @@ describe('applyCustomRules', () => {
         path: 'steps[0].fields[0].label',
         code: 'REQUIRE_LABEL',
         message: 'Needs a label',
-        source: 'local',
       },
       {
         path: 'steps[0].fields[0].key',
         code: 'SNAKE_KEYS',
         message: 'snake_case',
-        source: 'local',
       },
     ]);
   });
@@ -209,18 +212,20 @@ describe('precheckSchema', () => {
     ];
     const everyRule = rules(requireLabel, snakeKeys, maxLen, noBrackets);
     for (const s of invalid) {
-      const builtIn = validateSchema(s).errors;
+      const builtIn = validateSchema(s);
+      if (builtIn.ok) throw new Error('expected the built-in checks to reject the schema');
       const result = precheckSchema(s, everyRule);
       expect(result.valid).toBe(false);
-      expect(result.errors.slice(0, builtIn.length)).toEqual(builtIn);
+      expect(result.errors.slice(0, builtIn.errors.length)).toEqual(builtIn.errors);
     }
   });
 
-  it('with no custom rules, is exactly the built-in check (MCDI §6.5 example stays valid)', () => {
-    const example = getSchemaTemplate('recruitment');
-    expect(precheckSchema(example, [])).toEqual(validateSchema(example));
-    expect(precheckSchema(example, []).valid).toBe(true);
-  });
+  it.each(INBOUND_WEBHOOK_TEMPLATES.map((t) => [t.id, t.schema]))(
+    'passes the shared %s template with no custom rules',
+    (_id, template) => {
+      expect(precheckSchema(template, [])).toEqual({ valid: true, errors: [] });
+    },
+  );
 });
 
 /** tsx's loader, resolved from here since the CLI child runs in a temp directory with no node_modules. */

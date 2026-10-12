@@ -1,8 +1,8 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { FIELD_TYPES, SCHEMA_LIMITS } from '@mcdi/form-schema';
 import { configDir } from '../config.js';
 import { CliError, ExitCode } from '../errors.js';
-import { FIELD_TYPE_NAMES } from './validate.js';
 
 /**
  * Custom ("house") validation rules, loaded from `.mcdi-cli/rules/*.json` in the
@@ -36,7 +36,7 @@ export interface CustomRule {
 }
 
 /** Same limit MCDI puts on stored schema patterns. */
-const MAX_PATTERN_LENGTH = 200;
+const MAX_PATTERN_LENGTH = SCHEMA_LIMITS.MAX_PATTERN_LENGTH;
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const COMMON_KEYS = ['id', 'type', 'appliesTo', 'message'];
 const TYPE_KEYS: Record<RuleType, string[]> = {
@@ -92,7 +92,7 @@ function parseRule(raw: unknown, index: number, file: string): CustomRule {
     targets = '*';
   } else if (Array.isArray(appliesTo) && appliesTo.length > 0) {
     for (const t of appliesTo) {
-      if (typeof t !== 'string' || !FIELD_TYPE_NAMES.includes(t))
+      if (typeof t !== 'string' || !(FIELD_TYPES as readonly string[]).includes(t))
         fail(`"appliesTo" has unknown field type ${JSON.stringify(t)}`);
     }
     targets = appliesTo as string[];

@@ -23,11 +23,12 @@
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
-    "class-validator": "^0.14.4",
     "commander": "^13.1.0"
   },
   "devDependencies": {
+    "@mcdi/contracts": "workspace:*",
     "@mcdi/eslint-config": "workspace:*",
+    "@mcdi/form-schema": "workspace:*",
     "@mcdi/typescript-config": "workspace:*",
     "@types/node": "^22.19.15",
     "@vitest/coverage-v8": "^4.1.4",

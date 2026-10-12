@@ -1,59 +1,54 @@
 import { writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
 import { Command } from 'commander';
-import { notImplemented } from '../not-implemented.js';
-import { getSchemaTemplate } from '../schema/templates.js';
-import { CliError } from '../errors.js';
+import { CliError, ExitCode } from '../errors.js';
 import { precheckSchema } from '../schema/custom-rules.js';
 import { defaultRuleLocations, loadCustomRules, RuleFileError } from '../schema/rules.js';
 
-const DEFAULT_TEMPLATE = 'minimal';
+/** The same templates the admin panel's schema editor offers. */
+const TEMPLATE_IDS = INBOUND_WEBHOOK_TEMPLATES.map((template) => template.id);
+const DEFAULT_TEMPLATE = 'blank';
 const DEFAULT_OUTPUT_PATH = 'schema.json';
 const FILE_ENCODING = 'utf8';
 const CREATE_ONLY = 'wx';
 const JSON_INDENT = 2;
-
-const EXIT_CODE = {
-  SUCCESS: 0,
-  VALIDATION_ERROR: 1,
-  UNEXPECTED_ERROR: 5,
-} as const;
 
 const OUTPUT_SOURCE = 'local';
 
 export function registerSchemaCommand(program: Command): void {
   const schema = program
     .command('schema')
-    .description('Scaffold, validate, and build Inbound Webhook FormSchema files');
+    .description('Scaffold and validate Inbound Webhook FormSchema files');
 
   schema
     .command('init [path]')
     .description('Scaffold a starter FormSchema JSON file')
-    .option('--template <name>', 'named template to scaffold from')
+    .option('--template <name>', `template to scaffold from: ${TEMPLATE_IDS.join(', ')}`)
     .action(async (path: string | undefined, options: { template?: string }) => {
       const templateName = options.template ?? DEFAULT_TEMPLATE;
-      const contents = getSchemaTemplate(templateName);
-      if (!contents) {
+      const template = INBOUND_WEBHOOK_TEMPLATES.find(({ id }) => id === templateName);
+      if (!template) {
         process.stderr.write(
-          `Unknown schema template "${templateName}". Available templates: minimal, recruitment\n`,
+          `Unknown schema template "${templateName}". Available templates: ${TEMPLATE_IDS.join(', ')}\n`,
         );
-        process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+        process.exitCode = ExitCode.PrecheckFailed;
         return;
       }
 
       const outputPath = resolve(path ?? DEFAULT_OUTPUT_PATH);
       try {
-        const json = JSON.stringify(contents, null, JSON_INDENT);
+        const json = JSON.stringify(template.schema, null, JSON_INDENT);
         await writeFile(outputPath, `${json}\n`, { flag: CREATE_ONLY });
         process.stdout.write(`Created ${outputPath}\n`);
       } catch (error) {
         if (isNodeError(error) && error.code === 'EEXIST') {
           process.stderr.write(`File already exists: ${outputPath}\n`);
-          process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+          process.exitCode = ExitCode.PrecheckFailed;
           return;
         }
         process.stderr.write(`Could not create ${outputPath}: ${errorMessage(error)}\n`);
-        process.exitCode = EXIT_CODE.UNEXPECTED_ERROR;
+        process.exitCode = ExitCode.Unexpected;
       }
     });
 
@@ -71,7 +66,7 @@ export function registerSchemaCommand(program: Command): void {
           'FILE_READ_ERROR',
           errorMessage(error),
         );
-        process.exitCode = EXIT_CODE.UNEXPECTED_ERROR;
+        process.exitCode = ExitCode.Unexpected;
         return;
       }
 
@@ -80,7 +75,7 @@ export function registerSchemaCommand(program: Command): void {
         parsed = JSON.parse(contents) as unknown;
       } catch (error) {
         printValidationErrors([{ path, code: 'INVALID_JSON', message: errorMessage(error) }]);
-        process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+        process.exitCode = ExitCode.PrecheckFailed;
         return;
       }
 
@@ -105,23 +100,17 @@ export function registerSchemaCommand(program: Command): void {
         } else {
           throw error;
         }
-        process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+        process.exitCode = ExitCode.PrecheckFailed;
         return;
       }
       if (!result.valid) {
         printValidationErrors(result.errors);
-        process.exitCode = EXIT_CODE.VALIDATION_ERROR;
+        process.exitCode = ExitCode.PrecheckFailed;
         return;
       }
       process.stdout.write(`✓ Schema is valid (source: ${OUTPUT_SOURCE})\n`);
-      process.exitCode = EXIT_CODE.SUCCESS;
+      process.exitCode = ExitCode.Ok;
     });
-
-  schema
-    .command('build [path]')
-    .description('Launch the interactive schema wizard')
-    .option('--from <path>', 'load an existing file into the wizard')
-    .action(() => notImplemented('schema build'));
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
