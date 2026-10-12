@@ -1,57 +1,69 @@
-# Deploys landing-page/ to Vercel whenever it changes.
-# Pushes to main go to production. CLI-only pushes don't trigger this.
+# Deploys apps/cli-landing (the m-forge landing page) to Vercel whenever it
+# changes. Pushes to main go to production.
 #
 # Uses the Vercel CLI instead of Vercel's GitHub app, so it works on a
 # Hobby account even though the repo is a private org repo.
-# Required repo secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
-name: Deploy landing page
+# Required repo secrets: CLI_LANDING_VERCEL_TOKEN, CLI_LANDING_VERCEL_ORG_ID,
+# CLI_LANDING_VERCEL_PROJECT_ID.
+name: Deploy CLI landing page
 
 on:
   push:
     branches: [main]
     paths:
-      - "landing-page/**"
-      - ".github/workflows/deploy-landing.yml"
+      - 'apps/cli-landing/**'
+      - 'packages/eslint-config/**'
+      - 'packages/typescript-config/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-cli-landing.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
-  group: deploy-landing-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-cli-landing-${{ github.ref }}
+  # Never cancel a production deploy halfway through; queue the next one.
+  cancel-in-progress: false
 
 env:
-  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.28.1'
   VERCEL_CLI_VERSION: 63.1.2
+  VERCEL_ORG_ID: ${{ secrets.CLI_LANDING_VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.CLI_LANDING_VERCEL_PROJECT_ID }}
+  # Read by the Vercel CLI, so the token never appears on a command line.
+  VERCEL_TOKEN: ${{ secrets.CLI_LANDING_VERCEL_TOKEN }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: cli-landing-production
     defaults:
       run:
-        working-directory: landing-page
+        working-directory: apps/cli-landing
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          package_json_file: landing-page/package.json
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: landing-page/pnpm-lock.yaml
 
       - name: Install Vercel CLI
         run: npm install --global vercel@${{ env.VERCEL_CLI_VERSION }}
 
       - name: Pull Vercel project settings and env vars
-        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+        run: vercel pull --yes --environment=production
 
       - name: Build
-        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        run: vercel build --prod
 
       - name: Deploy
         run: |
-          url=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          url=$(vercel deploy --prebuilt --prod)
           echo "Deployed to $url" >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,5 @@
 {
-  "name": "m-forge-landing-page",
+  "name": "@mcdi/cli-landing",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "clean": "rm -rf .next"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -24,14 +25,16 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@mcdi/eslint-config": "workspace:*",
+    "@mcdi/typescript-config": "workspace:*",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
+    "prettier": "^3.8.2",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "packageManager": "pnpm@10.33.2"
+  }
 }

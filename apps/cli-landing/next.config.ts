@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
-    // landing-page/ has its own lockfile; without this Next picks the CLI's pnpm-lock.yaml one level up.
-    root: path.join(__dirname),
+    // The monorepo root: pnpm hoists `next` into the root node_modules/.pnpm store.
+    root: path.join(__dirname, "..", ".."),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],
