@@ -1,9 +1,26 @@
 {
   "name": "@mcdi/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "The MCDI command-line client: log in with Discord, pre-check FormSchema files and manage MCDI Inbound Webhooks from the terminal",
+  "keywords": [
+    "mcdi",
+    "microclub",
+    "cli",
+    "webhooks",
+    "inbound-webhooks",
+    "form-schema"
+  ],
+  "homepage": "https://github.com/MicroClub-USTHB/MCDI/tree/main/apps/cli#readme",
+  "bugs": {
+    "url": "https://github.com/MicroClub-USTHB/MCDI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MicroClub-USTHB/MCDI.git",
+    "directory": "apps/cli"
+  },
   "license": "MIT",
-  "description": "mcdi-cli: the MCDI admin CLI. Authenticates against MCDI and manages Inbound Webhooks from the terminal",
+  "author": "MicroClub USTHB",
   "type": "module",
   "bin": {
     "mcdi-cli": "./bin/mcdi-cli.js"
@@ -12,6 +29,12 @@
     "dist",
     "bin"
   ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup",
@@ -19,7 +42,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:ci": "vitest run --coverage",
-    "clean": "rm -rf dist coverage"
+    "clean": "rm -rf dist coverage",
+    "prepublishOnly": "pnpm --dir ../.. turbo run lint typecheck test build --filter=@mcdi/cli"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
@@ -39,8 +63,5 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "8.57.1",
     "vitest": "^4.1.4"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }
