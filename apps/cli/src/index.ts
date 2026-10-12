@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import { registerLoginCommand } from './commands/login.js';
 import { registerLogoutCommand } from './commands/logout.js';
@@ -15,6 +16,9 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
   throw err;
 });
 
+// package.json sits one level up from both src/ (tsx) and dist/ (the published bundle).
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
 const program = new Command();
 
 program
@@ -22,7 +26,7 @@ program
   .description(
     'Authenticate against MCDI and author, validate, create, update, and inspect Inbound Webhooks from the terminal',
   )
-  .version('0.0.0');
+  .version(version);
 
 registerLoginCommand(program);
 registerLogoutCommand(program);

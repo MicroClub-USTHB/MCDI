@@ -11,12 +11,7 @@ import { CliError, ExitCode } from '../errors.js';
  * them is ever executed.
  */
 
-export const RULE_TYPES = [
-  'forbid-pattern',
-  'require-present',
-  'max-value',
-  'key-pattern',
-] as const;
+const RULE_TYPES = ['forbid-pattern', 'require-present', 'max-value', 'key-pattern'] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 
 export interface CustomRule {

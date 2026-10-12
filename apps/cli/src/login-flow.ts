@@ -14,7 +14,7 @@ import { CliError, ExitCode } from './errors.js';
 import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcdi.js';
 import { createPkcePair } from './pkce.js';
 
-export const CALLBACK_PATH = '/callback';
+const CALLBACK_PATH = '/callback';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 /** The only host the CLI opens a login URL on: MCDI's login always goes through Discord. */
 const DISCORD_HOST = 'discord.com';

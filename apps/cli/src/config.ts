@@ -34,10 +34,10 @@ export interface Config {
   profiles: Record<string, Profile>;
 }
 
-export const DEFAULT_PROFILE = 'default';
+const DEFAULT_PROFILE = 'default';
 
 /** PRD §5.2: a profile name is a bare identifier, never part of a URL or shell-escaped. */
-export const PROFILE_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+const PROFILE_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
 
 export function isValidProfileName(name: string): boolean {
   return PROFILE_NAME_PATTERN.test(name);

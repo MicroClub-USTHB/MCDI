@@ -16,7 +16,7 @@ export interface PrecheckResult {
 }
 
 /** A rule pattern that runs longer than this on one value is treated as broken (e.g. `(a+)+$`). */
-export const PATTERN_TIMEOUT_MS = 100;
+const PATTERN_TIMEOUT_MS = 100;
 
 // `vm` is used only for its timeout, which interrupts a runaway regex instead of
 // hanging the CLI (the same technique MCDI's own payload validator uses).

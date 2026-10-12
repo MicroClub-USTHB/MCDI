@@ -40,7 +40,7 @@ export interface KeyProvider {
 }
 
 /** Stores the key in the OS keychain (macOS Keychain, Secret Service, Windows Credential Manager). */
-export class KeychainKeyStore implements KeyStore {
+class KeychainKeyStore implements KeyStore {
   constructor(private readonly service = KEYCHAIN_SERVICE) {}
 
   async getKey(): Promise<Buffer> {
