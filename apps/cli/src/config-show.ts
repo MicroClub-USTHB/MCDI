@@ -52,7 +52,7 @@ export async function configShow(options: ConfigShowOptions, deps: ConfigDeps): 
   const name = resolveProfileName(config, options.profile);
   const profile = config.profiles[name];
   if (!profile) {
-    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+    throw new CliError(`no profile named "${name}"`, ExitCode.NotFound);
   }
   const data = { name, active: config.activeProfile === name, ...redactProfile(profile) };
   deps.out(JSON.stringify(data, null, 2));

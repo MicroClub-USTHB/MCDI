@@ -4,13 +4,14 @@ import { openBrowser } from './browser.js';
 import {
   configPath,
   loadConfig,
+  normalizeBaseUrl,
   resolveBaseUrl,
   resolveProfileName,
-  saveConfig,
   setSession,
+  updateConfig,
 } from './config.js';
 import { defaultKeyProvider, encrypt, sessionContext, type KeyProvider } from './crypto-store.js';
-import { CliError, ExitCode } from './errors.js';
+import { CliError, ExitCode, stripControlCharacters } from './errors.js';
 import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcdi.js';
 import { createPkcePair } from './pkce.js';
 
@@ -20,7 +21,8 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DISCORD_HOST = 'discord.com';
 
 export interface LoginOptions {
-  profile?: string;
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
   baseUrl?: string;
 }
 
@@ -62,11 +64,12 @@ export type CallbackResult =
  * the worst a forged one can do is abort this login.
  */
 export function readCallback(params: URLSearchParams, expectedState: string): CallbackResult {
-  const error = params.get('error');
-  if (error) return { kind: 'error', message: error };
+  // Checked first, so another local process can't abort the login with a fake error.
   if (params.get('state') !== expectedState) {
     return { kind: 'ignore', reason: 'state does not match this login attempt' };
   }
+  const error = params.get('error');
+  if (error) return { kind: 'error', message: stripControlCharacters(error) };
   const code = params.get('code');
   if (!code) return { kind: 'ignore', reason: 'callback is missing the login code' };
   return { kind: 'code', code };
@@ -237,6 +240,15 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
   const config = await loadConfig(deps.configPath);
   const profileName = resolveProfileName(config, options.profile);
   const baseUrl = resolveBaseUrl(config, profileName, options.baseUrl);
+  const existing = config.profiles[profileName];
+  const secrets = Object.keys(existing?.webhookSecrets ?? {}).length;
+  if (existing && secrets > 0 && normalizeBaseUrl(existing.baseUrl) !== baseUrl) {
+    throw new CliError(
+      `profile "${profileName}" holds ${secrets} webhook signing secret(s) for ${existing.baseUrl}; ` +
+        'log in to another MCDI on a new profile instead (`mcdi-cli profile add`)',
+      ExitCode.PrecheckFailed,
+    );
+  }
 
   const listener = await startCallbackListener(deps.info);
   try {
@@ -265,9 +277,10 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
       expiresAt: me.sessionExpiresAt,
       adminIdentity: `${me.username}#${me.id}`,
     };
-    // Re-read so a profile changed by another command while we waited isn't clobbered.
-    const latest = await loadConfig(deps.configPath);
-    await saveConfig(setSession(latest, profileName, baseUrl, session), deps.configPath);
+    // Applied to the latest config, so a profile changed by another command while we waited isn't clobbered.
+    await updateConfig(deps.configPath, (latest) =>
+      setSession(latest, profileName, baseUrl, session),
+    );
 
     deps.out(`Logged in as ${admin} on ${profileName}`);
   } finally {

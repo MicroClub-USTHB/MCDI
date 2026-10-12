@@ -6,6 +6,8 @@ export const ExitCode = {
   Auth: 3,
   NotFound: 4,
   Unexpected: 5,
+  /** A missing or invalid argument or flag, reported by the argument parser. */
+  Usage: 64,
 } as const;
 
 export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
@@ -21,10 +23,16 @@ export class CliError extends Error {
   }
 }
 
+/** Drops terminal control characters (escape sequences) from text that came from outside, keeping newlines. */
+export function stripControlCharacters(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/g, '');
+}
+
 /** Prints an error and exits with its code; anything that isn't a CliError counts as unexpected. */
 export function exitWithError(command: string, err: unknown): never {
   const message = err instanceof Error ? err.message : String(err);
   const code = err instanceof CliError ? err.exitCode : ExitCode.Unexpected;
-  process.stderr.write(`mcdi-cli ${command}: ${message}\n`);
+  process.stderr.write(`mcdi-cli ${command}: ${stripControlCharacters(message)}\n`);
   process.exit(code);
 }

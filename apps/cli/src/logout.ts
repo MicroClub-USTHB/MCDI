@@ -4,7 +4,7 @@ import {
   loadConfig,
   normalizeBaseUrl,
   resolveProfileName,
-  saveConfig,
+  updateConfig,
 } from './config.js';
 import {
   decrypt,
@@ -17,7 +17,8 @@ import { CliError, ExitCode } from './errors.js';
 import { postAdminLogout } from './mcdi.js';
 
 export interface LogoutOptions {
-  profile?: string;
+  /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
+  profile: string;
 }
 
 export interface LogoutDeps {
@@ -40,8 +41,7 @@ export function defaultLogoutDeps(): LogoutDeps {
 
 /** Re-reads the config right before saving (like login does) so a change made while we waited on MCDI isn't clobbered. */
 async function clearLocally(path: string, profileName: string): Promise<void> {
-  const latest = await loadConfig(path);
-  await saveConfig(clearSession(latest, profileName), path);
+  await updateConfig(path, (latest) => clearSession(latest, profileName));
 }
 
 /**
@@ -55,7 +55,7 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
   const profileName = resolveProfileName(config, options.profile);
   const profile = config.profiles[profileName];
   if (!profile) {
-    throw new CliError(`no profile named "${profileName}"`, ExitCode.Auth);
+    throw new CliError(`no profile named "${profileName}"`, ExitCode.NotFound);
   }
   if (!profile.session) {
     deps.out(`Not logged in on ${profileName}, nothing to do`);
@@ -107,7 +107,7 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
     deps.out('(the session had already expired on MCDI)');
   } else if (status === 403) {
     deps.warn(
-      'warning: MCDI refused the logout because this account is no longer a system admin, so the session ' +
+      'warning: MCDI refused the logout because this account may no longer use the admin API, so the session ' +
         "could not be revoked server-side (that session can't be used for admin actions either way)",
     );
   }

@@ -174,7 +174,7 @@ export async function getAdminMe(baseUrl: string, token: string): Promise<AdminM
   }
   if (status === 403) {
     throw new CliError(
-      'this Discord account is not a system admin on this MCDI instance',
+      'this Discord account is not allowed to use the MCDI admin API',
       ExitCode.Auth,
     );
   }
@@ -308,7 +308,7 @@ async function adminRequest(
   }
   if (res.status === 403) {
     throw new CliError(
-      'this Discord account is not a system admin on this MCDI instance',
+      'this Discord account is not allowed to use the MCDI admin API',
       ExitCode.Auth,
     );
   }

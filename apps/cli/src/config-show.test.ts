@@ -116,10 +116,10 @@ describe('configShow', () => {
     });
   });
 
-  it('exits 3 for an unknown profile', async () => {
+  it('exits 4 for an unknown profile', async () => {
     const path = await tempConfigPath({ version: 1, activeProfile: null, profiles: {} });
     const err = await captureError(configShow({ profile: 'nope' }, fakeDeps(path)));
-    expect(err.exitCode).toBe(3);
+    expect(err.exitCode).toBe(4);
     expect(err.message).toBe('no profile named "nope"');
   });
 });

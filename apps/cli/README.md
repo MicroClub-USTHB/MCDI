@@ -35,12 +35,12 @@ mcdi-cli webhook create form.json --name "Club signup" \
   --roles 123456789012345678 --profile prod
 
 mcdi-cli webhook list --profile prod
-mcdi-cli webhook secret get --profile prod --reveal
+mcdi-cli webhook secret get club-signup --profile prod --reveal
 ```
 
 Run `mcdi-cli <command> --help` for every flag. Exit codes: `0` success, `1`
 local pre-check failed, `2` MCDI rejected the request, `3` not logged in or not
-allowed, `4` not found, `5` unexpected or network error.
+allowed, `4` not found, `5` unexpected or network error, `64` invalid command line.
 
 ## Where it keeps things
 

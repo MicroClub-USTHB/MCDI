@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from 'node:module';
 import { Command } from 'commander';
+import { ExitCode } from './errors.js';
 import { registerLoginCommand } from './commands/login.js';
 import { registerLogoutCommand } from './commands/logout.js';
 import { registerWhoamiCommand } from './commands/whoami.js';
@@ -20,6 +21,13 @@ process.stdout.on('error', (err: NodeJS.ErrnoException) => {
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
 
 const program = new Command();
+
+// Before the subcommands are added, so they inherit it: usage errors get their
+// own exit code instead of sharing 1 with a failed schema pre-check.
+program.exitOverride((err) => {
+  const done = err.code === 'commander.helpDisplayed' || err.code === 'commander.version';
+  process.exit(done || err.exitCode === 0 ? ExitCode.Ok : ExitCode.Usage);
+});
 
 program
   .name('mcdi-cli')

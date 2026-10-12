@@ -38,12 +38,29 @@ describe('stdout closed early (EPIPE)', () => {
       configPath,
     );
 
-    const { code, stderr } = await runWithClosedStdout(['logout'], {
+    const { code, stderr } = await runWithClosedStdout(['logout', '--profile', 'prod'], {
       MCDI_CLI_CONFIG_PATH: configPath,
     });
 
     expect(stderr).not.toContain('EPIPE');
     expect(stderr).toBe('');
     expect(code).toBe(0);
+  }, 20_000);
+});
+
+describe('usage errors', () => {
+  it('exit 64, not the pre-check failure code', async () => {
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', join(import.meta.dirname, 'index.ts'), 'logout'],
+      {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      },
+    );
+    let stderr = '';
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    const code = await new Promise<number | null>((resolve) => child.on('close', resolve));
+    expect(stderr).toContain("required option '--profile <name>'");
+    expect(code).toBe(64);
   }, 20_000);
 });

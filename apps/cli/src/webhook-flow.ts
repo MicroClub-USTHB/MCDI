@@ -4,8 +4,8 @@ import {
   loadConfig,
   removeWebhookSecret,
   resolveProfileName,
-  saveConfig,
   setWebhookSecret,
+  updateConfig,
 } from './config.js';
 import { readFile } from 'node:fs/promises';
 import {
@@ -260,6 +260,7 @@ export function maskSecret(secret: string): string {
 }
 
 export async function webhookSecretGet(
+  webhook: string | undefined,
   options: WebhookSecretGetOptions,
   deps: WebhookDeps,
 ): Promise<void> {
@@ -275,10 +276,20 @@ export async function webhookSecretGet(
   }
 
   let picked = stored[0]!;
-  if (stored.length > 1) {
+  if (webhook !== undefined) {
+    const match = stored.find(([id, entry]) => id === webhook || entry.slug === webhook);
+    if (!match) {
+      throw new CliError(
+        `no signing secret is stored for "${webhook}" on profile "${profileName}"`,
+        ExitCode.NotFound,
+      );
+    }
+    picked = match;
+  } else if (stored.length > 1) {
     if (!deps.isInteractive) {
       throw new CliError(
-        `${stored.length} signing secrets are stored for profile "${profileName}" and there is no interactive terminal to pick one`,
+        `${stored.length} signing secrets are stored for profile "${profileName}" and there is no interactive terminal to pick one; ` +
+          'pass the webhook id or slug',
         ExitCode.PrecheckFailed,
       );
     }
@@ -444,7 +455,6 @@ export async function webhookCreate(
 
   // MCDI will never show this secret again, so it has to land in the local store now.
   try {
-    const latest = await loadConfig(deps.configPath);
     const entry = {
       secret: await encrypt(
         created.signingSecret,
@@ -454,9 +464,8 @@ export async function webhookCreate(
       name: webhook.name,
       slug: webhook.slug,
     };
-    await saveConfig(
+    await updateConfig(deps.configPath, (latest) =>
       setWebhookSecret(latest, session.profileName, webhook.id, entry),
-      deps.configPath,
     );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
@@ -518,12 +527,11 @@ export async function webhookDelete(
   // Only now that MCDI confirmed the deletion: a secret for a webhook that no longer exists is useless.
   let removedSecret = false;
   try {
-    const latest = await loadConfig(deps.configPath);
-    const updated = removeWebhookSecret(latest, session.profileName, id);
-    if (updated) {
-      await saveConfig(updated, deps.configPath);
-      removedSecret = true;
-    }
+    await updateConfig(deps.configPath, (latest) => {
+      const updated = removeWebhookSecret(latest, session.profileName, id);
+      removedSecret = updated !== null;
+      return updated;
+    });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
@@ -577,7 +585,6 @@ export async function webhookRotateSecret(
 
   // MCDI never shows this secret again, so it has to land in the local store now.
   try {
-    const latest = await loadConfig(deps.configPath);
     const entry = {
       secret: await encrypt(
         signingSecret,
@@ -587,9 +594,8 @@ export async function webhookRotateSecret(
       name: webhook.name,
       slug: webhook.slug,
     };
-    await saveConfig(
+    await updateConfig(deps.configPath, (latest) =>
       setWebhookSecret(latest, session.profileName, webhook.id, entry),
-      deps.configPath,
     );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

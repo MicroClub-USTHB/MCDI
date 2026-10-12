@@ -4,10 +4,10 @@ import {
   configPath,
   loadConfig,
   normalizeBaseUrl,
-  removeProfile,
-  saveConfig,
-  setActiveProfile,
   type Profile,
+  removeProfile,
+  setActiveProfile,
+  updateConfig,
 } from './config.js';
 import { CliError, ExitCode } from './errors.js';
 import { formatTable } from './webhook-flow.js';
@@ -88,18 +88,16 @@ export async function profileAdd(
   options: ProfileAddOptions,
   deps: ProfileDeps,
 ): Promise<void> {
-  const config = await loadConfig(deps.configPath);
   const baseUrl = normalizeBaseUrl(options.baseUrl);
-  const updated = addProfile(config, name, baseUrl);
-  await saveConfig(updated, deps.configPath);
+  const updated = await updateConfig(deps.configPath, (config) =>
+    addProfile(config, name, baseUrl),
+  );
   const active = updated.activeProfile === name;
   deps.out(`Added profile "${name}" (${baseUrl})${active ? '; it is now the active profile' : ''}`);
 }
 
 export async function profileUse(name: string, deps: ProfileDeps): Promise<void> {
-  const config = await loadConfig(deps.configPath);
-  const updated = setActiveProfile(config, name);
-  await saveConfig(updated, deps.configPath);
+  const updated = await updateConfig(deps.configPath, (config) => setActiveProfile(config, name));
   deps.out(`Active profile is now "${name}" (${updated.profiles[name]!.baseUrl})`);
 }
 
@@ -115,7 +113,7 @@ export async function profileRemove(
   const config = await loadConfig(deps.configPath);
   const profile = config.profiles[name];
   if (!profile) {
-    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+    throw new CliError(`no profile named "${name}"`, ExitCode.NotFound);
   }
 
   if (profile.session) {
@@ -145,7 +143,6 @@ export async function profileRemove(
   }
 
   const wasActive = config.activeProfile === name;
-  const updated = removeProfile(config, name);
-  await saveConfig(updated, deps.configPath);
+  await updateConfig(deps.configPath, (latest) => removeProfile(latest, name));
   deps.out(`Removed profile "${name}"${wasActive ? '; active profile is now unset' : ''}`);
 }

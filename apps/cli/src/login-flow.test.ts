@@ -26,10 +26,13 @@ describe('readCallback', () => {
     });
   });
 
-  it('reports an MCDI error', () => {
-    expect(readCallback(params({ error: 'Not an admin' }), 's')).toEqual({
+  it('reports an MCDI error only with the matching state, without control characters', () => {
+    expect(readCallback(params({ error: 'Not an admin' }), 's').kind).toBe('ignore');
+    expect(
+      readCallback(params({ error: 'Not \u001b]0;x\u0007an admin', state: 's' }), 's'),
+    ).toEqual({
       kind: 'error',
-      message: 'Not an admin',
+      message: 'Not ]0;xan admin',
     });
     expect(readCallback(params({ error: 'Not an admin', state: 's', code: 'c' }), 's').kind).toBe(
       'error',

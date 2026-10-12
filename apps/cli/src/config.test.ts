@@ -18,6 +18,7 @@ import {
   setActiveProfile,
   setSession,
   setWebhookSecret,
+  updateConfig,
   removeWebhookSecret,
   type Config,
 } from './config.js';
@@ -313,5 +314,26 @@ describe('removeProfile', () => {
 
   it('throws "no profile named" for an unknown profile', () => {
     expect(() => removeProfile(emptyConfig(), 'ghost')).toThrow('no profile named "ghost"');
+  });
+});
+
+describe('updateConfig', () => {
+  it('never loses a change when commands run at the same time', async () => {
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-lock-')), 'config.json');
+    await saveConfig(addProfile(emptyConfig(), 'prod', 'https://mcdi.example.com'), path);
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        updateConfig(path, async (config) => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return setWebhookSecret(config, 'prod', `wh-${i}`, {
+            secret: 'v1:kc:a:b:c',
+            name: `W${i}`,
+            slug: `w-${i}`,
+          });
+        }),
+      ),
+    );
+    const stored = (await loadConfig(path)).profiles.prod!.webhookSecrets!;
+    expect(Object.keys(stored)).toHaveLength(10);
   });
 });

@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CliError, ExitCode } from './errors.js';
@@ -93,6 +93,62 @@ export async function saveConfig(config: Config, path = configPath()): Promise<v
   const tmp = `${path}.${process.pid}.tmp`;
   await writeFile(tmp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   await rename(tmp, path);
+}
+
+const LOCK_RETRY_MS = 50;
+const LOCK_TIMEOUT_MS = 10_000;
+/** A lock older than this was left by a crashed process. */
+const STALE_LOCK_MS = 30_000;
+
+async function acquireLock(lockPath: string): Promise<() => Promise<void>> {
+  const deadline = Date.now() + LOCK_TIMEOUT_MS;
+  for (;;) {
+    try {
+      const handle = await open(lockPath, 'wx', 0o600);
+      await handle.close();
+      return () => rm(lockPath, { force: true });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+      const age = await stat(lockPath).then(
+        (s) => Date.now() - s.mtimeMs,
+        () => 0,
+      );
+      if (age > STALE_LOCK_MS) {
+        await rm(lockPath, { force: true });
+        continue;
+      }
+      if (Date.now() > deadline) {
+        throw new CliError(
+          `another mcdi-cli command is updating ${lockPath.replace(/\.lock$/, '')}; try again`,
+          ExitCode.Unexpected,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+    }
+  }
+}
+
+/**
+ * Reads, changes and writes the config under an exclusive lock, so two
+ * commands running at once never overwrite each other's change (a lost
+ * signing secret can't be recovered). `change` returns null for "nothing to
+ * save". Resolves to the config as saved, or as read when nothing changed.
+ */
+export async function updateConfig(
+  path: string,
+  change: (config: Config) => Config | null | Promise<Config | null>,
+): Promise<Config> {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const release = await acquireLock(`${path}.lock`);
+  try {
+    const current = await loadConfig(path);
+    const updated = await change(current);
+    if (!updated) return current;
+    await saveConfig(updated, path);
+    return updated;
+  } finally {
+    await release();
+  }
 }
 
 /** `--profile` wins, then the active profile, then "default". */
@@ -235,7 +291,7 @@ export function addProfile(config: Config, name: string, baseUrl: string): Confi
 /** Sets the active profile. Throws the same "no profile named" error `resolveSession` callers rely on when it doesn't exist. */
 export function setActiveProfile(config: Config, name: string): Config {
   if (!config.profiles[name]) {
-    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+    throw new CliError(`no profile named "${name}"`, ExitCode.NotFound);
   }
   return { ...config, activeProfile: name };
 }
@@ -248,7 +304,7 @@ export function setActiveProfile(config: Config, name: string): Config {
  */
 export function removeProfile(config: Config, name: string): Config {
   if (!config.profiles[name]) {
-    throw new CliError(`no profile named "${name}"`, ExitCode.Auth);
+    throw new CliError(`no profile named "${name}"`, ExitCode.NotFound);
   }
   const profiles = { ...config.profiles };
   delete profiles[name];

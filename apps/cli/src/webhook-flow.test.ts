@@ -2,15 +2,16 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { emptyConfig, saveConfig, setSession } from './config.js';
-import { encrypt, sessionContext, type KeyProvider } from './crypto-store.js';
-import { fixedKeys } from './test-support/keys.js';
+import { addProfile, emptyConfig, saveConfig, setSession, setWebhookSecret } from './config.js';
+import { encrypt, sessionContext, webhookSecretContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
+import { fixedKeys } from './test-support/keys.js';
 import {
   maskSecret,
   slugFromName,
   webhookCreate,
   webhookRotateSecret,
+  webhookSecretGet,
   type WebhookDeps,
 } from './webhook-flow.js';
 
@@ -249,5 +250,57 @@ describe('webhookCreate: --project and --roles', () => {
     );
     expect(err.exitCode).toBe(ExitCode.Unexpected);
     expect(err.message).toMatch(/could not reach MCDI/);
+  });
+});
+
+describe('webhookSecretGet', () => {
+  async function twoSecrets(keys: KeyProvider): Promise<string> {
+    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-secret-')), 'config.json');
+    let config = addProfile(emptyConfig(), 'prod', 'https://mcdi.example.com');
+    for (const [id, slug] of [
+      ['wh-1', 'signup'],
+      ['wh-2', 'workshop'],
+    ] as const) {
+      config = setWebhookSecret(config, 'prod', id, {
+        secret: await encrypt(`secret-of-${slug}`, keys, webhookSecretContext('prod', id)),
+        name: slug,
+        slug,
+      });
+    }
+    await saveConfig(config, path);
+    return path;
+  }
+
+  const deps = (configPath: string, keys: KeyProvider, lines: string[]): WebhookDeps => ({
+    configPath,
+    keys,
+    out: (line) => lines.push(line),
+    info: () => {},
+    isInteractive: false,
+    ask: async () => '',
+  });
+
+  it.each(['wh-2', 'workshop'])(
+    'picks a secret by id or slug without a terminal (%s)',
+    async (ref) => {
+      const keys = fixedKeys();
+      const lines: string[] = [];
+      await webhookSecretGet(
+        ref,
+        { profile: 'prod', reveal: true },
+        deps(await twoSecrets(keys), keys, lines),
+      );
+      expect(lines).toEqual(['secret-of-workshop']);
+    },
+  );
+
+  it('names the missing webhook', async () => {
+    const keys = fixedKeys();
+    const err = await webhookSecretGet(
+      'nope',
+      { profile: 'prod' },
+      deps(await twoSecrets(keys), keys, []),
+    ).catch((e: unknown) => e);
+    expect((err as CliError).exitCode).toBe(ExitCode.NotFound);
   });
 });

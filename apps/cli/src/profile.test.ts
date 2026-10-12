@@ -175,19 +175,19 @@ describe('profileUse', () => {
     expect((await loadConfig(path)).activeProfile).toBe('staging');
   });
 
-  it('exits 3 for an unknown profile', async () => {
+  it('exits 4 for an unknown profile', async () => {
     const path = await tempConfigPath({ version: 1, activeProfile: null, profiles: {} });
     const err = await captureError(profileUse('nope', fakeDeps(path)));
-    expect(err.exitCode).toBe(3);
+    expect(err.exitCode).toBe(4);
     expect(err.message).toBe('no profile named "nope"');
   });
 });
 
 describe('profileRemove', () => {
-  it('exits 3 for an unknown profile', async () => {
+  it('exits 4 for an unknown profile', async () => {
     const path = await tempConfigPath({ version: 1, activeProfile: null, profiles: {} });
     const err = await captureError(profileRemove('nope', {}, fakeDeps(path)));
-    expect(err.exitCode).toBe(3);
+    expect(err.exitCode).toBe(4);
   });
 
   it('refuses while the profile still has a session, before any confirmation', async () => {

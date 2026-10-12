@@ -130,13 +130,15 @@ export function registerWebhookCommand(program: Command): void {
 
   const secret = webhook.command('secret').description('Read a locally stored signing secret');
   secret
-    .command('get')
-    .description('Retrieve a stored signing secret (prompts if more than one is stored)')
+    .command('get [webhook]')
+    .description(
+      'Retrieve a stored signing secret by webhook id or slug (prompts if omitted and more than one is stored)',
+    )
     .option('--reveal', 'print the secret in plain text')
     .option('--profile <name>', 'profile to read from')
-    .action(async (options: WebhookSecretGetOptions) => {
+    .action(async (webhook: string | undefined, options: WebhookSecretGetOptions) => {
       try {
-        await webhookSecretGet(options, defaultWebhookDeps());
+        await webhookSecretGet(webhook, options, defaultWebhookDeps());
       } catch (err) {
         exitWithError('webhook secret get', err);
       }
