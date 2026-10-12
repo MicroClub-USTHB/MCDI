@@ -1,39 +1,39 @@
 # m-forge landing page
 
 The landing page for the m-forge CLI: what it does, a four-step quickstart and the command
-reference. It's a standalone Next.js app that lives next to the CLI and shares nothing with it
-at build time.
+reference. It's the `@mcdi/cli-landing` workspace of the MCDI monorepo, a Next.js app that lives next to
+the CLI (`apps/cli`) and shares nothing with it at build time.
 
 Built with [mcoli-ui](https://mcoli-ui.microclub.info), MicroClub's component library, on its
 **Primary** theme, with light and dark modes.
 
 ## Develop
 
-Requires Node >= 22 and pnpm 10 (`corepack enable`, or `npx pnpm@10.33.2 …`).
+Requires Node >= 22 and pnpm 10 (`corepack enable`). Run from the repository root:
 
 ```bash
-cd landing-page
 pnpm install
-pnpm dev          # http://localhost:3000
+pnpm --filter @mcdi/cli-landing dev          # http://localhost:3000
 ```
 
 Other scripts:
 
 ```bash
-pnpm build        # production build
-pnpm start        # serve the production build
-pnpm typecheck
-pnpm lint
+pnpm --filter @mcdi/cli-landing build        # production build
+pnpm --filter @mcdi/cli-landing start        # serve the production build
+pnpm turbo run typecheck lint --filter=@mcdi/cli-landing
 ```
 
 ## Deploy
 
-Live at <https://m-forge-cli.vercel.app>. Every push to `main` that touches `landing-page/`
-deploys it to Vercel through `.github/workflows/deploy-landing.yml`; CLI-only pushes don't. To
+Live at <https://m-forge-cli.vercel.app>. Every push to `main` that touches `apps/cli-landing/`
+(or the shared config packages and lockfile) deploys it to Vercel through
+`.github/workflows/deploy-cli-landing.yml`; other pushes don't. To
 redeploy by hand, run that workflow from the repo's Actions tab.
 
 The workflow builds with the Vercel CLI rather than Vercel's GitHub app, and needs three repo
-secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
+secrets: `CLI_LANDING_VERCEL_TOKEN`, `CLI_LANDING_VERCEL_ORG_ID` and
+`CLI_LANDING_VERCEL_PROJECT_ID`. It runs in the `cli-landing-production` environment.
 
 Set `SITE_URL` on the Vercel project (Production, type **Config**, not Secret: secrets aren't
 passed to the build) to the public address of the site. Share previews (the Open Graph image

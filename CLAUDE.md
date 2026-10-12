@@ -10,6 +10,8 @@ MCDI (MicroClub Discord Identity/Interface) is a pnpm 10 + Turborepo monorepo (N
 
 - `apps/api` (`@mcdi/api`): NestJS 11 API, Drizzle ORM + Postgres, Redis, discord.js bot. CommonJS. Shipped as a Docker image.
 - `apps/web` (`@mcdi/web`): Next.js 16 admin panel, deployed on Vercel. It has its own `apps/web/CLAUDE.md` / `AGENTS.md` with frontend conventions; read them before touching web code. Next.js 16 differs from training data: check `apps/web/node_modules/next/dist/docs/` before writing Next code.
+- `apps/cli` (`@mcdi/cli`): m-forge, the admin CLI for Inbound Webhooks (login, schema pre-check, webhook CRUD). ESM, bundled with tsup, tested with Vitest. It has its own `apps/cli/CLAUDE.md` with its conventions; read it before touching CLI code. The `m-forge` skill in `.claude/skills/m-forge` covers running it.
+- `apps/cli-landing` (`@mcdi/cli-landing`): the m-forge landing page, a standalone Next.js app deployed on Vercel by `.github/workflows/deploy-cli-landing.yml`.
 - `packages/contracts` (`@mcdi/contracts`): wire types and constants shared by api and web (e.g. the `admin_session` cookie name). It is a **compiled** package (CJS + .d.ts) because the API cannot load a just-in-time TS package. Keep it dependency-free.
 - `packages/typescript-config`, `packages/eslint-config`: config-only presets that apps extend.
 - `docs/`: historical design records (specifications, the inbound webhooks PRD, the original auth guide). They are no longer updated. The current documentation is in `apps/web/src/content/docs`, see Documentation below.
@@ -24,7 +26,7 @@ pnpm dev            # contracts watch-build, API on :3000, web on :3002
 pnpm build
 pnpm lint           # NOTE: the API lint script runs eslint --fix
 pnpm typecheck
-pnpm test           # Jest (api) + Vitest (web)
+pnpm test           # Jest (api) + Vitest (web, cli)
 pnpm test:e2e       # API e2e, needs Postgres
 pnpm turbo run test --filter=@mcdi/web
 ```

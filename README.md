@@ -6,6 +6,8 @@ MicroClub Discord Identity — the NestJS API that centralises Discord identity 
 apps/
   api/                 NestJS 11 API (Drizzle + Postgres + Redis) — deployed with Docker
   web/                 Next.js 16 admin panel                    — deployed on Vercel
+  cli/                 m-forge, the admin CLI for Inbound Webhooks
+  cli-landing/         Next.js landing page for m-forge          — deployed on Vercel
 packages/
   contracts/           Types and constants shared by api and web (compiled, CJS + .d.ts)
   typescript-config/   Base / nestjs / nextjs / library tsconfig presets
@@ -13,7 +15,7 @@ packages/
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
+Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/cli`, `@mcdi/cli-landing`, `@mcdi/contracts`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
 
 ## Documentation
 
@@ -47,7 +49,7 @@ Run from the repository root; Turborepo runs them per package in dependency orde
 | `pnpm build` | Builds everything (contracts → api, web) |
 | `pnpm lint` | ESLint (note: the API's `lint` runs with `--fix`) |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm test` | Unit tests (Jest for the API, Vitest for the web) |
+| `pnpm test` | Unit tests (Jest for the API, Vitest for the web and the CLI) |
 | `pnpm test:e2e` | API end-to-end tests (needs Postgres, see `.github/workflows/ci.yml`) |
 
 Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcdi/web`, or run a script inside it: `pnpm --filter @mcdi/api run db:migrate`.

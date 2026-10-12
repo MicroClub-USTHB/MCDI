@@ -12,18 +12,20 @@ own backend posts signed data to the webhook's submit URL, and MCDI validates
 and stores it. MCDI is the authority on everything; m-forge's local checks only
 catch mistakes earlier.
 
-Repo map: `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
+Repo map (paths under `apps/cli/` in the MCDI monorepo): `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
 (command logic), `src/mcdi.ts` (one function per MCDI endpoint),
 `src/schema/` (local pre-check), `docs/form-schema.md` (the schema language),
-`docs/endpoints/` (MCDI endpoints), `CLAUDE.md` (conventions), `landing-page/`
-(a separate Next.js site).
+`docs/endpoints/` (MCDI endpoints), `CLAUDE.md` (conventions). The landing page is the separate
+`@mcdi/cli-landing` workspace in `apps/cli-landing/`.
 
 ## Running it
 
 - Installed: `m-forge <command>`.
-- From the repo: `pnpm dev -- <command>` (runs `src/` with tsx), or
-  `pnpm build` then `node bin/m-forge.js <command>`.
-- If `pnpm` isn't found, `npx pnpm@10.33.2 <script>` works without installing.
+- From the repo: `pnpm --filter @mcdi/cli dev -- <command>` (runs `src/` with
+  tsx), or `pnpm --filter @mcdi/cli build` then
+  `node apps/cli/bin/m-forge.js <command>`.
+- If `pnpm` isn't found, `corepack enable` picks the version pinned in the root
+  `package.json`.
 
 ## Commands
 
@@ -120,14 +122,14 @@ What trips people up:
 
 Follow `CLAUDE.md`. Beyond it:
 
-- Run `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm build` before calling
-  a change done.
+- Run `pnpm turbo run lint typecheck test build --filter=@mcdi/cli` from the
+  repository root before calling a change done.
 - Flows take a `deps` object (config path, keys, output, prompts, browser) so
   tests run without MCDI, a keychain or a terminal; keep new code testable that
   way.
 - The local pre-check may be stricter than MCDI, never looser. When changing
   `src/schema/validate.ts`, check MCDI's `schema.validator.ts` and update
   `docs/form-schema.md`.
-- When a command, flag or output line changes, update `landing-page/src/` and
+- When a command, flag or output line changes, update `apps/cli-landing/src/` and
   `docs/` to match: both quote the CLI's real behavior.
 - Repo text, commits and PRs are in English.
