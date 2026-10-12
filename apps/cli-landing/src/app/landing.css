@@ -1,0 +1,20 @@
+/* The only scroll animation on the page: a short fade-up the first time a block comes into view. */
+.reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 500ms ease-out,
+    transform 500ms ease-out;
+}
+.reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
