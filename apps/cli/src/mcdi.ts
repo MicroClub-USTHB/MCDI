@@ -430,8 +430,7 @@ export interface CreateInboundWebhookBody {
   name: string;
   slug: string;
   schema: Record<string, unknown>;
-  /** Omitted → MCDI falls back to the project's configured default reader roles. */
-  allowedRoleIds?: string[];
+  allowedRoleIds: string[];
   acceptedOrigins?: string[];
 }
 

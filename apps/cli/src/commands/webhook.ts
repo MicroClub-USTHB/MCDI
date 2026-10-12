@@ -28,9 +28,9 @@ export function registerWebhookCommand(program: Command): void {
     .description('Create a webhook on MCDI from a schema file and store its signing secret')
     .requiredOption('--name <name>', 'webhook display name')
     .option('--project <projectId>', 'owning MCDI project id (omit to pick interactively)')
-    .option(
+    .requiredOption(
       '--roles <roleIds>',
-      'comma-separated allowed Discord role ids (omit to use project defaults)',
+      'comma-separated Discord role ids allowed to read submissions',
     )
     .option('--accept-origin <origin>', 'accepted origin (repeatable)', collect, [])
     .option('--slug <slug>', 'URL-safe id, unique in the project (default: derived from --name)')

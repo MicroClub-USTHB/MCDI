@@ -136,8 +136,9 @@ describe('webhookRotateSecret confirmation', () => {
   });
 });
 
-describe('webhookCreate: optional --project and --roles', () => {
+describe('webhookCreate: --project and --roles', () => {
   const UNREACHABLE = 'http://127.0.0.1:9';
+  const ROLE = '123456789012345678';
 
   async function seededConfigPath(keys: KeyProvider, baseUrl: string): Promise<string> {
     const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-create-')), 'config.json');
@@ -199,7 +200,11 @@ describe('webhookCreate: optional --project and --roles', () => {
     const deps = fakeDeps(path, keys, { isInteractive: false });
 
     const err = await captureError(
-      webhookCreate(schemaPath, { profile: 'prod', name: 'Test', acceptOrigin: [] }, deps),
+      webhookCreate(
+        schemaPath,
+        { profile: 'prod', name: 'Test', roles: ROLE, acceptOrigin: [] },
+        deps,
+      ),
     );
     expect(err.exitCode).toBe(ExitCode.PrecheckFailed);
     expect(err.message).toBe(
@@ -207,7 +212,12 @@ describe('webhookCreate: optional --project and --roles', () => {
     );
   });
 
-  it('omitting --roles does not block locally; the request still reaches MCDI', async () => {
+  it.each([
+    ['', 'needs at least one Discord role id'],
+    [' , ', 'needs at least one Discord role id'],
+    ['moderators', 'not a role id: moderators'],
+    [`${ROLE},12345`, 'not a role id: 12345'],
+  ])('refuses --roles %j before any network call', async (roles, message) => {
     const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const schemaPath = await seededSchemaPath();
@@ -216,7 +226,24 @@ describe('webhookCreate: optional --project and --roles', () => {
     const err = await captureError(
       webhookCreate(
         schemaPath,
-        { profile: 'prod', name: 'Test', project: 'proj-1', acceptOrigin: [] },
+        { profile: 'prod', name: 'Test', project: 'proj-1', roles, acceptOrigin: [] },
+        deps,
+      ),
+    );
+    expect(err.exitCode).toBe(ExitCode.PrecheckFailed);
+    expect(err.message).toContain(message);
+  });
+
+  it('sends valid role ids on to MCDI', async () => {
+    const keys = fixedKeys();
+    const path = await seededConfigPath(keys, UNREACHABLE);
+    const schemaPath = await seededSchemaPath();
+    const deps = fakeDeps(path, keys, { isInteractive: false });
+
+    const err = await captureError(
+      webhookCreate(
+        schemaPath,
+        { profile: 'prod', name: 'Test', project: 'proj-1', roles: ROLE, acceptOrigin: [] },
         deps,
       ),
     );

@@ -212,18 +212,26 @@ export interface WebhookRolesSetOptions {
   roles: string;
 }
 
+/** MCDI's rule for a role id: a Discord snowflake. */
+const ROLE_ID_PATTERN = /^\d{17,20}$/;
+
 /**
- * Splits a comma-separated `--roles` value. MCDI treats an empty allowed-readers
- * set as nobody, not "allow everyone", so an empty one is refused before any call.
+ * Splits a comma-separated `--roles` value and checks it the way MCDI does, so
+ * a mistake fails before any call. MCDI requires at least one role: an empty
+ * allowed-readers set would mean nobody can read the submissions.
  */
-function parseRoleIds(raw: string, emptyMeans: string): string[] {
+function parseRoleIds(raw: string): string[] {
   const roleIds = raw
     .split(',')
     .map((role) => role.trim())
     .filter((role) => role !== '');
   if (roleIds.length === 0) {
+    throw new CliError('--roles needs at least one Discord role id', ExitCode.PrecheckFailed);
+  }
+  const invalid = roleIds.filter((role) => !ROLE_ID_PATTERN.test(role));
+  if (invalid.length > 0) {
     throw new CliError(
-      `--roles needs at least one Discord role id; ${emptyMeans}`,
+      `--roles takes Discord role ids (17 to 20 digits); not a role id: ${invalid.join(', ')}`,
       ExitCode.PrecheckFailed,
     );
   }
@@ -235,10 +243,7 @@ export async function webhookRolesSet(
   options: WebhookRolesSetOptions,
   deps: WebhookDeps,
 ): Promise<void> {
-  const roleIds = parseRoleIds(
-    options.roles,
-    'an empty set would remove all read access (delete the webhook instead)',
-  );
+  const roleIds = parseRoleIds(options.roles);
   const session = await loadSession(options.profile, deps);
   const stored = await setInboundWebhookRoles(session, id, roleIds);
   deps.out(`Allowed reader roles for ${id} on ${session.profileName}: ${stored.join(', ')}`);
@@ -312,8 +317,8 @@ export interface WebhookCreateOptions {
   name: string;
   /** Omitted → prompted for interactively from `GET /admin/projects` (requires a TTY). */
   project?: string;
-  /** Omitted → MCDI falls back to the project's configured default reader roles. */
-  roles?: string;
+  /** Comma-separated Discord role ids allowed to read submissions; MCDI requires at least one. */
+  roles: string;
   acceptOrigin: string[];
   slug?: string;
   reveal?: boolean;
@@ -418,20 +423,19 @@ export async function webhookCreate(
   options: WebhookCreateOptions,
   deps: WebhookDeps,
 ): Promise<void> {
-  const allowedRoleIds =
-    options.roles === undefined
-      ? undefined
-      : parseRoleIds(
-          options.roles,
-          "omit --roles to fall back to the project's default reader roles",
-        );
+  const allowedRoleIds = parseRoleIds(options.roles);
   const slug = resolveSlug(options);
   const schema = await readCheckedSchema(schemaPath, deps);
 
   const session = await loadSession(options.profile, deps);
   const projectId = await resolveProjectId(session, options, deps);
-  const body: CreateInboundWebhookBody = { projectId, name: options.name, slug, schema };
-  if (allowedRoleIds !== undefined) body.allowedRoleIds = allowedRoleIds;
+  const body: CreateInboundWebhookBody = {
+    projectId,
+    name: options.name,
+    slug,
+    schema,
+    allowedRoleIds,
+  };
   if (options.acceptOrigin.length > 0) body.acceptedOrigins = options.acceptOrigin;
   const created = await createInboundWebhook(session, body);
   const { webhook } = created;
