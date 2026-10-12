@@ -6,14 +6,20 @@ update, and inspect MCDI **Inbound Webhooks** from the terminal, instead of
 hand-crafting `FormSchema` JSON and calling the admin API with a raw HTTP
 client.
 
-Full product requirements: [`docs/mcdi-cli-PRD.md`](docs/mcdi-cli-PRD.md)
-(copied from the MCDI monorepo's `docs/`, which remains the source of truth —
-re-sync this copy if the PRD changes there).
+mcdi-cli is the command-line client for MCDI. The MVP covers Inbound
+Webhooks only (login, schema authoring and pre-check, webhook management); it
+is meant to grow to cover the rest of MCDI's admin features over time.
+
+This is the `@mcdi/cli` workspace of the MCDI monorepo (`apps/cli`). Run
+scripts from the repository root, e.g.
+`pnpm turbo run lint typecheck test --filter=@mcdi/cli`.
+
+Product requirements for the MVP: [`docs/mcdi-cli-PRD.md`](docs/mcdi-cli-PRD.md).
 
 ## Relationship to MCDI
 
-mcdi-cli is a **thin client** in front of MCDI's own API
-(`github.com/MicroClub-USTHB/MCDI`). It does not reimplement server-side
+mcdi-cli is a **thin client** in front of MCDI's own API (`apps/api` in this
+monorepo). It does not reimplement server-side
 validation or own any data — MCDI's Layer 1 (schema-time) and Layer 2
 (submission-time) validation remain the final authority. mcdi-cli's local
 validation is an offline pre-check only.
@@ -30,14 +36,12 @@ These docs are written from the actual MCDI controller source (not just the
 PRD's description of it), and call out where MCDI doesn't yet expose what
 mcdi-cli needs — see each file's "Gaps for mcdi-cli" section. Treat MCDI's
 source as the ground truth if these docs and the running API ever disagree;
-re-verify against `MicroClub-USTHB/MCDI` before relying on a documented shape.
+re-verify against `apps/api` before relying on a documented shape.
 
 ## Status
 
-The command surface is mostly scaffolded. `schema init` and `schema validate`
-are implemented, including a local validator aligned with MCDI's Layer 1
-schema validator. The remaining commands and milestones are tracked in the
-PRD:
+M1 and M2 are implemented. `schema build` (M3) and `webhook diff` (M4) are
+still stubs. Milestones are tracked in the PRD:
 
 | Phase | Scope |
 |---|---|

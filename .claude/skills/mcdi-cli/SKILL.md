@@ -12,7 +12,7 @@ own backend posts signed data to the webhook's submit URL, and MCDI validates
 and stores it. MCDI is the authority on everything; mcdi-cli's local checks only
 catch mistakes earlier.
 
-Repo map: `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
+Repo map (paths under `apps/cli/` in the MCDI monorepo): `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
 (command logic), `src/mcdi.ts` (one function per MCDI endpoint),
 `src/schema/` (local pre-check), `docs/form-schema.md` (the schema language),
 `docs/endpoints/` (MCDI endpoints), `CLAUDE.md` (conventions).
@@ -20,9 +20,11 @@ Repo map: `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
 ## Running it
 
 - Installed: `mcdi-cli <command>`.
-- From the repo: `pnpm dev -- <command>` (runs `src/` with tsx), or
-  `pnpm build` then `node bin/mcdi-cli.js <command>`.
-- If `pnpm` isn't found, `npx pnpm@10.33.2 <script>` works without installing.
+- From the repo root: `pnpm --filter @mcdi/cli dev -- <command>` (runs `src/`
+  with tsx), or `pnpm --filter @mcdi/cli build` then
+  `node apps/cli/bin/mcdi-cli.js <command>`.
+- If `pnpm` isn't found, `corepack enable` picks the version pinned in the root
+  `package.json`.
 
 ## Commands
 
@@ -119,8 +121,8 @@ What trips people up:
 
 Follow `CLAUDE.md`. Beyond it:
 
-- Run `pnpm test`, `pnpm typecheck`, `pnpm lint` and `pnpm build` before calling
-  a change done.
+- Run `pnpm turbo run lint typecheck test build --filter=@mcdi/cli` from the
+  repository root before calling a change done.
 - Flows take a `deps` object (config path, keys, output, prompts, browser) so
   tests run without MCDI, a keychain or a terminal; keep new code testable that
   way.
