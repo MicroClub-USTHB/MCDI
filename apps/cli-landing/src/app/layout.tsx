@@ -13,7 +13,10 @@ import './globals.css';
 // mcoli-ui's fonts: DM Sans for body text, Plus Jakarta Sans for headings. Code uses Geist Mono,
 // the mono font `shadcn init` wires to --font-mono in globals.css.
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
-const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-plus-jakarta-sans' });
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-plus-jakarta-sans',
+});
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' });
 
 // Share previews need absolute URLs; set SITE_URL to the deployed address. An empty value counts as
@@ -24,7 +27,7 @@ function siteUrl(): URL {
     return new URL(value);
   } catch {
     throw new Error(
-      'SITE_URL is not a valid URL. On Vercel it must be a Config variable: Secret values are not passed to the build.',
+      'SITE_URL is not a valid URL. On Vercel it must be a Config variable: Secret values are not passed to the build.'
     );
   }
 }

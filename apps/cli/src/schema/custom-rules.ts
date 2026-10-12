@@ -44,11 +44,18 @@ const isMissing = (value: unknown): boolean =>
   (typeof value === 'string' && value.trim() === '') ||
   (Array.isArray(value) && value.length === 0);
 
-function checkField(field: Record<string, unknown>, path: string, rules: readonly CustomRule[], errors: ValidationError[]): void {
+function checkField(
+  field: Record<string, unknown>,
+  path: string,
+  rules: readonly CustomRule[],
+  errors: ValidationError[],
+): void {
   const type = field.type;
   for (const rule of rules) {
-    if (rule.appliesTo !== '*' && (typeof type !== 'string' || !rule.appliesTo.includes(type))) continue;
-    const add = (at: string) => errors.push({ path: at, code: ruleCode(rule.id), message: rule.message, source: 'local' });
+    if (rule.appliesTo !== '*' && (typeof type !== 'string' || !rule.appliesTo.includes(type)))
+      continue;
+    const add = (at: string) =>
+      errors.push({ path: at, code: ruleCode(rule.id), message: rule.message, source: 'local' });
 
     switch (rule.type) {
       case 'require-present':
@@ -56,7 +63,11 @@ function checkField(field: Record<string, unknown>, path: string, rules: readonl
         break;
       case 'key-pattern':
         // A missing or non-string key is already a built-in error.
-        if (typeof field.key === 'string' && !matches(rule, rule.pattern!, field.key, `${path}.key`)) add(`${path}.key`);
+        if (
+          typeof field.key === 'string' &&
+          !matches(rule, rule.pattern!, field.key, `${path}.key`)
+        )
+          add(`${path}.key`);
         break;
       case 'max-value': {
         const value = field[rule.field!];
@@ -70,7 +81,8 @@ function checkField(field: Record<string, unknown>, path: string, rules: readonl
           if (matches(rule, rule.pattern!, value, at)) add(at);
         } else if (Array.isArray(value)) {
           value.forEach((item, i) => {
-            if (typeof item === 'string' && matches(rule, rule.pattern!, item, `${at}[${i}]`)) add(`${at}[${i}]`);
+            if (typeof item === 'string' && matches(rule, rule.pattern!, item, `${at}[${i}]`))
+              add(`${at}[${i}]`);
           });
         }
         break;

@@ -6,7 +6,11 @@ import { addProfile, saveConfig, setSession, setWebhookSecret, type Config } fro
 import { configShow, configShowPath, redactProfile, type ConfigDeps } from './config-show.js';
 import { CliError } from './errors.js';
 
-const session = { accessToken: 'v1:aaa:bbb:ccc', expiresAt: '2026-10-05T00:00:00.000Z', adminIdentity: 'kal#1' };
+const session = {
+  accessToken: 'v1:aaa:bbb:ccc',
+  expiresAt: '2026-10-05T00:00:00.000Z',
+  adminIdentity: 'kal#1',
+};
 const secretEntry = { secret: 'v1:s:e:c', name: 'Recruitment', slug: 'recruitment' };
 
 async function tempConfigPath(config: Config): Promise<string> {
@@ -43,7 +47,12 @@ describe('configShowPath', () => {
 
 describe('redactProfile', () => {
   it('replaces the session access token and every webhook secret, keeping everything else', () => {
-    let config = setSession({ version: 1, activeProfile: null, profiles: {} }, 'prod', 'https://a.example.com', session);
+    let config = setSession(
+      { version: 1, activeProfile: null, profiles: {} },
+      'prod',
+      'https://a.example.com',
+      session,
+    );
     config = setWebhookSecret(config, 'prod', 'wh-1', secretEntry);
     const redacted = redactProfile(config.profiles.prod!);
     expect(redacted).toEqual({
@@ -61,7 +70,12 @@ describe('redactProfile', () => {
 
 describe('configShow', () => {
   it('prints the resolved profile with secrets redacted and never the raw fake-encrypted strings', async () => {
-    let config = setSession({ version: 1, activeProfile: null, profiles: {} }, 'prod', 'https://a.example.com', session);
+    let config = setSession(
+      { version: 1, activeProfile: null, profiles: {} },
+      'prod',
+      'https://a.example.com',
+      session,
+    );
     config = setWebhookSecret(config, 'prod', 'wh-1', secretEntry);
     const path = await tempConfigPath(config);
     const bytesBefore = await readFile(path);
@@ -86,11 +100,20 @@ describe('configShow', () => {
   });
 
   it('falls back to the active profile, then "default"', async () => {
-    const config = addProfile({ version: 1, activeProfile: null, profiles: {} }, 'staging', 'https://b.example.com');
+    const config = addProfile(
+      { version: 1, activeProfile: null, profiles: {} },
+      'staging',
+      'https://b.example.com',
+    );
     const path = await tempConfigPath(config);
     const out = collect();
     await configShow({}, fakeDeps(path, { out: out.out }));
-    expect(JSON.parse(out.lines.join('\n'))).toEqual({ name: 'staging', active: true, baseUrl: 'https://b.example.com', session: null });
+    expect(JSON.parse(out.lines.join('\n'))).toEqual({
+      name: 'staging',
+      active: true,
+      baseUrl: 'https://b.example.com',
+      session: null,
+    });
   });
 
   it('exits 3 for an unknown profile', async () => {

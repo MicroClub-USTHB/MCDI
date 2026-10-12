@@ -60,7 +60,11 @@ export function Quickstart() {
   const [value, setValue] = React.useState(STEPS[0]!.id);
 
   return (
-    <section id="quickstart" aria-labelledby="quickstart-title" className="scroll-mt-16 border-t border-border py-16 sm:py-24">
+    <section
+      id="quickstart"
+      aria-labelledby="quickstart-title"
+      className="scroll-mt-16 border-t border-border py-16 sm:py-24"
+    >
       <Container>
         <SectionHeading
           id="quickstart-title"
@@ -93,7 +97,9 @@ export function Quickstart() {
                         <CommandBlock command={s.command} />
                       </div>
                       <div className="min-w-0">
-                        <p className="mb-2 paragraph-xs font-medium text-muted-foreground">Output</p>
+                        <p className="mb-2 paragraph-xs font-medium text-muted-foreground">
+                          Output
+                        </p>
                         <pre className="rounded-lg border border-border px-4 py-3 font-mono paragraph-sm break-words whitespace-pre-wrap text-muted-foreground">
                           {s.output}
                         </pre>

@@ -33,7 +33,11 @@ const FEATURES = [
 
 export function Features() {
   return (
-    <section id="features" aria-labelledby="features-title" className="scroll-mt-16 border-t border-border bg-muted/40 py-16 sm:py-24">
+    <section
+      id="features"
+      aria-labelledby="features-title"
+      className="scroll-mt-16 border-t border-border bg-muted/40 py-16 sm:py-24"
+    >
       <Container>
         <SectionHeading
           id="features-title"
@@ -50,7 +54,9 @@ export function Features() {
                   <Icon className="size-5" aria-hidden />
                 </span>
                 <McCardHeader title={title} />
-                <McCardContent className="paragraph-sm text-muted-foreground">{description}</McCardContent>
+                <McCardContent className="paragraph-sm text-muted-foreground">
+                  {description}
+                </McCardContent>
               </McCard>
             </Reveal>
           ))}

@@ -5,7 +5,10 @@ import { spawn } from 'node:child_process';
  * could be launched so the caller can fall back to printing the URL. Never goes
  * through a shell, so the URL can't be interpreted as a command.
  */
-export function openBrowser(url: string, platform: NodeJS.Platform = process.platform): Promise<boolean> {
+export function openBrowser(
+  url: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<boolean> {
   const [command, args] =
     platform === 'darwin'
       ? ['open', [url]]

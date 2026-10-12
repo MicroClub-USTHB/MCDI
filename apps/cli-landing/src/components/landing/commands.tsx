@@ -14,9 +14,18 @@ const GROUPS = [
     id: 'auth',
     name: 'Auth',
     commands: [
-      { usage: 'm-forge login --profile <name>', description: 'Authenticate against MCDI via browser-based Discord OAuth' },
-      { usage: 'm-forge whoami --profile <name>', description: "Print the authenticated admin's identity" },
-      { usage: 'm-forge logout --profile <name>', description: 'Invalidate the current session and forget it locally' },
+      {
+        usage: 'm-forge login --profile <name>',
+        description: 'Authenticate against MCDI via browser-based Discord OAuth',
+      },
+      {
+        usage: 'm-forge whoami --profile <name>',
+        description: "Print the authenticated admin's identity",
+      },
+      {
+        usage: 'm-forge logout --profile <name>',
+        description: 'Invalidate the current session and forget it locally',
+      },
     ],
   },
   {
@@ -33,8 +42,14 @@ const GROUPS = [
     id: 'schema',
     name: 'Schema',
     commands: [
-      { usage: 'm-forge schema init [path]', description: 'Scaffold a starter FormSchema JSON file' },
-      { usage: 'm-forge schema validate <path>', description: 'Run the local pre-check only, no network call' },
+      {
+        usage: 'm-forge schema init [path]',
+        description: 'Scaffold a starter FormSchema JSON file',
+      },
+      {
+        usage: 'm-forge schema validate <path>',
+        description: 'Run the local pre-check only, no network call',
+      },
     ],
   },
   {
@@ -43,8 +58,14 @@ const GROUPS = [
     commands: [
       { usage: 'm-forge webhook list --profile <name>', description: 'List webhooks' },
       { usage: 'm-forge webhook get <id> --profile <name>', description: 'Inspect one webhook' },
-      { usage: 'm-forge webhook update <id> --profile <name>', description: 'Update an existing webhook' },
-      { usage: 'm-forge webhook delete <id> --profile <name>', description: 'Delete a webhook and all its submissions' },
+      {
+        usage: 'm-forge webhook update <id> --profile <name>',
+        description: 'Update an existing webhook',
+      },
+      {
+        usage: 'm-forge webhook delete <id> --profile <name>',
+        description: 'Delete a webhook and all its submissions',
+      },
     ],
   },
   {
@@ -55,8 +76,14 @@ const GROUPS = [
         usage: 'm-forge webhook roles set <id> --roles <ids> --profile <name>',
         description: 'Replace the allowed-reader role list',
       },
-      { usage: 'm-forge webhook rotate-secret <id> --profile <name>', description: "Rotate a webhook's signing secret" },
-      { usage: 'm-forge webhook secret get --profile <name>', description: 'Retrieve a stored signing secret' },
+      {
+        usage: 'm-forge webhook rotate-secret <id> --profile <name>',
+        description: "Rotate a webhook's signing secret",
+      },
+      {
+        usage: 'm-forge webhook secret get --profile <name>',
+        description: 'Retrieve a stored signing secret',
+      },
     ],
   },
 ];
@@ -72,7 +99,11 @@ const EXIT_CODES = [
 
 export function Commands() {
   return (
-    <section id="commands" aria-labelledby="commands-title" className="scroll-mt-16 border-t border-border py-16 sm:py-24">
+    <section
+      id="commands"
+      aria-labelledby="commands-title"
+      className="scroll-mt-16 border-t border-border py-16 sm:py-24"
+    >
       <Container>
         <SectionHeading
           id="commands-title"
@@ -100,8 +131,12 @@ export function Commands() {
                         {group.commands.map((command) => (
                           <li key={command.usage} className="flex items-start gap-3 py-3">
                             <div className="min-w-0 flex-1">
-                              <code className="block font-mono paragraph-sm break-words text-foreground">{command.usage}</code>
-                              <p className="mt-0.5 paragraph-xs text-muted-foreground">{command.description}</p>
+                              <code className="block font-mono paragraph-sm break-words text-foreground">
+                                {command.usage}
+                              </code>
+                              <p className="mt-0.5 paragraph-xs text-muted-foreground">
+                                {command.description}
+                              </p>
                             </div>
                             <CopyButton value={command.usage} />
                           </li>
@@ -121,7 +156,11 @@ export function Commands() {
                 <ul className="flex flex-col gap-3">
                   {EXIT_CODES.map(({ code, meaning }) => (
                     <li key={code} className="flex items-center gap-3">
-                      <McBadge variant={code === 0 ? 'secondary' : 'outline'} size="sm" className="min-w-8 font-mono">
+                      <McBadge
+                        variant={code === 0 ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="min-w-8 font-mono"
+                      >
                         {code}
                       </McBadge>
                       <span className="paragraph-sm text-foreground">{meaning}</span>

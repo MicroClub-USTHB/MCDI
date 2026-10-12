@@ -87,7 +87,12 @@ export async function encrypt(plaintext: string, keys: KeyProvider): Promise<str
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', await keys.getKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  return [FORMAT, iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join(':');
+  return [
+    FORMAT,
+    iv.toString('base64'),
+    cipher.getAuthTag().toString('base64'),
+    ciphertext.toString('base64'),
+  ].join(':');
 }
 
 export async function decrypt(encoded: string, keys: KeyProvider): Promise<string> {
@@ -97,5 +102,8 @@ export async function decrypt(encoded: string, keys: KeyProvider): Promise<strin
   }
   const decipher = createDecipheriv('aes-256-gcm', await keys.getKey(), Buffer.from(iv, 'base64'));
   decipher.setAuthTag(Buffer.from(tag, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64')), decipher.final()]).toString('utf8');
+  return Buffer.concat([
+    decipher.update(Buffer.from(ciphertext, 'base64')),
+    decipher.final(),
+  ]).toString('utf8');
 }

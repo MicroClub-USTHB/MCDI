@@ -1,5 +1,5 @@
-import path from "node:path";
-import type { NextConfig } from "next";
+import path from 'node:path';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -7,11 +7,11 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   turbopack: {
     // The monorepo root: pnpm hoists `next` into the root node_modules/.pnpm store.
-    root: path.join(__dirname, "..", ".."),
+    root: path.join(__dirname, '..', '..'),
     rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
+      '*.css': {
+        loaders: ['@tailwindcss/turbopack'],
+        as: '*.css',
       },
     },
   },

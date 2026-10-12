@@ -70,8 +70,16 @@ export async function loadConfig(path = configPath()): Promise<Config> {
     throw new CliError(`config file ${path} is not valid JSON`, ExitCode.Unexpected);
   }
   const config = parsed as Partial<Config> | null;
-  if (!config || config.version !== 1 || typeof config.profiles !== 'object' || config.profiles === null) {
-    throw new CliError(`config file ${path} has an unsupported shape (expected version 1)`, ExitCode.Unexpected);
+  if (
+    !config ||
+    config.version !== 1 ||
+    typeof config.profiles !== 'object' ||
+    config.profiles === null
+  ) {
+    throw new CliError(
+      `config file ${path} has an unsupported shape (expected version 1)`,
+      ExitCode.Unexpected,
+    );
   }
   return { version: 1, activeProfile: config.activeProfile ?? null, profiles: config.profiles };
 }
@@ -90,7 +98,11 @@ export function resolveProfileName(config: Config, flag: string | undefined): st
 }
 
 /** `--base-url` wins, then whatever the profile already has; there is no built-in default. */
-export function resolveBaseUrl(config: Config, profileName: string, flag: string | undefined): string {
+export function resolveBaseUrl(
+  config: Config,
+  profileName: string,
+  flag: string | undefined,
+): string {
   const raw = flag ?? config.profiles[profileName]?.baseUrl;
   if (!raw) {
     throw new CliError(
@@ -118,11 +130,19 @@ export function normalizeBaseUrl(raw: string): string {
  * Stores a session on a profile (creating it if needed) and makes it active if none is.
  * Keeps the profile's other fields: its webhook secrets can't be recovered from MCDI if lost.
  */
-export function setSession(config: Config, profileName: string, baseUrl: string, session: StoredSession): Config {
+export function setSession(
+  config: Config,
+  profileName: string,
+  baseUrl: string,
+  session: StoredSession,
+): Config {
   return {
     ...config,
     activeProfile: config.activeProfile ?? profileName,
-    profiles: { ...config.profiles, [profileName]: { ...config.profiles[profileName], baseUrl, session } },
+    profiles: {
+      ...config.profiles,
+      [profileName]: { ...config.profiles[profileName], baseUrl, session },
+    },
   };
 }
 
@@ -139,18 +159,28 @@ export function setWebhookSecret(
     ...config,
     profiles: {
       ...config.profiles,
-      [profileName]: { ...profile, webhookSecrets: { ...profile.webhookSecrets, [webhookId]: entry } },
+      [profileName]: {
+        ...profile,
+        webhookSecrets: { ...profile.webhookSecrets, [webhookId]: entry },
+      },
     },
   };
 }
 
 /** Drops a webhook's stored signing secret; returns null when there was none to drop. */
-export function removeWebhookSecret(config: Config, profileName: string, webhookId: string): Config | null {
+export function removeWebhookSecret(
+  config: Config,
+  profileName: string,
+  webhookId: string,
+): Config | null {
   const profile = config.profiles[profileName];
   if (!profile?.webhookSecrets || !(webhookId in profile.webhookSecrets)) return null;
   const webhookSecrets = { ...profile.webhookSecrets };
   delete webhookSecrets[webhookId];
-  return { ...config, profiles: { ...config.profiles, [profileName]: { ...profile, webhookSecrets } } };
+  return {
+    ...config,
+    profiles: { ...config.profiles, [profileName]: { ...profile, webhookSecrets } },
+  };
 }
 
 /**

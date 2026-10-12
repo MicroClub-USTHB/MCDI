@@ -76,7 +76,13 @@ export function SiteHeader() {
           {/* Mobile nav */}
           <McDrawer direction="right">
             <McDrawerTrigger asChild>
-              <McButton variant="tertiary" size="sm" icon="only" iconDefinition={<Menu />} className="md:hidden">
+              <McButton
+                variant="tertiary"
+                size="sm"
+                icon="only"
+                iconDefinition={<Menu />}
+                className="md:hidden"
+              >
                 Open menu
               </McButton>
             </McDrawerTrigger>
@@ -87,7 +93,10 @@ export function SiteHeader() {
               <nav aria-label="Mobile" className="flex flex-col gap-1">
                 {NAV_LINKS.map((link) => (
                   <McDrawerClose key={link.href} asChild>
-                    <a href={link.href} className="rounded-lg px-3 py-3 paragraph-md text-foreground hover:bg-muted">
+                    <a
+                      href={link.href}
+                      className="rounded-lg px-3 py-3 paragraph-md text-foreground hover:bg-muted"
+                    >
                       {link.label}
                     </a>
                   </McDrawerClose>

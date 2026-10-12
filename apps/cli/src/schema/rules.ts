@@ -11,7 +11,12 @@ import { FIELD_TYPE_NAMES } from './validate.js';
  * them is ever executed.
  */
 
-export const RULE_TYPES = ['forbid-pattern', 'require-present', 'max-value', 'key-pattern'] as const;
+export const RULE_TYPES = [
+  'forbid-pattern',
+  'require-present',
+  'max-value',
+  'key-pattern',
+] as const;
 export type RuleType = (typeof RULE_TYPES)[number];
 
 export interface CustomRule {
@@ -56,7 +61,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 function parseRule(raw: unknown, index: number, file: string): CustomRule {
-  const where = isRecord(raw) && typeof raw.id === 'string' ? `rules[${index}] ("${raw.id}")` : `rules[${index}]`;
+  const where =
+    isRecord(raw) && typeof raw.id === 'string'
+      ? `rules[${index}] ("${raw.id}")`
+      : `rules[${index}]`;
   const fail = (problem: string): never => {
     throw new RuleFileError(file, `${where}: ${problem}`);
   };
@@ -84,25 +92,35 @@ function parseRule(raw: unknown, index: number, file: string): CustomRule {
     targets = '*';
   } else if (Array.isArray(appliesTo) && appliesTo.length > 0) {
     for (const t of appliesTo) {
-      if (typeof t !== 'string' || !FIELD_TYPE_NAMES.includes(t)) fail(`"appliesTo" has unknown field type ${JSON.stringify(t)}`);
+      if (typeof t !== 'string' || !FIELD_TYPE_NAMES.includes(t))
+        fail(`"appliesTo" has unknown field type ${JSON.stringify(t)}`);
     }
     targets = appliesTo as string[];
   } else {
     return fail('"appliesTo" must be "*" or a non-empty array of field types');
   }
 
-  if (typeof message !== 'string' || message.trim() === '') fail('"message" must be a non-empty string');
+  if (typeof message !== 'string' || message.trim() === '')
+    fail('"message" must be a non-empty string');
 
-  const rule: CustomRule = { id: id as string, type: ruleType, appliesTo: targets, message: message as string, file };
+  const rule: CustomRule = {
+    id: id as string,
+    type: ruleType,
+    appliesTo: targets,
+    message: message as string,
+    file,
+  };
 
   if ('field' in raw) {
-    if (typeof raw.field !== 'string' || raw.field === '') fail('"field" must be a non-empty property name');
+    if (typeof raw.field !== 'string' || raw.field === '')
+      fail('"field" must be a non-empty property name');
     rule.field = raw.field as string;
   }
   if ('pattern' in raw) {
     const source = raw.pattern;
     if (typeof source !== 'string' || source === '') fail('"pattern" must be a non-empty string');
-    if ((source as string).length > MAX_PATTERN_LENGTH) fail(`"pattern" exceeds ${MAX_PATTERN_LENGTH} characters`);
+    if ((source as string).length > MAX_PATTERN_LENGTH)
+      fail(`"pattern" exceeds ${MAX_PATTERN_LENGTH} characters`);
     try {
       rule.pattern = new RegExp(source as string);
     } catch {
@@ -110,7 +128,8 @@ function parseRule(raw: unknown, index: number, file: string): CustomRule {
     }
   }
   if ('max' in raw) {
-    if (typeof raw.max !== 'number' || !Number.isFinite(raw.max)) fail('"max" must be a finite number');
+    if (typeof raw.max !== 'number' || !Number.isFinite(raw.max))
+      fail('"max" must be a finite number');
     rule.max = raw.max as number;
   }
   return rule;
@@ -122,7 +141,10 @@ export function parseRuleFile(text: string, file: string): CustomRule[] {
   try {
     parsed = JSON.parse(text);
   } catch (err) {
-    throw new RuleFileError(file, `not valid JSON (${err instanceof Error ? err.message : String(err)})`);
+    throw new RuleFileError(
+      file,
+      `not valid JSON (${err instanceof Error ? err.message : String(err)})`,
+    );
   }
   if (!isRecord(parsed) || !Array.isArray(parsed.rules)) {
     throw new RuleFileError(file, 'must be an object with a "rules" array');
@@ -150,7 +172,8 @@ async function loadRulesDir(dir: string): Promise<CustomRule[]> {
     const file = join(dir, name);
     for (const rule of parseRuleFile(await readFile(file, 'utf8'), file)) {
       const earlier = seen.get(rule.id);
-      if (earlier) throw new RuleFileError(file, `duplicate rule id "${rule.id}" (also in ${earlier})`);
+      if (earlier)
+        throw new RuleFileError(file, `duplicate rule id "${rule.id}" (also in ${earlier})`);
       seen.set(rule.id, file);
       rules.push(rule);
     }

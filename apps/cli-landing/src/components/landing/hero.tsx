@@ -10,7 +10,10 @@ import { INSTALL_COMMAND, REPO_URL } from '@/lib/site';
 function TerminalPreview() {
   return (
     <McCard className="gap-0 overflow-hidden p-0 shadow-md">
-      <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2.5" aria-hidden>
+      <div
+        className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2.5"
+        aria-hidden
+      >
         <span className="size-2.5 rounded-full bg-muted-foreground/30" />
         <span className="size-2.5 rounded-full bg-muted-foreground/30" />
         <span className="size-2.5 rounded-full bg-muted-foreground/30" />
@@ -18,10 +21,16 @@ function TerminalPreview() {
       </div>
       <pre className="p-5 font-mono paragraph-sm break-words whitespace-pre-wrap text-foreground">
         <span className="text-muted-foreground">$</span> m-forge schema validate form.json{'\n'}
-        <span className="text-destructive dark:text-red-100">✗ 2 validation errors (source: local)</span>
+        <span className="text-destructive dark:text-red-100">
+          ✗ 2 validation errors (source: local)
+        </span>
         {'\n'}
-        <span className="text-muted-foreground">{'  version  UNSUPPORTED_VERSION  Only version 1 is supported\n'}</span>
-        <span className="text-muted-foreground">{'  steps  NO_STEPS  Schema must declare at least one step\n'}</span>
+        <span className="text-muted-foreground">
+          {'  version  UNSUPPORTED_VERSION  Only version 1 is supported\n'}
+        </span>
+        <span className="text-muted-foreground">
+          {'  steps  NO_STEPS  Schema must declare at least one step\n'}
+        </span>
         {'\n'}
         <span className="text-muted-foreground">$</span> m-forge schema validate form.json{'\n'}
         <span className="text-success">✓ Schema is valid (source: local)</span>
@@ -43,8 +52,8 @@ export function Hero() {
             Create your own backend schema.
           </h1>
           <p className="max-w-xl paragraph-lg text-muted-foreground">
-            Log in once, pre-check your form schemas offline, then create and manage MCDI webhooks without
-            hand-writing JSON or raw HTTP calls.
+            Log in once, pre-check your form schemas offline, then create and manage MCDI webhooks
+            without hand-writing JSON or raw HTTP calls.
           </p>
           <div className="flex flex-wrap gap-3">
             <McButton
@@ -72,7 +81,9 @@ export function Hero() {
         <div className="flex min-w-0 flex-col gap-6">
           <TerminalPreview />
           <div>
-            <p className="mb-2 paragraph-xs font-medium text-muted-foreground">Install from source</p>
+            <p className="mb-2 paragraph-xs font-medium text-muted-foreground">
+              Install from source
+            </p>
             <CommandBlock command={INSTALL_COMMAND} />
           </div>
         </div>

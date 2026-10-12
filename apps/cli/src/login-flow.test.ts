@@ -10,7 +10,10 @@ describe('readCallback', () => {
   const params = (p: Record<string, string>) => new URLSearchParams(p);
 
   it('accepts a login code only with the matching state', () => {
-    expect(readCallback(params({ code: 'c', state: 's' }), 's')).toEqual({ kind: 'code', code: 'c' });
+    expect(readCallback(params({ code: 'c', state: 's' }), 's')).toEqual({
+      kind: 'code',
+      code: 'c',
+    });
     expect(readCallback(params({ code: 'c', state: 'other' }), 's').kind).toBe('ignore');
     expect(readCallback(params({ code: 'c' }), 's').kind).toBe('ignore');
     expect(readCallback(params({ state: 's' }), 's').kind).toBe('ignore');
@@ -24,8 +27,13 @@ describe('readCallback', () => {
   });
 
   it('reports an MCDI error', () => {
-    expect(readCallback(params({ error: 'Not an admin' }), 's')).toEqual({ kind: 'error', message: 'Not an admin' });
-    expect(readCallback(params({ error: 'Not an admin', state: 's', code: 'c' }), 's').kind).toBe('error');
+    expect(readCallback(params({ error: 'Not an admin' }), 's')).toEqual({
+      kind: 'error',
+      message: 'Not an admin',
+    });
+    expect(readCallback(params({ error: 'Not an admin', state: 's', code: 'c' }), 's').kind).toBe(
+      'error',
+    );
   });
 });
 
