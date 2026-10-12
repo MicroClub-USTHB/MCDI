@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   FallbackKeyProvider,
   FileKeyStore,
+  KeyUnavailableError,
   decrypt,
   encrypt,
   type KeyStore,
@@ -110,12 +111,12 @@ describe('FallbackKeyProvider', () => {
     expect(file.getKey).not.toHaveBeenCalled();
   });
 
-  it('falls back to the key file while the keychain is unavailable, warning each time', async () => {
+  it('falls back to the key file while the keychain is unavailable, warning once per run', async () => {
     const warn = vi.fn();
     const keys = provider(broken(), store(), warn);
     expect((await encrypt('a', keys, CONTEXT)).startsWith('v1:file:')).toBe(true);
     await encrypt('b', keys, CONTEXT);
-    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]![0]).toContain('no secret service');
   });
 
@@ -130,7 +131,7 @@ describe('FallbackKeyProvider', () => {
     const encoded = await encrypt('signing-secret', provider(keychain, store()), CONTEXT);
     await expect(
       decrypt(encoded, provider(broken('keychain is locked'), store()), CONTEXT),
-    ).rejects.toThrow('keychain is locked');
+    ).rejects.toThrow(KeyUnavailableError);
     expect(await decrypt(encoded, provider(keychain, store()), CONTEXT)).toBe('signing-secret');
   });
 

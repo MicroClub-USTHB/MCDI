@@ -41,6 +41,12 @@ describe('configPath', () => {
   });
 });
 
+describe('resolveProfileName', () => {
+  it('refuses a profile name that is not a bare identifier', () => {
+    expect(() => resolveProfileName(emptyConfig(), 'a/webhook/x')).toThrow('invalid profile name');
+  });
+});
+
 describe('configDir', () => {
   it('follows MCDI_CLI_CONFIG_PATH, so the key file and global rules move with the config', () => {
     expect(configDir({ MCDI_CLI_CONFIG_PATH: '/ci/state/config.json' })).toBe('/ci/state');

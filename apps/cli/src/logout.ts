@@ -6,7 +6,13 @@ import {
   resolveProfileName,
   saveConfig,
 } from './config.js';
-import { decrypt, defaultKeyProvider, sessionContext, type KeyProvider } from './crypto-store.js';
+import {
+  decrypt,
+  defaultKeyProvider,
+  KeyUnavailableError,
+  sessionContext,
+  type KeyProvider,
+} from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { postAdminLogout } from './mcdi.js';
 
@@ -60,7 +66,9 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
   let token: string | undefined;
   try {
     token = await decrypt(session.accessToken, deps.keys, sessionContext(profileName));
-  } catch {
+  } catch (err) {
+    // A locked keychain is temporary: keep the session so it can still be revoked.
+    if (err instanceof KeyUnavailableError) throw new CliError(err.message, ExitCode.Auth);
     token = undefined;
   }
 

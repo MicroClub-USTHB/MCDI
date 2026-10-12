@@ -97,7 +97,14 @@ export async function saveConfig(config: Config, path = configPath()): Promise<v
 
 /** `--profile` wins, then the active profile, then "default". */
 export function resolveProfileName(config: Config, flag: string | undefined): string {
-  return flag ?? config.activeProfile ?? DEFAULT_PROFILE;
+  const name = flag ?? config.activeProfile ?? DEFAULT_PROFILE;
+  if (!isValidProfileName(name)) {
+    throw new CliError(
+      `invalid profile name "${name}": use 1-64 letters, digits, "_" or "-"`,
+      ExitCode.Unexpected,
+    );
+  }
+  return name;
 }
 
 /** `--base-url` wins, then whatever the profile already has; there is no built-in default. */

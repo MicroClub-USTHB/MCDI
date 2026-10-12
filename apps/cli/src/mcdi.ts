@@ -20,7 +20,12 @@ export interface AdminMe {
 async function request(baseUrl: string, path: string, init: RequestInit = {}): Promise<Response> {
   const url = `${baseUrl}/api${path}`;
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+    // Never follow a redirect: it could carry the session token or a login code elsewhere.
+    return await fetch(url, {
+      ...init,
+      redirect: 'error',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(`could not reach MCDI at ${baseUrl} (${reason})`, ExitCode.Unexpected);

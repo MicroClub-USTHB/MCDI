@@ -52,9 +52,10 @@ class KeychainKeyStore implements KeyStore {
     });
     const existing = entry.getPassword();
     if (existing) return decodeKey(existing, 'the OS keychain');
-    const key = randomBytes(32);
-    entry.setPassword(key.toString('base64'));
-    return key;
+    entry.setPassword(randomBytes(32).toString('base64'));
+    // Read back what is stored: if another process created a key at the same
+    // time, both must use the one that won.
+    return decodeKey(entry.getPassword() ?? '', 'the OS keychain');
   }
 }
 
@@ -90,12 +91,13 @@ export class FileKeyStore implements KeyStore {
 
 /**
  * Encrypts with the keychain key, and with the key file only while the
- * keychain is unreachable, warning every time it does. Decrypts with exactly
+ * keychain is unreachable, warning once per run when it does. Decrypts with exactly
  * the key a value names, so a keychain failure on read is an error to fix
  * (unlock the keychain), never a silent switch to another key.
  */
 export class FallbackKeyProvider implements KeyProvider {
   private readonly keys = new Map<KeySource, Promise<Buffer>>();
+  private warned = false;
 
   constructor(
     private readonly keychain: KeyStore,
@@ -108,11 +110,14 @@ export class FallbackKeyProvider implements KeyProvider {
     try {
       return { source: 'keychain', key: await this.keyFor('keychain') };
     } catch (err) {
-      this.warn(
-        `warning: the OS keychain is unavailable (${errorMessage(err)}), so this value is encrypted ` +
-          `with the key in ${this.keyFilePath}. That is weaker than keychain storage: anyone who can ` +
-          'read that file can decrypt it.',
-      );
+      if (!this.warned) {
+        this.warned = true;
+        this.warn(
+          `warning: the OS keychain is unavailable (${errorMessage(err)}), so secrets are encrypted ` +
+            `with the key in ${this.keyFilePath}. That is weaker than keychain storage: anyone who can ` +
+            'read that file can decrypt them.',
+        );
+      }
       return { source: 'file', key: await this.keyFor('file') };
     }
   }
@@ -137,6 +142,21 @@ export function defaultKeyProvider(): KeyProvider {
     new FileKeyStore(keyFilePath),
     keyFilePath,
   );
+}
+
+/** The key a stored value needs could not be read, as opposed to the value being corrupt. */
+export class KeyUnavailableError extends Error {
+  constructor(
+    readonly source: KeySource,
+    cause: unknown,
+  ) {
+    super(
+      source === 'keychain'
+        ? `the OS keychain could not be read (${errorMessage(cause)}); unlock it and try again`
+        : `the key file could not be read (${errorMessage(cause)})`,
+    );
+    this.name = 'KeyUnavailableError';
+  }
 }
 
 function decodeKey(encoded: string, location: string): Buffer {
@@ -187,14 +207,15 @@ export async function decrypt(
   const authTag = Buffer.from(tag, 'base64');
   if (authTag.length !== AUTH_TAG_BYTES) throw new Error('unrecognized encrypted value format');
 
-  const decipher = createDecipheriv(
-    'aes-256-gcm',
-    await keys.keyFor(source),
-    Buffer.from(iv, 'base64'),
-    {
-      authTagLength: AUTH_TAG_BYTES,
-    },
-  );
+  let key: Buffer;
+  try {
+    key = await keys.keyFor(source);
+  } catch (err) {
+    throw new KeyUnavailableError(source, err);
+  }
+  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64'), {
+    authTagLength: AUTH_TAG_BYTES,
+  });
   decipher.setAAD(Buffer.from(context, 'utf8'));
   decipher.setAuthTag(authTag);
   return Buffer.concat([

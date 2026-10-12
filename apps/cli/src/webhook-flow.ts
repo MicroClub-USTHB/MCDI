@@ -437,6 +437,8 @@ export async function webhookCreate(
     allowedRoleIds,
   };
   if (options.acceptOrigin.length > 0) body.acceptedOrigins = options.acceptOrigin;
+  // Get the encryption key before MCDI issues a secret it will never show again.
+  await deps.keys.keyForWrite();
   const created = await createInboundWebhook(session, body);
   const { webhook } = created;
 
@@ -569,6 +571,8 @@ export async function webhookRotateSecret(
   // Fetched first so a 404 (unknown id) exits before anything is rotated, and so the
   // name/slug are available for the local store without MCDI having to echo them back.
   const webhook = await getInboundWebhook(session, id);
+  // Get the encryption key before MCDI issues a secret it will never show again.
+  await deps.keys.keyForWrite();
   const signingSecret = await rotateInboundWebhookSecret(session, id);
 
   // MCDI never shows this secret again, so it has to land in the local store now.
