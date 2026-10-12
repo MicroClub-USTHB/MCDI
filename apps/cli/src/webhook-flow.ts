@@ -1,7 +1,5 @@
 import { createInterface } from 'node:readline/promises';
-import { join } from 'node:path';
 import {
-  configDir,
   configPath,
   loadConfig,
   removeWebhookSecret,
@@ -10,7 +8,13 @@ import {
   setWebhookSecret,
 } from './config.js';
 import { readFile } from 'node:fs/promises';
-import { decrypt, defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
+import {
+  decrypt,
+  defaultKeyProvider,
+  encrypt,
+  webhookSecretContext,
+  type KeyProvider,
+} from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import {
   createInboundWebhook,
@@ -48,7 +52,7 @@ export interface WebhookDeps {
 export function defaultWebhookDeps(): WebhookDeps {
   return {
     configPath: configPath(),
-    keys: defaultKeyProvider(join(configDir(), 'key')),
+    keys: defaultKeyProvider(),
     out: (line) => process.stdout.write(`${line}\n`),
     info: (line) => process.stderr.write(`${line}\n`),
     isInteractive: Boolean(process.stdin.isTTY && process.stderr.isTTY),
@@ -282,10 +286,10 @@ export async function webhookSecretGet(
     picked = choice;
   }
 
-  const [, entry] = picked;
+  const [webhookId, entry] = picked;
   let secret: string;
   try {
-    secret = await decrypt(entry.secret, deps.keys);
+    secret = await decrypt(entry.secret, deps.keys, webhookSecretContext(profileName, webhookId));
   } catch {
     throw new CliError(
       `could not decrypt the stored signing secret for ${entry.name} (${entry.slug})`,
@@ -436,7 +440,11 @@ export async function webhookCreate(
   try {
     const latest = await loadConfig(deps.configPath);
     const entry = {
-      secret: await encrypt(created.signingSecret, deps.keys),
+      secret: await encrypt(
+        created.signingSecret,
+        deps.keys,
+        webhookSecretContext(session.profileName, webhook.id),
+      ),
       name: webhook.name,
       slug: webhook.slug,
     };
@@ -563,7 +571,11 @@ export async function webhookRotateSecret(
   try {
     const latest = await loadConfig(deps.configPath);
     const entry = {
-      secret: await encrypt(signingSecret, deps.keys),
+      secret: await encrypt(
+        signingSecret,
+        deps.keys,
+        webhookSecretContext(session.profileName, webhook.id),
+      ),
       name: webhook.name,
       slug: webhook.slug,
     };

@@ -1,13 +1,5 @@
-import { join } from 'node:path';
-import {
-  clearSession,
-  configDir,
-  configPath,
-  loadConfig,
-  resolveProfileName,
-  saveConfig,
-} from './config.js';
-import { decrypt, defaultKeyProvider, type KeyProvider } from './crypto-store.js';
+import { clearSession, configPath, loadConfig, resolveProfileName, saveConfig } from './config.js';
+import { decrypt, defaultKeyProvider, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { postAdminLogout } from './mcdi.js';
 
@@ -27,7 +19,7 @@ export interface LogoutDeps {
 export function defaultLogoutDeps(): LogoutDeps {
   return {
     configPath: configPath(),
-    keys: defaultKeyProvider(join(configDir(), 'key')),
+    keys: defaultKeyProvider(),
     out: (line) => process.stdout.write(`${line}\n`),
     warn: (line) => process.stderr.write(`${line}\n`),
   };
@@ -60,7 +52,7 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
 
   let token: string | undefined;
   try {
-    token = await decrypt(session.accessToken, deps.keys);
+    token = await decrypt(session.accessToken, deps.keys, sessionContext(profileName));
   } catch {
     token = undefined;
   }

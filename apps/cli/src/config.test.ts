@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addProfile,
   clearSession,
+  configDir,
   configPath,
   emptyConfig,
   isValidProfileName,
@@ -37,6 +38,16 @@ describe('configPath', () => {
 
   it('defaults to ~/.mcdi-cli/config.json', () => {
     expect(configPath({})).toMatch(/\.mcdi-cli[/\\]config\.json$/);
+  });
+});
+
+describe('configDir', () => {
+  it('follows MCDI_CLI_CONFIG_PATH, so the key file and global rules move with the config', () => {
+    expect(configDir({ MCDI_CLI_CONFIG_PATH: '/ci/state/config.json' })).toBe('/ci/state');
+  });
+
+  it('defaults to ~/.mcdi-cli', () => {
+    expect(configDir({})).toMatch(/\.mcdi-cli$/);
   });
 });
 

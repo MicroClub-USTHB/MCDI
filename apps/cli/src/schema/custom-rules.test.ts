@@ -236,7 +236,11 @@ async function cli(args: string[], cwd: string, home: string) {
   const entry = join(import.meta.dirname, '..', 'index.ts');
   const child = spawn(process.execPath, ['--import', TSX_LOADER, entry, ...args], {
     cwd,
-    env: { ...process.env, HOME: home, MCDI_CLI_CONFIG_PATH: join(home, 'config.json') },
+    env: {
+      ...process.env,
+      HOME: home,
+      MCDI_CLI_CONFIG_PATH: join(home, '.mcdi-cli', 'config.json'),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let stdout = '';

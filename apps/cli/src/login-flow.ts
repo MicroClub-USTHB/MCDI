@@ -1,9 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { join } from 'node:path';
 import { openBrowser } from './browser.js';
 import {
-  configDir,
   configPath,
   loadConfig,
   resolveBaseUrl,
@@ -11,7 +9,7 @@ import {
   saveConfig,
   setSession,
 } from './config.js';
-import { defaultKeyProvider, encrypt, type KeyProvider } from './crypto-store.js';
+import { defaultKeyProvider, encrypt, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcdi.js';
 import { createPkcePair } from './pkce.js';
@@ -38,7 +36,7 @@ export interface LoginDeps {
 export function defaultLoginDeps(): LoginDeps {
   return {
     configPath: configPath(),
-    keys: defaultKeyProvider(join(configDir(), 'key')),
+    keys: defaultKeyProvider(),
     openBrowser: (url) => openBrowser(url),
     info: (line) => process.stderr.write(`${line}\n`),
     out: (line) => process.stdout.write(`${line}\n`),
@@ -255,7 +253,7 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
     const admin = adminDisplayName(me);
 
     const session = {
-      accessToken: await encrypt(token, deps.keys),
+      accessToken: await encrypt(token, deps.keys, sessionContext(profileName)),
       expiresAt: me.sessionExpiresAt,
       adminIdentity: `${me.username}#${me.id}`,
     };

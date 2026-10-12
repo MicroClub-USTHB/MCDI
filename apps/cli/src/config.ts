@@ -43,12 +43,15 @@ export function isValidProfileName(name: string): boolean {
   return PROFILE_NAME_PATTERN.test(name);
 }
 
-export function configDir(): string {
-  return join(homedir(), '.mcdi-cli');
+/** Where mcdi-cli keeps its state: the config file's directory, so `MCDI_CLI_CONFIG_PATH` moves the key file and global rules too. */
+export function configDir(env: NodeJS.ProcessEnv = process.env): string {
+  return env.MCDI_CLI_CONFIG_PATH
+    ? dirname(env.MCDI_CLI_CONFIG_PATH)
+    : join(homedir(), '.mcdi-cli');
 }
 
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
-  return env.MCDI_CLI_CONFIG_PATH || join(configDir(), 'config.json');
+  return env.MCDI_CLI_CONFIG_PATH || join(configDir(env), 'config.json');
 }
 
 export function emptyConfig(): Config {

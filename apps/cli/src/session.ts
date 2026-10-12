@@ -1,5 +1,5 @@
 import type { Config } from './config.js';
-import { decrypt, type KeyProvider } from './crypto-store.js';
+import { decrypt, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 
 /** A profile's resolved, decrypted session — what any command that talks to MCDI needs. */
@@ -28,7 +28,7 @@ export async function resolveSession(
   }
   let token: string;
   try {
-    token = await decrypt(profile.session.accessToken, keys);
+    token = await decrypt(profile.session.accessToken, keys, sessionContext(profileName));
   } catch {
     throw new CliError(
       `could not decrypt the stored session for profile "${profileName}"; run \`mcdi-cli login --profile ${profileName}\` again`,

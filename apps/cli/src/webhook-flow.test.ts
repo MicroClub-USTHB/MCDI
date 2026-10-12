@@ -1,10 +1,10 @@
-import { randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { emptyConfig, saveConfig, setSession } from './config.js';
-import { encrypt, type KeyProvider } from './crypto-store.js';
+import { encrypt, sessionContext, type KeyProvider } from './crypto-store.js';
+import { fixedKeys } from './test-support/keys.js';
 import { CliError, ExitCode } from './errors.js';
 import {
   maskSecret,
@@ -35,12 +35,10 @@ describe('maskSecret', () => {
 });
 
 describe('webhookRotateSecret confirmation', () => {
-  const fixedKey = (key = randomBytes(32)): KeyProvider => ({ getKey: async () => key });
-
   async function seededConfigPath(keys: KeyProvider, baseUrl: string): Promise<string> {
     const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-rotate-')), 'config.json');
     const session = {
-      accessToken: await encrypt('session-token', keys),
+      accessToken: await encrypt('session-token', keys, sessionContext('prod')),
       expiresAt: '2026-10-05T00:00:00.000Z',
       adminIdentity: 'kal#1',
     };
@@ -80,7 +78,7 @@ describe('webhookRotateSecret confirmation', () => {
   const UNREACHABLE = 'http://127.0.0.1:9';
 
   it('refuses without --yes when there is no interactive terminal, before any network call', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const deps = fakeDeps(path, keys, { isInteractive: false });
 
@@ -92,7 +90,7 @@ describe('webhookRotateSecret confirmation', () => {
   });
 
   it('aborts on "n", before any network call', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const ask = vi.fn(async () => 'n');
     const deps = fakeDeps(path, keys, { isInteractive: true, ask });
@@ -104,7 +102,7 @@ describe('webhookRotateSecret confirmation', () => {
   });
 
   it('proceeds to the network step on "y", failing there with a network error, not the confirmation refusal', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const deps = fakeDeps(path, keys, { isInteractive: true, ask: async () => 'y' });
 
@@ -114,7 +112,7 @@ describe('webhookRotateSecret confirmation', () => {
   });
 
   it('proceeds to the network step on "yes" too', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const deps = fakeDeps(path, keys, { isInteractive: true, ask: async () => 'yes' });
 
@@ -124,7 +122,7 @@ describe('webhookRotateSecret confirmation', () => {
   });
 
   it('--yes skips the prompt entirely and still reaches the network step', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const ask = vi.fn();
     const deps = fakeDeps(path, keys, { isInteractive: true, ask });
@@ -139,13 +137,12 @@ describe('webhookRotateSecret confirmation', () => {
 });
 
 describe('webhookCreate: optional --project and --roles', () => {
-  const fixedKey = (key = randomBytes(32)): KeyProvider => ({ getKey: async () => key });
   const UNREACHABLE = 'http://127.0.0.1:9';
 
   async function seededConfigPath(keys: KeyProvider, baseUrl: string): Promise<string> {
     const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-create-')), 'config.json');
     const session = {
-      accessToken: await encrypt('session-token', keys),
+      accessToken: await encrypt('session-token', keys, sessionContext('prod')),
       expiresAt: '2026-10-05T00:00:00.000Z',
       adminIdentity: 'kal#1',
     };
@@ -196,7 +193,7 @@ describe('webhookCreate: optional --project and --roles', () => {
   }
 
   it('refuses to pick a project without an interactive terminal, before any network call', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const schemaPath = await seededSchemaPath();
     const deps = fakeDeps(path, keys, { isInteractive: false });
@@ -211,7 +208,7 @@ describe('webhookCreate: optional --project and --roles', () => {
   });
 
   it('omitting --roles does not block locally; the request still reaches MCDI', async () => {
-    const keys = fixedKey();
+    const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const schemaPath = await seededSchemaPath();
     const deps = fakeDeps(path, keys, { isInteractive: false });

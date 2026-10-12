@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import { configDir, configPath, loadConfig, resolveProfileName } from './config.js';
+import { configPath, loadConfig, resolveProfileName } from './config.js';
 import { defaultKeyProvider, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { adminDisplayName, getAdminMeRaw, parseAdminMe } from './mcdi.js';
@@ -20,7 +19,7 @@ export interface WhoamiDeps {
 export function defaultWhoamiDeps(): WhoamiDeps {
   return {
     configPath: configPath(),
-    keys: defaultKeyProvider(join(configDir(), 'key')),
+    keys: defaultKeyProvider(),
     out: (line) => process.stdout.write(`${line}\n`),
   };
 }
