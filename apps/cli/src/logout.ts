@@ -42,7 +42,7 @@ async function clearLocally(path: string, profileName: string): Promise<void> {
  * Calls MCDI's logout endpoint with the stored session's bearer token, then
  * always drops the session from the local profile — a session that's
  * already expired, unrevokable, or unreachable server-side should still be
- * clearable locally (docs/endpoints/login/). Never prints the token.
+ * clearable locally (see the Admin API reference). Never prints the token.
  */
 export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<void> {
   const config = await loadConfig(deps.configPath);

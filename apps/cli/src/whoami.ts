@@ -28,7 +28,7 @@ export function defaultWhoamiDeps(): WhoamiDeps {
  * Read-only: resolves the profile's stored session and asks MCDI who it
  * belongs to. Never writes the config file and never prints the token,
  * in either human or `--json` mode. There is no refresh endpoint for the
- * admin session (docs/endpoints/login/), so a 401 here is final — no retry.
+ * admin session (see the Admin API reference), so a 401 here is final — no retry.
  */
 export async function whoami(options: WhoamiOptions, deps: WhoamiDeps): Promise<void> {
   const config = await loadConfig(deps.configPath);

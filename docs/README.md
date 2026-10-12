@@ -21,6 +21,7 @@ The files here are **historical design records**. They explain what was planned 
 | `specefication_document_last_version.md` | The architecture direction and the roadmap after the MVP. |
 | `database_architecture_mvp.md` | The database as it was at the MVP. The current schema is in `apps/api/src/database/entities`. |
 | `MCDI-INBOUND-WEBHOOKS-PRD.md` | The product requirements for inbound webhooks, written before they were built. |
+| `mcdi-cli-PRD.md` | The product requirements for mcdi-cli, the admin CLI in `apps/cli`, written before it was built. |
 | `specefication_file.md` | An index of the MVP-era files. |
 | `auth-integration.md` | The original login integration guide. Its maintained successor is the "Login with MicroClub" page. |
 | `assets/` | Diagrams from the original specifications. The current diagrams are in `apps/web/public/docs`. |

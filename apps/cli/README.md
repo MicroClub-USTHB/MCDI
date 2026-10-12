@@ -7,17 +7,14 @@ pre-checking schemas locally before anything hits the server.
 The MVP covers Inbound Webhooks only; the CLI is meant to grow to cover the
 rest of MCDI's admin features.
 
-Full requirements: [`docs/mcdi-cli-PRD.md`](docs/mcdi-cli-PRD.md).
-Endpoint-level docs: [`docs/endpoints/`](docs/endpoints/). Writing a
-backend schema: [`docs/form-schema.md`](docs/form-schema.md). Custom validation
-rules: [`docs/custom-rules.md`](docs/custom-rules.md). Working
+Writing a backend schema: [`docs/form-schema.md`](docs/form-schema.md). Custom
+validation rules: [`docs/custom-rules.md`](docs/custom-rules.md). Working
 conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
 
 ## Status
 
 Auth (`login`, `logout`, `whoami`, `profile *`, `config *`), `schema init`,
-`schema validate` and every `webhook` command are implemented. `schema build`
-(the interactive wizard) and `webhook diff` are still stubs.
+`schema validate` and every `webhook` command are implemented.
 
 ## Develop
 

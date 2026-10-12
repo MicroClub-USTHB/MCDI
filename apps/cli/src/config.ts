@@ -12,7 +12,7 @@ export interface StoredSession {
 
 /**
  * A webhook signing secret mcdi-cli keeps because MCDI never re-issues one
- * (docs/endpoints/webhook/). `secret` is always encrypted, like `accessToken`;
+ * (see the Admin API reference). `secret` is always encrypted, like `accessToken`;
  * the rest only labels it for `mcdi-cli webhook secret get`.
  */
 export interface StoredWebhookSecret {

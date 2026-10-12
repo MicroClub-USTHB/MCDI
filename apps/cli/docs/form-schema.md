@@ -30,9 +30,9 @@ mcdi-cli webhook create form.json --name "Club signup" \
   --project $PROJECT_ID --roles $ROLE_ID --profile prod   # MCDI checks it again and goes live
 ```
 
-`--project` and `--roles` are optional: without `--project`, mcdi-cli asks you
-to pick a project; without `--roles`, MCDI uses the project's default reader
-roles. To change a live backend later, edit the file and run
+`--roles` takes at least one Discord role id: the roles allowed to read the
+submissions. `--project` is optional: without it, mcdi-cli asks you to pick a
+project. To change a live backend later, edit the file and run
 `mcdi-cli webhook update <id> --schema form.json --profile prod`.
 
 ## Build a schema, step by step
@@ -328,8 +328,8 @@ A minimum can't exceed its maximum (`INVALID_RANGE`).
 
 > **Files aren't usable yet.** MCDI accepts `file` and `files` fields in a
 > schema, but has no upload endpoint yet (MCDI issue #136), so a webhook with a
-> **required** file field can't receive any submission. The `recruitment`
-> template's `cv` field is one; make it optional or remove it until uploads ship.
+> **required** file field can't receive any submission. Make file fields
+> optional, or leave them out, until uploads ship.
 
 ### Conditions
 
@@ -411,26 +411,15 @@ House rules your team adds report their own ids on top of these; see
 
 ### Templates
 
-`mcdi-cli schema init [path] --template <name>`:
+`mcdi-cli schema init [path] --template <name>` writes one of the templates the
+admin panel's schema editor offers (`packages/contracts`): `blank` (the
+default, one step with one field), `recruitment`, `workshop`, `event` and
+`project-event`.
 
-- `minimal` (the default): one step with one `string` field.
-- `recruitment`: three steps (`identity`, `background`, `documents`), with an
-  enum, a condition, an array of objects and file fields (see the files note
-  above).
+## Where the rules come from
 
-## Differences from MCDI
-
-mcdi-cli's pre-check is meant to be stricter than MCDI, never looser. Today it
-differs from MCDI in two places:
-
-| Schema | MCDI | mcdi-cli's pre-check |
-|---|---|---|
-| Flat: `version` and a top-level `fields` list, no `steps` | Accepts it | Refuses it with `NO_STEPS` |
-| Both `steps` and a top-level `fields` | Refuses it with `AMBIGUOUS_SCHEMA` | Ignores `fields` and passes (looser than MCDI) |
-
-Until the pre-check catches up, write schemas with `steps` only.
-
-MCDI's own reference, which this page follows, is
-`apps/web/src/content/docs/integrate/inbound-webhooks/schemas.mdx` in
-[MicroClub-USTHB/MCDI](https://github.com/MicroClub-USTHB/MCDI). MCDI's
-validator is the final authority.
+The pre-check runs `@mcdi/form-schema`, the validator MCDI itself runs when a
+webhook is created or updated, so a schema that passes `mcdi-cli schema
+validate` (without custom rules) passes MCDI's schema check too. MCDI's own
+reference for the schema language is
+`apps/web/src/content/docs/integrate/inbound-webhooks/schemas.mdx`.

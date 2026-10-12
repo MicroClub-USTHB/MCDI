@@ -2,7 +2,7 @@ import { CliError, ExitCode } from './errors.js';
 import type { Session } from './session.js';
 
 /**
- * Thin client for the MCDI admin auth endpoints (docs/endpoints/login/).
+ * Thin client for the MCDI admin auth endpoints (see the Admin API reference).
  * `baseUrl` is the MCDI origin without the `/api` prefix, as stored in profiles.
  */
 

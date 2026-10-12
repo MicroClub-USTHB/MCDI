@@ -15,7 +15,9 @@ catch mistakes earlier.
 Repo map (paths under `apps/cli/` in the MCDI monorepo): `src/commands/*.ts` (command surface and flags), `src/*-flow.ts`
 (command logic), `src/mcdi.ts` (one function per MCDI endpoint),
 `src/schema/` (local pre-check), `docs/form-schema.md` (the schema language),
-`docs/endpoints/` (MCDI endpoints), `CLAUDE.md` (conventions).
+`CLAUDE.md` (conventions). Schema rules come from `packages/form-schema`;
+the endpoints are in the generated Admin API reference
+(`apps/web/src/content/docs/api-reference/admin`).
 
 ## Running it
 
@@ -38,9 +40,9 @@ profile for them, so scripts always say which MCDI they touch.
 | `logout [--profile <p>]` | Invalidates the session. |
 | `profile list` / `add <name> --base-url <url>` / `use <name>` / `remove <name> [--yes]` | Named MCDI targets. |
 | `config path` / `config show [--profile <p>]` | Config location; profile with secrets redacted. |
-| `schema init [path] [--template minimal\|recruitment]` | Starter schema file. |
+| `schema init [path] [--template blank\|recruitment\|workshop\|event\|project-event]` | Starter schema file, from the admin panel's templates. |
 | `schema validate <path>` | Offline pre-check, no network. |
-| `webhook create <schema> --name <n> --profile <p> [--project <id>] [--roles <ids>] [--slug <s>] [--accept-origin <o>]... [--reveal]` | Pre-checks, creates, stores the signing secret encrypted. Without `--roles`, MCDI applies the project's default reader roles. |
+| `webhook create <schema> --name <n> --roles <ids> --profile <p> [--project <id>] [--slug <s>] [--accept-origin <o>]... [--reveal]` | Pre-checks, creates, stores the signing secret encrypted. `--roles` takes at least one Discord role id. |
 | `webhook list [--project <id>] [--profile <p>]` | ID, name, slug, project, status, submissions. |
 | `webhook get <id> [--schema-only] [--json] [--profile <p>]` | One webhook; `--schema-only` prints its live schema. |
 | `webhook update <id> --profile <p> [--schema <path>] [--name <n>] [--active\|--inactive]` | A new schema is pre-checked first. |
@@ -48,9 +50,6 @@ profile for them, so scripts always say which MCDI they touch.
 | `webhook roles set <id> --roles <ids> --profile <p>` | Replaces the reader roles; an empty list is refused. |
 | `webhook rotate-secret <id> --profile <p> [--yes] [--reveal]` | New secret; the old one stops working. |
 | `webhook secret get [--profile <p>] [--reveal]` | Reads a stored secret back. |
-
-`schema build` and `webhook diff` aren't implemented yet: they exit 5 with "not
-implemented yet". Don't promise them.
 
 ## Exit codes
 
@@ -126,9 +125,9 @@ Follow `CLAUDE.md`. Beyond it:
 - Flows take a `deps` object (config path, keys, output, prompts, browser) so
   tests run without MCDI, a keychain or a terminal; keep new code testable that
   way.
-- The local pre-check may be stricter than MCDI, never looser. When changing
-  `src/schema/validate.ts`, check MCDI's `schema.validator.ts` and update
-  `docs/form-schema.md`.
+- The built-in pre-check is `@mcdi/form-schema`, the API's own validator.
+  Change schema rules in `packages/form-schema`, never in the CLI; the CLI
+  only adds custom rules on top.
 - When a command, flag or output line changes, update `docs/`
   to match: it quotes the CLI's real behavior.
 - Repo text, commits and PRs are in English.
