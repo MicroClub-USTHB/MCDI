@@ -8,11 +8,13 @@ MCDI is one repository managed with pnpm 10 workspaces and Turborepo, for Node 2
 | --- | --- | --- |
 | `apps/api` | `@mcdi/api` | The NestJS 11 API. It uses Drizzle ORM with PostgreSQL, Redis, and a discord.js bot. It is built as CommonJS and shipped as a Docker image. |
 | `apps/web` | `@mcdi/web` | The Next.js 16 admin panel, and these docs. It is deployed on Vercel. |
+| `apps/cli` | `@mcdi/cli` | mcdi-cli, the MCDI command-line client for admins. It covers inbound webhooks for now. It is ESM, bundled with tsup. |
+| `packages/form-schema` | `@mcdi/form-schema` | The inbound webhook schema language: its types, the schema validator and the condition evaluator. The API and the CLI both use it, so the CLI checks a schema with the exact rules the API enforces. |
 | `packages/contracts` | `@mcdi/contracts` | Types and constants shared by the API and the web app. See [Shared contracts](/docs/build/contracts). |
 | `packages/typescript-config` | `@mcdi/typescript-config` | TypeScript presets the apps extend. |
 | `packages/eslint-config` | `@mcdi/eslint-config` | ESLint presets the apps extend. |
 
-Every Turbo task depends on `^build`, so `@mcdi/contracts` is always built before the apps that use it.
+Every Turbo task depends on `^build`, so `@mcdi/contracts` and `@mcdi/form-schema` are always built before the apps that use them.
 
 ## The system at a glance
 

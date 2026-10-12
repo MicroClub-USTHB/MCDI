@@ -14,12 +14,13 @@ import {
   SCHEMA_LIMITS,
   SteppedFormSchema,
   dotPath,
+  evaluateCondition,
+  isCalendarDate,
+  isDateTime,
   isFlatSchema,
   normalizeSchema,
-} from './form-schema.types';
+} from '@mcdi/form-schema';
 import { createContext, Script } from 'vm';
-import { evaluateCondition } from './condition.evaluator';
-import { isCalendarDate, isDateTime } from './date-format';
 
 export type FieldError = { path: string; code: string; message: string };
 

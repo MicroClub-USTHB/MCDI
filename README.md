@@ -9,12 +9,13 @@ apps/
   cli/                 mcdi-cli, the MCDI command-line client (MVP: Inbound Webhooks)
 packages/
   contracts/           Types and constants shared by api and web (compiled, CJS + .d.ts)
+  form-schema/         Inbound webhook FormSchema types, schema validator and condition evaluator, shared by api and cli
   typescript-config/   Base / nestjs / nextjs / library tsconfig presets
   eslint-config/       Shared ESLint flat-config base (typescript-eslint + prettier)
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/cli`, `@mcdi/contracts`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
+Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/cli`, `@mcdi/contracts`, `@mcdi/form-schema`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
 
 ## Documentation
 
@@ -56,6 +57,7 @@ Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcdi/web`,
 ## How the packages fit together
 
 - **`@mcdi/contracts`** is a *compiled* internal package. The API is CommonJS and resolves modules the classic way, so a just-in-time TypeScript package would not load there. Every task that imports it depends on `^build` in `turbo.json`, so `pnpm build`/`test`/`typecheck` build it first; in `pnpm dev` it rebuilds on change. Keep it dependency-free and limited to things both sides really share (wire types, enum-like unions, the `admin_session` cookie name, …).
+- **`@mcdi/form-schema`** is compiled the same way. It holds the FormSchema language of inbound webhooks: its types, the Layer 1 schema validator and the condition evaluator. The API validates schemas with it and the CLI pre-checks them with it, so the two can never disagree. Its only runtime dependency is `validator`.
 - **`@mcdi/typescript-config`** and **`@mcdi/eslint-config`** are config-only packages. Apps extend them (`"extends": "@mcdi/typescript-config/nextjs.json"`, `import base from '@mcdi/eslint-config/base'`) and keep only their own overrides.
 - Dependency versions that must be pinned for security live in `overrides` in `pnpm-workspace.yaml`. Some are scoped (`jsdom>undici`, `msw>path-to-regexp`) because a global pin broke the web test tooling — prefer scoped overrides.
 
