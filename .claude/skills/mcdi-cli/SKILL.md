@@ -1,6 +1,6 @@
 ---
 name: mcdi-cli
-description: How to run and work on mcdi-cli, the CLI MCDI system admins use to author FormSchema files and create, update, inspect and delete MCDI Inbound Webhooks (backends defined by a schema). Use this skill whenever the user wants to write or fix a webhook schema, run `mcdi-cli` commands (login, profile, schema init/validate, webhook create/list/get/update/delete, roles set, rotate-secret, secret get), read an mcdi-cli error or exit code, script mcdi-cli in CI, or change the mcdi-cli codebase, even if they only say "the CLI", "the form backend", "the schema" or "the webhook".
+description: How to run and work on mcdi-cli, the CLI MCDI admins use to author FormSchema files and create, update, inspect and delete MCDI Inbound Webhooks (backends defined by a schema). Use this skill whenever the user wants to write or fix a webhook schema, run `mcdi-cli` commands (login, profile, schema init/validate, webhook create/list/get/update/delete, roles set, rotate-secret, secret get), read an mcdi-cli error or exit code, script mcdi-cli in CI, or change the mcdi-cli codebase, even if they only say "the CLI", "the form backend", "the schema" or "the webhook".
 ---
 
 # mcdi-cli
@@ -35,9 +35,9 @@ profile for them, so scripts always say which MCDI they touch.
 
 | Command | Notes |
 |---|---|
-| `login --profile <p> [--base-url <url>]` | Browser Discord OAuth. `--base-url` is needed the first time on a profile. |
+| `login --profile <p> [--base-url <url>]` | Browser Discord OAuth. `--base-url` is needed the first time on a profile; a profile holding signing secrets can't be pointed at another MCDI. |
 | `whoami [--profile <p>] [--json]` | Who the session belongs to. |
-| `logout [--profile <p>]` | Invalidates the session. |
+| `logout --profile <p>` | Invalidates the session. |
 | `profile list` / `add <name> --base-url <url>` / `use <name>` / `remove <name> [--yes]` | Named MCDI targets. |
 | `config path` / `config show [--profile <p>]` | Config location; profile with secrets redacted. |
 | `schema init [path] [--template blank\|recruitment\|workshop\|event\|project-event]` | Starter schema file, from the admin panel's templates. |
@@ -49,18 +49,19 @@ profile for them, so scripts always say which MCDI they touch.
 | `webhook delete <id> --profile <p> [--yes]` | Deletes the webhook **and all its submissions**. |
 | `webhook roles set <id> --roles <ids> --profile <p>` | Replaces the reader roles; an empty list is refused. |
 | `webhook rotate-secret <id> --profile <p> [--yes] [--reveal]` | New secret; the old one stops working. |
-| `webhook secret get [--profile <p>] [--reveal]` | Reads a stored secret back. |
+| `webhook secret get [id-or-slug] [--profile <p>] [--reveal]` | Reads a stored secret back; pass the id or slug when scripting. |
 
 ## Exit codes
 
 | Code | Meaning | What to do |
 |---|---|---|
 | 0 | OK | |
-| 1 | Pre-check failed or bad flags | Read the listed errors, fix the file or the flags. Nothing reached MCDI. |
+| 1 | Pre-check failed | Read the listed errors, fix the file or the flags. Nothing reached MCDI. |
 | 2 | MCDI rejected the request | Read MCDI's message; the schema or values break a server rule. |
 | 3 | Not logged in / session expired | The user has to run `login` (see below). |
 | 4 | Not found | Wrong id, or no stored secret; check `webhook list`. |
-| 5 | Unexpected error, or not implemented | Report the message as is. |
+| 5 | Unexpected or network error | Report the message as is. |
+| 64 | Missing or invalid flag or argument | Fix the command line; see `--help`. |
 
 ## Rules when Claude runs it
 
@@ -72,8 +73,8 @@ Claude's shell has no interactive terminal, and some steps need the user.
   Code so the output lands in the conversation. Same after an exit 3.
 - **No prompts without a terminal.** Where mcdi-cli would ask, it fails with a
   hint instead. So pass `--project <id>` to `webhook create` (find ids with the
-  user, or from `webhook list`), and expect `webhook secret get` to fail when a
-  profile stores several secrets.
+  user, or from `webhook list`), and pass the webhook id or slug to
+  `webhook secret get`.
 - **Confirm destructive actions with the user first.** `delete` erases every
   submission; `rotate-secret` breaks every integration still signing with the
   old secret, and MCDI never shows a secret twice. Only add `--yes` after the
