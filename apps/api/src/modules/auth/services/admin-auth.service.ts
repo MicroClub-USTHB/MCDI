@@ -32,7 +32,7 @@ import type { ClientInfo } from '../../../common/utils/client-info.util';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
 
-/** What a CLI (m-forge) passes to start an admin login it can receive itself. */
+/** What a CLI (mcdi-cli) passes to start an admin login it can receive itself. */
 export interface AdminCliLoginRequest {
   redirectUri?: string;
   codeChallenge?: string;
@@ -222,7 +222,7 @@ export class AdminAuthService {
   }
 
   /**
-   * Discord callback for a CLI login (m-forge). Runs the same checks as the
+   * Discord callback for a CLI login (mcdi-cli). Runs the same checks as the
    * web panel login, but instead of a cookie it hands a one-time code back to
    * the CLI's loopback URL (`?code=&state=`); a refusal is handed back the
    * same way (`?error=&state=`) so the CLI can show it. The session itself is

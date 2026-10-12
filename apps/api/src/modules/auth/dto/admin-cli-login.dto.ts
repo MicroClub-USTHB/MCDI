@@ -3,7 +3,7 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Optional query for `GET /auth/admin/discord`. Omitted by the admin web panel;
- * a CLI (m-forge) passes all three to receive the login result itself.
+ * a CLI (mcdi-cli) passes all three to receive the login result itself.
  */
 export class AdminDiscordLoginQueryDto {
   @ApiPropertyOptional({

@@ -824,7 +824,7 @@ export class AuthController {
       'Returns a Discord authorization URL. ' +
       'The admin opens the URL, authenticates with Discord, ' +
       'and is redirected to the admin callback endpoint.\n\n' +
-      'A CLI (m-forge) can instead receive the result itself: pass a loopback ' +
+      'A CLI (mcdi-cli) can instead receive the result itself: pass a loopback ' +
       '`redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). ' +
       'After Discord, MCDI redirects to that URL with `?code=&state=` ' +
       '(or `?error=&state=`), and the CLI exchanges the code at ' +
@@ -865,7 +865,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Exchange a CLI login code for an admin session',
     description:
-      'Second half of the CLI admin login (m-forge). Exchanges the one-time code ' +
+      'Second half of the CLI admin login (mcdi-cli). Exchanges the one-time code ' +
       'MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 ' +
       'challenge started the login, for a 24-hour admin session token. A code ' +
       'works once and expires quickly; every failure returns the same 401.',
