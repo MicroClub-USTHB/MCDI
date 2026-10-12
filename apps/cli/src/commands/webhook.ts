@@ -22,16 +22,17 @@ import {
 } from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
-  const webhook = program
-    .command('webhook')
-    .description('Manage MCDI Inbound Webhooks');
+  const webhook = program.command('webhook').description('Manage MCDI Inbound Webhooks');
 
   webhook
     .command('create <schema-path>')
     .description('Create a webhook on MCDI from a schema file and store its signing secret')
     .requiredOption('--name <name>', 'webhook display name')
     .option('--project <projectId>', 'owning MCDI project id (omit to pick interactively)')
-    .option('--roles <roleIds>', 'comma-separated allowed Discord role ids (omit to use project defaults)')
+    .option(
+      '--roles <roleIds>',
+      'comma-separated allowed Discord role ids (omit to use project defaults)',
+    )
     .option('--accept-origin <origin>', 'accepted origin (repeatable)', collect, [])
     .option('--slug <slug>', 'URL-safe id, unique in the project (default: derived from --name)')
     .option('--reveal', 'print the signing secret in plain text')

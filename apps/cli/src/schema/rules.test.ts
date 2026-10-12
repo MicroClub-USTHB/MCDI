@@ -6,7 +6,13 @@ import { ExitCode } from '../errors.js';
 import { findProjectRulesDir, loadCustomRules, parseRuleFile, RuleFileError } from './rules.js';
 
 const file = (rules: unknown[]) => JSON.stringify({ rules });
-const requireLabel = { id: 'require-label', type: 'require-present', appliesTo: '*', field: 'label', message: 'Needs a label' };
+const requireLabel = {
+  id: 'require-label',
+  type: 'require-present',
+  appliesTo: '*',
+  field: 'label',
+  message: 'Needs a label',
+};
 
 function parseError(text: string): RuleFileError {
   try {
@@ -23,9 +29,29 @@ describe('parseRuleFile', () => {
     const rules = parseRuleFile(
       file([
         requireLabel,
-        { id: 'snake-keys', type: 'key-pattern', appliesTo: '*', pattern: '^[a-z_]+$', message: 'snake_case' },
-        { id: 'max-len', type: 'max-value', appliesTo: ['string', 'text'], field: 'maxLength', max: 500, message: 'too long' },
-        { id: 'no-brackets', type: 'forbid-pattern', appliesTo: ['string'], field: 'default', pattern: '[<>]', message: 'no <>' },
+        {
+          id: 'snake-keys',
+          type: 'key-pattern',
+          appliesTo: '*',
+          pattern: '^[a-z_]+$',
+          message: 'snake_case',
+        },
+        {
+          id: 'max-len',
+          type: 'max-value',
+          appliesTo: ['string', 'text'],
+          field: 'maxLength',
+          max: 500,
+          message: 'too long',
+        },
+        {
+          id: 'no-brackets',
+          type: 'forbid-pattern',
+          appliesTo: ['string'],
+          field: 'default',
+          pattern: '[<>]',
+          message: 'no <>',
+        },
       ]),
       '/x/rules.json',
     );
@@ -36,7 +62,12 @@ describe('parseRuleFile', () => {
       ['no-brackets', 'forbid-pattern'],
     ]);
     expect(rules[1]!.pattern).toBeInstanceOf(RegExp);
-    expect(rules[2]).toMatchObject({ appliesTo: ['string', 'text'], field: 'maxLength', max: 500, file: '/x/rules.json' });
+    expect(rules[2]).toMatchObject({
+      appliesTo: ['string', 'text'],
+      field: 'maxLength',
+      max: 500,
+      file: '/x/rules.json',
+    });
   });
 
   it('accepts an empty rule list', () => {
@@ -46,20 +77,56 @@ describe('parseRuleFile', () => {
   it.each([
     ['not JSON', '{ nope', /not valid JSON/],
     ['no rules array', '{"rule": []}', /"rules" array/],
-    ['extra top-level key', '{"rules": [], "extends": "x"}', /unknown top-level property "extends"/],
+    [
+      'extra top-level key',
+      '{"rules": [], "extends": "x"}',
+      /unknown top-level property "extends"/,
+    ],
     ['rule not an object', file(['x']), /rules\[0\]: must be an object/],
     ['bad id', file([{ ...requireLabel, id: 'Bad Id' }]), /"id" must be/],
-    ['unknown type (e.g. scripting)', file([{ ...requireLabel, type: 'javascript' }]), /"type" must be one of/],
+    [
+      'unknown type (e.g. scripting)',
+      file([{ ...requireLabel, type: 'javascript' }]),
+      /"type" must be one of/,
+    ],
     ['unknown property', file([{ ...requireLabel, script: 'x' }]), /unknown property "script"/],
-    ['property of another type', file([{ ...requireLabel, pattern: 'x' }]), /unknown property "pattern" for a require-present rule/],
-    ['missing type-specific key', file([{ id: 'm', type: 'max-value', appliesTo: '*', field: 'maxLength', message: 'm' }]), /needs "max"/],
+    [
+      'property of another type',
+      file([{ ...requireLabel, pattern: 'x' }]),
+      /unknown property "pattern" for a require-present rule/,
+    ],
+    [
+      'missing type-specific key',
+      file([{ id: 'm', type: 'max-value', appliesTo: '*', field: 'maxLength', message: 'm' }]),
+      /needs "max"/,
+    ],
     ['appliesTo missing', file([{ ...requireLabel, appliesTo: undefined }]), /"appliesTo" must be/],
     ['appliesTo empty', file([{ ...requireLabel, appliesTo: [] }]), /"appliesTo" must be/],
-    ['appliesTo unknown type', file([{ ...requireLabel, appliesTo: ['colour'] }]), /unknown field type "colour"/],
+    [
+      'appliesTo unknown type',
+      file([{ ...requireLabel, appliesTo: ['colour'] }]),
+      /unknown field type "colour"/,
+    ],
     ['empty message', file([{ ...requireLabel, message: ' ' }]), /"message" must be/],
-    ['pattern too long', file([{ id: 'k', type: 'key-pattern', appliesTo: '*', pattern: 'a'.repeat(201), message: 'm' }]), /exceeds 200/],
-    ['pattern does not compile', file([{ id: 'k', type: 'key-pattern', appliesTo: '*', pattern: '(', message: 'm' }]), /not a valid regular expression/],
-    ['max not a number', file([{ id: 'm', type: 'max-value', appliesTo: '*', field: 'maxLength', max: '10', message: 'm' }]), /"max" must be a finite number/],
+    [
+      'pattern too long',
+      file([
+        { id: 'k', type: 'key-pattern', appliesTo: '*', pattern: 'a'.repeat(201), message: 'm' },
+      ]),
+      /exceeds 200/,
+    ],
+    [
+      'pattern does not compile',
+      file([{ id: 'k', type: 'key-pattern', appliesTo: '*', pattern: '(', message: 'm' }]),
+      /not a valid regular expression/,
+    ],
+    [
+      'max not a number',
+      file([
+        { id: 'm', type: 'max-value', appliesTo: '*', field: 'maxLength', max: '10', message: 'm' },
+      ]),
+      /"max" must be a finite number/,
+    ],
   ])('rejects %s, naming the file and rule', (_name, text, problem) => {
     const err = parseError(text);
     expect(err.problem).toMatch(problem);
@@ -69,7 +136,9 @@ describe('parseRuleFile', () => {
   });
 
   it('names the rule id in the error when it has one', () => {
-    expect(parseError(file([requireLabel, { ...requireLabel, id: 'second', field: 7 }])).problem).toMatch(/^rules\[1\] \("second"\)/);
+    expect(
+      parseError(file([requireLabel, { ...requireLabel, id: 'second', field: 7 }])).problem,
+    ).toMatch(/^rules\[1\] \("second"\)/);
   });
 });
 
@@ -81,7 +150,12 @@ describe('loading rule directories', () => {
     await mkdir(join(home, '.mcdi-cli', 'rules'), { recursive: true });
     await mkdir(join(repo, '.mcdi-cli', 'rules'), { recursive: true });
     await mkdir(join(repo, 'src', 'deep'), { recursive: true });
-    return { root, globalDir: join(home, '.mcdi-cli', 'rules'), projectDir: join(repo, '.mcdi-cli', 'rules'), repo };
+    return {
+      root,
+      globalDir: join(home, '.mcdi-cli', 'rules'),
+      projectDir: join(repo, '.mcdi-cli', 'rules'),
+      repo,
+    };
   }
 
   it('finds the nearest .mcdi-cli/rules walking up, like git', async () => {
@@ -92,9 +166,20 @@ describe('loading rule directories', () => {
 
   it('merges global then project rules, the project overriding a global rule with the same id', async () => {
     const { repo, globalDir, projectDir } = await project();
-    await writeFile(join(globalDir, 'team.json'), file([requireLabel, { ...requireLabel, id: 'require-description', field: 'description' }]));
-    await writeFile(join(projectDir, 'b.json'), file([{ ...requireLabel, message: 'Project wording' }]));
-    await writeFile(join(projectDir, 'a.json'), file([{ id: 'snake', type: 'key-pattern', appliesTo: '*', pattern: '^[a-z_]+$', message: 's' }]));
+    await writeFile(
+      join(globalDir, 'team.json'),
+      file([requireLabel, { ...requireLabel, id: 'require-description', field: 'description' }]),
+    );
+    await writeFile(
+      join(projectDir, 'b.json'),
+      file([{ ...requireLabel, message: 'Project wording' }]),
+    );
+    await writeFile(
+      join(projectDir, 'a.json'),
+      file([
+        { id: 'snake', type: 'key-pattern', appliesTo: '*', pattern: '^[a-z_]+$', message: 's' },
+      ]),
+    );
     await writeFile(join(projectDir, 'notes.txt'), 'ignored: not .json');
 
     const rules = await loadCustomRules({ cwd: join(repo, 'src', 'deep'), globalDir });
@@ -109,7 +194,9 @@ describe('loading rule directories', () => {
     const { root, repo, globalDir } = await project();
     expect(await loadCustomRules({ cwd: root, globalDir: join(root, 'nowhere') })).toEqual([]);
     await writeFile(join(globalDir, 'g.json'), file([requireLabel]));
-    expect((await loadCustomRules({ cwd: root, globalDir })).map((r) => r.id)).toEqual(['require-label']);
+    expect((await loadCustomRules({ cwd: root, globalDir })).map((r) => r.id)).toEqual([
+      'require-label',
+    ]);
     expect(await loadCustomRules({ cwd: repo, globalDir: join(root, 'nowhere') })).toEqual([]);
   });
 
@@ -132,6 +219,8 @@ describe('loading rule directories', () => {
   it('fails loudly on a broken file instead of skipping it', async () => {
     const { repo, projectDir, root } = await project();
     await writeFile(join(projectDir, 'broken.json'), '{ "rules": [ ');
-    await expect(loadCustomRules({ cwd: repo, globalDir: join(root, 'nowhere') })).rejects.toThrow(/broken\.json: not valid JSON/);
+    await expect(loadCustomRules({ cwd: repo, globalDir: join(root, 'nowhere') })).rejects.toThrow(
+      /broken\.json: not valid JSON/,
+    );
   });
 });

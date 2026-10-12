@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { DefaultKeyProvider, FileKeyProvider, decrypt, encrypt, type KeyProvider } from './crypto-store.js';
+import {
+  DefaultKeyProvider,
+  FileKeyProvider,
+  decrypt,
+  encrypt,
+  type KeyProvider,
+} from './crypto-store.js';
 
 const fixedKey = (key = randomBytes(32)): KeyProvider => ({ getKey: async () => key });
 const tempDir = () => mkdtemp(join(tmpdir(), 'mcdi-cli-crypto-'));
@@ -34,12 +40,18 @@ describe('encrypt/decrypt', () => {
     const [format, iv, tag, ct] = (await encrypt('secret', keys)).split(':');
     const flipped = Buffer.from(ct!, 'base64');
     flipped[0]! ^= 1;
-    await expect(decrypt([format, iv, tag, flipped.toString('base64')].join(':'), keys)).rejects.toThrow();
+    await expect(
+      decrypt([format, iv, tag, flipped.toString('base64')].join(':'), keys),
+    ).rejects.toThrow();
   });
 
   it('rejects values that are not in the v1 format', async () => {
-    await expect(decrypt('plaintext-token', fixedKey())).rejects.toThrow('unrecognized encrypted value format');
-    await expect(decrypt('v2:a:b:c', fixedKey())).rejects.toThrow('unrecognized encrypted value format');
+    await expect(decrypt('plaintext-token', fixedKey())).rejects.toThrow(
+      'unrecognized encrypted value format',
+    );
+    await expect(decrypt('v2:a:b:c', fixedKey())).rejects.toThrow(
+      'unrecognized encrypted value format',
+    );
   });
 });
 

@@ -46,7 +46,10 @@ export function defaultLoginDeps(): LoginDeps {
   };
 }
 
-export type CallbackResult = { kind: 'code'; code: string } | { kind: 'error'; message: string } | { kind: 'ignore'; reason: string };
+export type CallbackResult =
+  | { kind: 'code'; code: string }
+  | { kind: 'error'; message: string }
+  | { kind: 'ignore'; reason: string };
 
 /**
  * Reads MCDI's redirect to the loopback listener: `?code=<one-time code>&state=`
@@ -78,10 +81,14 @@ export function extractState(discordUrl: string): string {
     throw new CliError('MCDI returned an invalid Discord URL', ExitCode.Unexpected);
   }
   if (url.protocol !== 'https:') {
-    throw new CliError(`refusing to open a non-https login URL from MCDI (${url.protocol})`, ExitCode.Unexpected);
+    throw new CliError(
+      `refusing to open a non-https login URL from MCDI (${url.protocol})`,
+      ExitCode.Unexpected,
+    );
   }
   const state = url.searchParams.get('state');
-  if (!state) throw new CliError('MCDI login URL has no OAuth state parameter', ExitCode.Unexpected);
+  if (!state)
+    throw new CliError('MCDI login URL has no OAuth state parameter', ExitCode.Unexpected);
   return state;
 }
 
@@ -144,8 +151,13 @@ interface CallbackListener {
 }
 
 /** Starts a one-shot HTTP listener on 127.0.0.1 (never all interfaces) on an OS-chosen port. */
-export async function startCallbackListener(warn: (line: string) => void): Promise<CallbackListener> {
-  let onRequest: (params: URLSearchParams) => CallbackResult = () => ({ kind: 'ignore', reason: 'not ready' });
+export async function startCallbackListener(
+  warn: (line: string) => void,
+): Promise<CallbackListener> {
+  let onRequest: (params: URLSearchParams) => CallbackResult = () => ({
+    kind: 'ignore',
+    reason: 'not ready',
+  });
 
   const server: Server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
@@ -157,14 +169,20 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Connection', 'close');
     if (result.kind === 'code') {
-      res.writeHead(200).end(page('Login complete', 'You can close this tab and return to the terminal.', 'success'));
+      res
+        .writeHead(200)
+        .end(
+          page('Login complete', 'You can close this tab and return to the terminal.', 'success'),
+        );
     } else if (result.kind === 'error') {
       res.writeHead(400).end(page('Login failed', 'Check the terminal for details.', 'error'));
     } else {
       warn(`ignored a callback request: ${result.reason}`);
       res
         .writeHead(400)
-        .end(page('Ignored', 'This request does not belong to the current mcdi-cli login.', 'error'));
+        .end(
+          page('Ignored', 'This request does not belong to the current mcdi-cli login.', 'error'),
+        );
     }
   });
 
@@ -195,7 +213,8 @@ export async function startCallbackListener(warn: (line: string) => void): Promi
           clearTimeout(timer);
           onRequest = () => ({ kind: 'ignore', reason: 'login already finished' });
           if (result.kind === 'code') resolve(result.code);
-          else reject(new CliError(`MCDI reported a login failure: ${result.message}`, ExitCode.Auth));
+          else
+            reject(new CliError(`MCDI reported a login failure: ${result.message}`, ExitCode.Auth));
           return result;
         };
       });

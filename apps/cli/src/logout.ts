@@ -1,5 +1,12 @@
 import { join } from 'node:path';
-import { clearSession, configDir, configPath, loadConfig, resolveProfileName, saveConfig } from './config.js';
+import {
+  clearSession,
+  configDir,
+  configPath,
+  loadConfig,
+  resolveProfileName,
+  saveConfig,
+} from './config.js';
 import { decrypt, defaultKeyProvider, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { postAdminLogout } from './mcdi.js';

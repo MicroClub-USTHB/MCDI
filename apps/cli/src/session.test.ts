@@ -42,7 +42,10 @@ describe('resolveSession', () => {
   });
 
   it('errors with a login hint when the profile has no session', async () => {
-    const config = { ...emptyConfig(), profiles: { prod: { baseUrl: 'https://a.example.com', session: null } } };
+    const config = {
+      ...emptyConfig(),
+      profiles: { prod: { baseUrl: 'https://a.example.com', session: null } },
+    };
     await expectAuthError(
       resolveSession(config, 'prod', fixedKey()),
       /not logged in on profile "prod"[\s\S]*mcdi-cli login --profile prod/,

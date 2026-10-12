@@ -10,10 +10,14 @@ import { saveConfig } from './config.js';
  * `mcdi-cli ... | head` does once head has read enough.
  */
 async function runWithClosedStdout(args: string[], env: NodeJS.ProcessEnv) {
-  const child = spawn(process.execPath, ['--import', 'tsx', join(import.meta.dirname, 'index.ts'), ...args], {
-    env: { ...process.env, ...env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const child = spawn(
+    process.execPath,
+    ['--import', 'tsx', join(import.meta.dirname, 'index.ts'), ...args],
+    {
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
   child.stdout.destroy();
   let stderr = '';
   child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
@@ -26,11 +30,17 @@ describe('stdout closed early (EPIPE)', () => {
     // A profile without a session: `logout` prints one stdout line and never touches the keychain.
     const configPath = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-epipe-')), 'config.json');
     await saveConfig(
-      { version: 1, activeProfile: 'prod', profiles: { prod: { baseUrl: 'https://mcdi.example.com', session: null } } },
+      {
+        version: 1,
+        activeProfile: 'prod',
+        profiles: { prod: { baseUrl: 'https://mcdi.example.com', session: null } },
+      },
       configPath,
     );
 
-    const { code, stderr } = await runWithClosedStdout(['logout'], { MCDI_CLI_CONFIG_PATH: configPath });
+    const { code, stderr } = await runWithClosedStdout(['logout'], {
+      MCDI_CLI_CONFIG_PATH: configPath,
+    });
 
     expect(stderr).not.toContain('EPIPE');
     expect(stderr).toBe('');

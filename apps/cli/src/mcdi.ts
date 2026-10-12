@@ -31,7 +31,10 @@ async function readJson(res: Response, what: string): Promise<unknown> {
   try {
     return await res.json();
   } catch {
-    throw new CliError(`MCDI returned a non-JSON response for ${what} (HTTP ${res.status})`, ExitCode.Unexpected);
+    throw new CliError(
+      `MCDI returned a non-JSON response for ${what} (HTTP ${res.status})`,
+      ExitCode.Unexpected,
+    );
   }
 }
 
@@ -49,10 +52,18 @@ export function adminLoginQuery(redirectUri: string, codeChallenge: string): URL
  * PKCE challenge, MCDI hands the result back to the CLI's loopback listener as
  * a one-time code (MCDI's CLI login, mcdi-cli issue #2).
  */
-export async function getAdminLoginUrl(baseUrl: string, redirectUri: string, codeChallenge: string): Promise<string> {
-  const res = await request(baseUrl, `/auth/admin/discord?${adminLoginQuery(redirectUri, codeChallenge)}`, {
-    headers: { Accept: 'application/json' },
-  });
+export async function getAdminLoginUrl(
+  baseUrl: string,
+  redirectUri: string,
+  codeChallenge: string,
+): Promise<string> {
+  const res = await request(
+    baseUrl,
+    `/auth/admin/discord?${adminLoginQuery(redirectUri, codeChallenge)}`,
+    {
+      headers: { Accept: 'application/json' },
+    },
+  );
   if (!res.ok) {
     throw new CliError(`MCDI refused to start the login (HTTP ${res.status})`, ExitCode.Unexpected);
   }
@@ -98,10 +109,16 @@ export async function exchangeAdminLoginCode(
     );
   }
   if (res.status === 429) {
-    throw new CliError('MCDI is rate-limiting login attempts; wait a minute and try again', ExitCode.Unexpected);
+    throw new CliError(
+      'MCDI is rate-limiting login attempts; wait a minute and try again',
+      ExitCode.Unexpected,
+    );
   }
   if (!res.ok) {
-    throw new CliError(`MCDI returned HTTP ${res.status} for the login code exchange`, ExitCode.Unexpected);
+    throw new CliError(
+      `MCDI returned HTTP ${res.status} for the login code exchange`,
+      ExitCode.Unexpected,
+    );
   }
   return parseAdminLoginSession(await readJson(res, 'the login token'));
 }
@@ -123,7 +140,10 @@ export async function getAdminMeRaw(baseUrl: string, token: string): Promise<Adm
   });
   if (res.status === 401 || res.status === 403) return { status: res.status, body: undefined };
   if (!res.ok) {
-    throw new CliError(`MCDI returned HTTP ${res.status} for the admin profile`, ExitCode.Unexpected);
+    throw new CliError(
+      `MCDI returned HTTP ${res.status} for the admin profile`,
+      ExitCode.Unexpected,
+    );
   }
   return { status: res.status, body: await readJson(res, 'the admin profile') };
 }
@@ -131,7 +151,11 @@ export async function getAdminMeRaw(baseUrl: string, token: string): Promise<Adm
 /** Validates the shape of a successful /auth/admin/me body. */
 export function parseAdminMe(body: unknown): AdminMe {
   const me = body as Partial<AdminMe> | null;
-  if (typeof me?.id !== 'string' || typeof me.username !== 'string' || typeof me.sessionExpiresAt !== 'string') {
+  if (
+    typeof me?.id !== 'string' ||
+    typeof me.username !== 'string' ||
+    typeof me.sessionExpiresAt !== 'string'
+  ) {
     throw new CliError('MCDI admin profile response has an unexpected shape', ExitCode.Unexpected);
   }
   return me as AdminMe;
@@ -144,7 +168,10 @@ export async function getAdminMe(baseUrl: string, token: string): Promise<AdminM
     throw new CliError('MCDI rejected the session token (invalid or expired)', ExitCode.Auth);
   }
   if (status === 403) {
-    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
+    throw new CliError(
+      'this Discord account is not a system admin on this MCDI instance',
+      ExitCode.Auth,
+    );
   }
   return parseAdminMe(body);
 }
@@ -214,7 +241,10 @@ const INBOUND_WEBHOOK_FIELDS = [
 function toInboundWebhook(raw: unknown): InboundWebhook {
   const row = raw as Record<string, unknown> | null;
   if (typeof row?.id !== 'string' || typeof row.name !== 'string') {
-    throw new CliError('MCDI inbound webhook response has an unexpected shape', ExitCode.Unexpected);
+    throw new CliError(
+      'MCDI inbound webhook response has an unexpected shape',
+      ExitCode.Unexpected,
+    );
   }
   const picked: Record<string, unknown> = {};
   for (const field of INBOUND_WEBHOOK_FIELDS) picked[field] = row[field];
@@ -251,7 +281,10 @@ async function adminRequest(
   path: string,
   body?: unknown,
 ): Promise<unknown> {
-  const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await request(baseUrl, path, {
     method,
@@ -269,7 +302,10 @@ async function adminRequest(
     );
   }
   if (res.status === 403) {
-    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
+    throw new CliError(
+      'this Discord account is not a system admin on this MCDI instance',
+      ExitCode.Auth,
+    );
   }
   if (res.status === 404) throw new CliError(`not found${suffix}`, ExitCode.NotFound);
   if (res.status === 400 || res.status === 409 || res.status === 422) {
@@ -279,7 +315,10 @@ async function adminRequest(
       ExitCode.Rejected,
     );
   }
-  throw new CliError(`MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`, ExitCode.Unexpected);
+  throw new CliError(
+    `MCDI returned HTTP ${res.status} for ${method} ${path}${suffix}`,
+    ExitCode.Unexpected,
+  );
 }
 
 export interface Project {
@@ -297,7 +336,13 @@ function toProject(raw: unknown): Project {
 
 /** GET /admin/projects → active projects this admin can create webhooks on. */
 export async function listProjects(session: Session): Promise<Project[]> {
-  const body = await adminRequest(session.baseUrl, session.token, session.profileName, 'GET', '/admin/projects');
+  const body = await adminRequest(
+    session.baseUrl,
+    session.token,
+    session.profileName,
+    'GET',
+    '/admin/projects',
+  );
   if (!Array.isArray(body)) {
     throw new CliError('MCDI project list response is not an array', ExitCode.Unexpected);
   }
@@ -305,7 +350,10 @@ export async function listProjects(session: Session): Promise<Project[]> {
 }
 
 /** GET /admin/inbound-webhooks[?projectId=] → webhooks, newest first. */
-export async function listInboundWebhooks(session: Session, projectId?: string): Promise<InboundWebhook[]> {
+export async function listInboundWebhooks(
+  session: Session,
+  projectId?: string,
+): Promise<InboundWebhook[]> {
   const query = projectId ? `?${new URLSearchParams({ projectId })}` : '';
   const body = await adminRequest(
     session.baseUrl,
@@ -343,15 +391,33 @@ export async function updateInboundWebhook(
   patch: InboundWebhookPatch,
 ): Promise<InboundWebhook> {
   return toInboundWebhook(
-    await adminRequest(session.baseUrl, session.token, session.profileName, 'PATCH', webhookPath(id), patch),
+    await adminRequest(
+      session.baseUrl,
+      session.token,
+      session.profileName,
+      'PATCH',
+      webhookPath(id),
+      patch,
+    ),
   );
 }
 
 /** PUT /admin/inbound-webhooks/:id/roles → the stored replacement set (400 → exit 2, 404 → exit 4). */
-export async function setInboundWebhookRoles(session: Session, id: string, roleIds: string[]): Promise<string[]> {
-  const body = (await adminRequest(session.baseUrl, session.token, session.profileName, 'PUT', `${webhookPath(id)}/roles`, {
-    roleIds,
-  })) as { roleIds?: unknown } | null;
+export async function setInboundWebhookRoles(
+  session: Session,
+  id: string,
+  roleIds: string[],
+): Promise<string[]> {
+  const body = (await adminRequest(
+    session.baseUrl,
+    session.token,
+    session.profileName,
+    'PUT',
+    `${webhookPath(id)}/roles`,
+    {
+      roleIds,
+    },
+  )) as { roleIds?: unknown } | null;
   if (!Array.isArray(body?.roleIds) || !body.roleIds.every((r) => typeof r === 'string')) {
     throw new CliError('MCDI roles response has an unexpected shape', ExitCode.Unexpected);
   }
@@ -379,7 +445,10 @@ export interface CreatedInboundWebhook {
 }
 
 /** POST /admin/inbound-webhooks → the new webhook and its signing secret (400/409 → exit 2). */
-export async function createInboundWebhook(session: Session, body: CreateInboundWebhookBody): Promise<CreatedInboundWebhook> {
+export async function createInboundWebhook(
+  session: Session,
+  body: CreateInboundWebhookBody,
+): Promise<CreatedInboundWebhook> {
   const res = (await adminRequest(
     session.baseUrl,
     session.token,
@@ -407,7 +476,13 @@ export async function createInboundWebhook(session: Session, body: CreateInbound
 
 /** DELETE /admin/inbound-webhooks/:id → 204; MCDI also deletes every submission (404 → exit 4). */
 export async function deleteInboundWebhook(session: Session, id: string): Promise<void> {
-  await adminRequest(session.baseUrl, session.token, session.profileName, 'DELETE', webhookPath(id));
+  await adminRequest(
+    session.baseUrl,
+    session.token,
+    session.profileName,
+    'DELETE',
+    webhookPath(id),
+  );
 }
 
 /** Validates MCDI's rotate-secret response shape; factored out so it's testable without a network call. */
@@ -426,6 +501,12 @@ export function parseRotatedSecret(body: unknown): string {
  */
 export async function rotateInboundWebhookSecret(session: Session, id: string): Promise<string> {
   return parseRotatedSecret(
-    await adminRequest(session.baseUrl, session.token, session.profileName, 'POST', `${webhookPath(id)}/rotate-secret`),
+    await adminRequest(
+      session.baseUrl,
+      session.token,
+      session.profileName,
+      'POST',
+      `${webhookPath(id)}/rotate-secret`,
+    ),
   );
 }

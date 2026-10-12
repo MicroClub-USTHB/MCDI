@@ -33,7 +33,10 @@ export function redactProfile(profile: Profile): Record<string, unknown> {
   };
   if (profile.webhookSecrets) {
     redacted.webhookSecrets = Object.fromEntries(
-      Object.entries(profile.webhookSecrets).map(([id, entry]) => [id, { ...entry, secret: REDACTED }]),
+      Object.entries(profile.webhookSecrets).map(([id, entry]) => [
+        id,
+        { ...entry, secret: REDACTED },
+      ]),
     );
   }
   return redacted;

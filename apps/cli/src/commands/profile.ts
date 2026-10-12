@@ -1,6 +1,12 @@
 import { Command } from 'commander';
 import { exitWithError } from '../errors.js';
-import { defaultProfileDeps, profileAdd, profileList, profileRemove, profileUse } from '../profile.js';
+import {
+  defaultProfileDeps,
+  profileAdd,
+  profileList,
+  profileRemove,
+  profileUse,
+} from '../profile.js';
 
 export function registerProfileCommand(program: Command): void {
   const profile = program

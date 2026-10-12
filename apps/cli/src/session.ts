@@ -14,7 +14,11 @@ export interface Session {
  * CliError(Auth) with a `mcdi-cli login` hint whenever there's nothing usable
  * to act on, rather than letting callers each re-derive that message.
  */
-export async function resolveSession(config: Config, profileName: string, keys: KeyProvider): Promise<Session> {
+export async function resolveSession(
+  config: Config,
+  profileName: string,
+  keys: KeyProvider,
+): Promise<Session> {
   const profile = config.profiles[profileName];
   if (!profile || !profile.session) {
     throw new CliError(

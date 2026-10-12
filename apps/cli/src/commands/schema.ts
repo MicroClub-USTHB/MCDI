@@ -34,7 +34,9 @@ export function registerSchemaCommand(program: Command): void {
       const templateName = options.template ?? DEFAULT_TEMPLATE;
       const contents = getSchemaTemplate(templateName);
       if (!contents) {
-        process.stderr.write(`Unknown schema template "${templateName}". Available templates: minimal, recruitment\n`);
+        process.stderr.write(
+          `Unknown schema template "${templateName}". Available templates: minimal, recruitment\n`,
+        );
         process.exitCode = EXIT_CODE.VALIDATION_ERROR;
         return;
       }
@@ -63,7 +65,12 @@ export function registerSchemaCommand(program: Command): void {
       try {
         contents = await readFile(path, FILE_ENCODING);
       } catch (error) {
-        printError(`Could not read schema (source: ${OUTPUT_SOURCE})`, path, 'FILE_READ_ERROR', errorMessage(error));
+        printError(
+          `Could not read schema (source: ${OUTPUT_SOURCE})`,
+          path,
+          'FILE_READ_ERROR',
+          errorMessage(error),
+        );
         process.exitCode = EXIT_CODE.UNEXPECTED_ERROR;
         return;
       }
@@ -82,9 +89,19 @@ export function registerSchemaCommand(program: Command): void {
         result = precheckSchema(parsed, await loadCustomRules(defaultRuleLocations()));
       } catch (error) {
         if (error instanceof RuleFileError) {
-          printError(`Could not load custom rules (source: ${OUTPUT_SOURCE})`, error.file, 'INVALID_RULE', error.problem);
+          printError(
+            `Could not load custom rules (source: ${OUTPUT_SOURCE})`,
+            error.file,
+            'INVALID_RULE',
+            error.problem,
+          );
         } else if (error instanceof CliError) {
-          printError(`Custom rule failed (source: ${OUTPUT_SOURCE})`, path, 'RULE_TIMEOUT', error.message);
+          printError(
+            `Custom rule failed (source: ${OUTPUT_SOURCE})`,
+            path,
+            'RULE_TIMEOUT',
+            error.message,
+          );
         } else {
           throw error;
         }

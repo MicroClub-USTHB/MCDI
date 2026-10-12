@@ -13,13 +13,25 @@ export interface ValidationResult {
 }
 
 const FIELD_TYPE = {
-  STRING: 'string', TEXT: 'text', NUMBER: 'number', BOOLEAN: 'boolean',
-  EMAIL: 'email', URL: 'url', PHONE: 'phone', DATE: 'date',
-  DATETIME: 'datetime', ENUM: 'enum', MULTI_ENUM: 'multi_enum',
-  OBJECT: 'object', ARRAY: 'array', FILE: 'file', FILES: 'files', JSON: 'json',
+  STRING: 'string',
+  TEXT: 'text',
+  NUMBER: 'number',
+  BOOLEAN: 'boolean',
+  EMAIL: 'email',
+  URL: 'url',
+  PHONE: 'phone',
+  DATE: 'date',
+  DATETIME: 'datetime',
+  ENUM: 'enum',
+  MULTI_ENUM: 'multi_enum',
+  OBJECT: 'object',
+  ARRAY: 'array',
+  FILE: 'file',
+  FILES: 'files',
+  JSON: 'json',
 } as const;
 
-type FieldType = typeof FIELD_TYPE[keyof typeof FIELD_TYPE];
+type FieldType = (typeof FIELD_TYPE)[keyof typeof FIELD_TYPE];
 
 const FIELD_TYPES = new Set<string>(Object.values(FIELD_TYPE));
 /** The 16 FormSchema field types, for callers like the custom rule engine. */
@@ -69,7 +81,15 @@ const ERROR_CODE = {
 } as const;
 
 const CONDITION_OPERATORS = new Set([
-  'eq', 'ne', 'gt', 'lt', 'gte', 'lte', 'in', 'contains', 'exists',
+  'eq',
+  'ne',
+  'gt',
+  'lt',
+  'gte',
+  'lte',
+  'in',
+  'contains',
+  'exists',
 ]);
 
 /** `./field` inside an array item means "this entry's own field", resolved against `ItemScope`. */
@@ -85,42 +105,64 @@ interface ItemScope {
 }
 
 const BASE_PROPERTIES = new Set([
-  'key', 'type', 'label', 'description', 'required', 'condition', 'default',
+  'key',
+  'type',
+  'label',
+  'description',
+  'required',
+  'condition',
+  'default',
 ]);
 
 type Constraint = { accepts(value: unknown): boolean; expected: string };
 const booleanConstraint: Constraint = {
-  accepts: (value) => typeof value === 'boolean', expected: 'a boolean',
+  accepts: (value) => typeof value === 'boolean',
+  expected: 'a boolean',
 };
 const stringConstraint: Constraint = {
-  accepts: (value) => typeof value === 'string', expected: 'a string',
+  accepts: (value) => typeof value === 'string',
+  expected: 'a string',
 };
 const numberConstraint: Constraint = {
-  accepts: (value) => typeof value === 'number' && Number.isFinite(value), expected: 'a number',
+  accepts: (value) => typeof value === 'number' && Number.isFinite(value),
+  expected: 'a number',
 };
 const countConstraint: Constraint = {
   accepts: (value) => Number.isInteger(value) && (value as number) >= 0,
   expected: 'a non-negative integer',
 };
 const stringsConstraint: Constraint = {
-  accepts: (value) => Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string' && item.length > 0),
+  accepts: (value) =>
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => typeof item === 'string' && item.length > 0),
   expected: 'a non-empty array of strings',
 };
 const schemesConstraint: Constraint = {
-  accepts: (value) => Array.isArray(value) && value.length > 0 && value.every((item) => item === 'http' || item === 'https'),
+  accepts: (value) =>
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => item === 'http' || item === 'https'),
   expected: 'a non-empty array of "http" and/or "https"',
 };
 const dateConstraint: Constraint = {
-  accepts: isCalendarDate, expected: 'a real date as YYYY-MM-DD',
+  accepts: isCalendarDate,
+  expected: 'a real date as YYYY-MM-DD',
 };
 const dateTimeConstraint: Constraint = {
-  accepts: isDateTime, expected: 'an ISO 8601 date-time with a timezone',
+  accepts: isDateTime,
+  expected: 'an ISO 8601 date-time with a timezone',
 };
 // The constraint's dedicated check runs in validateTypeConstraints.
 const validatedSeparately: Constraint = { accepts: () => true, expected: '' };
 
 const TYPE_PROPERTIES: Record<FieldType, Record<string, Constraint>> = {
-  string: { minLength: countConstraint, maxLength: countConstraint, pattern: stringConstraint, trim: booleanConstraint },
+  string: {
+    minLength: countConstraint,
+    maxLength: countConstraint,
+    pattern: stringConstraint,
+    trim: booleanConstraint,
+  },
   text: { maxLength: countConstraint },
   number: { min: numberConstraint, max: numberConstraint, integer: booleanConstraint },
   boolean: {},
@@ -130,11 +172,20 @@ const TYPE_PROPERTIES: Record<FieldType, Record<string, Constraint>> = {
   date: { min: dateConstraint, max: dateConstraint },
   datetime: { min: dateTimeConstraint, max: dateTimeConstraint },
   enum: { options: validatedSeparately },
-  multi_enum: { options: validatedSeparately, minSelected: countConstraint, maxSelected: countConstraint },
+  multi_enum: {
+    options: validatedSeparately,
+    minSelected: countConstraint,
+    maxSelected: countConstraint,
+  },
   object: { fields: validatedSeparately },
   array: { item: validatedSeparately, minItems: countConstraint, maxItems: validatedSeparately },
   file: { accept: validatedSeparately, maxSizeBytes: validatedSeparately },
-  files: { accept: validatedSeparately, maxSizeBytes: validatedSeparately, minCount: countConstraint, maxCount: validatedSeparately },
+  files: {
+    accept: validatedSeparately,
+    maxSizeBytes: validatedSeparately,
+    minCount: countConstraint,
+    maxCount: validatedSeparately,
+  },
   json: { maxBytes: validatedSeparately },
 };
 
@@ -167,10 +218,16 @@ class SchemaChecker {
     }
 
     const seenStepKeys = new Set<string>();
-    this.schema.steps.forEach((step, index) => this.validateStep(step, `steps[${index}]`, seenStepKeys));
+    this.schema.steps.forEach((step, index) =>
+      this.validateStep(step, `steps[${index}]`, seenStepKeys),
+    );
 
     if (this.fieldNodeCount > MAX_NODES) {
-      this.add('', ERROR_CODE.TOO_MANY_NODES, `Schema declares ${this.fieldNodeCount} fields; the limit is ${MAX_NODES}`);
+      this.add(
+        '',
+        ERROR_CODE.TOO_MANY_NODES,
+        `Schema declares ${this.fieldNodeCount} fields; the limit is ${MAX_NODES}`,
+      );
     }
     return { valid: this.errors.length === 0, errors: this.errors };
   }
@@ -186,7 +243,8 @@ class SchemaChecker {
       this.add(`${path}.key`, ERROR_CODE.INVALID_KEY, 'Step key must match [a-zA-Z_][a-zA-Z0-9_]*');
       return;
     }
-    if (seenStepKeys.has(key)) this.add(`${path}.key`, ERROR_CODE.DUPLICATE_KEY, `Duplicate step key "${key}"`);
+    if (seenStepKeys.has(key))
+      this.add(`${path}.key`, ERROR_CODE.DUPLICATE_KEY, `Duplicate step key "${key}"`);
     seenStepKeys.add(key);
 
     // Check step conditions before declaring this step's fields.
@@ -197,7 +255,9 @@ class SchemaChecker {
       return;
     }
     const seenFieldKeys = new Set<string>();
-    value.fields.forEach((field, index) => this.validateField(field, `${path}.fields[${index}]`, key, seenFieldKeys, 1));
+    value.fields.forEach((field, index) =>
+      this.validateField(field, `${path}.fields[${index}]`, key, seenFieldKeys, 1),
+    );
   }
 
   private validateField(
@@ -220,11 +280,17 @@ class SchemaChecker {
 
     const { key, type } = value;
     if (typeof key !== 'string' || !FIELD_KEY_PATTERN.test(key)) {
-      this.add(`${path}.key`, ERROR_CODE.INVALID_KEY, 'Field key must match [a-zA-Z_][a-zA-Z0-9_]*');
+      this.add(
+        `${path}.key`,
+        ERROR_CODE.INVALID_KEY,
+        'Field key must match [a-zA-Z_][a-zA-Z0-9_]*',
+      );
       return;
     }
-    if (key.length > MAX_KEY_LENGTH) this.add(`${path}.key`, ERROR_CODE.KEY_TOO_LONG, 'Field key is too long');
-    if (seenKeys.has(key)) this.add(`${path}.key`, ERROR_CODE.DUPLICATE_KEY, `Duplicate field key "${key}"`);
+    if (key.length > MAX_KEY_LENGTH)
+      this.add(`${path}.key`, ERROR_CODE.KEY_TOO_LONG, 'Field key is too long');
+    if (seenKeys.has(key))
+      this.add(`${path}.key`, ERROR_CODE.DUPLICATE_KEY, `Duplicate field key "${key}"`);
     seenKeys.add(key);
 
     if (typeof type !== 'string' || !FIELD_TYPES.has(type)) {
@@ -232,7 +298,11 @@ class SchemaChecker {
       return;
     }
     if (typeof value.required !== 'boolean') {
-      this.add(`${path}.required`, ERROR_CODE.MISSING_REQUIRED_FLAG, '`required` must be a boolean');
+      this.add(
+        `${path}.required`,
+        ERROR_CODE.MISSING_REQUIRED_FLAG,
+        '`required` must be a boolean',
+      );
     }
 
     const itemScope = this.itemScopeStack[this.itemScopeStack.length - 1];
@@ -244,7 +314,8 @@ class SchemaChecker {
     const fieldPath = `${parentPath}.${key}`;
     (insideArray ? this.arrayItemFields : this.declaredFields).add(fieldPath);
     // The item itself is the `./` root, not a field of it.
-    if (itemScope && !isItemRoot) itemScope.declared.add(fieldPath.slice(itemScope.root.length + 1));
+    if (itemScope && !isItemRoot)
+      itemScope.declared.add(fieldPath.slice(itemScope.root.length + 1));
 
     this.validateProperties(value, type as FieldType, path);
     this.validateTypeConstraints(value, type as FieldType, path, fieldPath, depth, insideArray);
@@ -255,9 +326,17 @@ class SchemaChecker {
       if (BASE_PROPERTIES.has(name) || constraintValue === undefined) continue;
       const constraint = TYPE_PROPERTIES[type][name];
       if (!constraint) {
-        this.add(`${path}.${name}`, ERROR_CODE.UNKNOWN_PROPERTY, `"${name}" is not a property of a ${type} field`);
+        this.add(
+          `${path}.${name}`,
+          ERROR_CODE.UNKNOWN_PROPERTY,
+          `"${name}" is not a property of a ${type} field`,
+        );
       } else if (!constraint.accepts(constraintValue)) {
-        this.add(`${path}.${name}`, ERROR_CODE.INVALID_CONSTRAINT, `\`${name}\` must be ${constraint.expected}`);
+        this.add(
+          `${path}.${name}`,
+          ERROR_CODE.INVALID_CONSTRAINT,
+          `\`${name}\` must be ${constraint.expected}`,
+        );
       }
     }
   }
@@ -300,7 +379,11 @@ class SchemaChecker {
         break;
       case FIELD_TYPE.JSON:
         if (typeof field.maxBytes !== 'number' || field.maxBytes <= 0) {
-          this.add(`${path}.maxBytes`, ERROR_CODE.MISSING_MAX_BYTES, '`maxBytes` is required and must be positive');
+          this.add(
+            `${path}.maxBytes`,
+            ERROR_CODE.MISSING_MAX_BYTES,
+            '`maxBytes` is required and must be positive',
+          );
         }
         break;
       default:
@@ -311,7 +394,11 @@ class SchemaChecker {
   private validatePattern(field: Record<string, unknown>, path: string): void {
     if (typeof field.pattern !== 'string') return;
     if (field.pattern.length > MAX_PATTERN_LENGTH) {
-      this.add(`${path}.pattern`, ERROR_CODE.PATTERN_TOO_LONG, `Pattern exceeds ${MAX_PATTERN_LENGTH} characters`);
+      this.add(
+        `${path}.pattern`,
+        ERROR_CODE.PATTERN_TOO_LONG,
+        `Pattern exceeds ${MAX_PATTERN_LENGTH} characters`,
+      );
       return;
     }
     try {
@@ -332,51 +419,103 @@ class SchemaChecker {
         this.add(`${path}[${index}]`, ERROR_CODE.INVALID_OPTION, 'Option needs a string `value`');
         return;
       }
-      if (seenValues.has(option.value)) this.add(`${path}[${index}]`, ERROR_CODE.DUPLICATE_OPTION, `Duplicate option "${option.value}"`);
+      if (seenValues.has(option.value))
+        this.add(
+          `${path}[${index}]`,
+          ERROR_CODE.DUPLICATE_OPTION,
+          `Duplicate option "${option.value}"`,
+        );
       seenValues.add(option.value);
     });
   }
 
-  private validateObjectFields(value: unknown, path: string, fieldPath: string, depth: number, insideArray: boolean): void {
+  private validateObjectFields(
+    value: unknown,
+    path: string,
+    fieldPath: string,
+    depth: number,
+    insideArray: boolean,
+  ): void {
     if (!Array.isArray(value) || value.length === 0) {
       this.add(`${path}.fields`, ERROR_CODE.NO_FIELDS, 'Object must declare at least one field');
       return;
     }
     const seenKeys = new Set<string>();
-    value.forEach((child, index) => this.validateField(child, `${path}.fields[${index}]`, fieldPath, seenKeys, depth + 1, insideArray));
+    value.forEach((child, index) =>
+      this.validateField(
+        child,
+        `${path}.fields[${index}]`,
+        fieldPath,
+        seenKeys,
+        depth + 1,
+        insideArray,
+      ),
+    );
   }
 
-  private validateArray(field: Record<string, unknown>, path: string, fieldPath: string, depth: number): void {
+  private validateArray(
+    field: Record<string, unknown>,
+    path: string,
+    fieldPath: string,
+    depth: number,
+  ): void {
     if (typeof field.maxItems !== 'number' || field.maxItems <= 0) {
-      this.add(`${path}.maxItems`, ERROR_CODE.MISSING_MAX_ITEMS, '`maxItems` is required and must be a positive number');
+      this.add(
+        `${path}.maxItems`,
+        ERROR_CODE.MISSING_MAX_ITEMS,
+        '`maxItems` is required and must be a positive number',
+      );
     }
     this.validateRange(field.minItems, field.maxItems, path, 'minItems', 'maxItems');
     if (field.item === undefined) {
       this.add(`${path}.item`, ERROR_CODE.MISSING_ITEM, 'Array must declare an `item` field');
       return;
     }
-    const itemKey = isRecord(field.item) && typeof field.item.key === 'string' ? field.item.key : '<item>';
-    this.itemScopeStack.push({ root: `${fieldPath}.${itemKey}`, declared: new Set(), awaitingRoot: true });
+    const itemKey =
+      isRecord(field.item) && typeof field.item.key === 'string' ? field.item.key : '<item>';
+    this.itemScopeStack.push({
+      root: `${fieldPath}.${itemKey}`,
+      declared: new Set(),
+      awaitingRoot: true,
+    });
     this.validateField(field.item, `${path}.item`, fieldPath, new Set(), depth + 1, true);
     this.itemScopeStack.pop();
   }
 
   private validateFile(field: Record<string, unknown>, type: FieldType, path: string): void {
     if (!Array.isArray(field.accept) || field.accept.length === 0) {
-      this.add(`${path}.accept`, ERROR_CODE.NO_ACCEPT, 'At least one accepted MIME type is required');
+      this.add(
+        `${path}.accept`,
+        ERROR_CODE.NO_ACCEPT,
+        'At least one accepted MIME type is required',
+      );
     }
     if (typeof field.maxSizeBytes !== 'number' || field.maxSizeBytes <= 0) {
-      this.add(`${path}.maxSizeBytes`, ERROR_CODE.MISSING_MAX_SIZE, '`maxSizeBytes` is required and must be positive');
+      this.add(
+        `${path}.maxSizeBytes`,
+        ERROR_CODE.MISSING_MAX_SIZE,
+        '`maxSizeBytes` is required and must be positive',
+      );
     }
     if (type === FIELD_TYPE.FILES) {
       if (typeof field.maxCount !== 'number' || field.maxCount <= 0) {
-        this.add(`${path}.maxCount`, ERROR_CODE.MISSING_MAX_COUNT, '`maxCount` is required and must be positive');
+        this.add(
+          `${path}.maxCount`,
+          ERROR_CODE.MISSING_MAX_COUNT,
+          '`maxCount` is required and must be positive',
+        );
       }
       this.validateRange(field.minCount, field.maxCount, path, 'minCount', 'maxCount');
     }
   }
 
-  private validateRange(low: unknown, high: unknown, path: string, lowName: string, highName: string): void {
+  private validateRange(
+    low: unknown,
+    high: unknown,
+    path: string,
+    lowName: string,
+    highName: string,
+  ): void {
     if (typeof low === 'number' && typeof high === 'number' && low > high) {
       this.add(path, ERROR_CODE.INVALID_RANGE, `${lowName} must not exceed ${highName}`);
     }
@@ -395,10 +534,16 @@ class SchemaChecker {
     const operator = value.op;
     if (operator === 'and' || operator === 'or') {
       if (!Array.isArray(value.of) || value.of.length === 0) {
-        this.add(`${path}.of`, ERROR_CODE.INVALID_CONDITION, `"${operator}" requires a non-empty \`of\` array`);
+        this.add(
+          `${path}.of`,
+          ERROR_CODE.INVALID_CONDITION,
+          `"${operator}" requires a non-empty \`of\` array`,
+        );
         return;
       }
-      value.of.forEach((condition, index) => this.validateCondition(condition, `${path}.of[${index}]`, depth + 1));
+      value.of.forEach((condition, index) =>
+        this.validateCondition(condition, `${path}.of[${index}]`, depth + 1),
+      );
       return;
     }
     if (operator === 'not') {
@@ -410,7 +555,11 @@ class SchemaChecker {
       return;
     }
     if (typeof operator !== 'string' || !CONDITION_OPERATORS.has(operator)) {
-      this.add(`${path}.op`, ERROR_CODE.UNKNOWN_OPERATOR, `Unknown condition operator "${String(operator)}"`);
+      this.add(
+        `${path}.op`,
+        ERROR_CODE.UNKNOWN_OPERATOR,
+        `Unknown condition operator "${String(operator)}"`,
+      );
       return;
     }
     if (typeof value.field !== 'string' || value.field.length === 0) {
@@ -427,10 +576,18 @@ class SchemaChecker {
           'To use a field of the same array item, write it relative to the item, for example ./role',
       );
     } else if (!this.declaredFields.has(value.field)) {
-      this.add(`${path}.field`, ERROR_CODE.FORWARD_REFERENCE, `Condition references "${value.field}", which is not declared in an earlier step`);
+      this.add(
+        `${path}.field`,
+        ERROR_CODE.FORWARD_REFERENCE,
+        `Condition references "${value.field}", which is not declared in an earlier step`,
+      );
     }
     if (operator !== 'exists' && value.value === undefined) {
-      this.add(`${path}.value`, ERROR_CODE.MISSING_VALUE, `Operator "${operator}" requires a \`value\``);
+      this.add(
+        `${path}.value`,
+        ERROR_CODE.MISSING_VALUE,
+        `Operator "${operator}" requires a \`value\``,
+      );
     }
     if (operator === 'in' && !Array.isArray(value.value)) {
       this.add(`${path}.value`, ERROR_CODE.INVALID_VALUE, '"in" requires an array `value`');
@@ -450,11 +607,19 @@ class SchemaChecker {
     }
     const relative = field.slice(ITEM_REF_PREFIX.length);
     if (relative === '') {
-      this.add(path, ERROR_CODE.INVALID_CONDITION, 'A ./ reference needs a field name after it, for example ./role');
+      this.add(
+        path,
+        ERROR_CODE.INVALID_CONDITION,
+        'A ./ reference needs a field name after it, for example ./role',
+      );
       return;
     }
     if (!itemScope.declared.has(relative)) {
-      this.add(path, ERROR_CODE.FORWARD_REFERENCE, `Condition references "${field}", which is not declared earlier in the same array item`);
+      this.add(
+        path,
+        ERROR_CODE.FORWARD_REFERENCE,
+        `Condition references "${field}", which is not declared earlier in the same array item`,
+      );
     }
   }
 
@@ -477,13 +642,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isCalendarDate(value: unknown): value is string {
-  return typeof value === 'string'
-    && /^\d{4}-\d{2}-\d{2}$/.test(value)
-    && isISO8601(value, { strict: true });
+  return (
+    typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    isISO8601(value, { strict: true })
+  );
 }
 
 function isDateTime(value: unknown): value is string {
-  return typeof value === 'string'
-    && isRFC3339(value)
-    && isISO8601(value, { strict: true, strictSeparator: true });
+  return (
+    typeof value === 'string' &&
+    isRFC3339(value) &&
+    isISO8601(value, { strict: true, strictSeparator: true })
+  );
 }

@@ -59,7 +59,9 @@ export async function profileList(deps: ProfileDeps): Promise<void> {
   const config = await loadConfig(deps.configPath);
   const names = Object.keys(config.profiles);
   if (names.length === 0) {
-    deps.out('No profiles configured; run `mcdi-cli profile add <name> --base-url <url>` or `mcdi-cli login`.');
+    deps.out(
+      'No profiles configured; run `mcdi-cli profile add <name> --base-url <url>` or `mcdi-cli login`.',
+    );
     return;
   }
   const now = (deps.now ?? (() => new Date()))();
@@ -73,14 +75,19 @@ export async function profileList(deps: ProfileDeps): Promise<void> {
       String(secretCount(profile)),
     ];
   });
-  for (const line of formatTable(['', 'NAME', 'BASE URL', 'SESSION', 'SECRETS'], rows)) deps.out(line);
+  for (const line of formatTable(['', 'NAME', 'BASE URL', 'SESSION', 'SECRETS'], rows))
+    deps.out(line);
 }
 
 export interface ProfileAddOptions {
   baseUrl: string;
 }
 
-export async function profileAdd(name: string, options: ProfileAddOptions, deps: ProfileDeps): Promise<void> {
+export async function profileAdd(
+  name: string,
+  options: ProfileAddOptions,
+  deps: ProfileDeps,
+): Promise<void> {
   const config = await loadConfig(deps.configPath);
   const baseUrl = normalizeBaseUrl(options.baseUrl);
   const updated = addProfile(config, name, baseUrl);
@@ -100,7 +107,11 @@ export interface ProfileRemoveOptions {
   yes?: boolean;
 }
 
-export async function profileRemove(name: string, options: ProfileRemoveOptions, deps: ProfileDeps): Promise<void> {
+export async function profileRemove(
+  name: string,
+  options: ProfileRemoveOptions,
+  deps: ProfileDeps,
+): Promise<void> {
   const config = await loadConfig(deps.configPath);
   const profile = config.profiles[name];
   if (!profile) {

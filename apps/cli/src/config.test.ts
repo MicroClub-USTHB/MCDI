@@ -22,8 +22,13 @@ import {
 } from './config.js';
 import { CliError } from './errors.js';
 
-const tempPath = async () => join(await mkdtemp(join(tmpdir(), 'mcdi-cli-config-')), 'sub', 'config.json');
-const session = { accessToken: 'v1:enc', expiresAt: '2026-10-05T00:00:00.000Z', adminIdentity: 'kal#1' };
+const tempPath = async () =>
+  join(await mkdtemp(join(tmpdir(), 'mcdi-cli-config-')), 'sub', 'config.json');
+const session = {
+  accessToken: 'v1:enc',
+  expiresAt: '2026-10-05T00:00:00.000Z',
+  adminIdentity: 'kal#1',
+};
 
 describe('configPath', () => {
   it('honours MCDI_CLI_CONFIG_PATH', () => {
@@ -74,7 +79,9 @@ describe('resolveBaseUrl', () => {
   const config = setSession(emptyConfig(), 'prod', 'https://saved.example.com', session);
 
   it('prefers --base-url, then the profile, and normalizes trailing slashes', () => {
-    expect(resolveBaseUrl(config, 'prod', 'https://flag.example.com/')).toBe('https://flag.example.com');
+    expect(resolveBaseUrl(config, 'prod', 'https://flag.example.com/')).toBe(
+      'https://flag.example.com',
+    );
     expect(resolveBaseUrl(config, 'prod', undefined)).toBe('https://saved.example.com');
   });
 
@@ -91,15 +98,30 @@ describe('resolveBaseUrl', () => {
 describe('setSession', () => {
   it('keeps stored webhook secrets when logging in again', () => {
     const secrets = { 'wh-1': { secret: 'v1:enc', name: 'Recruitment', slug: 'recruitment' } };
-    const before = setWebhookSecret(setSession(emptyConfig(), 'prod', 'https://a.example.com', session), 'prod', 'wh-1', secrets['wh-1']);
-    const after = setSession(before, 'prod', 'https://a.example.com', { ...session, accessToken: 'v1:new' });
-    expect(after.profiles.prod).toEqual({ baseUrl: 'https://a.example.com', session: { ...session, accessToken: 'v1:new' }, webhookSecrets: secrets });
+    const before = setWebhookSecret(
+      setSession(emptyConfig(), 'prod', 'https://a.example.com', session),
+      'prod',
+      'wh-1',
+      secrets['wh-1'],
+    );
+    const after = setSession(before, 'prod', 'https://a.example.com', {
+      ...session,
+      accessToken: 'v1:new',
+    });
+    expect(after.profiles.prod).toEqual({
+      baseUrl: 'https://a.example.com',
+      session: { ...session, accessToken: 'v1:new' },
+      webhookSecrets: secrets,
+    });
   });
 
   it('makes the first profile active without touching the others', () => {
     const first = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
     const second = setSession(
-      { ...first, profiles: { ...first.profiles, local: { baseUrl: 'http://localhost:3000', session: null } } },
+      {
+        ...first,
+        profiles: { ...first.profiles, local: { baseUrl: 'http://localhost:3000', session: null } },
+      },
       'staging',
       'https://b.example.com',
       session,
@@ -112,7 +134,7 @@ describe('setSession', () => {
 });
 
 describe('clearSession', () => {
-  it('nulls out the named profile\'s session, keeping its baseUrl and other profiles/activeProfile untouched', () => {
+  it("nulls out the named profile's session, keeping its baseUrl and other profiles/activeProfile untouched", () => {
     let config = setSession(emptyConfig(), 'prod', 'https://a.example.com', session);
     config = setSession(config, 'staging', 'https://b.example.com', session);
     config = { ...config, activeProfile: 'staging' };
@@ -146,16 +168,21 @@ describe('setWebhookSecret', () => {
   });
 
   it('errors when the profile does not exist', () => {
-    expect(() => setWebhookSecret(emptyConfig(), 'ghost', 'wh-1', { secret: 'v1:x', name: 'N', slug: 's' })).toThrow(
-      CliError,
-    );
+    expect(() =>
+      setWebhookSecret(emptyConfig(), 'ghost', 'wh-1', { secret: 'v1:x', name: 'N', slug: 's' }),
+    ).toThrow(CliError);
   });
 });
 
 describe('removeWebhookSecret', () => {
   const entry = { secret: 'v1:enc', name: 'Recruitment', slug: 'recruitment' };
   const base = setWebhookSecret(
-    setWebhookSecret(setSession(emptyConfig(), 'prod', 'https://a.example.com', session), 'prod', 'wh-1', entry),
+    setWebhookSecret(
+      setSession(emptyConfig(), 'prod', 'https://a.example.com', session),
+      'prod',
+      'wh-1',
+      entry,
+    ),
     'prod',
     'wh-2',
     entry,
@@ -210,7 +237,9 @@ describe('addProfile', () => {
 
   it('refuses a name that already exists, leaving the existing profile untouched', () => {
     const config = addProfile(emptyConfig(), 'prod', 'https://a.example.com');
-    expect(() => addProfile(config, 'prod', 'https://different.example.com')).toThrow('already exists');
+    expect(() => addProfile(config, 'prod', 'https://different.example.com')).toThrow(
+      'already exists',
+    );
   });
 });
 

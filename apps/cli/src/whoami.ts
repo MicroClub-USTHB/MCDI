@@ -38,10 +38,16 @@ export async function whoami(options: WhoamiOptions, deps: WhoamiDeps): Promise<
 
   const { status, body } = await getAdminMeRaw(session.baseUrl, session.token);
   if (status === 401) {
-    throw new CliError(`session expired, run \`mcdi-cli login --profile ${profileName}\``, ExitCode.Auth);
+    throw new CliError(
+      `session expired, run \`mcdi-cli login --profile ${profileName}\``,
+      ExitCode.Auth,
+    );
   }
   if (status === 403) {
-    throw new CliError('this Discord account is not a system admin on this MCDI instance', ExitCode.Auth);
+    throw new CliError(
+      'this Discord account is not a system admin on this MCDI instance',
+      ExitCode.Auth,
+    );
   }
 
   if (options.json) {

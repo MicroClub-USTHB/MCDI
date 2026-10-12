@@ -89,7 +89,11 @@ export async function webhookList(options: WebhookListOptions, deps: WebhookDeps
   const session = await loadSession(options.profile, deps);
   const webhooks = await listInboundWebhooks(session, options.project);
   if (webhooks.length === 0) {
-    deps.out(options.project ? `No inbound webhooks in project ${options.project}.` : 'No inbound webhooks.');
+    deps.out(
+      options.project
+        ? `No inbound webhooks in project ${options.project}.`
+        : 'No inbound webhooks.',
+    );
     return;
   }
   const rows = webhooks.map((w: InboundWebhook) => [
@@ -100,7 +104,8 @@ export async function webhookList(options: WebhookListOptions, deps: WebhookDeps
     w.isActive ? 'active' : 'inactive',
     String(w.submissionCount),
   ]);
-  for (const line of formatTable(['ID', 'NAME', 'SLUG', 'PROJECT', 'STATUS', 'SUBMISSIONS'], rows)) deps.out(line);
+  for (const line of formatTable(['ID', 'NAME', 'SLUG', 'PROJECT', 'STATUS', 'SUBMISSIONS'], rows))
+    deps.out(line);
 }
 
 export interface WebhookGetOptions {
@@ -133,7 +138,11 @@ function describeWebhook(w: InboundWebhook): string[] {
   ];
 }
 
-export async function webhookGet(id: string, options: WebhookGetOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookGet(
+  id: string,
+  options: WebhookGetOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const session = await loadSession(options.profile, deps);
   const webhook = await getInboundWebhook(session, id);
   const data = options.schemaOnly ? webhook.schema : webhook;
@@ -161,12 +170,24 @@ function checkUpdateFlags(options: WebhookUpdateOptions): void {
   if (options.active && options.inactive) {
     throw new CliError('--active and --inactive cannot be used together', ExitCode.PrecheckFailed);
   }
-  if (options.schema === undefined && options.name === undefined && !options.active && !options.inactive) {
-    throw new CliError('nothing to update; pass --schema, --name, --active, or --inactive', ExitCode.PrecheckFailed);
+  if (
+    options.schema === undefined &&
+    options.name === undefined &&
+    !options.active &&
+    !options.inactive
+  ) {
+    throw new CliError(
+      'nothing to update; pass --schema, --name, --active, or --inactive',
+      ExitCode.PrecheckFailed,
+    );
   }
 }
 
-export async function webhookUpdate(id: string, options: WebhookUpdateOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookUpdate(
+  id: string,
+  options: WebhookUpdateOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   checkUpdateFlags(options);
   const patch: InboundWebhookPatch = {};
   if (options.name !== undefined) patch.name = options.name;
@@ -176,7 +197,9 @@ export async function webhookUpdate(id: string, options: WebhookUpdateOptions, d
 
   const session = await loadSession(options.profile, deps);
   const webhook = await updateInboundWebhook(session, id, patch);
-  deps.out(`Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`);
+  deps.out(
+    `Updated ${webhook.name} (${webhook.id}) on ${session.profileName}; now ${webhook.isActive ? 'active' : 'inactive'}`,
+  );
 }
 
 export interface WebhookRolesSetOptions {
@@ -195,12 +218,19 @@ function parseRoleIds(raw: string, emptyMeans: string): string[] {
     .map((role) => role.trim())
     .filter((role) => role !== '');
   if (roleIds.length === 0) {
-    throw new CliError(`--roles needs at least one Discord role id; ${emptyMeans}`, ExitCode.PrecheckFailed);
+    throw new CliError(
+      `--roles needs at least one Discord role id; ${emptyMeans}`,
+      ExitCode.PrecheckFailed,
+    );
   }
   return roleIds;
 }
 
-export async function webhookRolesSet(id: string, options: WebhookRolesSetOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookRolesSet(
+  id: string,
+  options: WebhookRolesSetOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const roleIds = parseRoleIds(
     options.roles,
     'an empty set would remove all read access (delete the webhook instead)',
@@ -220,7 +250,10 @@ export function maskSecret(secret: string): string {
   return secret.length > 8 ? `${'*'.repeat(8)}${secret.slice(-4)}` : '*'.repeat(8);
 }
 
-export async function webhookSecretGet(options: WebhookSecretGetOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookSecretGet(
+  options: WebhookSecretGetOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const config = await loadConfig(deps.configPath);
   const profileName = resolveProfileName(config, options.profile);
   const stored = Object.entries(config.profiles[profileName]?.webhookSecrets ?? {});
@@ -244,7 +277,8 @@ export async function webhookSecretGet(options: WebhookSecretGetOptions, deps: W
     stored.forEach(([, entry], i) => deps.info(`  ${i + 1}) ${entry.name} (${entry.slug})`));
     const answer = (await deps.ask(`Pick one [1-${stored.length}]: `)).trim();
     const choice = /^\d+$/.test(answer) ? stored[Number(answer) - 1] : undefined;
-    if (!choice) throw new CliError(`"${answer}" is not one of 1-${stored.length}`, ExitCode.PrecheckFailed);
+    if (!choice)
+      throw new CliError(`"${answer}" is not one of 1-${stored.length}`, ExitCode.PrecheckFailed);
     picked = choice;
   }
 
@@ -253,7 +287,10 @@ export async function webhookSecretGet(options: WebhookSecretGetOptions, deps: W
   try {
     secret = await decrypt(entry.secret, deps.keys);
   } catch {
-    throw new CliError(`could not decrypt the stored signing secret for ${entry.name} (${entry.slug})`, ExitCode.Unexpected);
+    throw new CliError(
+      `could not decrypt the stored signing secret for ${entry.name} (${entry.slug})`,
+      ExitCode.Unexpected,
+    );
   }
   if (options.reveal) {
     // Alone on stdout so it can be piped straight into an env file.
@@ -314,7 +351,10 @@ function formatLocalErrors(errors: Pick<ValidationError, 'path' | 'code' | 'mess
 }
 
 /** Reads a schema file and runs the local pre-check (#5 built-ins + #6 custom rules); any failure stops before a network call. */
-async function readCheckedSchema(path: string, deps: WebhookDeps): Promise<Record<string, unknown>> {
+async function readCheckedSchema(
+  path: string,
+  deps: WebhookDeps,
+): Promise<Record<string, unknown>> {
   let contents: string;
   try {
     contents = await readFile(path, 'utf8');
@@ -327,7 +367,10 @@ async function readCheckedSchema(path: string, deps: WebhookDeps): Promise<Recor
     parsed = JSON.parse(contents);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    throw new CliError(formatLocalErrors([{ path, code: 'INVALID_JSON', message: reason }]), ExitCode.PrecheckFailed);
+    throw new CliError(
+      formatLocalErrors([{ path, code: 'INVALID_JSON', message: reason }]),
+      ExitCode.PrecheckFailed,
+    );
   }
   const rules = deps.loadRules ? await deps.loadRules() : [];
   const result = precheckSchema(parsed, rules);
@@ -336,14 +379,24 @@ async function readCheckedSchema(path: string, deps: WebhookDeps): Promise<Recor
 }
 
 /** Prompts for a project when `--project` was omitted; requires a TTY (PRD §11). */
-async function resolveProjectId(session: Session, options: WebhookCreateOptions, deps: WebhookDeps): Promise<string> {
+async function resolveProjectId(
+  session: Session,
+  options: WebhookCreateOptions,
+  deps: WebhookDeps,
+): Promise<string> {
   if (options.project) return options.project;
   if (!deps.isInteractive) {
-    throw new CliError('no interactive terminal to pick a project; pass --project <projectId>', ExitCode.PrecheckFailed);
+    throw new CliError(
+      'no interactive terminal to pick a project; pass --project <projectId>',
+      ExitCode.PrecheckFailed,
+    );
   }
   const projects = await listProjects(session);
   if (projects.length === 0) {
-    throw new CliError('no projects are available to create a webhook on; pass --project <projectId>', ExitCode.NotFound);
+    throw new CliError(
+      'no projects are available to create a webhook on; pass --project <projectId>',
+      ExitCode.NotFound,
+    );
   }
   if (projects.length === 1) return projects[0]!.id;
 
@@ -351,15 +404,23 @@ async function resolveProjectId(session: Session, options: WebhookCreateOptions,
   projects.forEach((p, i) => deps.info(`  ${i + 1}) ${p.name} (${p.id})`));
   const answer = (await deps.ask(`Pick one [1-${projects.length}]: `)).trim();
   const choice = /^\d+$/.test(answer) ? projects[Number(answer) - 1] : undefined;
-  if (!choice) throw new CliError(`"${answer}" is not one of 1-${projects.length}`, ExitCode.PrecheckFailed);
+  if (!choice)
+    throw new CliError(`"${answer}" is not one of 1-${projects.length}`, ExitCode.PrecheckFailed);
   return choice.id;
 }
 
-export async function webhookCreate(schemaPath: string, options: WebhookCreateOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookCreate(
+  schemaPath: string,
+  options: WebhookCreateOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const allowedRoleIds =
     options.roles === undefined
       ? undefined
-      : parseRoleIds(options.roles, 'omit --roles to fall back to the project\'s default reader roles');
+      : parseRoleIds(
+          options.roles,
+          "omit --roles to fall back to the project's default reader roles",
+        );
   const slug = resolveSlug(options);
   const schema = await readCheckedSchema(schemaPath, deps);
 
@@ -374,8 +435,15 @@ export async function webhookCreate(schemaPath: string, options: WebhookCreateOp
   // MCDI will never show this secret again, so it has to land in the local store now.
   try {
     const latest = await loadConfig(deps.configPath);
-    const entry = { secret: await encrypt(created.signingSecret, deps.keys), name: webhook.name, slug: webhook.slug };
-    await saveConfig(setWebhookSecret(latest, session.profileName, webhook.id, entry), deps.configPath);
+    const entry = {
+      secret: await encrypt(created.signingSecret, deps.keys),
+      name: webhook.name,
+      slug: webhook.slug,
+    };
+    await saveConfig(
+      setWebhookSecret(latest, session.profileName, webhook.id, entry),
+      deps.configPath,
+    );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
@@ -393,7 +461,9 @@ export async function webhookCreate(schemaPath: string, options: WebhookCreateOp
     `Allowed roles:  ${created.allowedRoleIds.join(', ')}` +
       (allowedRoleIds === undefined ? ' (project default)' : ''),
   );
-  deps.out(`Signing secret: ${options.reveal ? created.signingSecret : maskSecret(created.signingSecret)}`);
+  deps.out(
+    `Signing secret: ${options.reveal ? created.signingSecret : maskSecret(created.signingSecret)}`,
+  );
   deps.info(
     `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
       (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
@@ -406,7 +476,11 @@ export interface WebhookDeleteOptions {
   yes?: boolean;
 }
 
-export async function webhookDelete(id: string, options: WebhookDeleteOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookDelete(
+  id: string,
+  options: WebhookDeleteOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const session = await loadSession(options.profile, deps);
 
   if (!options.yes) {
@@ -416,10 +490,13 @@ export async function webhookDelete(id: string, options: WebhookDeleteOptions, d
         ExitCode.PrecheckFailed,
       );
     }
-    deps.info(`This permanently deletes inbound webhook ${id} on ${session.profileName} AND ALL OF ITS SUBMISSIONS.`);
+    deps.info(
+      `This permanently deletes inbound webhook ${id} on ${session.profileName} AND ALL OF ITS SUBMISSIONS.`,
+    );
     deps.info('There is no undo.');
     const answer = (await deps.ask('Delete it? [y/N] ')).trim().toLowerCase();
-    if (answer !== 'y' && answer !== 'yes') throw new CliError('aborted; nothing was deleted', ExitCode.PrecheckFailed);
+    if (answer !== 'y' && answer !== 'yes')
+      throw new CliError('aborted; nothing was deleted', ExitCode.PrecheckFailed);
   }
 
   await deleteInboundWebhook(session, id);
@@ -453,7 +530,11 @@ export interface WebhookRotateSecretOptions {
   yes?: boolean;
 }
 
-export async function webhookRotateSecret(id: string, options: WebhookRotateSecretOptions, deps: WebhookDeps): Promise<void> {
+export async function webhookRotateSecret(
+  id: string,
+  options: WebhookRotateSecretOptions,
+  deps: WebhookDeps,
+): Promise<void> {
   const session = await loadSession(options.profile, deps);
 
   // Asked before any network call, like delete, so the confirmation is testable without a server.
@@ -469,7 +550,8 @@ export async function webhookRotateSecret(id: string, options: WebhookRotateSecr
         'integration still signing with the current secret.',
     );
     const answer = (await deps.ask('Rotate it? [y/N] ')).trim().toLowerCase();
-    if (answer !== 'y' && answer !== 'yes') throw new CliError('aborted; nothing was rotated', ExitCode.PrecheckFailed);
+    if (answer !== 'y' && answer !== 'yes')
+      throw new CliError('aborted; nothing was rotated', ExitCode.PrecheckFailed);
   }
 
   // Fetched first so a 404 (unknown id) exits before anything is rotated, and so the
@@ -480,8 +562,15 @@ export async function webhookRotateSecret(id: string, options: WebhookRotateSecr
   // MCDI never shows this secret again, so it has to land in the local store now.
   try {
     const latest = await loadConfig(deps.configPath);
-    const entry = { secret: await encrypt(signingSecret, deps.keys), name: webhook.name, slug: webhook.slug };
-    await saveConfig(setWebhookSecret(latest, session.profileName, webhook.id, entry), deps.configPath);
+    const entry = {
+      secret: await encrypt(signingSecret, deps.keys),
+      name: webhook.name,
+      slug: webhook.slug,
+    };
+    await saveConfig(
+      setWebhookSecret(latest, session.profileName, webhook.id, entry),
+      deps.configPath,
+    );
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
@@ -492,7 +581,9 @@ export async function webhookRotateSecret(id: string, options: WebhookRotateSecr
     );
   }
 
-  deps.out(`Rotated the signing secret for ${webhook.name} (${webhook.slug}) on ${session.profileName}`);
+  deps.out(
+    `Rotated the signing secret for ${webhook.name} (${webhook.slug}) on ${session.profileName}`,
+  );
   deps.out(`Signing secret: ${options.reveal ? signingSecret : maskSecret(signingSecret)}`);
   deps.info(
     `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
