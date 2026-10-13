@@ -15,7 +15,7 @@ packages/
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/cli`, `@mcdi/contracts`, `@mcdi/form-schema`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
+Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/form-schema`, `@mcdi/typescript-config`, `@mcdi/eslint-config`. The one exception is `apps/cli`, published to npm as `mcdi-cli`.
 
 ## Documentation
 
@@ -92,4 +92,4 @@ Add the Vercel domain to `CORS_ORIGINS` on the API.
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `@mcdi/cli`.
+MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `mcdi-cli`.

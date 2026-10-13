@@ -16,9 +16,12 @@ conventions for contributors: [`CLAUDE.md`](CLAUDE.md).
 Requires Node.js 22 or newer.
 
 ```bash
-npm install --global @mcdi/cli
+npm install --global mcdi-cli
 mcdi-cli --help
 ```
+
+The package installs two commands, `mcdi-cli` and its shorter alias `mcdi`. Both
+run the same program. Without installing: `npx mcdi-cli --help`.
 
 ## Quick start
 
@@ -56,24 +59,24 @@ allowed, `4` not found, `5` unexpected or network error, `64` invalid command li
 
 ## Develop
 
-This is the `@mcdi/cli` workspace of the MCDI monorepo. Requires Node >= 22
+This is the `mcdi-cli` workspace of the MCDI monorepo. Requires Node >= 22
 and pnpm 10 (`corepack enable`). Run from the repository root:
 
 ```bash
 pnpm install
-pnpm --filter @mcdi/cli dev -- --help   # run the CLI from source
-pnpm --filter @mcdi/cli build           # bundle to dist/, then `node apps/cli/bin/mcdi-cli.js --help`
-pnpm turbo run lint typecheck test --filter=@mcdi/cli
+pnpm --filter mcdi-cli dev -- --help   # run the CLI from source
+pnpm --filter mcdi-cli build           # bundle to dist/, then `node apps/cli/bin/mcdi-cli.js --help`
+pnpm turbo run lint typecheck test --filter=mcdi-cli
 ```
 
 ## Release
 
-The package is published to npm as `@mcdi/cli`. Workspace packages
+The package is published to npm as `mcdi-cli`. Workspace packages
 (`@mcdi/form-schema`, `@mcdi/contracts`) are bundled into `dist/`, so the
 published package depends only on `commander` and `@napi-rs/keyring`. Bump
 `version`, then from the repository root:
 
 ```bash
-pnpm --filter @mcdi/cli publish --dry-run   # check the tarball
-pnpm --filter @mcdi/cli publish             # runs lint, typecheck, tests and the build first
+pnpm --filter mcdi-cli publish --dry-run   # check the tarball
+pnpm --filter mcdi-cli publish             # runs lint, typecheck, tests and the build first
 ```

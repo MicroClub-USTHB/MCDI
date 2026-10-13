@@ -22,8 +22,8 @@ the endpoints are in the generated Admin API reference
 ## Running it
 
 - Installed: `mcdi-cli <command>`.
-- From the repo root: `pnpm --filter @mcdi/cli dev -- <command>` (runs `src/`
-  with tsx), or `pnpm --filter @mcdi/cli build` then
+- From the repo root: `pnpm --filter mcdi-cli dev -- <command>` (runs `src/`
+  with tsx), or `pnpm --filter mcdi-cli build` then
   `node apps/cli/bin/mcdi-cli.js <command>`.
 - If `pnpm` isn't found, `corepack enable` picks the version pinned in the root
   `package.json`.
@@ -121,7 +121,7 @@ What trips people up:
 
 Follow `CLAUDE.md`. Beyond it:
 
-- Run `pnpm turbo run lint typecheck test build --filter=@mcdi/cli` from the
+- Run `pnpm turbo run lint typecheck test build --filter=mcdi-cli` from the
   repository root before calling a change done.
 - Flows take a `deps` object (config path, keys, output, prompts, browser) so
   tests run without MCDI, a keychain or a terminal; keep new code testable that

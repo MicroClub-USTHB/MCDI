@@ -10,9 +10,9 @@ mcdi-cli is the command-line client for MCDI. The MVP covers Inbound
 Webhooks only (login, schema authoring and pre-check, webhook management); it
 is meant to grow to cover the rest of MCDI's admin features over time.
 
-This is the `@mcdi/cli` workspace of the MCDI monorepo (`apps/cli`). Run
+This is the `mcdi-cli` workspace of the MCDI monorepo (`apps/cli`). Run
 scripts from the repository root, e.g.
-`pnpm turbo run lint typecheck test --filter=@mcdi/cli`.
+`pnpm turbo run lint typecheck test --filter=mcdi-cli`.
 
 The original product requirements are a historical record in
 [`docs/mcdi-cli-PRD.md`](../../docs/mcdi-cli-PRD.md) at the repository root.

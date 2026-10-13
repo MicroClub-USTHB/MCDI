@@ -1,5 +1,5 @@
 {
-  "name": "@mcdi/cli",
+  "name": "mcdi-cli",
   "version": "0.1.0",
   "description": "The MCDI command-line client: log in with Discord, pre-check FormSchema files and manage MCDI Inbound Webhooks from the terminal",
   "keywords": [
@@ -23,7 +23,8 @@
   "author": "MicroClub USTHB",
   "type": "module",
   "bin": {
-    "mcdi-cli": "./bin/mcdi-cli.js"
+    "mcdi-cli": "./bin/mcdi-cli.js",
+    "mcdi": "./bin/mcdi-cli.js"
   },
   "files": [
     "dist",
@@ -43,7 +44,7 @@
     "test": "vitest run",
     "test:ci": "vitest run --coverage",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "pnpm --dir ../.. turbo run lint typecheck test build --filter=@mcdi/cli"
+    "prepublishOnly": "pnpm --dir ../.. exec turbo run lint typecheck test build --filter=mcdi-cli"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
