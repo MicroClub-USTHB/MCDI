@@ -347,7 +347,7 @@ describe('AdminAuthService', () => {
     });
   });
 
-  // ─── CLI login (m-forge): loopback redirect + PKCE ─────────────────────
+  // ─── CLI login (mcdi-cli): loopback redirect + PKCE ─────────────────────
 
   describe('admin CLI login', () => {
     // RFC 7636 Appendix B test vector.
@@ -552,7 +552,7 @@ describe('AdminAuthService', () => {
 
         const res = await service.exchangeAdminCliCode('raw-code', VERIFIER, {
           ipAddress: '203.0.113.7',
-          userAgent: 'm-forge',
+          userAgent: 'mcdi-cli',
         });
 
         expect(adminCliCodeRepository.consumeValid).toHaveBeenCalledWith(
@@ -565,7 +565,7 @@ describe('AdminAuthService', () => {
         expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
           memberId: 'discord123',
           ttlSeconds: 24 * 60 * 60,
-          clientUserAgent: 'm-forge',
+          clientUserAgent: 'mcdi-cli',
           clientIpAddress: '203.0.113.7',
         });
         expect(auditService.logAction).toHaveBeenCalledWith(

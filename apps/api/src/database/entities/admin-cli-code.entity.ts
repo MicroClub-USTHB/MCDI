@@ -8,7 +8,7 @@ import {
 import { members } from './member.entity';
 
 /**
- * One-time codes handed to a CLI (m-forge) at the end of an admin Discord
+ * One-time codes handed to a CLI (mcdi-cli) at the end of an admin Discord
  * login, exchanged with PKCE for an admin session at `POST /auth/admin/token`.
  */
 export const adminCliCodes = pgTable('admin_cli_codes', {

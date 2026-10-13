@@ -325,7 +325,7 @@ describe('AuthController', () => {
     expect(res.redirect).toHaveBeenCalledWith('development');
   });
 
-  // ── admin CLI login (m-forge) ──────────────────────────────────────
+  // ── admin CLI login (mcdi-cli) ──────────────────────────────────────
 
   describe('admin CLI login', () => {
     const CLI_TARGET =

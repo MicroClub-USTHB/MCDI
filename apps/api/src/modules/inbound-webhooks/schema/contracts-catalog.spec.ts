@@ -7,15 +7,15 @@ import {
   INBOUND_WEBHOOK_TEMPLATES,
 } from '@mcdi/contracts';
 import { buildExamplePayload } from '../docs/webhook-docs.generator';
-import { FIELD_TYPES } from './form-schema.types';
-import type { FormSchema } from './form-schema.types';
-import { validatePayload } from './payload.validator';
 import {
   CONDITION_OPERATOR_NAMES,
+  FIELD_TYPES,
   baseFieldPropertyNames,
   fieldPropertyNames,
   validateSchema,
-} from './schema.validator';
+} from '@mcdi/form-schema';
+import type { FormSchema } from '@mcdi/form-schema';
+import { validatePayload } from './payload.validator';
 
 /**
  * The admin schema editor suggests and checks names from `@mcdi/contracts`.

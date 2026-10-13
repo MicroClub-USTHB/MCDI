@@ -14,15 +14,13 @@ import {
   Field,
   FormSchema,
   FormStep,
+  ITEM_REF_PREFIX,
   ROOT_STEP_KEY,
   dotPath,
+  evaluateCondition,
   isFlatSchema,
   normalizeSchema,
-} from '../schema/form-schema.types';
-import {
-  evaluateCondition,
-  ITEM_REF_PREFIX,
-} from '../schema/condition.evaluator';
+} from '@mcdi/form-schema';
 import { validatePayload } from '../schema/payload.validator';
 
 export interface WebhookDocsInput {

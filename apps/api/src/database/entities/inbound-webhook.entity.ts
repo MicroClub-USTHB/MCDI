@@ -11,7 +11,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { projects } from './project.entity';
-import type { FormSchema } from '../../modules/inbound-webhooks/schema/form-schema.types';
+import type { FormSchema } from '@mcdi/form-schema';
 
 /**
  * An MCDI-owned HTTP endpoint that ACCEPTS structured submissions from an

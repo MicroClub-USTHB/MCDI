@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by `git blame` (GitHub does this automatically;
+# locally run `git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+# style(cli): format apps/cli with prettier
+9f8e8896f648b523a42dfe2dae4e09b096a3f613

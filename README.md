@@ -6,14 +6,16 @@ MicroClub Discord Identity — the NestJS API that centralises Discord identity 
 apps/
   api/                 NestJS 11 API (Drizzle + Postgres + Redis) — deployed with Docker
   web/                 Next.js 16 admin panel                    — deployed on Vercel
+  cli/                 mcdi-cli, the MCDI command-line client (MVP: Inbound Webhooks)
 packages/
   contracts/           Types and constants shared by api and web (compiled, CJS + .d.ts)
+  form-schema/         Inbound webhook FormSchema types, schema validator and condition evaluator, shared by api and cli
   typescript-config/   Base / nestjs / nextjs / library tsconfig presets
   eslint-config/       Shared ESLint flat-config base (typescript-eslint + prettier)
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/typescript-config`, `@mcdi/eslint-config`.
+Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/form-schema`, `@mcdi/typescript-config`, `@mcdi/eslint-config`. The one exception is `apps/cli`, published to npm as `mcdi-cli`.
 
 ## Documentation
 
@@ -47,7 +49,7 @@ Run from the repository root; Turborepo runs them per package in dependency orde
 | `pnpm build` | Builds everything (contracts → api, web) |
 | `pnpm lint` | ESLint (note: the API's `lint` runs with `--fix`) |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm test` | Unit tests (Jest for the API, Vitest for the web) |
+| `pnpm test` | Unit tests (Jest for the API, Vitest for the web and the CLI) |
 | `pnpm test:e2e` | API end-to-end tests (needs Postgres, see `.github/workflows/ci.yml`) |
 
 Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcdi/web`, or run a script inside it: `pnpm --filter @mcdi/api run db:migrate`.
@@ -55,6 +57,7 @@ Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcdi/web`,
 ## How the packages fit together
 
 - **`@mcdi/contracts`** is a *compiled* internal package. The API is CommonJS and resolves modules the classic way, so a just-in-time TypeScript package would not load there. Every task that imports it depends on `^build` in `turbo.json`, so `pnpm build`/`test`/`typecheck` build it first; in `pnpm dev` it rebuilds on change. Keep it dependency-free and limited to things both sides really share (wire types, enum-like unions, the `admin_session` cookie name, …).
+- **`@mcdi/form-schema`** is compiled the same way. It holds the FormSchema language of inbound webhooks: its types, the Layer 1 schema validator and the condition evaluator. The API validates schemas with it and the CLI pre-checks them with it, so the two can never disagree. Its only runtime dependency is `validator`.
 - **`@mcdi/typescript-config`** and **`@mcdi/eslint-config`** are config-only packages. Apps extend them (`"extends": "@mcdi/typescript-config/nextjs.json"`, `import base from '@mcdi/eslint-config/base'`) and keep only their own overrides.
 - Dependency versions that must be pinned for security live in `overrides` in `pnpm-workspace.yaml`. Some are scoped (`jsdom>undici`, `msw>path-to-regexp`) because a global pin broke the web test tooling — prefer scoped overrides.
 
@@ -86,3 +89,7 @@ Add the Vercel domain to `CORS_ORIGINS` on the API.
 ## CI
 
 `.github/workflows/ci.yml` runs lint + typecheck, unit tests with coverage, a full build and a check that the generated API docs are current for every push/PR to `main` and `dev`, API e2e tests against Postgres, and the API image build on `main`.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `mcdi-cli`.

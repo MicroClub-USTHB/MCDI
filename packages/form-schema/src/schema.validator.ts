@@ -6,11 +6,9 @@
  * hot path never recompiles a regex or re-checks structure.
  */
 import {
-  Condition,
   Field,
   FIELD_TYPES,
   FormSchema,
-  FormStep,
   KEY_PATTERN,
   ROOT_STEP_KEY,
   SCHEMA_LIMITS,
@@ -710,5 +708,3 @@ export function assertFormSchema(
     );
   }
 }
-
-export type { FormSchema, FormStep, Field, Condition };

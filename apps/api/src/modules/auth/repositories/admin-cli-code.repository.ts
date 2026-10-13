@@ -11,7 +11,7 @@ export interface CreateAdminCliCodeDto {
   expiresAt: Date;
 }
 
-/** One-time codes for the admin CLI login (m-forge), exchanged with PKCE. */
+/** One-time codes for the admin CLI login (mcdi-cli), exchanged with PKCE. */
 @Injectable()
 export class AdminCliCodeRepository {
   constructor(@Inject(DRIZZLE) private db: NodePgDatabase<typeof schema>) {}

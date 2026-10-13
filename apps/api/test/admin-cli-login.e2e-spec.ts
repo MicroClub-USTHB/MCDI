@@ -1,5 +1,5 @@
 /**
- * E2E: admin CLI login (m-forge) — loopback redirect (RFC 8252) + PKCE (RFC 7636).
+ * E2E: admin CLI login (mcdi-cli) — loopback redirect (RFC 8252) + PKCE (RFC 7636).
  *
  * GET /api/auth/admin/discord?redirect_uri=&code_challenge=&code_challenge_method=S256
  *   → Discord (mocked with nock) → admin callback → 302 to the CLI's loopback URL
