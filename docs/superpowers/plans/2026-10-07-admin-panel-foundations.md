@@ -25,7 +25,7 @@
 - The existing web tests (1068) must keep passing. `tests/setup.ts` signs a root user in by default (Task 3), so a test that needs an anonymous or limited user says so explicitly.
 - Commits and the PR carry no `Co-Authored-By` trailer and no Claude signature. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`. The PR targets `dev`.
 - Branch: `benabdou/admin-panel-foundations`, created from the latest `origin/dev`. This PR also carries the panel spec and the three plans under `docs/superpowers`.
-- All commands run from the repository root `/Users/destockphonedz/Documents/MCDI/MCDI` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
+- All commands run from the repository root `/Users/destockphonedz/Documents/MCID/MCID` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
 
 ## File Structure
 
@@ -1295,7 +1295,7 @@ export function NoAccessYet() {
     <EmptyState
       icon={ShieldOff}
       title="No access yet"
-      description={`${name ? `You are signed in as ${name}, but you` : 'You'} have not been given access to any part of MCDI. Ask an admin to grant your role access to what you need.`}
+      description={`${name ? `You are signed in as ${name}, but you` : 'You'} have not been given access to any part of MCID. Ask an admin to grant your role access to what you need.`}
       action={
         <Button variant="secondary" size="sm" asChild>
           <Link href="/dashboard/settings">Open Settings</Link>

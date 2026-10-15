@@ -175,7 +175,7 @@ The panel audit (every hook of every page and component against the endpoint it 
 | Saving those sections | `settings:write`. With only `settings:read` the forms are read-only with a "Read only" badge and no Save button |
 | "Reset to defaults" button and its confirmation | `settings:manage` |
 | "Last changed" line in the header | `settings:read`, because the data comes from the same endpoint |
-| Header description | "Configure MCDI behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
+| Header description | "Configure MCID behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
 | Link to the inbound webhook settings (on the inbound webhooks page) | `inbound_webhooks:read`. The sub-page is gated as above |
 
 Today one loading and one error state cover the profile and the system settings together, so a member who cannot read settings would be stuck on skeletons or see "Settings could not be loaded". The page is restructured so each part has its own loading, error and empty state. A member with no `settings:read` simply sees the profile card, and the page does not mention what it hides.

@@ -16,7 +16,7 @@ Example: `/work-issue 15`
 
 1. **Fetch the issue**:
    ```bash
-   gh issue view <issue-number> --repo MicroClub-USTHB/MCID-Front
+   gh issue view <issue-number> --repo MicroClub-USTHB/MCID
    ```
 
 2. **Read the full issue body** — extract:

@@ -113,11 +113,11 @@ project name and therefore new, empty `pg_data` / `redis_data` volumes.
 3. Deploy, then restart the stack once and confirm the API comes back healthy
    (proves the migrations re-apply cleanly).
 
-## 5. Moving an existing deployment from the MCDI name to MCID
+## 5. Moving an existing deployment from the MCID name to MCID
 
-The project was renamed from MCDI to MCID (Micro Club Identity). Production
+The project was renamed from MCID to MCID (Micro Club Identity). Production
 stacks created before the rename have a Postgres role and database named
-`mcdi`, while `docker-compose.prod.yml` now connects as `mcid` to database
+`mcid`, while `docker-compose.prod.yml` now connects as `mcid` to database
 `mcid`. Rename them once, in place, before deploying the renamed stack. The
 `pg_data` volume and every row in it are kept.
 
@@ -135,11 +135,11 @@ stacks created before the rename have a Postgres role and database named
 
    ```bash
    DB=$(docker ps --filter name=database --format '{{.Names}}' | head -n1)
-   docker exec "$DB" psql -U mcdi -d postgres -c "CREATE ROLE rename_admin SUPERUSER LOGIN;"
+   docker exec "$DB" psql -U mcid -d postgres -c "CREATE ROLE rename_admin SUPERUSER LOGIN;"
    docker exec "$DB" psql -U rename_admin -d postgres \
-     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mcdi';" \
-     -c "ALTER DATABASE mcdi RENAME TO mcid;" \
-     -c "ALTER ROLE mcdi RENAME TO mcid;"
+     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mcid';" \
+     -c "ALTER DATABASE mcid RENAME TO mcid;" \
+     -c "ALTER ROLE mcid RENAME TO mcid;"
    docker exec "$DB" psql -U mcid -d mcid -c "DROP ROLE rename_admin;"
    ```
 

@@ -25,7 +25,7 @@
 - The existing web tests must keep passing. `tests/setup.ts` signs a root user in by default (added in the foundations PR), so a test that needs an anonymous or limited user says so explicitly with `signInAs({ permissions })` or `signOut()` from `tests/helpers/auth.ts`.
 - Commits and the PR carry no `Co-Authored-By` trailer and no Claude signature. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`. The PR targets `dev`.
 - Branch: `benabdou/admin-panel-gating`, created from the latest `origin/dev` after the foundations PR has merged.
-- All commands run from the repository root `/Users/destockphonedz/Documents/MCDI/MCDI` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
+- All commands run from the repository root `/Users/destockphonedz/Documents/MCID/MCID` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
 
 ## File Structure
 
@@ -449,7 +449,7 @@ const API = 'http://localhost:3000/api';
 
 const serverDto = {
   id: 'srv_1',
-  name: 'MicroClub',
+  name: 'Micro Club',
   icon: null,
   type: 'club',
   isMain: false,
@@ -480,7 +480,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'read' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.queryByRole('button', { name: /add server/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /sync all servers/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Disable' })).not.toBeInTheDocument();
@@ -492,7 +492,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'write', sync: 'write' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.getAllByRole('button', { name: /add server/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /sync all servers/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
@@ -1071,7 +1071,7 @@ In `apps/web/src/app/dashboard/settings/page.tsx`:
   const canReset = useCan('settings', 'manage');
 ```
 
-- the header: show the "Last changed" line only when `canRead && settings?.meta.updatedAt`; show the description as `canRead ? 'Configure MCDI behavior and manage your admin profile.' : 'Manage your admin profile.'`; show the "Reset to defaults" button only when `canReset`.
+- the header: show the "Last changed" line only when `canRead && settings?.meta.updatedAt`; show the description as `canRead ? 'Configure MCID behavior and manage your admin profile.' : 'Manage your admin profile.'`; show the "Reset to defaults" button only when `canReset`.
 - replace the single `isError ? ... : settingsQuery.isPending || profileQuery.isPending || !settings ? ... : (...)` ternary with two independent parts inside the same `columns` layout wrapper:
 
 ```tsx

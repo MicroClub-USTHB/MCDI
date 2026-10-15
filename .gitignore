@@ -2,7 +2,7 @@
 dist
 node_modules
 build
-# ...except the docs track named "build" (Build MCDI)
+# ...except the docs track named "build" (Build MCID)
 !apps/web/src/content/docs/build/
 .next
 .turbo

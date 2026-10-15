@@ -23,7 +23,7 @@
 - API conventions: unit specs next to source, e2e in `apps/api/test`, `pnpm exec eslint --fix` only on changed files, migrations idempotent (no migration is needed here). Web conventions as in PR 1: named exports, `import type`, no `any`, design tokens, `cn()`, `lucide-react`, tests only under `apps/web/tests`.
 - Commits and the PR carry no `Co-Authored-By` trailer and no Claude signature. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`. The PR targets `dev`.
 - Branch: `benabdou/admin-panel-access`, created from the latest `origin/dev` after the foundations PR has merged.
-- All commands run from the repository root `/Users/destockphonedz/Documents/MCDI/MCDI` unless a step says otherwise. For API e2e use a throwaway database and blank Discord tokens (see "Running the e2e suite locally" in `docs/superpowers/plans/2026-10-07-admin-permissions.md`, Task 15). Do not run `pnpm build` in a shell where `apps/api/.env` was sourced.
+- All commands run from the repository root `/Users/destockphonedz/Documents/MCID/MCID` unless a step says otherwise. For API e2e use a throwaway database and blank Discord tokens (see "Running the e2e suite locally" in `docs/superpowers/plans/2026-10-07-admin-permissions.md`, Task 15). Do not run `pnpm build` in a shell where `apps/api/.env` was sourced.
 
 ## File Structure
 
@@ -420,9 +420,9 @@ In `apps/api/test/admin-access.e2e-spec.ts`, add `adminMemberAccess` to the impo
 - [ ] **Step 2: Run the e2e suite for access**
 
 ```bash
-psql postgresql://myuser:mypassword@localhost:5432/mcdi -tc "select 1 from pg_database where datname='mcdi_test'" | grep -q 1 || psql postgresql://myuser:mypassword@localhost:5432/mcdi -c "create database mcdi_test"
+psql postgresql://myuser:mypassword@localhost:5432/mcid -tc "select 1 from pg_database where datname='mcid_test'" | grep -q 1 || psql postgresql://myuser:mypassword@localhost:5432/mcid -c "create database mcid_test"
 cd apps/api && set -a && . ./.env && set +a
-export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi_test REDIS_HOST=localhost REDIS_KEY_PREFIX=mcdi_test DISCORD_TOKEN= DISCORD_BOT_TOKEN=
+export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcid_test REDIS_HOST=localhost REDIS_KEY_PREFIX=mcid_test DISCORD_TOKEN= DISCORD_BOT_TOKEN=
 pnpm run db:migrate && pnpm run test:e2e -- admin-access
 ```
 
@@ -1962,7 +1962,7 @@ export function AccessView() {
         <p className="text-overline text-brand-light uppercase">System</p>
         <h1 className="mt-1 text-hero text-text-primary">Access</h1>
         <p className="mt-1 max-w-2xl text-body text-text-muted">
-          Give each role a level on every area of MCDI, and override it for one person when needed.
+          Give each role a level on every area of MCID, and override it for one person when needed.
           Changes apply on the next request.
         </p>
       </header>

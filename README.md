@@ -1,12 +1,12 @@
-# MCDI
+# MCID
 
-MicroClub Discord Identity — the NestJS API that centralises Discord identity and access, and the Next.js admin panel that manages it. One pnpm + [Turborepo](https://turborepo.dev) monorepo.
+Micro Club Identity — the NestJS API that centralises Discord identity and access, and the Next.js admin panel that manages it. One pnpm + [Turborepo](https://turborepo.dev) monorepo.
 
 ```
 apps/
   api/                 NestJS 11 API (Drizzle + Postgres + Redis) — deployed with Docker
   web/                 Next.js 16 admin panel                    — deployed on Vercel
-  cli/                 mcdi-cli, the MCDI command-line client (MVP: Inbound Webhooks)
+  cli/                 mcid-cli, the MCID command-line client (MVP: Inbound Webhooks)
 packages/
   contracts/           Types and constants shared by api and web (compiled, CJS + .d.ts)
   form-schema/         Inbound webhook FormSchema types, schema validator and condition evaluator, shared by api and cli
@@ -15,11 +15,11 @@ packages/
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcid/*`: `@mcid/api`, `@mcid/web`, `@mcid/contracts`, `@mcid/form-schema`, `@mcid/typescript-config`, `@mcid/eslint-config`. The one exception is `apps/cli`, published to npm as `mcdi-cli`.
+Workspace packages are named `@mcid/*`: `@mcid/api`, `@mcid/web`, `@mcid/contracts`, `@mcid/form-schema`, `@mcid/typescript-config`, `@mcid/eslint-config`. The one exception is `apps/cli`, published to npm as `mcid-cli`.
 
 ## Documentation
 
-The developer documentation is in the admin panel app, at `/docs` (`http://localhost:3002/docs` when you run it). It covers how to integrate a project with MCDI, how to run and change MCDI, the generated API reference, and the reasons behind past decisions. It is MDX in [`apps/web/src/content/docs`](apps/web/src/content/docs), and tests keep it in step with the code. The files in [`docs/`](docs/README.md) are historical design records.
+The developer documentation is in the admin panel app, at `/docs` (`http://localhost:3002/docs` when you run it). It covers how to integrate a project with MCID, how to run and change MCID, the generated API reference, and the reasons behind past decisions. It is MDX in [`apps/web/src/content/docs`](apps/web/src/content/docs), and tests keep it in step with the code. The files in [`docs/`](docs/README.md) are historical design records.
 
 ## Getting started
 
@@ -92,4 +92,4 @@ Add the Vercel domain to `CORS_ORIGINS` on the API.
 
 ## License
 
-MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `mcdi-cli`.
+MIT, see [`LICENSE`](LICENSE). Every workspace package is MIT too, including the ones bundled into the published `mcid-cli`.
