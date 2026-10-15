@@ -58,7 +58,7 @@ export class InboundWebhookIngestController {
   })
   @ApiParam({ name: 'id' })
   @ApiHeader({
-    name: 'X-MCDI-Signature',
+    name: 'X-MCID-Signature',
     required: false,
     description: 't=<unix seconds>,v1=<hex hmac-sha256 of "t.<raw body>">',
   })
@@ -81,7 +81,7 @@ export class InboundWebhookIngestController {
     return this.service.ingest(id, body ?? {}, {
       projectId: req.project?.id ?? '',
       rawBody: req.rawBody,
-      signatureHeader: req.headers['x-mcdi-signature'] as string | undefined,
+      signatureHeader: req.headers['x-mcid-signature'] as string | undefined,
       origin: req.headers.origin,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],

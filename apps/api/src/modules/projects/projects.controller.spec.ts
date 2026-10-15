@@ -88,7 +88,7 @@ describe('ProjectsController', () => {
     mockProjectsService.getApiKeyInfo.mockResolvedValue({
       projectId: 'p1',
       projectName: 'Test',
-      apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+      apiKeyPrefix: 'mcid_pk_live_ab12cd34',
       isActive: true,
     });
     const result = await controller.getApiKeyInfo('p1');

@@ -70,7 +70,7 @@ export class WebhookSummaryDto {
   @ApiProperty({
     description: 'Server name from the bot cache',
     nullable: true,
-    example: 'MicroClub',
+    example: 'Micro Club',
   })
   serverName: string | null;
 

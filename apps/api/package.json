@@ -37,9 +37,9 @@
     "docker:restart": "docker-compose restart api",
     "docker:db:push": "docker-compose exec api pnpm run db:push",
     "docker:db:seed": "docker-compose exec api pnpm run db:seed",
-    "docker:db:studio": "docker exec mcdi-api-1 sh -lc \"nohup pnpm dlx drizzle-kit studio --host 0.0.0.0 --port 4983 > /tmp/drizzle-studio.log 2>&1 < /dev/null &\" && sleep 2 && docker exec mcdi-api-1 sh -lc \"tail -n 20 /tmp/drizzle-studio.log\" && echo 'Drizzle Studio URL: https://local.drizzle.studio?host=localhost&port=4983'",
-    "docker:db:studio:logs": "docker exec mcdi-api-1 sh -lc \"tail -f /tmp/drizzle-studio.log\"",
-    "docker:db:studio:stop": "docker exec mcdi-api-1 sh -lc \"pkill -f 'drizzle-kit studio --host 0.0.0.0 --port 4983' 2>/dev/null || true\""
+    "docker:db:studio": "docker exec mcid-api-1 sh -lc \"nohup pnpm dlx drizzle-kit studio --host 0.0.0.0 --port 4983 > /tmp/drizzle-studio.log 2>&1 < /dev/null &\" && sleep 2 && docker exec mcid-api-1 sh -lc \"tail -n 20 /tmp/drizzle-studio.log\" && echo 'Drizzle Studio URL: https://local.drizzle.studio?host=localhost&port=4983'",
+    "docker:db:studio:logs": "docker exec mcid-api-1 sh -lc \"tail -f /tmp/drizzle-studio.log\"",
+    "docker:db:studio:stop": "docker exec mcid-api-1 sh -lc \"pkill -f 'drizzle-kit studio --host 0.0.0.0 --port 4983' 2>/dev/null || true\""
   },
   "dependencies": {
     "@mcid/contracts": "workspace:*",

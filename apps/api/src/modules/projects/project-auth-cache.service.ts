@@ -40,7 +40,7 @@ export class ProjectAuthCacheService {
     this.lastUsedWriteTtlMs =
       this.configService.get<number>('app.projectLastUsedWriteTtlMs') || 60_000;
     this.keyPrefix =
-      this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+      this.configService.get<string>('redis.keyPrefix') || 'mcid';
   }
 
   async get(apiKey: string): Promise<ProjectRow | null> {

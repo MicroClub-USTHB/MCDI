@@ -8,7 +8,7 @@ export interface SsoCookieConfig {
 }
 
 /**
- * Options for the `mcdi_sso` httpOnly cookie.
+ * Options for the `mcid_sso` httpOnly cookie.
  *
  * - `httpOnly` keeps the token unreadable to JavaScript.
  * - `sameSite=lax` permits top-level navigation (the SSO authorize flow)

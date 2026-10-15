@@ -45,10 +45,10 @@ describe('createOpenApiDocument', () => {
   });
 
   it('names the server it is given, as the root only', () => {
-    const document = createOpenApiDocument(app, 'https://mcdi.example.org');
+    const document = createOpenApiDocument(app, 'https://mcid.example.org');
 
     expect(document.servers).toEqual([
-      { url: 'https://mcdi.example.org', description: 'API Server' },
+      { url: 'https://mcid.example.org', description: 'API Server' },
     ]);
   });
 

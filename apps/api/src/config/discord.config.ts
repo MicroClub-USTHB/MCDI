@@ -12,7 +12,7 @@ export default registerAs('discord', () => ({
       '/auth/discord/callback',
       '/auth/admin/discord/callback',
     ),
-  /** The main MCDI Discord guild — used for admin role verification */
+  /** The main MCID Discord guild — used for admin role verification */
   mainGuildId: process.env.MC_GUILD_ID,
   /** Discord role ID that grants admin access in the main guild */
   executiveRoleId: process.env.MC_EXECUTIVE_ROLE_ID,

@@ -287,7 +287,7 @@ describe('AdminAuthService', () => {
           action: 'login_failed',
           details: {
             reason:
-              'You must be a member of the main MCDI Discord server to access the admin panel',
+              'You must be a member of the main MCID Discord server to access the admin panel',
             attemptedActor: 'discord123',
           },
         }),
@@ -347,7 +347,7 @@ describe('AdminAuthService', () => {
     });
   });
 
-  // ─── CLI login (mcdi-cli): loopback redirect + PKCE ─────────────────────
+  // ─── CLI login (mcid-cli): loopback redirect + PKCE ─────────────────────
 
   describe('admin CLI login', () => {
     // RFC 7636 Appendix B test vector.
@@ -513,7 +513,7 @@ describe('AdminAuthService', () => {
 
         expect(target.origin + target.pathname).toBe(LOOPBACK);
         expect(target.searchParams.get('error')).toBe(
-          'You must be a member of the main MCDI Discord server to access the admin panel',
+          'You must be a member of the main MCID Discord server to access the admin panel',
         );
         expect(target.searchParams.get('state')).toBe('cli-state');
         expect(target.searchParams.has('code')).toBe(false);
@@ -552,7 +552,7 @@ describe('AdminAuthService', () => {
 
         const res = await service.exchangeAdminCliCode('raw-code', VERIFIER, {
           ipAddress: '203.0.113.7',
-          userAgent: 'mcdi-cli',
+          userAgent: 'mcid-cli',
         });
 
         expect(adminCliCodeRepository.consumeValid).toHaveBeenCalledWith(
@@ -565,7 +565,7 @@ describe('AdminAuthService', () => {
         expect(sessionIssuanceService.issueSession).toHaveBeenCalledWith({
           memberId: 'discord123',
           ttlSeconds: 24 * 60 * 60,
-          clientUserAgent: 'mcdi-cli',
+          clientUserAgent: 'mcid-cli',
           clientIpAddress: '203.0.113.7',
         });
         expect(auditService.logAction).toHaveBeenCalledWith(

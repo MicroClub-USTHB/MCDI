@@ -2,7 +2,7 @@ import { buildDiscordOAuthUrl } from './build-discord-oauth-url';
 
 describe('buildDiscordOAuthUrl', () => {
   const CLIENT_ID = 'my-client-id';
-  const REDIRECT_URI = 'https://mcdi.example.com/auth/discord/callback';
+  const REDIRECT_URI = 'https://mcid.example.com/auth/discord/callback';
   const STATE = 'random-state-token';
 
   function parse(url: string) {

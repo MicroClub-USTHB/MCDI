@@ -47,7 +47,7 @@ export class ServersController {
   @ApiOperation({
     summary: 'Register a server',
     description:
-      'Registers a new Discord guild with MCDI (upsert by guild ID). ' +
+      'Registers a new Discord guild with MCID (upsert by guild ID). ' +
       'Once registered, the server can be granted to projects and included in syncs.',
   })
   @ApiBody({ type: CreateServerDto })

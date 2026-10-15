@@ -23,7 +23,7 @@ export class ListProjectsDto {
 
   @ApiPropertyOptional({
     description: 'Filter by project name (case-insensitive partial match).',
-    example: 'MicroClub',
+    example: 'Micro Club',
     maxLength: 255,
   })
   @IsString()

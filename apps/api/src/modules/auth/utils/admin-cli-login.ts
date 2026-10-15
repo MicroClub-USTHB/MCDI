@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'crypto';
 
 /**
- * Helpers for the admin CLI login (mcdi-cli): a native app receives the result
+ * Helpers for the admin CLI login (mcid-cli): a native app receives the result
  * on a loopback redirect (RFC 8252) and proves it started the login with PKCE
  * S256 (RFC 7636).
  */

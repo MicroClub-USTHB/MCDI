@@ -56,7 +56,7 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly redis: RedisService,
   ) {
-    const prefix = this.config.get<string>('redis.keyPrefix') || 'mcdi';
+    const prefix = this.config.get<string>('redis.keyPrefix') || 'mcid';
     this.redisKey = `${prefix}:app-settings:row`;
   }
 

@@ -14,13 +14,13 @@ import { projects } from './project.entity';
 import type { FormSchema } from '@mcid/form-schema';
 
 /**
- * An MCDI-owned HTTP endpoint that ACCEPTS structured submissions from an
+ * An MCID-owned HTTP endpoint that ACCEPTS structured submissions from an
  * authenticated project (inbound), validates them against a declared schema,
  * and persists them.
  *
  * Not to be confused with:
- *   - Discord's own webhooks (DiscordService.createWebhook) — MCDI is the client
- *   - projects.webhookUrl — outbound; the project's address for MCDI to call
+ *   - Discord's own webhooks (DiscordService.createWebhook) — MCID is the client
+ *   - projects.webhookUrl — outbound; the project's address for MCID to call
  */
 export const inboundWebhooks = pgTable(
   'inbound_webhooks',

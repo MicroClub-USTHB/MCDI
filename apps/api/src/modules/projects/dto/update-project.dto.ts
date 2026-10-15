@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 
 export class UpdateProjectDto {
-  @ApiPropertyOptional({ example: 'MicroClub Website' })
+  @ApiPropertyOptional({ example: 'Micro Club Website' })
   @IsString()
   @MaxLength(255)
   @IsOptional()
@@ -20,7 +20,7 @@ export class UpdateProjectDto {
   description?: string;
 
   @ApiPropertyOptional({
-    description: 'Whether this is an internal MicroClub platform project.',
+    description: 'Whether this is an internal Micro Club platform project.',
     example: false,
   })
   @IsBoolean()

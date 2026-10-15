@@ -161,7 +161,7 @@ export class AuthService {
 
   /**
    * Build the Discord OAuth URL with project context encoded in state.
-   * Called when the user clicks "Login with Discord" on the MCDI page.
+   * Called when the user clicks "Login with Discord" on the MCID page.
    * State is stored in DB for one-time use with 10-minute expiration.
    */
   async buildDiscordLoginUrl(
@@ -258,7 +258,7 @@ export class AuthService {
 
   /**
    * SSO-aware authorize: the caller already has a valid global SSO session
-   * (`mcdi_sso` cookie → memberId), so we skip the Discord OAuth bounce and
+   * (`mcid_sso` cookie → memberId), so we skip the Discord OAuth bounce and
    * jump straight to the project-access checks + callback-code issuance.
    *
    * Reuses the same validations as `authorize()` for the project/redirect/

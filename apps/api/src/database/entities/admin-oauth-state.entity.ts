@@ -6,7 +6,7 @@ export const adminOauthStates = pgTable('admin_oauth_states', {
   used: varchar('used', { length: 10 }).default('false').notNull(),
   expiresAt: timestamp('expires_at').notNull(),
   /**
-   * Set only for a CLI login (mcdi-cli): the loopback URL to hand the result
+   * Set only for a CLI login (mcid-cli): the loopback URL to hand the result
    * back to, and the PKCE S256 challenge the code exchange must match. Null
    * for the admin web panel, which gets a cookie instead.
    */

@@ -216,7 +216,7 @@ export class MemberRepository {
   }
 
   /**
-   * Sync a member's server membership and Discord roles into the MCDI DB.
+   * Sync a member's server membership and Discord roles into the MCID DB.
    * Called during OAuth callback so roles are always up-to-date.
    */
   async syncMemberServerData(

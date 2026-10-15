@@ -189,7 +189,7 @@ export class CrossServerListServerDto {
 
   @ApiProperty({
     description: 'Server name',
-    example: 'MicroClub Main',
+    example: 'Micro Club Main',
     type: String,
   })
   serverName: string;

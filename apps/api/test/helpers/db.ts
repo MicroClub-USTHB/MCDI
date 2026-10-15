@@ -166,7 +166,7 @@ export async function seedTestProject(
   const id = crypto.randomUUID();
   const prefixId = randomBytes(4).toString('hex');
   const secret = randomBytes(16).toString('hex');
-  const prefix = `mcdi_pk_test_${prefixId}`;
+  const prefix = `mcid_pk_test_${prefixId}`;
   const hash = createHash('sha256').update(secret).digest('hex');
   const apiKey = `${prefix}.${secret}`;
 

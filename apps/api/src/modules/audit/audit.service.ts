@@ -261,7 +261,7 @@ export class AuditService {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
       const dateKey = date.toISOString().slice(0, 10);
-      const prefix = `mcdi:usage:daily:${dateKey}`;
+      const prefix = `mcid:usage:daily:${dateKey}`;
 
       const [
         endpoints,
@@ -369,7 +369,7 @@ export class AuditService {
     projectId?: string,
   ): Promise<void> {
     const dateKey = new Date().toISOString().slice(0, 10);
-    const prefix = `mcdi:usage:daily:${dateKey}`;
+    const prefix = `mcid:usage:daily:${dateKey}`;
     const ttl = (RETENTION_DAYS + 1) * 24 * 60 * 60;
     const endpointKey = `${method}:${normalizePath(path)}`;
     const isError = statusCode >= 400;

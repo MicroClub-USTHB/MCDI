@@ -9,7 +9,7 @@
 services:
   api:
     # IMAGE_TAG defaults to `latest`; pin a CI tag such as `sha-1a2b3c4` to deploy or roll back to an exact build.
-    image: ghcr.io/microclub-usthb/mcdi:${IMAGE_TAG:-latest}
+    image: ghcr.io/microclub-usthb/mcid:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: always
     env_file:
@@ -18,11 +18,11 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://mcdi:${POSTGRES_PASSWORD}@database:5432/mcdi
+      DATABASE_URL: postgresql://mcid:${POSTGRES_PASSWORD}@database:5432/mcid
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_KEY_PREFIX: mcdi
+      REDIS_KEY_PREFIX: mcid
       WEBHOOK_ENCRYPTION_KEY: ${WEBHOOK_ENCRYPTION_KEY}
       INBOUND_WEBHOOK_ENCRYPTION_KEY: ${INBOUND_WEBHOOK_ENCRYPTION_KEY}
       MAX_WEBHOOKS_PER_PROJECT: ${MAX_WEBHOOKS_PER_PROJECT:-10}
@@ -47,13 +47,13 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_USER: mcdi
+      POSTGRES_USER: mcid
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: mcdi
+      POSTGRES_DB: mcid
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U mcdi -d mcdi']
+      test: ['CMD-SHELL', 'pg_isready -U mcid -d mcid']
       interval: 5s
       timeout: 5s
       retries: 12

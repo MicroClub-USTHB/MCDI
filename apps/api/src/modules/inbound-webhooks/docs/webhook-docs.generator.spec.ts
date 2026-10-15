@@ -86,7 +86,7 @@ const input: WebhookDocsInput = {
   isActive: true,
   createdAt: new Date('2026-01-31T00:00:00Z'),
   allowedRoles: [{ roleId: '990000000000200002', roleName: 'Lead' }],
-  baseUrl: 'https://mcdi.example/api',
+  baseUrl: 'https://mcid.example/api',
 };
 
 describe('buildExamplePayload', () => {
@@ -393,7 +393,7 @@ describe('renderMarkdown', () => {
 
   it('documents the endpoint with the prefixed base URL', () => {
     expect(md).toContain(
-      'https://mcdi.example/api/inbound-webhooks/wh-1/submit',
+      'https://mcid.example/api/inbound-webhooks/wh-1/submit',
     );
   });
 
@@ -416,7 +416,7 @@ describe('renderMarkdown', () => {
   });
 
   it('includes signing guidance and both code samples when signing is required', () => {
-    expect(md).toContain('X-MCDI-Signature');
+    expect(md).toContain('X-MCID-Signature');
     expect(md).toContain('### Node.js');
     expect(md).toContain('### Python');
     expect(md).toContain('createHmac');
@@ -424,7 +424,7 @@ describe('renderMarkdown', () => {
 
   it('omits signing guidance when signing is not required', () => {
     const md2 = renderMarkdown({ ...input, requireSignature: false });
-    expect(md2).not.toContain('X-MCDI-Signature');
+    expect(md2).not.toContain('X-MCID-Signature');
     expect(md2).toContain('curl');
   });
 
@@ -545,7 +545,7 @@ describe('renderOpenApi', () => {
 
   it('is a 3.1 document pointing at the prefixed server', () => {
     expect(spec.openapi).toBe('3.1.0');
-    expect(spec.servers[0].url).toBe('https://mcdi.example/api');
+    expect(spec.servers[0].url).toBe('https://mcid.example/api');
   });
 
   it('marks unconditional required fields as required', () => {
@@ -568,7 +568,7 @@ describe('renderOpenApi', () => {
 
   it('declares the signature header when signing is required', () => {
     const params = spec.paths['/inbound-webhooks/wh-1/submit'].post.parameters;
-    expect(params[0].name).toBe('X-MCDI-Signature');
+    expect(params[0].name).toBe('X-MCID-Signature');
     expect(
       renderOpenApi({ ...input, requireSignature: false }) as Record<
         string,

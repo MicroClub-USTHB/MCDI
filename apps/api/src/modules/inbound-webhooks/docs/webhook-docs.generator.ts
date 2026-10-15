@@ -438,7 +438,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
   md.push(`# ${input.name}`);
   md.push('');
   md.push(
-    `Inbound webhook \`${input.slug}\` — send structured submissions to MCDI.`,
+    `Inbound webhook \`${input.slug}\` — send structured submissions to MCID.`,
   );
   md.push('');
   if (!input.isActive) {
@@ -533,7 +533,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push('Every request carries an HMAC signature over the **raw body**:');
     md.push('');
     md.push('```');
-    md.push('X-MCDI-Signature: t=<unix seconds>,v1=<hex hmac-sha256>');
+    md.push('X-MCID-Signature: t=<unix seconds>,v1=<hex hmac-sha256>');
     md.push('```');
     md.push('');
     md.push(
@@ -556,7 +556,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push('');
     md.push(`const body = JSON.stringify(${compactJson});`);
     md.push('const t = Math.floor(Date.now() / 1000);');
-    md.push("const v1 = createHmac('sha256', process.env.MCDI_SIGNING_SECRET)");
+    md.push("const v1 = createHmac('sha256', process.env.MCID_SIGNING_SECRET)");
     md.push('  .update(`${t}.${body}`)');
     md.push("  .digest('hex');");
     md.push('');
@@ -564,8 +564,8 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push("  method: 'POST',");
     md.push('  headers: {');
     md.push("    'Content-Type': 'application/json',");
-    md.push('    Authorization: `Bearer ${process.env.MCDI_API_KEY}`,');
-    md.push("    'X-MCDI-Signature': `t=${t},v1=${v1}`,");
+    md.push('    Authorization: `Bearer ${process.env.MCID_API_KEY}`,');
+    md.push("    'X-MCID-Signature': `t=${t},v1=${v1}`,");
     md.push('  },');
     md.push('  body, // the same string that was signed');
     md.push('});');
@@ -579,7 +579,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push(`body = json.dumps(${toPython(example)}, separators=(",", ":"))`);
     md.push('t = int(time.time())');
     md.push('v1 = hmac.new(');
-    md.push('    os.environ["MCDI_SIGNING_SECRET"].encode(),');
+    md.push('    os.environ["MCID_SIGNING_SECRET"].encode(),');
     md.push('    f"{t}.{body}".encode(),');
     md.push('    hashlib.sha256,');
     md.push(').hexdigest()');
@@ -590,9 +590,9 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push('    headers={');
     md.push('        "Content-Type": "application/json",');
     md.push(
-      '        "Authorization": f"Bearer {os.environ[\'MCDI_API_KEY\']}",',
+      '        "Authorization": f"Bearer {os.environ[\'MCID_API_KEY\']}",',
     );
-    md.push('        "X-MCDI-Signature": f"t={t},v1={v1}",');
+    md.push('        "X-MCID-Signature": f"t={t},v1={v1}",');
     md.push('    },');
     md.push(')');
     md.push('```');
@@ -605,7 +605,7 @@ export function renderMarkdown(input: WebhookDocsInput): string {
     md.push('```bash');
     md.push(`curl -X POST '${url}' \\`);
     md.push("  -H 'Content-Type: application/json' \\");
-    md.push('  -H "Authorization: Bearer $MCDI_API_KEY" \\');
+    md.push('  -H "Authorization: Bearer $MCID_API_KEY" \\');
     // A single quote would end the shell string; '\\'' closes, escapes, reopens.
     md.push(`  -d '${compactJson.replace(/'/g, `'\\''`)}'`);
     md.push('```');
@@ -843,7 +843,7 @@ export function renderOpenApi(
           parameters: input.requireSignature
             ? [
                 {
-                  name: 'X-MCDI-Signature',
+                  name: 'X-MCID-Signature',
                   in: 'header',
                   required: true,
                   schema: { type: 'string' },

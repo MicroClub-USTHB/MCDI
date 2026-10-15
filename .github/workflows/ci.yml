@@ -86,7 +86,7 @@ jobs:
         env:
           POSTGRES_USER: testuser
           POSTGRES_PASSWORD: testpassword
-          POSTGRES_DB: mcdi_test
+          POSTGRES_DB: mcid_test
 
         ports:
           - 5432:5432
@@ -133,7 +133,7 @@ jobs:
             process.exit(1);
           })();"
         env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcid_test
 
       - name: Check migrations re-apply cleanly
         # Production re-runs every migration via psql on each boot (see
@@ -144,7 +144,7 @@ jobs:
             psql "$DATABASE_URL" -q -v ON_ERROR_STOP=1 -f /tmp/migration.sql > /dev/null
           done
         env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcid_test
 
       - name: Run database migrations
         run: |
@@ -155,13 +155,13 @@ jobs:
           done
           exit 1
         env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcid_test
 
       - name: Run E2E tests
         run: pnpm turbo run test:e2e --filter=@mcid/api
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcid_test
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
           DISCORD_CLIENT_SECRET: ${{ secrets.DISCORD_CLIENT_SECRET }}
