@@ -113,6 +113,14 @@ describe('resolveBaseUrl', () => {
     expect(() => normalizeBaseUrl('http://mcid.example.com')).toThrow('must be https');
   });
 
+  it('drops a trailing /api, which the CLI adds itself', () => {
+    expect(normalizeBaseUrl('https://mcid.example.com/api')).toBe('https://mcid.example.com');
+    expect(normalizeBaseUrl('https://mcid.example.com/api/')).toBe('https://mcid.example.com');
+    expect(normalizeBaseUrl('http://localhost:3000/api')).toBe('http://localhost:3000');
+    expect(normalizeBaseUrl('https://mcid.example.com/apis')).toBe('https://mcid.example.com/apis');
+    expect(normalizeBaseUrl('https://example.com/mcid/api')).toBe('https://example.com/mcid');
+  });
+
   it('allows plain http only on a loopback address', () => {
     expect(normalizeBaseUrl('http://localhost:3000/')).toBe('http://localhost:3000');
     expect(normalizeBaseUrl('http://127.0.0.1:3000')).toBe('http://127.0.0.1:3000');

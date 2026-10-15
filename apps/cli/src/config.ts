@@ -184,7 +184,8 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
  * Validates an MCID base URL. The admin session token is sent to it, so it
- * must be https, except for a local MCID on a loopback address.
+ * must be https, except for a local MCID on a loopback address. A trailing
+ * `/api` is dropped: the CLI adds that prefix itself, so the API URL works too.
  */
 export function normalizeBaseUrl(raw: string): string {
   let url: URL;
@@ -206,7 +207,10 @@ export function normalizeBaseUrl(raw: string): string {
       ExitCode.Unexpected,
     );
   }
-  return url.toString().replace(/\/+$/, '');
+  return url
+    .toString()
+    .replace(/\/+$/, '')
+    .replace(/\/api$/, '');
 }
 
 /**

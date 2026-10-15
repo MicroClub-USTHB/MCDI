@@ -14,6 +14,7 @@ First release. The CLI covers MCID Inbound Webhooks: logging in as an admin, wri
 ### Added
 
 - `mcid-cli login` and `logout`: browser-based Discord login with PKCE, one session per named profile (`--profile`).
+- `--base-url` takes the MCID origin; a trailing `/api` is dropped, so the API URL works too.
 - `mcid-cli whoami`, `profile` and `config` commands to inspect and manage profiles.
 - `mcid-cli schema init` to scaffold a FormSchema file from the admin panel's templates, and `schema validate` to check it offline with the same validator the MCID API runs (`@mcid/form-schema`).
 - Custom validation rules ("house rules") that extend the built-in pre-check, per project or global.
