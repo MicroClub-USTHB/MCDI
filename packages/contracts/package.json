@@ -1,8 +1,8 @@
 {
-  "name": "@mcdi/contracts",
+  "name": "@mcid/contracts",
   "version": "0.0.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "Types and constants shared by the API and the web app",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,7 +22,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "devDependencies": {
-    "@mcdi/typescript-config": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
     "typescript": "^5.9.3"
   }
 }

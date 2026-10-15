@@ -8,7 +8,7 @@ import {
   INBOUND_CONDITION_OPERATORS,
   INBOUND_FIELD_TYPES,
   INBOUND_FIELD_TYPE_DESCRIPTIONS,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 import {
   kindOfObject,

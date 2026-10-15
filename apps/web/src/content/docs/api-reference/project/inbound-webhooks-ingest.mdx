@@ -13,7 +13,7 @@ Validated against the webhook schema. Every field error is returned at once.
 | Name | In | Type | Required | Description |
 | --- | --- | --- | --- | --- |
 | `id` | path | `string` | yes |  |
-| `X-MCDI-Signature` | header | `string` | no | t=&lt;unix seconds&gt;,v1=&lt;hex hmac-sha256 of "t.&lt;raw body&gt;"&gt; |
+| `X-MCID-Signature` | header | `string` | no | t=&lt;unix seconds&gt;,v1=&lt;hex hmac-sha256 of "t.&lt;raw body&gt;"&gt; |
 
 **Responses**
 

@@ -1,6 +1,6 @@
 # Inbound webhooks — admin UI
 
-**Status:** reviewed · **Date:** 2026-10-04 · **Builds on:** `docs/MCDI-INBOUND-WEBHOOKS-PRD.md`, PR #146 (merged), PR #154 (grouped sidebar)
+**Status:** reviewed · **Date:** 2026-10-04 · **Builds on:** `docs/MCID-INBOUND-WEBHOOKS-PRD.md`, PR #146 (merged), PR #154 (grouped sidebar)
 
 ## 1. Why
 

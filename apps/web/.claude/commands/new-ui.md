@@ -1,6 +1,6 @@
 # /new-ui — Generate a New UI Component
 
-Generate a standard component folder with all required files following the MCDI-Front conventions.
+Generate a standard component folder with all required files following the MCID-Front conventions.
 
 ## Usage
 

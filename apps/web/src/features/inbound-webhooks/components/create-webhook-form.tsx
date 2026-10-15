@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
-import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcid/contracts';
 
 import { isValidSlug, slugify, toCreatePayload } from '@/features/inbound-webhooks/api/mappers';
 import { useCreateInboundWebhookMutation } from '@/features/inbound-webhooks/api/mutations';

@@ -4,7 +4,7 @@ import type {
   SyncLogStatus,
   SyncStatus,
   SyncType,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 /** Raw shape returned by `GET /api/admin/sync/status/all` and `/status`, one entry per server. */
 export interface SyncStatusDto {

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { getBreadcrumbItems } from '@/shared/components/layout/use-breadcrumb-items';
 
 const names = {
-  server: new Map([['srv_1', 'MicroClub']]),
+  server: new Map([['srv_1', 'Micro Club']]),
   project: new Map([['proj_1', 'Website']]),
 };
 
@@ -37,7 +37,7 @@ describe('getBreadcrumbItems', () => {
     expect(getBreadcrumbItems('/dashboard/servers/srv_1', names)).toEqual([
       { label: 'Dashboard', href: '/dashboard' },
       { label: 'Servers', href: '/dashboard/servers' },
-      { label: 'MicroClub' },
+      { label: 'Micro Club' },
     ]);
   });
 
@@ -45,7 +45,7 @@ describe('getBreadcrumbItems', () => {
     expect(getBreadcrumbItems('/dashboard/servers/srv_1/roles/42', names)).toEqual([
       { label: 'Dashboard', href: '/dashboard' },
       { label: 'Servers', href: '/dashboard/servers' },
-      { label: 'MicroClub', href: '/dashboard/servers/srv_1' },
+      { label: 'Micro Club', href: '/dashboard/servers/srv_1' },
       { label: 'Roles' },
     ]);
   });

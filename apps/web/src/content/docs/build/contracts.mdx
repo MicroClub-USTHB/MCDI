@@ -1,4 +1,4 @@
-`@mcdi/contracts` is the small package that holds what the API and the admin panel must agree on: types, constants and the catalog of inbound webhook schemas. This page explains why it is built the way it is, what belongs in it, and how to change it safely.
+`@mcid/contracts` is the small package that holds what the API and the admin panel must agree on: types, constants and the catalog of inbound webhook schemas. This page explains why it is built the way it is, what belongs in it, and how to change it safely.
 
 ## What is in it
 
@@ -20,11 +20,11 @@ The package is built to plain CommonJS with type declarations, into `dist`, and 
 
 The reason is the API. NestJS runs as compiled CommonJS, and it cannot load a workspace package that ships TypeScript source, which a Next.js app could transpile on the fly. So the package has to be built before anything that imports it, and `dist` is what both apps load.
 
-The build is `tsc`, configured by `@mcdi/typescript-config/library.json` (`module: CommonJS`, `target: ES2022`, declarations on).
+The build is `tsc`, configured by `@mcid/typescript-config/library.json` (`module: CommonJS`, `target: ES2022`, declarations on).
 
 ## It stays dependency-free
 
-`@mcdi/contracts` has no runtime dependencies. Its only dev dependencies are TypeScript and the shared TypeScript config. Keep it that way:
+`@mcid/contracts` has no runtime dependencies. Its only dev dependencies are TypeScript and the shared TypeScript config. Keep it that way:
 
 - It must not import from `apps/api` or `apps/web`. Shared code flows from the package into the apps, never back.
 - It must not pull in a library, because both apps would then inherit it, and the API cannot afford to load a web library.
@@ -39,7 +39,7 @@ Put something here when **both** the API and the panel need the same fact and a 
 The apps read `dist`, so a change in `src` is invisible until the package is built again.
 
 ```bash
-pnpm --filter @mcdi/contracts run build
+pnpm --filter @mcid/contracts run build
 ```
 
 You rarely need to run it by hand:

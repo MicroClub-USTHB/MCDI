@@ -5,7 +5,7 @@ import {
   INBOUND_FIELD_PROPERTIES,
   INBOUND_FIELD_TYPES,
   INBOUND_WEBHOOK_TEMPLATES,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 import { InboundContract } from '@/features/docs/components/inbound-contract';
 import { Endpoint } from '@/features/docs/components/endpoint';

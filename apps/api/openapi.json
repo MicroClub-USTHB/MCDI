@@ -796,18 +796,26 @@
             "example": "Main club website",
             "type": "string"
           },
+          "inboundWebhook": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProjectInboundWebhookDto"
+              }
+            ],
+            "description": "Optional inbound webhook to provision along with the project."
+          },
           "isActive": {
             "description": "Whether the project is active. Defaults to true.",
             "example": true,
             "type": "boolean"
           },
           "isInternal": {
-            "description": "Whether this is an internal MicroClub platform project. Internal projects use the main server automatically. Defaults to false.",
+            "description": "Whether this is an internal Micro Club platform project. Internal projects use the main server automatically. Defaults to false.",
             "example": false,
             "type": "boolean"
           },
           "name": {
-            "example": "MicroClub Website",
+            "example": "Micro Club Website",
             "maxLength": 255,
             "type": "string"
           },
@@ -999,7 +1007,7 @@
           },
           "serverName": {
             "description": "Server name",
-            "example": "MicroClub Main",
+            "example": "Micro Club Main",
             "type": "string"
           }
         },
@@ -1263,7 +1271,7 @@
           },
           "username": {
             "description": "Name used for this message",
-            "example": "MCDI Deployments",
+            "example": "MCID Deployments",
             "maxLength": 80,
             "type": "string"
           }
@@ -1598,7 +1606,7 @@
           },
           "serverName": {
             "description": "Server name",
-            "example": "MicroClub Main",
+            "example": "Micro Club Main",
             "type": "string"
           }
         },
@@ -1894,6 +1902,47 @@
         ],
         "type": "object"
       },
+      "ProjectInboundWebhookDto": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedOrigins": {
+            "description": "Origins permitted to call this webhook. Empty = no check.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "allowedRoleIds": {
+            "description": "Discord role IDs permitted to READ submissions.",
+            "items": {
+              "pattern": "/^\\d{17,20}$/",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "example": "Recruitment 2026",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          },
+          "schema": {
+            "description": "The shape of what callers send.",
+            "type": "object"
+          },
+          "slug": {
+            "description": "URL-safe identifier, unique within the project. Auto-generated if omitted.",
+            "example": "recruitment-2026",
+            "pattern": "/^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "schema"
+        ],
+        "type": "object"
+      },
       "ProjectServerAccessDto": {
         "additionalProperties": false,
         "properties": {
@@ -2135,7 +2184,7 @@
           },
           "content": {
             "description": "Message content (max 2000 chars, optional if embeds provided)",
-            "example": "Hello from MCDI!",
+            "example": "Hello from MCID!",
             "maxLength": 2000,
             "type": "string"
           },
@@ -2391,7 +2440,7 @@
             "type": "string"
           },
           "discordId": {
-            "description": "Discord user ID (same as `id` in MCDI)",
+            "description": "Discord user ID (same as `id` in MCID)",
             "example": "123456789012345678",
             "type": "string"
           },
@@ -2436,7 +2485,7 @@
             "type": "string"
           },
           "projectName": {
-            "example": "MCDI Admin",
+            "example": "MCID Admin",
             "type": "string"
           },
           "serverId": {
@@ -2925,12 +2974,12 @@
             "type": "boolean"
           },
           "isInternal": {
-            "description": "Whether this is an internal MicroClub platform project.",
+            "description": "Whether this is an internal Micro Club platform project.",
             "example": false,
             "type": "boolean"
           },
           "name": {
-            "example": "MicroClub Website",
+            "example": "Micro Club Website",
             "maxLength": 255,
             "type": "string"
           },
@@ -3228,7 +3277,7 @@
           },
           "serverName": {
             "description": "Server name from the bot cache",
-            "example": "MicroClub",
+            "example": "Micro Club",
             "nullable": true,
             "type": "string"
           },
@@ -3327,7 +3376,7 @@
           },
           "serverName": {
             "description": "Server name from the bot cache",
-            "example": "MicroClub",
+            "example": "Micro Club",
             "nullable": true,
             "type": "string"
           },
@@ -3370,8 +3419,8 @@
   },
   "info": {
     "contact": {},
-    "description": "MicroClub Discord Identity API.\n\n**MC Project endpoints** authenticate with `X-API-Key` header.\n\n**Admin endpoints** authenticate with `Authorization: Bearer <token>`.\n\nScopes and operations are granted per project–server pair by a system administrator.",
-    "title": "MCDI API",
+    "description": "Micro Club Identity API.\n\n**MC Project endpoints** authenticate with `X-API-Key` header.\n\n**Admin endpoints** authenticate with `Authorization: Bearer <token>`.\n\nScopes and operations are granted per project–server pair by a system administrator.",
+    "title": "MCID API",
     "version": "1.0"
   },
   "openapi": "3.0.0",
@@ -5105,7 +5154,7 @@
             "name": "name",
             "required": false,
             "schema": {
-              "example": "MicroClub",
+              "example": "Micro Club",
               "maxLength": 255,
               "type": "string"
             }
@@ -5155,14 +5204,24 @@
               "application/json": {
                 "schema": {
                   "example": {
-                    "apiKey": "mcdi_pk_live_ab12cd34.64hexsecret...",
+                    "apiKey": "mcid_pk_live_ab12cd34.64hexsecret...",
+                    "inboundWebhook": {
+                      "docsUrl": "https://api.microclub.dz/admin/inbound-webhooks/uuid/docs",
+                      "signingSecret": "mcid_whsec_live_5678",
+                      "submitUrl": "https://api.microclub.dz/inbound-webhooks/uuid/submit",
+                      "webhook": {
+                        "id": "uuid",
+                        "name": "Recruitment 2026",
+                        "slug": "recruitment-2026"
+                      }
+                    },
                     "project": {
-                      "apiKeyPrefix": "mcdi_pk_live_ab12cd34",
+                      "apiKeyPrefix": "mcid_pk_live_ab12cd34",
                       "createdAt": "2026-02-20T00:00:00.000Z",
                       "description": "Main website",
                       "id": "uuid",
                       "isActive": true,
-                      "name": "MicroClub Website"
+                      "name": "Micro Club Website"
                     }
                   }
                 }
@@ -5311,7 +5370,7 @@
             "name": "projectName",
             "required": false,
             "schema": {
-              "example": "MicroClub",
+              "example": "Micro Club",
               "maxLength": 255,
               "type": "string"
             }
@@ -5330,13 +5389,13 @@
                         "SEND_MESSAGES": false
                       },
                       "projectId": "123e4567-e89b-12d3-a456-426614174000",
-                      "projectName": "MicroClub Website",
+                      "projectName": "Micro Club Website",
                       "scopes": [
                         "read_members",
                         "check_permissions"
                       ],
                       "serverId": "123456789012345678",
-                      "serverName": "MicroClub Main",
+                      "serverName": "Micro Club Main",
                       "updatedAt": "2026-03-09T12:00:00.000Z"
                     }
                   ]
@@ -5584,10 +5643,10 @@
                   "example": {
                     "apiKeyCreatedAt": "2026-02-20T00:00:00.000Z",
                     "apiKeyLastUsedAt": "2026-03-01T12:00:00.000Z",
-                    "apiKeyPrefix": "mcdi_pk_live_ab12cd34",
+                    "apiKeyPrefix": "mcid_pk_live_ab12cd34",
                     "isActive": true,
                     "projectId": "uuid",
-                    "projectName": "MicroClub Website"
+                    "projectName": "Micro Club Website"
                   }
                 }
               }
@@ -5754,7 +5813,7 @@
                 "schema": {
                   "properties": {
                     "apiKey": {
-                      "example": "mcdi_pk_live_xy98zw76.64hexsecret...",
+                      "example": "mcid_pk_live_xy98zw76.64hexsecret...",
                       "type": "string"
                     },
                     "apiKeyCreatedAt": {
@@ -5762,7 +5821,7 @@
                       "type": "string"
                     },
                     "apiKeyPrefix": {
-                      "example": "mcdi_pk_live_xy98zw76",
+                      "example": "mcid_pk_live_xy98zw76",
                       "type": "string"
                     },
                     "projectId": {
@@ -5887,7 +5946,7 @@
                         "check_permissions"
                       ],
                       "serverId": "123456789012345678",
-                      "serverName": "MicroClub Main",
+                      "serverName": "Micro Club Main",
                       "updatedAt": "2026-03-09T12:00:00.000Z"
                     }
                   ]
@@ -7161,7 +7220,7 @@
     },
     "/api/admin/sync/status/all": {
       "get": {
-        "description": "Returns the most recent sync result for every active server managed by MCDI.",
+        "description": "Returns the most recent sync result for every active server managed by MCID.",
         "operationId": "SyncController_getAllServersSyncStatus",
         "parameters": [],
         "responses": {
@@ -7291,11 +7350,11 @@
     },
     "/api/auth/admin/discord": {
       "get": {
-        "description": "Returns a Discord authorization URL. The admin opens the URL, authenticates with Discord, and is redirected to the admin callback endpoint.\n\nA CLI (m-forge) can instead receive the result itself: pass a loopback `redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). After Discord, MCDI redirects to that URL with `?code=&state=` (or `?error=&state=`), and the CLI exchanges the code at `POST /auth/admin/token`.",
+        "description": "Returns a Discord authorization URL. The admin opens the URL, authenticates with Discord, and is redirected to the admin callback endpoint.\n\nA CLI (mcid-cli) can instead receive the result itself: pass a loopback `redirect_uri` plus a PKCE S256 `code_challenge` (RFC 8252 / RFC 7636). After Discord, MCID redirects to that URL with `?code=&state=` (or `?error=&state=`), and the CLI exchanges the code at `POST /auth/admin/token`.",
         "operationId": "AuthController_adminDiscordLogin",
         "parameters": [
           {
-            "description": "CLI login only: the loopback URL (http, 127.0.0.1 / localhost / [::1], explicit port) MCDI redirects to with ?code=&state= (or ?error=&state=) once Discord is done.",
+            "description": "CLI login only: the loopback URL (http, 127.0.0.1 / localhost / [::1], explicit port) MCID redirects to with ?code=&state= (or ?error=&state=) once Discord is done.",
             "in": "query",
             "name": "redirect_uri",
             "required": false,
@@ -7415,7 +7474,7 @@
     },
     "/api/auth/admin/token": {
       "post": {
-        "description": "Second half of the CLI admin login (m-forge). Exchanges the one-time code MCDI redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 challenge started the login, for a 24-hour admin session token. A code works once and expires quickly; every failure returns the same 401.",
+        "description": "Second half of the CLI admin login (mcid-cli). Exchanges the one-time code MCID redirected to the CLI with, plus the PKCE `codeVerifier` whose S256 challenge started the login, for a 24-hour admin session token. A code works once and expires quickly; every failure returns the same 401.",
         "operationId": "AuthController_adminCliToken",
         "parameters": [],
         "requestBody": {
@@ -7451,7 +7510,7 @@
     },
     "/api/auth/authorize": {
       "get": {
-        "description": "Always bounces through Discord OAuth, even if the browser already holds a valid `mcdi_sso` cookie. Use this when you need fresh Discord consent (step-up auth, admin operations) or to keep a pre-SSO integration unchanged. For the default login button, prefer `GET /auth/sso/authorize` — it skips the Discord screen for returning users.\n\nThe platform redirects the user here with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters. MCDI validates the params, creates a short-lived auth request in the DB, sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.",
+        "description": "Always bounces through Discord OAuth, even if the browser already holds a valid `mcid_sso` cookie. Use this when you need fresh Discord consent (step-up auth, admin operations) or to keep a pre-SSO integration unchanged. For the default login button, prefer `GET /auth/sso/authorize` — it skips the Discord screen for returning users.\n\nThe platform redirects the user here with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters. MCID validates the params, creates a short-lived auth request in the DB, sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.",
         "operationId": "AuthController_authorize",
         "parameters": [
           {
@@ -7548,7 +7607,7 @@
     },
     "/api/auth/discord": {
       "get": {
-        "description": "Reads the auth request ID from the httpOnly `mcdi_auth_req` cookie set by GET /auth/authorize. Resolves the request, marks it as used, and redirects to Discord OAuth.",
+        "description": "Reads the auth request ID from the httpOnly `mcid_auth_req` cookie set by GET /auth/authorize. Resolves the request, marks it as used, and redirects to Discord OAuth.",
         "operationId": "AuthController_startDiscordAuth",
         "parameters": [],
         "responses": {
@@ -7574,7 +7633,7 @@
     },
     "/api/auth/logout": {
       "post": {
-        "description": "External platforms call this when their user logs out to invalidate the MCDI session token.\n\nRequires a valid `X-API-Key` header. Only sessions belonging to the calling project are deleted — tokens from other projects are ignored.",
+        "description": "External platforms call this when their user logs out to invalidate the MCID session token.\n\nRequires a valid `X-API-Key` header. Only sessions belonging to the calling project are deleted — tokens from other projects are ignored.",
         "operationId": "AuthController_logout",
         "parameters": [],
         "requestBody": {
@@ -7729,7 +7788,7 @@
     },
     "/api/auth/sso/authorize": {
       "get": {
-        "description": "Recommended default for new \"Login with MicroClub\" buttons. Same query contract as `GET /auth/authorize`. If the caller has a valid `mcdi_sso` cookie, the Discord OAuth bounce is skipped and the browser is redirected straight to the platform's redirect_uri with `?code=...&state=...`. Otherwise this falls back to the existing `/auth/authorize` flow (Discord OAuth).\n\nUse `GET /auth/authorize` instead when you need to force a fresh Discord consent.",
+        "description": "Recommended default for new \"Login with Micro Club\" buttons. Same query contract as `GET /auth/authorize`. If the caller has a valid `mcid_sso` cookie, the Discord OAuth bounce is skipped and the browser is redirected straight to the platform's redirect_uri with `?code=...&state=...`. Otherwise this falls back to the existing `/auth/authorize` flow (Discord OAuth).\n\nUse `GET /auth/authorize` instead when you need to force a fresh Discord consent.",
         "operationId": "AuthController_ssoAuthorize",
         "parameters": [
           {
@@ -7798,7 +7857,7 @@
     },
     "/api/auth/sso/logout": {
       "post": {
-        "description": "Reads the `mcdi_sso` httpOnly cookie, destroys the SSO session, cascades to every project session for the same member, and clears the cookie. Idempotent — succeeds even if the cookie is missing.",
+        "description": "Reads the `mcid_sso` httpOnly cookie, destroys the SSO session, cascades to every project session for the same member, and clears the cookie. Idempotent — succeeds even if the cookie is missing.",
         "operationId": "AuthController_ssoLogout",
         "parameters": [],
         "responses": {
@@ -7815,7 +7874,7 @@
     },
     "/api/auth/sso/session": {
       "get": {
-        "description": "Reads the `mcdi_sso` httpOnly cookie set after Discord login and returns the authenticated member. Returns 401 with `{ authenticated: false }` when the cookie is missing or expired.",
+        "description": "Reads the `mcid_sso` httpOnly cookie set after Discord login and returns the authenticated member. Returns 401 with `{ authenticated: false }` when the cookie is missing or expired.",
         "operationId": "AuthController_ssoSession",
         "parameters": [],
         "responses": {
@@ -7849,7 +7908,7 @@
     },
     "/api/auth/sso/sessions": {
       "get": {
-        "description": "Returns one entry per active (non-expired) project session for the member identified by the `mcdi_sso` cookie. Token material is never returned. Returns 401 when the SSO cookie is missing or expired.",
+        "description": "Returns one entry per active (non-expired) project session for the member identified by the `mcid_sso` cookie. Token material is never returned. Returns 401 when the SSO cookie is missing or expired.",
         "operationId": "AuthController_ssoListSessions",
         "parameters": [],
         "responses": {
@@ -8167,7 +8226,7 @@
           {
             "description": "t=<unix seconds>,v1=<hex hmac-sha256 of \"t.<raw body>\">",
             "in": "header",
-            "name": "X-MCDI-Signature",
+            "name": "X-MCID-Signature",
             "required": false,
             "schema": {
               "type": "string"
@@ -8835,7 +8894,7 @@
             "name": "name",
             "required": false,
             "schema": {
-              "example": "MicroClub",
+              "example": "Micro Club",
               "maxLength": 255,
               "type": "string"
             }
@@ -8866,7 +8925,7 @@
         ]
       },
       "post": {
-        "description": "Registers a new Discord guild with MCDI (upsert by guild ID). Once registered, the server can be granted to projects and included in syncs.",
+        "description": "Registers a new Discord guild with MCID (upsert by guild ID). Once registered, the server can be granted to projects and included in syncs.",
         "operationId": "ServersController_register",
         "parameters": [],
         "requestBody": {

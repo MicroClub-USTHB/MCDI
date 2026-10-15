@@ -52,23 +52,23 @@ describe('ProjectAccessCacheService', () => {
   it('stores a project-server access entry and both index keys', async () => {
     const service = await buildService({
       'app.projectAccessCacheTtlMs': 30_000,
-      'redis.keyPrefix': 'mcdi',
+      'redis.keyPrefix': 'mcid',
     });
 
     await service.set(fakeContext());
 
     expect(mockRedisService.setJson).toHaveBeenCalledWith(
-      'mcdi:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-1:guild-1',
       fakeContext(),
       30_000,
     );
     expect(mockRedisService.sAdd).toHaveBeenCalledWith(
-      'mcdi:project-access:project:proj-1',
-      'mcdi:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:project:proj-1',
+      'mcid:project-access:entry:proj-1:guild-1',
     );
     expect(mockRedisService.sAdd).toHaveBeenCalledWith(
-      'mcdi:project-access:server:guild-1',
-      'mcdi:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:server:guild-1',
+      'mcid:project-access:entry:proj-1:guild-1',
     );
   });
 
@@ -83,59 +83,59 @@ describe('ProjectAccessCacheService', () => {
 
   it('invalidates all entries for a project', async () => {
     mockRedisService.sMembers.mockResolvedValue([
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:entry:proj-1:guild-2',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-1:guild-2',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await service.invalidateProject('proj-1');
 
     expect(mockRedisService.delete).toHaveBeenCalledWith(
-      'mcdi:project-access:project:proj-1',
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:entry:proj-1:guild-2',
+      'mcid:project-access:project:proj-1',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-1:guild-2',
     );
   });
 
   it('invalidates all entries for a server', async () => {
     mockRedisService.sMembers.mockResolvedValue([
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:entry:proj-2:guild-1',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-2:guild-1',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await service.invalidateServer('guild-1');
 
     expect(mockRedisService.delete).toHaveBeenCalledWith(
-      'mcdi:project-access:server:guild-1',
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:entry:proj-2:guild-1',
+      'mcid:project-access:server:guild-1',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-2:guild-1',
     );
   });
 
   it('clears all access-cache keys discovered by scan', async () => {
     mockRedisService.scanKeys.mockResolvedValue([
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:project:proj-1',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:project:proj-1',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await service.clear();
 
     expect(mockRedisService.delete).toHaveBeenCalledWith(
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:project:proj-1',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:project:proj-1',
     );
   });
 
   it('returns the number of access entries from size()', async () => {
     mockRedisService.scanKeys.mockResolvedValue([
-      'mcdi:project-access:entry:proj-1:guild-1',
-      'mcdi:project-access:entry:proj-2:guild-2',
-      'mcdi:project-access:entry:proj-3:guild-3',
+      'mcid:project-access:entry:proj-1:guild-1',
+      'mcid:project-access:entry:proj-2:guild-2',
+      'mcid:project-access:entry:proj-3:guild-3',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await expect(service.size()).resolves.toBe(3);
   });
 });

@@ -4,7 +4,8 @@
  * `Date.parse` is not a validator: V8 rolls `2026-02-31` over into March and
  * accepts strings like "1" or "March 7".
  */
-import { isISO8601, isRFC3339 } from 'class-validator';
+import isISO8601 from 'validator/lib/isISO8601';
+import isRFC3339 from 'validator/lib/isRFC3339';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

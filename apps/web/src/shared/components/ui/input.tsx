@@ -4,7 +4,7 @@ import { Search } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Input, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Input, restyled onto the MCID V2 tokens.
  *
  * Upstream uses `border-input` / `bg-input/30` / `selection:bg-primary` /
  * `dark:` variants, none of which exist here. Surface is `surface-main` per

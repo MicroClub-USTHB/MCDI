@@ -21,7 +21,7 @@ async function resetDatabase(): Promise<void> {
   const maintenanceUrl = connectionString.replace(/\/[^/?]+(\?.*)?$/, '/postgres');
   const pool = new Pool({ connectionString: maintenanceUrl, max: 1 });
   try {
-    const dbName = connectionString.match(/\/([^/?]+)(\?.*)?$/)?.[1] ?? 'mcdi_test';
+    const dbName = connectionString.match(/\/([^/?]+)(\?.*)?$/)?.[1] ?? 'mcid_test';
     console.log(`[migrate] resetting database "${dbName}"`);
     await pool.query(
       `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,

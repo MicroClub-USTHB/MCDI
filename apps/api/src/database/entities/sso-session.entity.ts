@@ -4,7 +4,7 @@ import { members } from './member.entity';
 /**
  * Global, browser-scoped SSO session shared across projects.
  *
- * The `mcdi_sso` httpOnly cookie carries the plaintext token; only the
+ * The `mcid_sso` httpOnly cookie carries the plaintext token; only the
  * SHA-256 hash is stored. Every project session created via SSO carries
  * the same `member_id`, which is how `/auth/sso/sessions` enumerates
  * "all project sessions under this SSO session".

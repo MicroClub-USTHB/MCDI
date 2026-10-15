@@ -25,9 +25,9 @@ export function createOpenApiDocument(
   serverUrl: string,
 ): OpenAPIObject {
   const config = new DocumentBuilder()
-    .setTitle('MCDI API')
+    .setTitle('MCID API')
     .setDescription(
-      'MicroClub Discord Identity API.\n\n' +
+      'Micro Club Identity API.\n\n' +
         '**MC Project endpoints** authenticate with `X-API-Key` header.\n\n' +
         '**Admin endpoints** authenticate with `Authorization: Bearer <token>`.\n\n' +
         'Scopes and operations are granted per project–server pair by a system administrator.',

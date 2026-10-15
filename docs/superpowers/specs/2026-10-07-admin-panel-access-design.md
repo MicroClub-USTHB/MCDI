@@ -34,7 +34,7 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 |---|---|
 | Scope | Both the permission-aware panel and the Access screen, as one spec delivered in three PRs |
 | Depth of gating | Sidebar, pages and actions |
-| Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcdi/contracts` |
+| Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcid/contracts` |
 | Where overrides are managed | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page, and opened in place from the Members tab of the Access screen (one new API endpoint marks who already has an override) |
 | Role editor layout | A role list and a one-role editor, with one Save per role |
 | Buttons below the member's level | Hidden, not disabled. A readable form that cannot be changed is shown read-only |
@@ -61,7 +61,7 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 - `ACCESS_RESOURCES`, `AccessResource`, `ACCESS_LEVELS`, `AccessLevel`, `GRANT_LEVELS`, `GrantLevel`
 - `levelAtLeast(effective, required)`, `isAccessResource`, `isAccessLevel`, `isGrantLevel`
 
-`apps/api/src/common/permissions/catalog.ts` imports these from `@mcdi/contracts` and re-exports them, and keeps `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`, which `GET /admin/access/catalog` serves to the panel. The contracts package stays dependency-free and compiled, as `CLAUDE.md` requires.
+`apps/api/src/common/permissions/catalog.ts` imports these from `@mcid/contracts` and re-exports them, and keeps `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`, which `GET /admin/access/catalog` serves to the panel. The contracts package stays dependency-free and compiled, as `CLAUDE.md` requires.
 
 The panel keeps friendly titles for the resources (for example `project_keys` is "Project API keys") in the `access` feature, and takes the descriptions from the catalog endpoint.
 
@@ -175,7 +175,7 @@ The panel audit (every hook of every page and component against the endpoint it 
 | Saving those sections | `settings:write`. With only `settings:read` the forms are read-only with a "Read only" badge and no Save button |
 | "Reset to defaults" button and its confirmation | `settings:manage` |
 | "Last changed" line in the header | `settings:read`, because the data comes from the same endpoint |
-| Header description | "Configure MCDI behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
+| Header description | "Configure MCID behavior and manage your admin profile." with `settings:read`, "Manage your admin profile." without |
 | Link to the inbound webhook settings (on the inbound webhooks page) | `inbound_webhooks:read`. The sub-page is gated as above |
 
 Today one loading and one error state cover the profile and the system settings together, so a member who cannot read settings would be stuck on skeletons or see "Settings could not be loaded". The page is restructured so each part has its own loading, error and empty state. A member with no `settings:read` simply sees the profile card, and the page does not mention what it hides.

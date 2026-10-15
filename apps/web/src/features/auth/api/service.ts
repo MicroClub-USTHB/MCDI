@@ -4,7 +4,7 @@ import type { ApiResponse } from '@/shared/types';
 import type { AdminProfileDto } from '@/features/auth/types';
 import { getSafeRedirectPath } from '@/features/auth/lib/safe-redirect';
 
-const REDIRECT_STORAGE_KEY = 'mcdi.auth.post-login-redirect';
+const REDIRECT_STORAGE_KEY = 'mcid.auth.post-login-redirect';
 
 /**
  * The URL that kicks off the Discord OAuth handshake. This is a full page

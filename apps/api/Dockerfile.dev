@@ -8,4 +8,4 @@ RUN corepack enable
 
 EXPOSE 3000
 
-CMD ["pnpm", "exec", "turbo", "run", "dev", "--filter=@mcdi/api", "--ui=stream"]
+CMD ["pnpm", "exec", "turbo", "run", "dev", "--filter=@mcid/api", "--ui=stream"]

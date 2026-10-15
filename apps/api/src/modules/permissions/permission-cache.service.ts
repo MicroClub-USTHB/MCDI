@@ -49,7 +49,7 @@ export class PermissionCacheService implements OnModuleInit {
     private readonly settings: SettingsService,
   ) {
     this.keyPrefix =
-      this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+      this.configService.get<string>('redis.keyPrefix') || 'mcid';
   }
 
   onModuleInit(): void {

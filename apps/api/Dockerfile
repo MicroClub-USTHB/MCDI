@@ -8,7 +8,7 @@ RUN corepack enable
 
 ENV TURBO_TELEMETRY_DISABLED=1
 
-# ── pruner: a minimal monorepo containing only @mcdi/api and the workspace
+# ── pruner: a minimal monorepo containing only @mcid/api and the workspace
 #    packages it depends on, with a matching lockfile ─────────────────────────
 FROM base AS pruner
 
@@ -17,7 +17,7 @@ RUN npm install -g turbo@${TURBO_VERSION}
 
 COPY . .
 
-RUN turbo prune @mcdi/api --docker
+RUN turbo prune @mcid/api --docker
 
 # ── builder: install (cached until a manifest changes), then build ───────────
 FROM base AS builder
@@ -28,7 +28,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY --from=pruner /usr/src/app/out/full/ .
 
-RUN pnpm turbo run build --filter=@mcdi/api
+RUN pnpm turbo run build --filter=@mcid/api
 
 # Generate a single, ordered, idempotent migration SQL file from the migration
 # set. Applied at runtime via psql (no drizzle-kit needed in the prod image).
@@ -39,11 +39,11 @@ RUN sh -c 'mkdir -p /migrations && : > /migrations/migration.sql \
          echo "" >> /migrations/migration.sql; \
        done'
 
-# ── pruned-deps: production node_modules for @mcdi/api only (workspace
-#    packages such as @mcdi/contracts are copied in, not symlinked) ───────────
+# ── pruned-deps: production node_modules for @mcid/api only (workspace
+#    packages such as @mcid/contracts are copied in, not symlinked) ───────────
 FROM builder AS deps
 
-RUN pnpm --filter=@mcdi/api deploy --legacy --prod /prod/api
+RUN pnpm --filter=@mcid/api deploy --legacy --prod /prod/api
 
 FROM node:24-alpine AS production
 

@@ -1,4 +1,4 @@
-import type { AdminProfile } from '@mcdi/contracts';
+import type { AdminProfile } from '@mcid/contracts';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, Length } from 'class-validator';
 

@@ -56,7 +56,7 @@ describe('post-login redirect handoff', () => {
 
   it('refuses an off-site path written straight into storage by something else', async () => {
     const { consumePostLoginRedirect } = await import('@/features/auth/api/service');
-    window.sessionStorage.setItem('mcdi.auth.post-login-redirect', '//evil.com');
+    window.sessionStorage.setItem('mcid.auth.post-login-redirect', '//evil.com');
 
     expect(consumePostLoginRedirect()).toBe('/dashboard');
   });
@@ -76,7 +76,7 @@ describe('fetchCurrentAdmin', () => {
           globalName: null,
           displayName: 'Prez',
           avatar: null,
-          email: 'admin@mcdi.dev',
+          email: 'admin@mcid.dev',
           isSystemAdmin: true,
           sessionExpiresAt: '2026-08-07T10:00:00.000Z',
           root: true,

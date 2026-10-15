@@ -9,7 +9,7 @@
 <rect x="178" y="20" width="104" height="40" rx="8" fill="#e1f5ee" stroke="#0f6e56" stroke-width="0.5"/>
 <text x="230" y="40" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#085041">Project</text>
 <rect x="340" y="20" width="100" height="40" rx="8" fill="#eeedfe" stroke="#534ab7" stroke-width="0.5"/>
-<text x="390" y="40" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#3c3489">MCDI</text>
+<text x="390" y="40" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#3c3489">MCID</text>
 <rect x="494" y="20" width="116" height="40" rx="8" fill="#e6f1fb" stroke="#185fa5" stroke-width="0.5"/>
 <text x="552" y="40" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#0c447c">Discord</text>
 <line x1="70"  y1="60" x2="70"  y2="510" stroke="#d3d1c7" stroke-width="0.5" stroke-dasharray="4 3"/>

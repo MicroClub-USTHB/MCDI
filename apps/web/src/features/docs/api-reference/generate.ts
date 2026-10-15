@@ -207,7 +207,7 @@ const SOURCE = 'Source: `apps/api/openapi.json`.';
 
 const INTRO: Record<Audience, string> = {
   project:
-    "These endpoints are for the backends and browsers of MicroClub projects. A backend call carries the project's API key in the `X-API-Key` header, and the login endpoints are public because they start a member's sign-in. A few endpoints act on a member's own session and take that member's session token as a Bearer token instead. What a project can do is limited to the servers and operations an administrator granted it.\n\nThe endpoints the admin dashboard uses are in the [Admin API](/docs/api-reference/admin/overview).",
+    "These endpoints are for the backends and browsers of Micro Club projects. A backend call carries the project's API key in the `X-API-Key` header, and the login endpoints are public because they start a member's sign-in. A few endpoints act on a member's own session and take that member's session token as a Bearer token instead. What a project can do is limited to the servers and operations an administrator granted it.\n\nThe endpoints the admin dashboard uses are in the [Admin API](/docs/api-reference/admin/overview).",
   admin:
     'These endpoints serve the admin dashboard and are not meant for projects. They need an admin session, a system administrator signed in with Discord. The dashboard sends the session as a cookie; in Swagger you give it as a Bearer token.\n\nThe endpoints for projects are in the [Project API](/docs/api-reference/project/overview).',
 };

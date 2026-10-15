@@ -1,6 +1,6 @@
-# MCDI - Current Database Architecture
+# MCID - Current Database Architecture
 
-> **Historical design record.** This file is the database as it was at the MVP. Tables have been added since, so read the entities in `apps/api/src/database/entities` for the current schema. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+> **Historical design record.** This file is the database as it was at the MVP. Tables have been added since, so read the entities in `apps/api/src/database/entities` for the current schema. It is kept for the reasoning behind past decisions and is no longer updated. For how MCID behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
 
 
 > This document describes the database shape used by the current backend implementation.
@@ -11,7 +11,7 @@
 
 ## 1. Overview
 
-MCDI uses PostgreSQL as the primary source of truth for:
+MCID uses PostgreSQL as the primary source of truth for:
 
 - projects and API keys
 - Discord servers and synchronized members
@@ -65,7 +65,7 @@ erDiagram
 
 #### `projects`
 
-Stores every integrated MicroClub project.
+Stores every integrated Micro Club project.
 
 Key columns:
 
@@ -264,7 +264,7 @@ Key columns:
 
 #### `oauth_states`
 
-Stores MCDI-generated Discord OAuth states for project login.
+Stores MCID-generated Discord OAuth states for project login.
 
 Key columns:
 

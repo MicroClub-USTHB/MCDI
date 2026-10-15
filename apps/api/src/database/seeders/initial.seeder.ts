@@ -278,7 +278,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       .replace(/[^a-z0-9]+/g, '')
       .slice(0, 20);
     return {
-      apiKeyPrefix: `mcdi_pk_seed_${slug}`,
+      apiKeyPrefix: `mcid_pk_seed_${slug}`,
       apiKeyHash: createHash('sha256').update(`seed:${label}`).digest('hex'),
     };
   };
@@ -306,7 +306,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   const seededServers: (typeof schema.servers.$inferInsert)[] = [
     {
       id: MAIN_SERVER_ID,
-      name: 'MicroClub Official',
+      name: 'Micro Club Official',
       icon: null,
       isMain: true,
       type: 'official',
@@ -318,7 +318,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
     },
     {
       id: COMPETITION_SERVER_ID,
-      name: 'MicroClub Competitions',
+      name: 'Micro Club Competitions',
       icon: null,
       isMain: false,
       type: 'competition',
@@ -767,7 +767,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
   console.log('Seeding projects...');
   const internalProject: ProjectInsert = {
     id: INTERNAL_PROJECT_ID,
-    name: 'MicroClub Events',
+    name: 'Micro Club Events',
     description: 'Internal events management platform',
     isInternal: true,
     isActive: true,
@@ -789,13 +789,13 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
 
   const publicProject: ProjectInsert = {
     id: PUBLIC_PROJECT_ID,
-    name: 'MCDI Dashboard',
-    description: 'Public dashboard for MicroClub',
+    name: 'MCID Dashboard',
+    description: 'Public dashboard for Micro Club',
     isInternal: false,
     isActive: true,
     webhookUrl: 'https://example.com/webhooks/public-dashboard',
     redirectUri: 'http://localhost:3001/auth/callback',
-    ...buildSeededApiKey('mcdi-dashboard'),
+    ...buildSeededApiKey('mcid-dashboard'),
   };
 
   const testProject: ProjectInsert = {
@@ -1017,7 +1017,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
       // No project: admin routes only accept admin-login sessions
       projectId: null,
       serverId: MAIN_SERVER_ID,
-      token: hashSessionToken('mcdi_seed_admin_session_token'),
+      token: hashSessionToken('mcid_seed_admin_session_token'),
       expiresAt: new Date('2099-01-01T00:00:00.000Z'),
     })
     .onConflictDoUpdate({
@@ -1026,7 +1026,7 @@ export async function initialSeeder(db: NodePgDatabase<typeof schema>) {
         memberId: SYSTEM_ADMIN_ID,
         projectId: null,
         serverId: MAIN_SERVER_ID,
-        token: hashSessionToken('mcdi_seed_admin_session_token'),
+        token: hashSessionToken('mcid_seed_admin_session_token'),
         expiresAt: new Date('2099-01-01T00:00:00.000Z'),
       },
     });

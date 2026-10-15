@@ -41,7 +41,7 @@ export class StatsService {
     private readonly settings: SettingsService,
   ) {
     this.keyPrefix =
-      this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+      this.configService.get<string>('redis.keyPrefix') || 'mcid';
 
     // Mirror PermissionCacheService: a shortened stats TTL doesn't re-expire
     // entries already cached, so flush the stats namespace on a decrease.

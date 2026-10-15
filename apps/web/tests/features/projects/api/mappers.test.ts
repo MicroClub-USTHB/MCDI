@@ -12,10 +12,10 @@ describe('mapProjectResponse', () => {
     const dto: ProjectDto = {
       id: 'proj_1',
       name: 'Website',
-      description: 'The MicroClub website',
+      description: 'The Micro Club website',
       isInternal: true,
       webhookUrl: null,
-      apiKeyPrefix: 'mcdi_abc123',
+      apiKeyPrefix: 'mcid_abc123',
       apiKeyCreatedAt: '2026-08-01T10:00:00.000Z',
       apiKeyLastUsedAt: '2026-08-15T09:30:00.000Z',
       isActive: true,
@@ -29,7 +29,7 @@ describe('mapProjectResponse', () => {
     expect(view.name).toBe('Website');
     expect(view.isInternal).toBe(true);
     expect(view.isActive).toBe(true);
-    expect(view.apiKeyPrefix).toBe('mcdi_abc123');
+    expect(view.apiKeyPrefix).toBe('mcid_abc123');
     expect(view.lastUsedLabel).not.toBeNull();
     expect(view.createdAtLabel).not.toBe('Never');
   });
@@ -77,7 +77,7 @@ describe('mapApiKeyResponse', () => {
     const dto: ApiKeyInfoDto = {
       projectId: 'proj_1',
       projectName: 'Website',
-      apiKeyPrefix: 'mcdi_abc123',
+      apiKeyPrefix: 'mcid_abc123',
       apiKeyCreatedAt: '2026-08-01T10:00:00.000Z',
       apiKeyLastUsedAt: null,
       isActive: true,
@@ -85,7 +85,7 @@ describe('mapApiKeyResponse', () => {
 
     const view = mapApiKeyResponse(dto);
 
-    expect(view.prefix).toBe('mcdi_abc123');
+    expect(view.prefix).toBe('mcid_abc123');
     expect(view.lastUsedLabel).toBeNull();
     expect(view.isActive).toBe(true);
     expect(view.projectName).toBe('Website');
@@ -122,6 +122,63 @@ describe('toCreateProjectDto', () => {
 
     expect(dto.serverAccess).toBeUndefined();
     expect(dto.isInternal).toBeUndefined();
+  });
+
+  it('maps inboundWebhook when enabled with valid name and schema', () => {
+    const schema = { version: 1, fields: [] };
+    const dto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: true,
+        name: '  Contact Form  ',
+        slug: 'contact-form',
+        schema,
+        origins: 'https://microclub.dz\nhttps://sub.microclub.dz',
+      },
+    });
+
+    expect(dto.inboundWebhook).toEqual({
+      name: 'Contact Form',
+      slug: 'contact-form',
+      schema,
+      acceptedOrigins: ['https://microclub.dz', 'https://sub.microclub.dz'],
+    });
+  });
+
+  it('omits inboundWebhook when disabled or when name is whitespace', () => {
+    const schema = { version: 1, fields: [] };
+    const disabledDto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: false,
+        name: 'Contact Form',
+        slug: 'contact-form',
+        schema,
+      },
+    });
+    expect(disabledDto.inboundWebhook).toBeUndefined();
+
+    const emptyNameDto = toCreateProjectDto({
+      name: 'Website',
+      description: '',
+      isInternal: false,
+      scopes: ['read_members'],
+      serverIds: [],
+      inboundWebhook: {
+        enabled: true,
+        name: '   ',
+        schema,
+      },
+    });
+    expect(emptyNameDto.inboundWebhook).toBeUndefined();
   });
 });
 

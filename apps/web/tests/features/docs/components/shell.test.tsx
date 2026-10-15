@@ -11,11 +11,11 @@ import { API_REFERENCE_HREF } from '@/features/docs/links';
 import type { DocHeadingInfo } from '@/features/docs/headings';
 import { allDocPages } from '@/features/docs/nav';
 
-const nav = vi.hoisted(() => ({ pathname: '/docs/start-here/what-is-mcdi' }));
+const nav = vi.hoisted(() => ({ pathname: '/docs/start-here/what-is-mcid' }));
 vi.mock('next/navigation', () => ({ usePathname: () => nav.pathname }));
 
 beforeEach(() => {
-  nav.pathname = '/docs/start-here/what-is-mcdi';
+  nav.pathname = '/docs/start-here/what-is-mcid';
 });
 
 describe('DocsSidebar', () => {
@@ -29,7 +29,7 @@ describe('DocsSidebar', () => {
       expect(link, page.slug).toBeDefined();
     }
     expect(screen.getByText('Start here')).toBeInTheDocument();
-    expect(screen.getByText('Build MCDI')).toBeInTheDocument();
+    expect(screen.getByText('Build MCID')).toBeInTheDocument();
   });
 
   it('marks the page you are on', () => {
@@ -40,7 +40,7 @@ describe('DocsSidebar', () => {
       'aria-current',
       'page'
     );
-    expect(screen.getByRole('link', { name: 'What is MCDI' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('link', { name: 'What is MCID' })).not.toHaveAttribute('aria-current');
   });
 
   it('tells its parent when a link is followed, so a drawer can close', async () => {
@@ -62,7 +62,7 @@ describe('DocsShell', () => {
     );
     const bar = within(screen.getByRole('banner'));
 
-    expect(bar.getByRole('link', { name: /MCDI/ })).toHaveAttribute('href', '/');
+    expect(bar.getByRole('link', { name: /MCID/ })).toHaveAttribute('href', '/');
     expect(bar.getByRole('link', { name: 'API reference' })).toHaveAttribute(
       'href',
       API_REFERENCE_HREF
@@ -138,7 +138,7 @@ describe('DocPageHeader', () => {
 
     const crumbs = within(screen.getByRole('navigation', { name: 'Breadcrumb' }));
     expect(crumbs.getByRole('link', { name: 'Docs' })).toHaveAttribute('href', '/docs');
-    expect(crumbs.getByText('Build MCDI')).toBeInTheDocument();
+    expect(crumbs.getByText('Build MCID')).toBeInTheDocument();
     expect(crumbs.getByText('Contributing')).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('heading', { level: 1, name: 'Contributing' })).toBeInTheDocument();
     expect(screen.getByText(/issues, branches, pull requests/)).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe('DocPager', () => {
   });
 
   it('has nothing before the first page', () => {
-    render(<DocPager slug="start-here/what-is-mcdi" />);
+    render(<DocPager slug="start-here/what-is-mcid" />);
 
     expect(screen.queryByRole('link', { name: /Previous/ })).toBeNull();
     expect(screen.getByRole('link', { name: /Next/ })).toBeInTheDocument();

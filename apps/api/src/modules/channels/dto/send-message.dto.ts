@@ -17,7 +17,7 @@ export class SendMessageDto {
     description:
       'Message content (max 2000 chars, optional if embeds provided)',
     maxLength: 2000,
-    example: 'Hello from MCDI!',
+    example: 'Hello from MCID!',
   })
   @IsOptional()
   @IsString()

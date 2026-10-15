@@ -57,6 +57,13 @@
       "when": 1791501437242,
       "tag": "0007_admin_cli_login",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791511412108,
+      "tag": "0008_single_main_server",
+      "breakpoints": true
     }
   ]
 }

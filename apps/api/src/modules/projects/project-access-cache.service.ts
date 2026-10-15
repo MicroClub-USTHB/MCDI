@@ -32,7 +32,7 @@ export class ProjectAccessCacheService {
     this.ttlMs =
       this.configService.get<number>('app.projectAccessCacheTtlMs') || 30_000;
     this.keyPrefix =
-      this.configService.get<string>('redis.keyPrefix') || 'mcdi';
+      this.configService.get<string>('redis.keyPrefix') || 'mcid';
   }
 
   async get(

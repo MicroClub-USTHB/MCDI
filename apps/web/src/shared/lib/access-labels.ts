@@ -1,4 +1,4 @@
-import type { AccessResource } from '@mcdi/contracts';
+import type { AccessResource } from '@mcid/contracts';
 
 import type { Requirement } from '@/shared/lib/access';
 

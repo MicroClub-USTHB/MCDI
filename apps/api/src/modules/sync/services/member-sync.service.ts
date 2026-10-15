@@ -21,7 +21,7 @@ export class MemberSyncService {
 
   /**
    * Real-time gateway events fire for every guild the bot is in, including
-   * guilds that were never registered in MCDI. Writing `server_members` for one
+   * guilds that were never registered in MCID. Writing `server_members` for one
    * of those fails the `server_id` foreign key — and `ON CONFLICT DO NOTHING`
    * does not cover FK violations — so unregistered guilds are skipped outright.
    * The bulk `syncAllMembers` path is unaffected: it only runs for servers

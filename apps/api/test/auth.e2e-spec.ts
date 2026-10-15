@@ -101,7 +101,7 @@ describeIf('/api/auth (e2e)', () => {
       expect(res.headers.location).toBe('/api/auth/discord');
       expect(res.headers['set-cookie']).toBeDefined();
       const cookie = (res.headers['set-cookie'] as unknown as string[]).find(
-        (c: string) => c.startsWith('mcdi_auth_req='),
+        (c: string) => c.startsWith('mcid_auth_req='),
       );
       expect(cookie).toBeDefined();
       expect(cookie).toContain('HttpOnly');
@@ -658,7 +658,7 @@ describeIf('/api/auth (e2e)', () => {
 
       const cookies = authorizeRes.headers['set-cookie'] as unknown as string[];
       const authCookie = cookies.find((c: string) =>
-        c.startsWith('mcdi_auth_req='),
+        c.startsWith('mcid_auth_req='),
       )!;
 
       // Step 2: GET /auth/discord with cookie → redirects to Discord OAuth URL
@@ -763,7 +763,7 @@ describeIf('/api/auth (e2e)', () => {
 
         const res = await request(app.getHttpServer())
           .get('/api/auth/sso/session')
-          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .set('Cookie', [`mcid_sso=${rawToken}`])
           .expect(200);
 
         expect(res.body).toMatchObject({
@@ -780,13 +780,13 @@ describeIf('/api/auth (e2e)', () => {
       it('clears a stale cookie and reports unauthenticated', async () => {
         const res = await request(app.getHttpServer())
           .get('/api/auth/sso/session')
-          .set('Cookie', ['mcdi_sso=stale-token'])
+          .set('Cookie', ['mcid_sso=stale-token'])
           .expect(401);
 
         const setCookie = (res.headers['set-cookie'] as unknown as string[])
           ?.join(';')
           .toLowerCase();
-        expect(setCookie).toContain('mcdi_sso=');
+        expect(setCookie).toContain('mcid_sso=');
         expect(setCookie).toContain('expires=');
       });
     });
@@ -808,7 +808,7 @@ describeIf('/api/auth (e2e)', () => {
             server_id: serverId,
             state: 'csrf-sso',
           })
-          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .set('Cookie', [`mcid_sso=${rawToken}`])
           .expect(302);
 
         // Lands directly on the platform's redirect_uri carrying ?code=&state=,
@@ -839,7 +839,7 @@ describeIf('/api/auth (e2e)', () => {
         // Same handoff as the existing /auth/authorize flow.
         expect(res.headers.location).toBe('/api/auth/discord');
         const cookie = (res.headers['set-cookie'] as unknown as string[]).find(
-          (c) => c.startsWith('mcdi_auth_req='),
+          (c) => c.startsWith('mcid_auth_req='),
         );
         expect(cookie).toBeDefined();
       });
@@ -865,7 +865,7 @@ describeIf('/api/auth (e2e)', () => {
 
         const res = await request(app.getHttpServer())
           .get('/api/auth/sso/sessions')
-          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .set('Cookie', [`mcid_sso=${rawToken}`])
           .expect(200);
 
         expect(Array.isArray(res.body.sessions)).toBe(true);
@@ -910,13 +910,13 @@ describeIf('/api/auth (e2e)', () => {
 
         const res = await request(app.getHttpServer())
           .post('/api/auth/sso/logout')
-          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .set('Cookie', [`mcid_sso=${rawToken}`])
           .expect(204);
 
         const setCookie = (res.headers['set-cookie'] as unknown as string[])
           ?.join(';')
           .toLowerCase();
-        expect(setCookie).toContain('mcdi_sso=');
+        expect(setCookie).toContain('mcid_sso=');
 
         // SSO row is gone
         const remainingSso = await db
@@ -935,7 +935,7 @@ describeIf('/api/auth (e2e)', () => {
         // The SSO endpoint now rejects the same cookie
         await request(app.getHttpServer())
           .get('/api/auth/sso/session')
-          .set('Cookie', [`mcdi_sso=${rawToken}`])
+          .set('Cookie', [`mcid_sso=${rawToken}`])
           .expect(401);
       });
 

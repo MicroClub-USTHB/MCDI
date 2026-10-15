@@ -17,7 +17,7 @@ export function NoAccessYet() {
     <EmptyState
       icon={ShieldOff}
       title="No access yet"
-      description={`${name ? `You are signed in as ${name}, but you` : 'You'} have not been given access to any part of MCDI. Ask an admin to grant your role access to what you need.`}
+      description={`${name ? `You are signed in as ${name}, but you` : 'You'} have not been given access to any part of MCID. Ask an admin to grant your role access to what you need.`}
       action={
         <Button variant="secondary" size="sm" asChild>
           <Link href="/dashboard/settings">Open Settings</Link>

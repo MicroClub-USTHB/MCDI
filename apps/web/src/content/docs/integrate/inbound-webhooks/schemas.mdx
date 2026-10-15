@@ -104,7 +104,7 @@ A `key` starts with a letter or underscore, continues with letters, digits and u
 
 Notes on a few types:
 
-- **`string`** applies `trim` before checking lengths and the `pattern`. A `pattern` is a regular expression of at most 200 characters, and MCDI stops evaluating one that takes longer than 50 ms.
+- **`string`** applies `trim` before checking lengths and the `pattern`. A `pattern` is a regular expression of at most 200 characters, and MCID stops evaluating one that takes longer than 50 ms.
 - **`email`** has a practical format check and a maximum of 254 characters. With `allowedDomains`, other domains give `DOMAIN_NOT_ALLOWED`.
 - **`phone`** accepts an optional leading `+` then 6 to 20 digits, spaces, brackets and hyphens.
 - **`date`** is `YYYY-MM-DD`. **`datetime`** is ISO 8601 and must include a timezone, for example `2026-01-31T09:00:00Z`.
@@ -241,4 +241,4 @@ The codes you are most likely to see are `MISSING_REQUIRED_FLAG`, `MISSING_MAX_I
 
 The tables on this page come straight from the shared contracts package that the admin editor also uses, so they list exactly the types and properties the editor offers. The API's validator is the final authority.
 
-Source: `packages/contracts/src/inbound-webhooks.ts`, `apps/api/src/modules/inbound-webhooks/schema/schema.validator.ts`, `apps/api/src/modules/inbound-webhooks/schema/payload.validator.ts`, `apps/api/src/modules/inbound-webhooks/schema/form-schema.types.ts`, `apps/api/src/modules/inbound-webhooks/schema/condition.evaluator.ts`.
+Source: `packages/contracts/src/inbound-webhooks.ts`, `packages/form-schema/src/schema.validator.ts`, `apps/api/src/modules/inbound-webhooks/schema/payload.validator.ts`, `packages/form-schema/src/form-schema.types.ts`, `packages/form-schema/src/condition.evaluator.ts`.

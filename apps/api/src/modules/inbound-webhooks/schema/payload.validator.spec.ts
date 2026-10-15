@@ -1,5 +1,5 @@
 import { validatePayload, FileMeta } from './payload.validator';
-import type { Field, FormSchema } from './form-schema.types';
+import type { Field, FormSchema } from '@mcid/form-schema';
 
 const opts = { rejectUnknownFields: true };
 

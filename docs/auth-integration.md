@@ -1,8 +1,8 @@
-# MCDI Auth Integration Guide
+# MCID Auth Integration Guide
 
-> **Note:** The maintained version of this guide is in the developer docs, at [Login with MicroClub](/docs/integrate/sso) (`apps/web/src/content/docs/integrate/sso.mdx`). It was checked against the code and its examples were run. This file is kept as the original record and is no longer updated.
+> **Note:** The maintained version of this guide is in the developer docs, at [Login with Micro Club](/docs/integrate/sso) (`apps/web/src/content/docs/integrate/sso.mdx`). It was checked against the code and its examples were run. This file is kept as the original record and is no longer updated.
 
-This is the integrator-facing reference for platforms that want to use MCDI as their identity provider. There are **two ways** to start a login. They share the same callback, the same token exchange, and the same session API — the only thing that differs is the entry point.
+This is the integrator-facing reference for platforms that want to use MCID as their identity provider. There are **two ways** to start a login. They share the same callback, the same token exchange, and the same session API — the only thing that differs is the entry point.
 
 > **TL;DR**
 > - **Default login button → `GET /api/auth/sso/authorize`** (SSO-aware; returning users skip Discord)
@@ -15,7 +15,7 @@ This is the integrator-facing reference for platforms that want to use MCDI as t
 
 | If you want… | Use | Why |
 |---|---|---|
-| The standard "Login with MicroClub" button | `GET /api/auth/sso/authorize` | First login goes through Discord; later logins on **any** MCDI project skip it. |
+| The standard "Login with Micro Club" button | `GET /api/auth/sso/authorize` | First login goes through Discord; later logins on **any** MCID project skip it. |
 | To force the user to re-prove their Discord identity (admin action, payment change, role-sensitive operation) | `GET /api/auth/authorize` | Always bounces through the Discord consent screen even if a global SSO cookie is present. |
 | To stay compatible with an existing integration | `GET /api/auth/authorize` | Pre-SSO behavior, unchanged. No migration required. |
 
@@ -27,7 +27,7 @@ Both entry points feed the **same callback** (`GET /api/auth/discord/callback`),
 
 ```
 ┌──────────┐          ┌──────┐         ┌─────────┐         ┌──────────┐
-│ Browser  │          │ MCDI │         │ Discord │         │ Platform │
+│ Browser  │          │ MCID │         │ Discord │         │ Platform │
 └────┬─────┘          └──┬───┘         └────┬────┘         └────┬─────┘
      │  Click "Login"    │                  │                   │
      │ ──────────────────┼──────────────────┼──────────────────►│
@@ -35,7 +35,7 @@ Both entry points feed the **same callback** (`GET /api/auth/discord/callback`),
      │   302 to /api/auth/sso/authorize?... │                   │
      │◄──────────────────┼──────────────────┼───────────────────│
      │                   │                  │                   │
-     │  GET /sso/authorize (carries mcdi_sso cookie if any)     │
+     │  GET /sso/authorize (carries mcid_sso cookie if any)     │
      │ ─────────────────►│                  │                   │
      │                   │ ──── cookie valid? ─── YES ────────► │
      │                   │                  │                   │
@@ -47,7 +47,7 @@ Both entry points feed the **same callback** (`GET /api/auth/discord/callback`),
      │                   │ ───────────────► │                   │
      │                   │   Discord OAuth  │                   │
      │                   │◄─────────────────│                   │
-     │                   │ set mcdi_sso cookie                  │
+     │                   │ set mcid_sso cookie                  │
      │◄──────────────────│                  │                   │
      │   ?code=&state= (to platform redirect_uri)               │
      │                   │                  │                   │
@@ -68,11 +68,11 @@ const params = new URLSearchParams({
   server_id: '900000000000000001',
   state: crypto.randomUUID(), // CSRF — store and verify on callback
 });
-window.location.href = `https://mcdi.example.com/api/auth/sso/authorize?${params}`;
+window.location.href = `https://mcid.example.com/api/auth/sso/authorize?${params}`;
 ```
 
 **Result:**
-- **First-ever login:** bounces through Discord, sets `mcdi_sso` httpOnly cookie, redirects to your `redirect_uri` with `?code=&state=`.
+- **First-ever login:** bounces through Discord, sets `mcid_sso` httpOnly cookie, redirects to your `redirect_uri` with `?code=&state=`.
 - **Subsequent logins from the same browser, on any project:** no Discord screen — instant redirect with a fresh `?code=&state=`.
 
 ---
@@ -81,7 +81,7 @@ window.location.href = `https://mcdi.example.com/api/auth/sso/authorize?${params
 
 ```
 ┌──────────┐                ┌──────┐         ┌─────────┐
-│ Browser  │                │ MCDI │         │ Discord │
+│ Browser  │                │ MCID │         │ Discord │
 └────┬─────┘                └──┬───┘         └────┬────┘
      │  GET /api/auth/authorize │                  │
      │ ────────────────────────►│                  │
@@ -96,7 +96,7 @@ window.location.href = `https://mcdi.example.com/api/auth/sso/authorize?${params
 **Frontend:**
 
 ```ts
-window.location.href = `https://mcdi.example.com/api/auth/authorize?${params}`;
+window.location.href = `https://mcid.example.com/api/auth/authorize?${params}`;
 // Same params as Flow A.
 ```
 
@@ -104,7 +104,7 @@ window.location.href = `https://mcdi.example.com/api/auth/authorize?${params}`;
 - The action being protected requires fresh proof of identity (admin operations, sensitive account changes).
 - You're integrating a platform that pre-dates SSO and you don't want to change behavior.
 
-The Discord callback still mints an `mcdi_sso` cookie after a successful login, so a user who entered via `/authorize` will still benefit from SSO on their **next** login if it uses `/sso/authorize`. Going through `/authorize` doesn't disable SSO — it just refuses to consume an existing cookie.
+The Discord callback still mints an `mcid_sso` cookie after a successful login, so a user who entered via `/authorize` will still benefit from SSO on their **next** login if it uses `/sso/authorize`. Going through `/authorize` doesn't disable SSO — it just refuses to consume an existing cookie.
 
 ---
 
@@ -115,11 +115,11 @@ The rest of the integration is the same regardless of entry point.
 ### 1. Exchange the code (backend only — uses `X-API-Key`)
 
 ```ts
-const res = await fetch('https://mcdi.example.com/api/auth/token', {
+const res = await fetch('https://mcid.example.com/api/auth/token', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'X-API-Key': process.env.MCDI_API_KEY, // never expose to the browser
+    'X-API-Key': process.env.MCID_API_KEY, // never expose to the browser
   },
   body: JSON.stringify({
     clientId: PROJECT_ID,
@@ -133,9 +133,9 @@ const { token, refreshToken, expiresAt, member, roles } = await res.json();
 ### 2. Validate a session on each protected request
 
 ```ts
-await fetch('https://mcdi.example.com/api/auth/validate', {
+await fetch('https://mcid.example.com/api/auth/validate', {
   method: 'POST',
-  headers: { 'X-API-Key': MCDI_API_KEY, 'Content-Type': 'application/json' },
+  headers: { 'X-API-Key': MCID_API_KEY, 'Content-Type': 'application/json' },
   body: JSON.stringify({ token }),
 });
 // 200 → { member, roles } (roles fetched live, always current)
@@ -145,7 +145,7 @@ await fetch('https://mcdi.example.com/api/auth/validate', {
 ### 3. Refresh before expiry
 
 ```ts
-await fetch('https://mcdi.example.com/api/auth/token/refresh', {
+await fetch('https://mcid.example.com/api/auth/token/refresh', {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${token}`, // still-valid access token
@@ -160,9 +160,9 @@ await fetch('https://mcdi.example.com/api/auth/token/refresh', {
 
 ```ts
 // Project-scoped logout (kills only this platform's session)
-await fetch('https://mcdi.example.com/api/auth/logout', {
+await fetch('https://mcid.example.com/api/auth/logout', {
   method: 'POST',
-  headers: { 'X-API-Key': MCDI_API_KEY, 'Content-Type': 'application/json' },
+  headers: { 'X-API-Key': MCID_API_KEY, 'Content-Type': 'application/json' },
   body: JSON.stringify({ token }),
 });
 ```
@@ -171,12 +171,12 @@ await fetch('https://mcdi.example.com/api/auth/logout', {
 
 ## SSO-only browser endpoints
 
-These have no legacy equivalent — they only exist for SSO-aware UX. All four read the `mcdi_sso` cookie directly; you don't pass the session token or API key.
+These have no legacy equivalent — they only exist for SSO-aware UX. All four read the `mcid_sso` cookie directly; you don't pass the session token or API key.
 
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/auth/sso/session` | "Am I logged in?" — returns the member if the cookie is valid, `401 { authenticated: false }` otherwise. Useful for a shared header that says "Hi, Alice". |
-| `GET /api/auth/sso/sessions` | Lists every project session under the current SSO cookie (project name + when it was created + expiry). Powers a "Signed in to: MCDI Admin, Forum, Wiki" UI. |
+| `GET /api/auth/sso/sessions` | Lists every project session under the current SSO cookie (project name + when it was created + expiry). Powers a "Signed in to: MCID Admin, Forum, Wiki" UI. |
 | `POST /api/auth/sso/logout` | "Log me out everywhere." Destroys the SSO row and **every** project session for the member in one transaction, then clears the cookie. |
 
 These are called directly from the browser with `credentials: 'include'`.
@@ -187,7 +187,7 @@ These are called directly from the browser with `credentials: 'include'`.
 
 | Endpoint | Auth | Used by | Flow |
 |---|---|---|---|
-| `GET  /api/auth/sso/authorize` | `mcdi_sso` cookie (optional) | browser | SSO-aware login (skip Discord if cookie valid) |
+| `GET  /api/auth/sso/authorize` | `mcid_sso` cookie (optional) | browser | SSO-aware login (skip Discord if cookie valid) |
 | `GET  /api/auth/authorize`     | none                         | browser | Legacy / force re-auth (always Discord) |
 | `GET  /api/auth/discord/callback` | —                         | Discord | Internal — both flows land here |
 | `POST /api/auth/token`         | `X-API-Key`                  | platform backend | Exchange one-time code for session |
@@ -195,17 +195,17 @@ These are called directly from the browser with `credentials: 'include'`.
 | `POST /api/auth/validate`      | `X-API-Key`                  | platform backend | Verify token, get live roles |
 | `POST /api/auth/logout`        | `X-API-Key`                  | platform backend | Kill one project session |
 | `POST /api/auth/logout-all`    | `X-API-Key`                  | platform backend | Kill all of a member's sessions on this project |
-| `GET  /api/auth/sso/session`   | `mcdi_sso` cookie            | browser | "Am I logged in?" |
-| `GET  /api/auth/sso/sessions`  | `mcdi_sso` cookie            | browser | List all project sessions under this SSO |
-| `POST /api/auth/sso/logout`    | `mcdi_sso` cookie            | browser | Log out from every project at once |
+| `GET  /api/auth/sso/session`   | `mcid_sso` cookie            | browser | "Am I logged in?" |
+| `GET  /api/auth/sso/sessions`  | `mcid_sso` cookie            | browser | List all project sessions under this SSO |
+| `POST /api/auth/sso/logout`    | `mcid_sso` cookie            | browser | Log out from every project at once |
 
 ---
 
 ## Rules to keep in mind
 
 - **`X-API-Key` is backend-only.** Anything that runs in the browser uses the session token (Bearer) or the SSO cookie.
-- **`redirect_uri` must be whitelisted on your project.** MCDI refuses to redirect to anything else, even on errors.
-- **`state` is your CSRF token.** Set it on the authorize call, verify it on the callback. MCDI passes it through unchanged.
+- **`redirect_uri` must be whitelisted on your project.** MCID refuses to redirect to anything else, even on errors.
+- **`state` is your CSRF token.** Set it on the authorize call, verify it on the callback. MCID passes it through unchanged.
 - **Tokens are stored as SHA-256 hashes only.** A DB dump alone doesn't yield usable tokens.
 - **Project sessions are isolated.** A token issued for Platform A is rejected by Platform B's `validate` call, even though they share the same SSO session.
 - **Roles are fetched live on `validate`.** A revoked Discord role takes effect on the next validate call, not at session creation.

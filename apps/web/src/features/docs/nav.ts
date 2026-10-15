@@ -23,38 +23,38 @@ export type DocEntry = DocPage & { section: string };
 export const DOCS_NAV: DocSection[] = [
   {
     title: 'Start here',
-    description: 'What MCDI is and the few concepts everything else builds on.',
+    description: 'What MCID is and the few concepts everything else builds on.',
     pages: [
       {
-        slug: 'start-here/what-is-mcdi',
-        title: 'What is MCDI',
+        slug: 'start-here/what-is-mcid',
+        title: 'What is MCID',
         description:
-          'The idea behind MCDI and the handful of concepts, projects, servers, roles, sync and webhooks, that everything else builds on.',
+          'The idea behind MCID and the handful of concepts, projects, servers, roles, sync and webhooks, that everything else builds on.',
       },
       {
         slug: 'start-here/quickstart',
         title: 'Quickstart',
         description:
-          'Go from nothing to a first successful call to the MCDI API with a project key, and learn what a 401 or a 403 means.',
+          'Go from nothing to a first successful call to the MCID API with a project key, and learn what a 401 or a 403 means.',
       },
     ],
   },
   {
-    title: 'Build MCDI',
+    title: 'Build MCID',
     description:
-      'For people who work on MCDI itself: how to contribute and how these docs are written.',
+      'For people who work on MCID itself: how to contribute and how these docs are written.',
     pages: [
       {
         slug: 'build/architecture',
         title: 'Architecture',
         description:
-          'How MCDI fits together: the repository, a request through the API, how callers authenticate, where data lives and how Discord stays in sync.',
+          'How MCID fits together: the repository, a request through the API, how callers authenticate, where data lives and how Discord stays in sync.',
       },
       {
         slug: 'build/local-setup',
         title: 'Local setup',
         description:
-          'Run MCDI on your machine: Docker or host, the Discord application, signing in as the first admin, the database commands and every environment variable.',
+          'Run MCID on your machine: Docker or host, the Discord application, signing in as the first admin, the database commands and every environment variable.',
       },
       {
         slug: 'build/api-guide',
@@ -72,37 +72,37 @@ export const DOCS_NAV: DocSection[] = [
         slug: 'build/contracts',
         title: 'Shared contracts',
         description:
-          'Why @mcdi/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
+          'Why @mcid/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
       },
       {
         slug: 'build/testing',
         title: 'Testing',
         description:
-          'How MCDI is tested: unit, end to end and browser tests, the exact commands, the throwaway database warning, and what CI runs.',
+          'How MCID is tested: unit, end to end and browser tests, the exact commands, the throwaway database warning, and what CI runs.',
       },
       {
         slug: 'build/contributing',
         title: 'Contributing',
         description:
-          'How work gets done on MCDI: issues, branches, pull requests, the checks to run before you push, and how changes are merged.',
+          'How work gets done on MCID: issues, branches, pull requests, the checks to run before you push, and how changes are merged.',
       },
       {
         slug: 'build/operations',
         title: 'Deployment and operations',
         description:
-          'How MCDI runs in production, what stops it from booting on purpose, how to read its health, and troubleshooting from real incidents.',
+          'How MCID runs in production, what stops it from booting on purpose, how to read its health, and troubleshooting from real incidents.',
       },
       {
         slug: 'build/decisions',
         title: 'Decisions',
         description:
-          'A short log of why MCDI is the way it is: context, decision, consequences and the pull request behind each choice.',
+          'A short log of why MCID is the way it is: context, decision, consequences and the pull request behind each choice.',
       },
       {
         slug: 'build/glossary',
         title: 'Glossary',
         description:
-          'The words MCDI uses, from API key and boot sync to reader role, replay protection and submission, with links to the pages that explain them.',
+          'The words MCID uses, from API key and boot sync to reader role, replay protection and submission, with links to the pages that explain them.',
       },
       {
         slug: 'build/writing-docs',
@@ -113,15 +113,15 @@ export const DOCS_NAV: DocSection[] = [
     ],
   },
   {
-    title: 'Integrate with MCDI',
+    title: 'Integrate with MCID',
     description:
-      'For developers of MicroClub projects: sign members in, use your API key, check permissions and receive data through inbound webhooks.',
+      'For developers of Micro Club projects: sign members in, use your API key, check permissions and receive data through inbound webhooks.',
     pages: [
       {
         slug: 'integrate/sso',
-        title: 'Login with MicroClub',
+        title: 'Login with Micro Club',
         description:
-          'Sign members in with MCDI: the two entry points, the callback, the code exchange, sessions, refresh, logout and migrating an old integration.',
+          'Sign members in with MCID: the two entry points, the callback, the code exchange, sessions, refresh, logout and migrating an old integration.',
       },
       {
         slug: 'integrate/api-keys',
@@ -176,13 +176,13 @@ export const DOCS_NAV: DocSection[] = [
   {
     title: 'Project API',
     description:
-      'For developers of MicroClub projects: log members in, check permissions, use channels and webhooks, and send data to inbound webhooks.',
+      'For developers of Micro Club projects: log members in, check permissions, use channels and webhooks, and send data to inbound webhooks.',
     pages: [
       {
         slug: 'api-reference/project/overview',
         title: 'Project API overview',
         description:
-          'How a project calls MCDI: how to authenticate and every endpoint at a glance, grouped by area.',
+          'How a project calls MCID: how to authenticate and every endpoint at a glance, grouped by area.',
       },
       {
         slug: 'api-reference/project/authentication',
@@ -237,7 +237,7 @@ export const DOCS_NAV: DocSection[] = [
         slug: 'api-reference/admin/overview',
         title: 'Admin API overview',
         description:
-          'How the admin dashboard talks to MCDI: the admin session it needs and every endpoint at a glance, grouped by area.',
+          'How the admin dashboard talks to MCID: the admin session it needs and every endpoint at a glance, grouped by area.',
       },
       {
         slug: 'api-reference/admin/admin-access',
@@ -308,7 +308,7 @@ export const DOCS_NAV: DocSection[] = [
         slug: 'api-reference/admin/servers',
         title: 'Servers',
         description:
-          'Register, update, disable, enable and remove the Discord servers MCDI knows about.',
+          'Register, update, disable, enable and remove the Discord servers MCID knows about.',
       },
       {
         slug: 'api-reference/admin/statistics',

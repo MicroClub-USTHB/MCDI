@@ -5,7 +5,7 @@ export class SsoMemberDto {
   id: string;
 
   @ApiProperty({
-    description: 'Discord user ID (same as `id` in MCDI)',
+    description: 'Discord user ID (same as `id` in MCID)',
     example: '123456789012345678',
   })
   discordId: string;
@@ -40,7 +40,7 @@ export class SsoProjectSessionDto {
   @ApiProperty({ example: '7c9e6679-7425-40de-944b-e07fc1f90ae7' })
   projectId: string;
 
-  @ApiProperty({ example: 'MCDI Admin' })
+  @ApiProperty({ example: 'MCID Admin' })
   projectName: string;
 
   @ApiPropertyOptional({ nullable: true, example: '123456789012345678' })

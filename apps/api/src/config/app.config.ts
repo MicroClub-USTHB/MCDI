@@ -32,7 +32,7 @@ export default registerAs('app', () => ({
   inboundWebhookEncryptionKey: process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY || '',
   maxWebhooksPerProject: Number(process.env.MAX_WEBHOOKS_PER_PROJECT) || 10,
   // SSO — global browser session shared across projects
-  ssoCookieName: process.env.SSO_COOKIE_NAME || 'mcdi_sso',
+  ssoCookieName: process.env.SSO_COOKIE_NAME || 'mcid_sso',
   ssoCookieDomain: process.env.SSO_COOKIE_DOMAIN || undefined,
   ssoTtlSec: Number(process.env.SSO_TTL_SEC) || 30 * 24 * 60 * 60, // 30 days
 }));

@@ -37,7 +37,7 @@ export class ExecuteWebhookDto {
   @ApiPropertyOptional({
     description: 'Name used for this message',
     maxLength: 80,
-    example: 'MCDI Deployments',
+    example: 'MCID Deployments',
   })
   @IsOptional()
   @IsString()

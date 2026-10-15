@@ -1,6 +1,6 @@
 # /work-issue — End-to-End Issue Implementation
 
-Fetch a GitHub issue by ID, plan the implementation, and build it using the full MCDI ecosystem (agents, skills, commands).
+Fetch a GitHub issue by ID, plan the implementation, and build it using the full MCID ecosystem (agents, skills, commands).
 
 ## Usage
 
@@ -16,7 +16,7 @@ Example: `/work-issue 15`
 
 1. **Fetch the issue**:
    ```bash
-   gh issue view <issue-number> --repo MicroClub-USTHB/MCDI-Front
+   gh issue view <issue-number> --repo MicroClub-USTHB/MCID
    ```
 
 2. **Read the full issue body** — extract:
@@ -28,7 +28,7 @@ Example: `/work-issue 15`
 
 3. **Read project context**:
    - Scan `AGENTS.md` for architecture and conventions
-   - Check `../MCDI-V2-SPECIFICATION.md` if the issue references the V2 spec
+   - Check `../MCID-V2-SPECIFICATION.md` if the issue references the V2 spec
    - Use the **Explore agent** to understand any existing files mentioned in the issue
 
 ### Phase 1: Branch & plan

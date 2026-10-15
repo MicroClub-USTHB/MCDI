@@ -1,7 +1,7 @@
-This page explains how MCDI is tested, which command runs what, and what to test first. Read the warning about the end to end tests before you run them.
+This page explains how MCID is tested, which command runs what, and what to test first. Read the warning about the end to end tests before you run them.
 
 <Callout type="warning">
-  **The API end to end tests empty every table of the database they connect to.** `clearAllTables` in `apps/api/test/helpers/db.ts` truncates every table in the public schema, and twelve of the thirteen end to end files call it, most of them before every test. Run them only against a throwaway database, for example `mcdi_test`, and never against the database you develop in. Passing your development `DATABASE_URL` wipes your members, projects and sessions.
+  **The API end to end tests empty every table of the database they connect to.** `clearAllTables` in `apps/api/test/helpers/db.ts` truncates every table in the public schema, and twelve of the thirteen end to end files call it, most of them before every test. Run them only against a throwaway database, for example `mcid_test`, and never against the database you develop in. Passing your development `DATABASE_URL` wipes your members, projects and sessions.
 </Callout>
 
 ## The layers
@@ -28,14 +28,14 @@ Choose the lowest layer that can show the behaviour:
 ## API unit tests
 
 ```bash
-pnpm --filter @mcdi/api run test
+pnpm --filter @mcid/api run test
 ```
 
 Run on this repository, that was 97 suites and 1375 tests in about 25 seconds. To run one file, or one test by name:
 
 ```bash
-pnpm --filter @mcdi/api exec jest src/modules/auth/auth.service.spec.ts
-pnpm --filter @mcdi/api exec jest src/modules/auth/auth.service.spec.ts -t "name of the test"
+pnpm --filter @mcid/api exec jest src/modules/auth/auth.service.spec.ts
+pnpm --filter @mcid/api exec jest src/modules/auth/auth.service.spec.ts -t "name of the test"
 ```
 
 Specs sit next to the code they test and mock their collaborators. A controller test builds a Nest testing module with the controller only, overrides the guard, and talks to it with Supertest:
@@ -53,7 +53,7 @@ const moduleRef = await Test.createTestingModule({
 The tests also enforce coverage thresholds from `jest.config.cjs`: 80 percent of lines, 75 of functions, 68 of branches and 80 of statements. They apply when coverage is collected, which is how CI runs them:
 
 ```bash
-pnpm --filter @mcdi/api run test:ci
+pnpm --filter @mcid/api run test:ci
 ```
 
 A build that drops below a threshold fails.
@@ -70,13 +70,13 @@ These start the whole Nest application against a real PostgreSQL and a mocked Di
 
 ### Run them on a throwaway database
 
-Point `DATABASE_URL` at a database that exists only for tests. With the compose database running (see [Local setup](/docs/build/local-setup)), `mcdi_test` is one:
+Point `DATABASE_URL` at a database that exists only for tests. With the compose database running (see [Local setup](/docs/build/local-setup)), `mcid_test` is one:
 
 ```bash
 cd apps/api
-export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi_test
+export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcid_test
 
-RESET_DB=1 pnpm run db:migrate   # drops and recreates mcdi_test, then applies the migrations
+RESET_DB=1 pnpm run db:migrate   # drops and recreates mcid_test, then applies the migrations
 pnpm run test:e2e
 ```
 
@@ -89,10 +89,10 @@ pnpm run test:e2e
 ## Web tests
 
 ```bash
-pnpm --filter @mcdi/web run test            # all, once
-pnpm --filter @mcdi/web exec vitest run tests/path/to/file.test.tsx
-pnpm --filter @mcdi/web run test:watch
-pnpm --filter @mcdi/web run test:coverage
+pnpm --filter @mcid/web run test            # all, once
+pnpm --filter @mcid/web exec vitest run tests/path/to/file.test.tsx
+pnpm --filter @mcid/web run test:watch
+pnpm --filter @mcid/web run test:coverage
 ```
 
 - Tests live only under `apps/web/tests`, mirroring `src`, and not next to the source. Vitest includes only that folder.
@@ -119,7 +119,7 @@ expect(await screen.findByText('Recruitment')).toBeInTheDocument();
 The tests in `tests/features/docs` check the docs themselves: that every page compiles, that links and anchors resolve, that code blocks name their language, that the generated API reference is current, that every environment variable is documented, that code excerpts match their files, and that every cited file is in the repository. Run them with:
 
 ```bash
-pnpm --filter @mcdi/web exec vitest run tests/features/docs
+pnpm --filter @mcid/web exec vitest run tests/features/docs
 ```
 
 ### Browser tests
@@ -127,9 +127,9 @@ pnpm --filter @mcdi/web exec vitest run tests/features/docs
 Playwright tests in `apps/web/e2e` drive a real browser. They need a real Discord admin login, so they are not part of CI:
 
 ```bash
-pnpm --filter @mcdi/web run e2e:install   # once: installs Chromium
-pnpm --filter @mcdi/web run e2e:auth      # opens a browser, you sign in with Discord, the session is saved
-pnpm --filter @mcdi/web run e2e:test
+pnpm --filter @mcid/web run e2e:install   # once: installs Chromium
+pnpm --filter @mcid/web run e2e:auth      # opens a browser, you sign in with Discord, the session is saved
+pnpm --filter @mcid/web run e2e:test
 ```
 
 `e2e:auth` stores the session in `apps/web/e2e/.auth/admin.json`. Git already ignores that folder, and the file is a live admin session, so never commit or share it.
@@ -142,7 +142,7 @@ On every pull request to `dev` or `main`, and on pushes to them, the workflow in
 2. `pnpm turbo run test:ci`, the unit tests of both apps, with coverage
 3. `pnpm turbo run build`
 4. `pnpm docs:api`, which fails when `openapi.json` or the generated reference pages are out of date
-5. In a second job against PostgreSQL 16: the migrations are applied twice to check they can be re-applied, the database is reset and migrated, and `pnpm turbo run test:e2e --filter=@mcdi/api` runs
+5. In a second job against PostgreSQL 16: the migrations are applied twice to check they can be re-applied, the database is reset and migrated, and `pnpm turbo run test:e2e --filter=@mcid/api` runs
 
 The workflow uses Node 24.
 

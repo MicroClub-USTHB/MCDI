@@ -1,0 +1,69 @@
+{
+  "name": "mcid-cli",
+  "version": "0.1.0",
+  "description": "The MCID command-line client: log in with Discord, pre-check FormSchema files and manage MCID Inbound Webhooks from the terminal",
+  "keywords": [
+    "mcid",
+    "microclub",
+    "cli",
+    "webhooks",
+    "inbound-webhooks",
+    "form-schema"
+  ],
+  "homepage": "https://github.com/MicroClub-USTHB/MCID/tree/main/apps/cli#readme",
+  "bugs": {
+    "url": "https://github.com/MicroClub-USTHB/MCID/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MicroClub-USTHB/MCID.git",
+    "directory": "apps/cli"
+  },
+  "license": "MIT",
+  "author": "Micro Club USTHB",
+  "type": "module",
+  "bin": {
+    "mcid-cli": "./bin/mcid-cli.js",
+    "mcid": "./bin/mcid-cli.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:ci": "vitest run --coverage",
+    "clean": "rm -rf dist coverage",
+    "prepublishOnly": "pnpm --dir ../.. exec turbo run lint typecheck test build --filter=mcid-cli"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^2.1.0",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@mcid/contracts": "workspace:*",
+    "@mcid/eslint-config": "workspace:*",
+    "@mcid/form-schema": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
+    "@types/node": "^22.19.15",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "9.39.4",
+    "prettier": "^3.8.2",
+    "tsup": "^8.3.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "8.57.1",
+    "vitest": "^4.1.4"
+  }
+}

@@ -1,4 +1,4 @@
-This page covers how MCDI runs in production, what makes it refuse to start, how to tell whether it is healthy, and what to do about the problems that have actually happened. Every troubleshooting entry below came from a real incident, or was reproduced for this page, and shows the exact message.
+This page covers how MCID runs in production, what makes it refuse to start, how to tell whether it is healthy, and what to do about the problems that have actually happened. Every troubleshooting entry below came from a real incident, or was reproduced for this page, and shows the exact message.
 
 ## Where each part runs
 
@@ -12,17 +12,17 @@ The panel has no Docker files. The Vercel project is set up like this, as the ro
 | Setting | Value |
 | --- | --- |
 | Root Directory | `apps/web`, with *Include source files outside of the Root Directory* enabled |
-| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcdi/web`, which builds `@mcdi/contracts` first |
-| Ignored Build Step | `npx turbo-ignore @mcdi/web`, so a change that only touches the API does not redeploy the panel |
+| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcid/web`, which builds `@mcid/contracts` first |
+| Ignored Build Step | `npx turbo-ignore @mcid/web`, so a change that only touches the API does not redeploy the panel |
 | Environment variables | `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_APP_URL` |
 
 Add the Vercel domain to `CORS_ORIGINS` on the API, or the browser blocks the panel's calls.
 
 ### The API image
 
-On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcdi` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
+On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcid` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
 
-- **pruner:** `turbo prune @mcdi/api --docker` keeps only the API and the workspace packages it uses.
+- **pruner:** `turbo prune @mcid/api --docker` keeps only the API and the workspace packages it uses.
 - **builder:** installs with the frozen lockfile, builds, and concatenates every SQL migration, in order, into a single `/migrations/migration.sql`.
 - **deps:** installs the production dependencies only.
 - **production:** a small Node 24 image with `postgresql-client`, running as the unprivileged `node` user.
@@ -44,7 +44,7 @@ The API container's command is `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migr
 
 The SQL that `drizzle-kit generate` writes is not idempotent. Edit it before you commit it. CI protects you: its end to end job applies the concatenated file twice and fails when the second run errors.
 
-The API also tries to migrate when it starts, but the production image has no `src` folder, so it logs that it found no migrations folder and skips. What it does on every start is create the main server record from `MC_GUILD_ID` when the `servers` table is empty.
+The API also tries to migrate when it starts, but the production image has no `src` folder, so it logs that it found no migrations folder and skips. What it does on every start is create the main server record from `MC_GUILD_ID` when the `servers` table is empty. The database allows only one main server: a unique index (`servers_single_main_idx`) rejects a second row with `is_main = true`, and the migration that adds it stops with a list of the servers when more than one is already main.
 
 ## Configuration that stops the boot on purpose
 
@@ -60,7 +60,7 @@ With everything but the inbound key set:
 ERROR [ExceptionHandler] Error: Config validation error: INBOUND_WEBHOOK_ENCRYPTION_KEY is required in production. Generate with openssl rand -hex 32
 ```
 
-A key that is present but not 64 hex characters stops it too. The full list of variables is in [Local setup](/docs/build/local-setup#environment-variables). The two encryption keys deserve care: there is no key rotation, so a lost or changed key makes the stored secrets it encrypted unreadable. Back the keys up with the other secrets.
+A key that is present but not 64 hex characters stops it too. So does a main server mismatch: when the `servers` table has a main server and `MC_GUILD_ID` names another guild, the API logs `The main server in the database (...) differs from MC_GUILD_ID (...)` and exits, because admin login (which uses `MC_GUILD_ID`) and the permission guard (which uses the main server) would disagree. Outside production it logs the same text as a warning. The full list of variables is in [Local setup](/docs/build/local-setup#environment-variables). The two encryption keys deserve care: there is no key rotation, so a lost or changed key makes the stored secrets it encrypted unreadable. Back the keys up with the other secrets.
 
 ## Health
 
@@ -103,7 +103,7 @@ The admin panel's **Monitoring** page (`/dashboard/monitoring`) is the operator'
 The database is in the `pg_data` volume. It survives redeploys, and it is not backed up by default. Take scheduled backups of the `database` service in dokploy, or dump it yourself:
 
 ```bash
-docker compose -f "$COMPOSE_FILE" exec -T database pg_dump -U mcdi mcdi > mcdi-$(date +%F).sql
+docker compose -f "$COMPOSE_FILE" exec -T database pg_dump -U mcid mcid > mcid-$(date +%F).sql
 ```
 
 Keep dumps off the server and test a restore now and then. Redis holds only caches and short-lived counters, so it needs no backup.
@@ -126,7 +126,7 @@ Keep dumps off the server and test a restore now and then. Redis holds only cach
 ```bash
 cd apps/api
 docker compose down
-docker volume rm mcdi_redis_data
+docker volume rm mcid_redis_data
 docker compose up -d
 ```
 
@@ -140,7 +140,7 @@ In production, remove the `redis_data` volume of the stack the same way. Cached 
 Bind for 0.0.0.0:3000 failed: port is already allocated
 ```
 
-**Cause.** A Node process started on your machine, for example `pnpm dev` or a leftover `nest start`, and the `mcdi-api-1` container both listen on port 3000. On macOS the second one can bind without an error, and requests go to either.
+**Cause.** A Node process started on your machine, for example `pnpm dev` or a leftover `nest start`, and the `mcid-api-1` container both listen on port 3000. On macOS the second one can bind without an error, and requests go to either.
 
 **Fix.** Find what holds the port, and stop the one that is not Docker:
 
@@ -163,7 +163,7 @@ FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaS
 **Fix.** Give it a larger heap:
 
 ```bash
-NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcdi/web run dev
+NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcid/web run dev
 ```
 
 ### The API cannot reach Redis: `getaddrinfo ENOTFOUND redis`
@@ -222,7 +222,7 @@ ChunkLoadError: Failed to load chunk /_next/static/chunks/..._layout_tsx_....js
 
 ```bash
 rm -rf apps/web/.next
-pnpm --filter @mcdi/web run dev
+pnpm --filter @mcid/web run dev
 ```
 
 ### A hydration warning in the console
@@ -251,4 +251,4 @@ The requested resource isn't a valid image for /landing/admin-panel.webp receive
 
 **Fix.** If you add a new kind of public file, make sure `proxy.ts` does not redirect it. The matcher lists the image extensions that are let through, so a new extension must be added there. See [Web guide](/docs/build/web-guide#who-gets-in).
 
-Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/proxy.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.
+Source: `README.md`, `apps/api/Dockerfile`, `apps/api/docker-compose.prod.yml`, `apps/api/docker-compose.yml`, `apps/api/DEPLOY.md`, `apps/api/src/app.controller.ts`, `apps/api/src/config/config.module.ts`, `apps/api/src/common/redis/redis.service.ts`, `apps/api/src/database/database-init.service.ts`, `apps/api/src/database/entities/server.entity.ts`, `apps/api/src/modules/audit/audit.service.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/web/src/proxy.ts`, `apps/web/src/features/monitoring`, `.github/workflows/ci.yml`.

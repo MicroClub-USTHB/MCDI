@@ -16,6 +16,12 @@ import { PostgresExceptionFilter } from '../../src/common/filters/drizzle.filter
 export async function createTestApp(): Promise<INestApplication> {
   process.env.NODE_ENV = 'test';
   process.env.MC_EXECUTIVE_ROLE_ID = '700000000000000001';
+  process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY =
+    process.env.INBOUND_WEBHOOK_ENCRYPTION_KEY ||
+    '1111111111111111111111111111111111111111111111111111111111111111';
+  process.env.WEBHOOK_ENCRYPTION_KEY =
+    process.env.WEBHOOK_ENCRYPTION_KEY ||
+    '2222222222222222222222222222222222222222222222222222222222222222';
 
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],

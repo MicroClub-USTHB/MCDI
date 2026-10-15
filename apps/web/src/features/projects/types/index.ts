@@ -30,10 +30,21 @@ export interface ProjectDto {
   updatedAt: string;
 }
 
+import type { CreateInboundWebhookResponse } from '@/features/inbound-webhooks/types';
+
 /** One `serverAccess` item in `POST /api/admin/projects`. Operations are NOT accepted here. */
 export interface ProjectServerAccessDto {
   serverId: string;
   scopes?: ProjectScope[];
+}
+
+/** Payload for optional inbound webhook provisioned during project creation. */
+export interface ProjectInboundWebhookPayload {
+  name: string;
+  slug?: string;
+  schema: Record<string, unknown>;
+  allowedRoleIds?: string[];
+  acceptedOrigins?: string[];
 }
 
 /** Request body for `POST /api/admin/projects` (step 1 of creation). */
@@ -42,6 +53,7 @@ export interface CreateProjectPayload {
   description?: string;
   isInternal?: boolean;
   serverAccess?: ProjectServerAccessDto[];
+  inboundWebhook?: ProjectInboundWebhookPayload;
 }
 
 /** Request body for `PATCH /api/admin/projects/:id`. */
@@ -63,6 +75,7 @@ export interface SetServerAccessPayload {
 export interface CreateProjectResponse {
   apiKey: string;
   project: ProjectDto;
+  inboundWebhook?: CreateInboundWebhookResponse;
 }
 
 /** Response body of `POST /api/admin/projects/:id/regenerate-api-key`. */
@@ -109,6 +122,14 @@ export interface AccessMatrixEntry {
   updatedAt: string;
 }
 
+export interface ProjectInboundWebhookFormValues {
+  enabled: boolean;
+  name: string;
+  slug?: string;
+  schema: Record<string, unknown>;
+  origins?: string;
+}
+
 /** Form model used by the two-step creation wizard. */
 export interface ProjectFormValues {
   name: string;
@@ -116,4 +137,5 @@ export interface ProjectFormValues {
   isInternal: boolean;
   scopes: ProjectScope[];
   serverIds: string[];
+  inboundWebhook?: ProjectInboundWebhookFormValues;
 }

@@ -25,7 +25,7 @@
 - The existing web tests must keep passing. `tests/setup.ts` signs a root user in by default (added in the foundations PR), so a test that needs an anonymous or limited user says so explicitly with `signInAs({ permissions })` or `signOut()` from `tests/helpers/auth.ts`.
 - Commits and the PR carry no `Co-Authored-By` trailer and no Claude signature. Push with `git -c credential.helper= -c credential.helper='!gh auth git-credential' push`. The PR targets `dev`.
 - Branch: `benabdou/admin-panel-gating`, created from the latest `origin/dev` after the foundations PR has merged.
-- All commands run from the repository root `/Users/destockphonedz/Documents/MCDI/MCDI` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
+- All commands run from the repository root `/Users/destockphonedz/Documents/MCID/MCID` unless a step says otherwise. Do not run `pnpm build` in a shell where `apps/api/.env` was sourced (it sets `NODE_ENV=development` and breaks `next build`). Run `pnpm exec prettier --write` and `pnpm exec eslint --fix` only on the files you changed.
 
 ## File Structure
 
@@ -159,7 +159,7 @@ describe.each(CASES)('$name', ({ resource, path, run }) => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/query-gating.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/query-gating.test.tsx`
 Expected: the nine "sends no request" cases FAIL (the hooks fetch regardless).
 
 - [ ] **Step 3: Gate the hooks**
@@ -168,7 +168,7 @@ Apply the rule above to every hook in the table, one file at a time. Add `import
 
 - [ ] **Step 4: Run the gating test and the whole web suite**
 
-Run: `pnpm --filter @mcdi/web exec vitest run`
+Run: `pnpm --filter @mcid/web exec vitest run`
 Expected: PASS. The default root user (foundations PR) keeps every existing test fetching. Un-skip the sidebar test that the foundations PR left skipped (`does not ask for servers when the member cannot read them`, in `tests/shared/components/layout/sidebar.test.tsx`) and confirm it passes.
 
 - [ ] **Step 5: Commit**
@@ -313,7 +313,7 @@ describe('MemberFilters access', () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/app/dashboard/quick-stats.test.tsx tests/app/dashboard/monitoring-access.test.tsx tests/features/members/components/member-filters-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/app/dashboard/quick-stats.test.tsx tests/app/dashboard/monitoring-access.test.tsx tests/features/members/components/member-filters-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: Dashboard cards**
@@ -402,7 +402,7 @@ Change `{!lockServer && (` (the Servers block) to `{!lockServer && canServers &&
 
 - [ ] **Step 7: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/app/dashboard tests/features/members tests/features/monitoring tests/features/stats`
+Run: `pnpm --filter @mcid/web exec vitest run tests/app/dashboard tests/features/members tests/features/monitoring tests/features/stats`
 Expected: PASS.
 
 - [ ] **Step 8: Commit**
@@ -449,7 +449,7 @@ const API = 'http://localhost:3000/api';
 
 const serverDto = {
   id: 'srv_1',
-  name: 'MicroClub',
+  name: 'Micro Club',
   icon: null,
   type: 'club',
   isMain: false,
@@ -480,7 +480,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'read' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.queryByRole('button', { name: /add server/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /sync all servers/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Disable' })).not.toBeInTheDocument();
@@ -492,7 +492,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'write', sync: 'write' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.getAllByRole('button', { name: /add server/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /sync all servers/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
@@ -511,7 +511,7 @@ describe('Servers list actions', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/servers/servers-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/servers/servers-access.test.tsx`
 Expected: FAIL (every action is shown).
 
 - [ ] **Step 3: The server table**
@@ -575,7 +575,7 @@ In `apps/web/src/app/dashboard/servers/[id]/sync/sync-view.tsx`: add `import { u
 
 - [ ] **Step 6: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/servers tests/features/sync tests/app/dashboard`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/servers tests/features/sync tests/app/dashboard`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -649,7 +649,7 @@ where `renderRolesView` renders `<RolesView serverId="srv_1" />` and `renderRole
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/roles/roles-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/roles/roles-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: The permission matrix**
@@ -683,7 +683,7 @@ In `roles-view.tsx`: add `import { useCan } from '@/shared/lib/use-access';` and
 
 - [ ] **Step 6: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/roles`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/roles`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -766,7 +766,7 @@ describe('Projects list access', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/projects/projects-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/projects/projects-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: Project detail view**
@@ -809,7 +809,7 @@ In `WebhookDetail.tsx`: wrap the Delete `<Button variant="danger" ...>` in `<Can
 
 - [ ] **Step 7: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/projects tests/features/webhooks tests/app/dashboard`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/projects tests/features/webhooks tests/app/dashboard`
 Expected: PASS.
 
 - [ ] **Step 8: Commit**
@@ -898,7 +898,7 @@ describe('Inbound webhook access', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/app/dashboard/inbound-webhooks-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/app/dashboard/inbound-webhooks-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: The list and the webhook view**
@@ -953,7 +953,7 @@ In `default-readers-settings.tsx`: add `const canWrite = useCan('inbound_webhook
 
 - [ ] **Step 6: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/app/dashboard tests/features/inbound-webhooks tests/features/docs`
+Run: `pnpm --filter @mcid/web exec vitest run tests/app/dashboard tests/features/inbound-webhooks tests/features/docs`
 Expected: PASS. If a docs excerpt test fails for `webhook-schema-section.tsx` or `inbound-webhooks-view.tsx`, update that excerpt in `apps/web/src/content/docs/build/web-guide.mdx` to the new lines.
 
 - [ ] **Step 7: Commit**
@@ -1051,7 +1051,7 @@ describe('Settings page access', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/settings/settings-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/settings/settings-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: Read-only forms**
@@ -1071,7 +1071,7 @@ In `apps/web/src/app/dashboard/settings/page.tsx`:
   const canReset = useCan('settings', 'manage');
 ```
 
-- the header: show the "Last changed" line only when `canRead && settings?.meta.updatedAt`; show the description as `canRead ? 'Configure MCDI behavior and manage your admin profile.' : 'Manage your admin profile.'`; show the "Reset to defaults" button only when `canReset`.
+- the header: show the "Last changed" line only when `canRead && settings?.meta.updatedAt`; show the description as `canRead ? 'Configure MCID behavior and manage your admin profile.' : 'Manage your admin profile.'`; show the "Reset to defaults" button only when `canReset`.
 - replace the single `isError ? ... : settingsQuery.isPending || profileQuery.isPending || !settings ? ... : (...)` ternary with two independent parts inside the same `columns` layout wrapper:
 
 ```tsx
@@ -1145,7 +1145,7 @@ In `apps/web/src/app/dashboard/settings/page.tsx`:
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/settings`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/settings`
 Expected: PASS, including the existing settings flow tests.
 
 - [ ] **Step 6: Commit**
@@ -1196,7 +1196,7 @@ describe('Channels access', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/channels/channels-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/channels/channels-access.test.tsx`
 Expected: the first test FAILS.
 
 - [ ] **Step 3: Gate the history**
@@ -1225,7 +1225,7 @@ to
 
 - [ ] **Step 4: Run the tests and commit**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/channels`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/channels`
 Expected: PASS.
 
 ```bash
@@ -1259,17 +1259,17 @@ In `apps/web/CLAUDE.md` (and the same short block in `apps/web/AGENTS.md`), add 
 
 - [ ] **Step 2: Run the docs tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/docs`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/docs`
 Expected: PASS.
 
 - [ ] **Step 3: Full verification**
 
 ```bash
 pnpm typecheck
-pnpm --filter @mcdi/web exec vitest run
-pnpm --filter @mcdi/web run lint
-pnpm --filter @mcdi/web run format:check
-pnpm --filter @mcdi/api exec jest --config jest.config.cjs
+pnpm --filter @mcid/web exec vitest run
+pnpm --filter @mcid/web run lint
+pnpm --filter @mcid/web run format:check
+pnpm --filter @mcid/api exec jest --config jest.config.cjs
 pnpm build
 ```
 

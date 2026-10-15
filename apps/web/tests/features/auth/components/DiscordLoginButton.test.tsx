@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { DiscordLoginButton } from '@/features/auth/components/DiscordLoginButton';
 
 const OAUTH_URL = 'http://localhost:3000/api/auth/admin/discord';
-const REDIRECT_KEY = 'mcdi.auth.post-login-redirect';
+const REDIRECT_KEY = 'mcid.auth.post-login-redirect';
 
 describe('DiscordLoginButton', () => {
   beforeEach(() => {

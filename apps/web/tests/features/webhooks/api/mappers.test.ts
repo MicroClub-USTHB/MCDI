@@ -8,7 +8,7 @@ const dto: WebhookDto = {
   channelId: '234567890123456789',
   channelName: 'deployments',
   serverId: '123456789012345678',
-  serverName: 'MicroClub',
+  serverName: 'Micro Club',
   createdAt: '2026-08-01T10:00:00.000Z',
   usageCount: 1234,
   lastUsedAt: '2026-08-15T09:30:00.000Z',
@@ -21,7 +21,7 @@ describe('mapWebhookResponse', () => {
     expect(view.id).toBe('wh_1');
     expect(view.name).toBe('Deploy notifications');
     expect(view.channelLabel).toBe('#deployments');
-    expect(view.serverLabel).toBe('MicroClub');
+    expect(view.serverLabel).toBe('Micro Club');
     expect(view.usageCount).toBe(1234);
     expect(view.lastUsedLabel).not.toBe('Never');
     expect(view.createdAtLabel).not.toBe('—');

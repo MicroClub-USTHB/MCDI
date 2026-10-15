@@ -87,14 +87,24 @@ export class ProjectsController {
     description: 'Project created. API key returned once.',
     schema: {
       example: {
-        apiKey: 'mcdi_pk_live_ab12cd34.64hexsecret...',
+        apiKey: 'mcid_pk_live_ab12cd34.64hexsecret...',
         project: {
           id: 'uuid',
-          name: 'MicroClub Website',
+          name: 'Micro Club Website',
           description: 'Main website',
-          apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+          apiKeyPrefix: 'mcid_pk_live_ab12cd34',
           isActive: true,
           createdAt: '2026-02-20T00:00:00.000Z',
+        },
+        inboundWebhook: {
+          webhook: {
+            id: 'uuid',
+            name: 'Recruitment 2026',
+            slug: 'recruitment-2026',
+          },
+          signingSecret: 'mcid_whsec_live_5678',
+          submitUrl: 'https://api.microclub.dz/inbound-webhooks/uuid/submit',
+          docsUrl: 'https://api.microclub.dz/admin/inbound-webhooks/uuid/docs',
         },
       },
     },
@@ -102,8 +112,9 @@ export class ProjectsController {
   @ApiBadRequestResponse({ description: 'Validation error.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
   @ApiForbiddenResponse({ description: 'System Admin access required.' })
-  create(@Body() dto: CreateProjectDto) {
-    return this.projectsService.create(dto);
+  create(@Body() dto: CreateProjectDto, @Req() req: RequestWithUser) {
+    const actor = this.resolveActor(req);
+    return this.projectsService.create(dto, actor);
   }
 
   @Get()
@@ -128,7 +139,7 @@ export class ProjectsController {
     required: false,
     type: String,
     description: 'Filter by project name (case-insensitive partial match).',
-    example: 'MicroClub',
+    example: 'Micro Club',
   })
   @ApiOkResponse({ description: 'Projects retrieved successfully.' })
   @ApiUnauthorizedResponse({ description: 'Authentication required.' })
@@ -179,8 +190,8 @@ export class ProjectsController {
     schema: {
       example: {
         projectId: 'uuid',
-        projectName: 'MicroClub Website',
-        apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+        projectName: 'Micro Club Website',
+        apiKeyPrefix: 'mcid_pk_live_ab12cd34',
         apiKeyCreatedAt: '2026-02-20T00:00:00.000Z',
         apiKeyLastUsedAt: '2026-03-01T12:00:00.000Z',
         isActive: true,
@@ -263,9 +274,9 @@ export class ProjectsController {
         },
         apiKey: {
           type: 'string',
-          example: 'mcdi_pk_live_xy98zw76.64hexsecret...',
+          example: 'mcid_pk_live_xy98zw76.64hexsecret...',
         },
-        apiKeyPrefix: { type: 'string', example: 'mcdi_pk_live_xy98zw76' },
+        apiKeyPrefix: { type: 'string', example: 'mcid_pk_live_xy98zw76' },
         apiKeyCreatedAt: { type: 'string', format: 'date-time' },
       },
     },
@@ -416,7 +427,7 @@ export class ProjectsController {
         {
           projectId: '123e4567-e89b-12d3-a456-426614174000',
           serverId: '123456789012345678',
-          serverName: 'MicroClub Main',
+          serverName: 'Micro Club Main',
           operations: {
             READ: true,
             SEND_MESSAGES: false,
@@ -488,9 +499,9 @@ export class ProjectsController {
       example: [
         {
           projectId: '123e4567-e89b-12d3-a456-426614174000',
-          projectName: 'MicroClub Website',
+          projectName: 'Micro Club Website',
           serverId: '123456789012345678',
-          serverName: 'MicroClub Main',
+          serverName: 'Micro Club Main',
           operations: {
             READ: true,
             SEND_MESSAGES: false,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { AccessLevel, AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessLevel, AccessResource, GrantLevel } from '@mcid/contracts';
 
 import { useAuthStore } from '@/features/auth/stores/auth';
 import {

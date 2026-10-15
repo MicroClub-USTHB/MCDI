@@ -5,7 +5,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Button, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Button, restyled onto the MCID V2 tokens.
  *
  * Upstream ships `bg-primary` / `text-primary-foreground` / `bg-destructive`
  * / `ring-ring`, none of which exist in this project's `@theme`, plus `dark:`

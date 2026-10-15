@@ -1,6 +1,6 @@
 import { InboundWebhooksService } from './inbound-webhooks.service';
 import { validatePayload } from './schema/payload.validator';
-import type { FormSchema } from './schema/form-schema.types';
+import type { FormSchema } from '@mcid/form-schema';
 
 const VALID: FormSchema = {
   version: 1,
@@ -51,7 +51,7 @@ describe('InboundWebhooksService.previewSchema', () => {
       {
         get: (name: string, fallback?: unknown) =>
           name === 'app.baseUrl'
-            ? 'https://mcdi.example'
+            ? 'https://mcid.example'
             : name === 'app.apiPrefix'
               ? 'api'
               : fallback,
@@ -156,7 +156,7 @@ describe('InboundWebhooksService.previewSchema', () => {
     if (!result.ok) return;
     expect(result.markdown).toContain('# Recruitment 2026');
     expect(result.markdown).toContain('`identity.status`');
-    expect(result.markdown).toContain('X-MCDI-Signature');
+    expect(result.markdown).toContain('X-MCID-Signature');
   });
 
   it('gives an example payload that passes the schema', () => {
@@ -177,7 +177,7 @@ describe('InboundWebhooksService.previewSchema', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.markdown).toContain(
-      'https://mcdi.example/api/inbound-webhooks/<webhook-id>/submit',
+      'https://mcid.example/api/inbound-webhooks/<webhook-id>/submit',
     );
     expect(result.markdown).toContain('_(none recorded)_');
   });
@@ -198,7 +198,7 @@ describe('InboundWebhooksService.previewSchema', () => {
       acceptedOrigins: ['https://app.microclub.dz'],
     });
 
-    expect(unsigned.ok && unsigned.markdown).not.toContain('X-MCDI-Signature');
+    expect(unsigned.ok && unsigned.markdown).not.toContain('X-MCID-Signature');
     expect(origins.ok && origins.markdown).toContain(
       'https://app.microclub.dz',
     );

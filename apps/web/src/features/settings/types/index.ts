@@ -1,4 +1,4 @@
-import type { AdminProfile } from '@mcdi/contracts';
+import type { AdminProfile } from '@mcid/contracts';
 
 export interface SettingValue<T = number> {
   value: T;

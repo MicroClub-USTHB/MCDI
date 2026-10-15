@@ -1,8 +1,8 @@
-# MCDI: Centralized Discord Identity And Access Service
+# MCID: Centralized Discord Identity And Access Service
 
-Built and maintained by the Dev Department of MicroClub, the computer science club at USTHB (University of Science and Technology Houari Boumediene, Algiers).
+Built and maintained by the Dev Department of Micro Club, the computer science club at USTHB (University of Science and Technology Houari Boumediene, Algiers).
 
-MCDI, short for **MicroClub Discord Interface**, is the backend service that centralizes Discord authentication, member synchronization, permission resolution, and project access control for MicroClub applications. Instead of each app implementing its own Discord login, guild checks, and role logic, projects integrate once with MCDI and consume a documented API.
+MCID, short for **Micro Club Identity**, is the backend service that centralizes Discord authentication, member synchronization, permission resolution, and project access control for Micro Club applications. Instead of each app implementing its own Discord login, guild checks, and role logic, projects integrate once with MCID and consume a documented API.
 
 The current codebase ships a production-oriented NestJS backend with PostgreSQL, Redis-backed caching, Discord bot synchronization, Swagger documentation, multi-server administration, and project-scoped OAuth flows.
 
@@ -22,8 +22,8 @@ The current codebase ships a production-oriented NestJS backend with PostgreSQL,
 
 ## Features
 
-- **Discord OAuth for MicroClub projects**: browser redirect flow with validated `client_id`, `redirect_uri`, `server_id`, and CSRF `state`
-- **Project-scoped API keys**: projects authenticate to MCDI through `X-API-Key`, with hash-only storage and one-time secret reveal
+- **Discord OAuth for Micro Club projects**: browser redirect flow with validated `client_id`, `redirect_uri`, `server_id`, and CSRF `state`
+- **Project-scoped API keys**: projects authenticate to MCID through `X-API-Key`, with hash-only storage and one-time secret reveal
 - **Secure session exchange**: Discord callback returns a short-lived code, then the project backend exchanges it for a long-lived session token
 - **Admin Discord login**: Executive members of the configured main guild can access admin endpoints through Discord OAuth
 - **Member directory API**: fetch one member, search members in a server, and retrieve effective permissions
@@ -35,8 +35,8 @@ The current codebase ships a production-oriented NestJS backend with PostgreSQL,
 
 ## Quick Start
 
-There are two practical ways to run MCDI locally. This package lives in the
-`apps/api` folder of the MCDI pnpm/Turborepo monorepo: run `pnpm install` once
+There are two practical ways to run MCID locally. This package lives in the
+`apps/api` folder of the MCID pnpm/Turborepo monorepo: run `pnpm install` once
 at the repository root, then run the commands below from `apps/api`.
 
 ### Run With Docker Compose
@@ -91,7 +91,7 @@ The compose stack starts:
 
 ### Run From Source
 
-> MCDI uses **pnpm** as its only package manager (`package-lock.json` is not supported).
+> MCID uses **pnpm** as its only package manager (`package-lock.json` is not supported).
 
 ```bash
 pnpm install
@@ -110,7 +110,7 @@ pnpm run test:e2e
 
 ## Configuration
 
-MCDI is configured through environment variables loaded from `.env`.
+MCID is configured through environment variables loaded from `.env`.
 
 ### Required
 
@@ -122,7 +122,7 @@ MCDI is configured through environment variables loaded from `.env`.
 | `DISCORD_TOKEN` | Discord bot token used for guild sync and role inspection |
 | `DISCORD_CALLBACK_URL` | OAuth callback for project member login |
 | `DISCORD_ADMIN_CALLBACK_URL` | OAuth callback for admin login |
-| `MC_GUILD_ID` | Main MicroClub guild for admin access verification |
+| `MC_GUILD_ID` | Main Micro Club guild for admin access verification |
 | `MC_EXECUTIVE_ROLE_ID` | Discord role ID of the root role in the main guild (full access to the admin API) |
 | `ADMIN_FRONTEND_URL` | Redirect target after successful admin login |
 
@@ -136,7 +136,7 @@ MCDI is configured through environment variables loaded from `.env`.
 | `REDIS_HOST` | `localhost` | Redis host |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_PASSWORD` | none | Redis password |
-| `REDIS_KEY_PREFIX` | `mcdi` | Redis namespace prefix |
+| `REDIS_KEY_PREFIX` | `mcid` | Redis namespace prefix |
 | `PERMISSION_CACHE_TTL_MS` | `300000` | In-memory permission cache TTL |
 | `PROJECT_AUTH_CACHE_TTL_MS` | `30000` | Redis cache TTL for project auth lookups |
 | `PROJECT_ACCESS_CACHE_TTL_MS` | `30000` | Redis cache TTL for project-server access |
@@ -148,32 +148,32 @@ MCDI is configured through environment variables loaded from `.env`.
 
 ## Authentication Model
 
-MCDI uses two different authentication models depending on who is calling it.
+MCID uses two different authentication models depending on who is calling it.
 
-### 1. Project To MCDI
+### 1. Project To MCID
 
 Projects authenticate with `X-API-Key`.
 
-There are **two entry points** to start a user login. They share the same callback, the same token exchange, and the same session API — they only differ in whether MCDI checks the global SSO cookie before bouncing to Discord:
+There are **two entry points** to start a user login. They share the same callback, the same token exchange, and the same session API — they only differ in whether MCID checks the global SSO cookie before bouncing to Discord:
 
 | Entry point | Behavior | When to use |
 |---|---|---|
-| `GET /api/auth/sso/authorize` | SSO-aware: skips Discord if the browser already has a valid `mcdi_sso` cookie. | Default "Login with MicroClub" button. Returning users get instant logins across every MCDI project. |
+| `GET /api/auth/sso/authorize` | SSO-aware: skips Discord if the browser already has a valid `mcid_sso` cookie. | Default "Login with Micro Club" button. Returning users get instant logins across every MCID project. |
 | `GET /api/auth/authorize` | Legacy: always bounces through Discord. | Step-up / "force re-auth" — admin actions, sensitive changes — or unchanged behavior for pre-SSO integrations. |
 
 Typical flow (both entry points):
 
-1. The frontend redirects the user to MCDI
-2. MCDI validates the project, redirect URI, and server access
+1. The frontend redirects the user to MCID
+2. MCID validates the project, redirect URI, and server access
 3. The user authenticates with Discord (or skips it if SSO-aware and the cookie is valid)
-4. MCDI verifies guild membership and project access rules
-5. MCDI redirects back to the project with a one-time `code`
+4. MCID verifies guild membership and project access rules
+5. MCID redirects back to the project with a one-time `code`
 6. The project backend exchanges the code for a session token
 7. The project validates sessions when needed
 
 See [docs/auth-integration.md](docs/auth-integration.md) for the full integrator guide with code samples, sequence diagrams, and the SSO-only browser endpoints (`/sso/session`, `/sso/sessions`, `/sso/logout`).
 
-### 2. Admin To MCDI
+### 2. Admin To MCID
 
 Admins authenticate through Discord OAuth and receive a bearer session.
 
@@ -240,7 +240,7 @@ pnpm run docker:db:seed
 ### Production
 
 The repository ships a CI-built, public image on GitHub Container Registry
-(`ghcr.io/<owner>/mcdi:latest`) and a ready-to-deploy Compose stack
+(`ghcr.io/<owner>/mcid:latest`) and a ready-to-deploy Compose stack
 (`docker-compose.prod.yml`) that spins up the API together with PostgreSQL and
 Redis, with persistent volumes.
 
@@ -249,9 +249,9 @@ startup** (never `db:push`) before booting the API:
 
 ```bash
 # the build context is the repository root
-docker build -f apps/api/Dockerfile -t mcdi:local .
+docker build -f apps/api/Dockerfile -t mcid:local .
 # apply the baked-in migrations with psql, then start the API
-docker run --env-file .env -p 3000:3000 mcdi:local \
+docker run --env-file .env -p 3000:3000 mcid:local \
   sh -c 'psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /migrations/migration.sql && node dist/main.js'
 ```
 
@@ -264,11 +264,11 @@ At runtime, the production container expects:
 
 ## Use Cases
 
-- **MicroClub apps**: central login and role-aware access control for internal tools
+- **Micro Club apps**: central login and role-aware access control for internal tools
 - **Event platforms**: gate event actions based on Discord membership and role permissions
 - **Admin operations**: inspect cross-server participation and export member data
 - **Competition servers**: manage separate guilds while preserving shared identity rules
-- **Future integrations**: use MCDI as the identity and authorization layer for new club products
+- **Future integrations**: use MCID as the identity and authorization layer for new club products
 
 ## Requirement Docs
 
@@ -295,6 +295,6 @@ Contributions are welcome. If you are working inside the club workflow, align ch
 
 ## License
 
-This project is currently **UNLICENSED** and intended for internal MicroClub use unless stated otherwise.
+This project is currently **UNLICENSED** and intended for internal Micro Club use unless stated otherwise.
 
-Copyright © 2026 MicroClub — Dev Department, USTHB, Algiers.
+Copyright © 2026 Micro Club — Dev Department, USTHB, Algiers.

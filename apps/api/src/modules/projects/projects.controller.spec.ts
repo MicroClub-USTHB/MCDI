@@ -53,8 +53,9 @@ describe('ProjectsController', () => {
       project: { id: 'p1' },
     });
     const dto = { name: 'Test Project' } as any;
-    const result = await controller.create(dto);
-    expect(mockProjectsService.create).toHaveBeenCalledWith(dto);
+    const req = { user: { id: 'admin-1' } } as any;
+    const result = await controller.create(dto, req);
+    expect(mockProjectsService.create).toHaveBeenCalledWith(dto, 'admin-1');
     expect(result).toMatchObject({ project: { id: 'p1' } });
   });
 
@@ -87,7 +88,7 @@ describe('ProjectsController', () => {
     mockProjectsService.getApiKeyInfo.mockResolvedValue({
       projectId: 'p1',
       projectName: 'Test',
-      apiKeyPrefix: 'mcdi_pk_live_ab12cd34',
+      apiKeyPrefix: 'mcid_pk_live_ab12cd34',
       isActive: true,
     });
     const result = await controller.getApiKeyInfo('p1');

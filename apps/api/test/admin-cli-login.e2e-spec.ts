@@ -1,5 +1,5 @@
 /**
- * E2E: admin CLI login (m-forge) — loopback redirect (RFC 8252) + PKCE (RFC 7636).
+ * E2E: admin CLI login (mcid-cli) — loopback redirect (RFC 8252) + PKCE (RFC 7636).
  *
  * GET /api/auth/admin/discord?redirect_uri=&code_challenge=&code_challenge_method=S256
  *   → Discord (mocked with nock) → admin callback → 302 to the CLI's loopback URL
@@ -74,7 +74,7 @@ describe('Admin CLI login (e2e)', () => {
     });
   });
 
-  /** Starts a CLI login and returns the state MCDI put in the Discord URL. */
+  /** Starts a CLI login and returns the state MCID put in the Discord URL. */
   const startCliLogin = async (challenge: string): Promise<string> => {
     const res = await request(app.getHttpServer())
       .get('/api/auth/admin/discord')
@@ -113,7 +113,7 @@ describe('Admin CLI login (e2e)', () => {
       const state = await startCliLogin(challenge);
       mockDiscordConsent([EXECUTIVE_ROLE_ID]);
 
-      // Discord → MCDI → back to the CLI's loopback URL, never a cookie.
+      // Discord → MCID → back to the CLI's loopback URL, never a cookie.
       const res = await callback(callbackPath, state);
       const target = new URL(res.headers.location);
       expect(target.origin + target.pathname).toBe(LOOPBACK);
@@ -216,7 +216,7 @@ describe('Admin CLI login (e2e)', () => {
     expect(target.origin + target.pathname).toBe(LOOPBACK);
     expect(target.searchParams.get('state')).toBe(state);
     expect(target.searchParams.get('error')).toBe(
-      'You must be a member of the main MCDI Discord server to access the admin panel',
+      'You must be a member of the main MCID Discord server to access the admin panel',
     );
     expect(target.searchParams.has('code')).toBe(false);
     expect(await db.select().from(adminCliCodes)).toHaveLength(0);

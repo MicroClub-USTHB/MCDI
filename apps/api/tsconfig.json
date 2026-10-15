@@ -1,5 +1,5 @@
 {
-  "extends": "@mcdi/typescript-config/nestjs.json",
+  "extends": "@mcid/typescript-config/nestjs.json",
   "compilerOptions": {
     "outDir": "./dist",
     "paths": {

@@ -28,14 +28,13 @@ export class ServersRepository {
     private readonly db: databaseModule.DrizzleDB,
   ) {}
 
-  /** Get the main Discord server (isMain = true) */
+  /** Get the main Discord server (isMain = true). The unique index allows at most one. */
   async findMain() {
-    const rows = await this.db
+    const [row] = await this.db
       .select()
       .from(servers)
-      .where(eq(servers.isMain, true))
-      .limit(1);
-    return rows[0] || null;
+      .where(eq(servers.isMain, true));
+    return row ?? null;
   }
 
   /** Find a server by its name */
@@ -46,13 +45,6 @@ export class ServersRepository {
       .where(eq(servers.name, name))
       .limit(1);
     return rows[0] || null;
-  }
-
-  async clearMainServer(now: Date) {
-    await this.db
-      .update(servers)
-      .set({ isMain: false, updatedAt: now })
-      .where(eq(servers.isMain, true));
   }
 
   async upsertServer(serverData: typeof servers.$inferInsert) {
@@ -67,6 +59,49 @@ export class ServersRepository {
       .returning();
 
     return row;
+  }
+
+  /**
+   * Upserts a server and makes it the main one. The old main server is
+   * cleared in the same transaction; a concurrent switch to another server
+   * fails on servers_single_main_idx (unique violation).
+   */
+  async upsertMainServer(serverData: typeof servers.$inferInsert, now: Date) {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(servers)
+        .set({ isMain: false, updatedAt: now })
+        .where(eq(servers.isMain, true));
+      const [row] = await tx
+        .insert(servers)
+        .values({ ...serverData, isMain: true })
+        .onConflictDoUpdate({
+          target: servers.id,
+          set: { ...serverData, isMain: true, updatedAt: now },
+        })
+        .returning();
+      return row;
+    });
+  }
+
+  /** Updates a server and makes it the main one, atomically (see upsertMainServer). */
+  async updateByIdAsMain(
+    serverId: string,
+    patch: Partial<typeof servers.$inferInsert>,
+    now: Date,
+  ) {
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(servers)
+        .set({ isMain: false, updatedAt: now })
+        .where(eq(servers.isMain, true));
+      const [row] = await tx
+        .update(servers)
+        .set({ ...patch, isMain: true })
+        .where(eq(servers.id, serverId))
+        .returning();
+      return row;
+    });
   }
 
   async listServersWithLastSync(filters?: ListServersFilters) {

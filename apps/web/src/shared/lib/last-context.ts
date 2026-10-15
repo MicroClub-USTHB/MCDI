@@ -4,8 +4,8 @@ import { useSyncExternalStore } from 'react';
 export type ContextKind = 'server' | 'project';
 
 const STORAGE_KEY: Record<ContextKind, string> = {
-  server: 'mcdi:last-server',
-  project: 'mcdi:last-project',
+  server: 'mcid:last-server',
+  project: 'mcid:last-project',
 };
 
 const listeners = new Set<() => void>();

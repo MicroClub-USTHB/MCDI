@@ -1,16 +1,16 @@
-# MCDI developer documentation (MDX)
+# MCID developer documentation (MDX)
 
 Date: 2026-10-05. Status: design agreed, not yet implemented.
 
 ## 1. Goal
 
-Give current and future developers one place to understand MCDI: how to use it from another MicroClub project, and how it is built and run. The site lives at `/docs` in the existing web app and is written in MDX.
+Give current and future developers one place to understand MCID: how to use it from another Micro Club project, and how it is built and run. The site lives at `/docs` in the existing web app and is written in MDX.
 
 ## 2. Decisions
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | Two tracks: **Integrate with MCDI** (developers of other projects) and **Build MCDI** (contributors), sharing a "Start here" section | Both audiences need docs; they need different things. |
+| D1 | Two tracks: **Integrate with MCID** (developers of other projects) and **Build MCID** (contributors), sharing a "Start here" section | Both audiences need docs; they need different things. |
 | D2 | Docs live **inside `apps/web` at `/docs`**, rendered with plain `@next/mdx` and our own thin shell | No new service or deploy, shares the design tokens, light on a development machine with 8 GB of RAM. Search can be added later without redesign. |
 | D3 | The new MDX is the **source of truth**. The files in `docs/` become historical design records with a short "historical" note and are linked for rationale. Only `auth-integration.md` moves into the docs | The old specs are long and partly out of date; publishing them as is would mislead. |
 | D4 | API endpoint reference is **generated from OpenAPI into real MDX files**, one page per Swagger group | It cannot drift from the controllers, and it is searchable and styled with the rest of the docs. |
@@ -21,18 +21,18 @@ Give current and future developers one place to understand MCDI: how to use it f
 About 25 hand-written pages plus 16 generated pages (one per Swagger group).
 
 **Start here**
-- What is MCDI: the concepts (projects, servers, roles, sync, identity, webhooks) on one page.
+- What is MCID: the concepts (projects, servers, roles, sync, identity, webhooks) on one page.
 - Quickstart.
 
-**Integrate with MCDI**
-- Login with MicroClub (SSO): the flows, the callback and token exchange, migrating an old integration. Moved from `docs/auth-integration.md`.
+**Integrate with MCID**
+- Login with Micro Club (SSO): the flows, the callback and token exchange, migrating an old integration. Moved from `docs/auth-integration.md`.
 - API keys and server access: scopes and operations.
 - Roles, permissions and inheritance.
 - Inbound webhooks, five pages: overview, schemas (steps or flat fields, field types, conditions), signing and sending, reading submissions, errors and limits.
 - API reference (generated).
 - Conventions: errors and rate limits.
 
-**Build MCDI**
+**Build MCID**
 - Architecture: system diagram, modules, request flow, the two auth models.
 - Local setup: Docker, environment variables, creating the Discord application, the first admin.
 - API guide: anatomy of a module, database and migrations, guards, caching, the Discord sync, adding an endpoint step by step.
@@ -81,8 +81,8 @@ Five pull requests, each useful alone.
 | 1 | Docs engine: MDX pipeline, shell, nav, components, public access, landing link, three seed pages, tests, highlighter spike. |
 | 2 | API pipeline: export script, `openapi.json`, generator, the 16 generated pages, the CI check, export spike. |
 | 3 | Integrate track: Quickstart, SSO, API keys, roles, inbound webhooks (five pages), conventions. |
-| 4 | Build MCDI part 1: architecture, local setup, API guide, contracts. |
-| 5 | Build MCDI part 2: web guide, testing, contributing, deployment and operations, decisions, glossary. |
+| 4 | Build MCID part 1: architecture, local setup, API guide, contracts. |
+| 5 | Build MCID part 2: web guide, testing, contributing, deployment and operations, decisions, glossary. |
 
 Each hand-written page is drafted from the code as it is today; the maintainers review for intent and accuracy.
 

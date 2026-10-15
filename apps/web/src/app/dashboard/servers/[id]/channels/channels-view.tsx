@@ -44,7 +44,7 @@ export function ChannelsView({ serverId }: { serverId: string }) {
         <h1 className="text-hero">Channels</h1>
         <p className="mt-1 max-w-2xl text-body text-text-muted">
           Browse this server’s channels by category and read recent message history — without
-          leaving MCDI.
+          leaving MCID.
         </p>
       </header>
 

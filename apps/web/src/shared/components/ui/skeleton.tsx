@@ -3,7 +3,7 @@ import * as React from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Skeleton, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Skeleton, restyled onto the MCID V2 tokens.
  *
  * Upstream uses `bg-accent`, which in this design system is `#EB459E` — hot
  * pink. The placeholder surface is `surface-hover`.

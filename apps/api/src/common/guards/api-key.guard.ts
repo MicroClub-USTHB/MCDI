@@ -12,7 +12,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../../database/entities';
 import { eq, and } from 'drizzle-orm';
 import { Request } from 'express';
-import { Reflector } from '@nestjs/core';
+import { Reflector, ModuleRef } from '@nestjs/core';
 import { ProjectsService } from '../../modules/projects/projects.service';
 import { ProjectAuthCacheService } from '../../modules/projects/project-auth-cache.service';
 import { PROJECT_OPERATION_KEY } from '../decorators/require-project-operation.decorator';
@@ -34,9 +34,16 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     @Inject(DRIZZLE) private readonly db: NodePgDatabase<typeof schema>,
     private readonly reflector: Reflector,
-    private readonly projectsService: ProjectsService,
-    private readonly projectAuthCache: ProjectAuthCacheService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private get projectsService(): ProjectsService {
+    return this.moduleRef.get(ProjectsService, { strict: false });
+  }
+
+  private get projectAuthCache(): ProjectAuthCacheService {
+    return this.moduleRef.get(ProjectAuthCacheService, { strict: false });
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithProject>();

@@ -1,10 +1,10 @@
-# MCDI-Front — Claude Code Project Guide
+# MCID-Front — Claude Code Project Guide
 
 @AGENTS.md
 
 ## 1. Project Overview & Tech Stack
 
-**MCDI** (MicroClub Discord Interface) is a full-stack admin platform for managing MicroClub's Discord infrastructure. This repo (`MCDI-Front`) is the **frontend SPA** — a modern admin panel replacing a legacy EJS-based UI.
+**MCID** (Micro Club Identity) is a full-stack admin platform for managing Micro Club's Discord infrastructure. This repo (`MCID-Front`) is the **frontend SPA** — a modern admin panel replacing a legacy EJS-based UI.
 
 | Layer | Technology | Version |
 |---|---|---|
@@ -19,7 +19,7 @@
 | Testing | Vitest + React Testing Library + MSW | latest |
 | Linting | ESLint 9 flat config + Prettier | latest |
 
-**Backend**: NestJS API at `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api`). See the full V2 specification in `../../docs/MCDI-V2-SPECIFICATION.md`.
+**Backend**: NestJS API at `NEXT_PUBLIC_API_URL` (default `http://localhost:8080/api`). See the full V2 specification in `../../docs/MCID-V2-SPECIFICATION.md`.
 
 ## 2. Architecture & Directory Structure
 
