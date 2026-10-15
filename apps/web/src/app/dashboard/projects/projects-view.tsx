@@ -71,7 +71,7 @@ function ProjectsView() {
     <EmptyState
       icon={<FolderKanban className="size-6" aria-hidden="true" />}
       title="No projects"
-      description="Create your first project to connect an application to MCDI."
+      description="Create your first project to connect an application to MCID."
       action={canWrite ? <CreateProjectButton /> : undefined}
     />
   );
@@ -103,7 +103,7 @@ function ProjectsView() {
         <div>
           <h1 className="text-hero">Projects</h1>
           <p className="mt-1 text-body text-text-muted">
-            Applications that integrate with MCDI and what they can access.
+            Applications that integrate with MCID and what they can access.
           </p>
         </div>
         {canWrite ? <CreateProjectButton /> : null}

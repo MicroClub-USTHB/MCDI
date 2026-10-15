@@ -47,7 +47,7 @@ export function SyncView({ serverId }: { serverId: string }) {
       <header>
         <h1 className="text-hero">Sync</h1>
         <p className="mt-1 max-w-2xl text-body text-text-muted">
-          Monitor Discord ⇆ MCDI synchronization for this server and sync it on demand.
+          Monitor Discord ⇆ MCID synchronization for this server and sync it on demand.
         </p>
       </header>
 

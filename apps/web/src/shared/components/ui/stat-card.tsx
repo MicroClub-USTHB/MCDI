@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 
 /**
- * MCDI V2 stat tile — overline label, value, and a trend/status line under a
+ * MCID V2 stat tile — overline label, value, and a trend/status line under a
  * colored top accent bar. Not a shadcn primitive; composed directly from
  * tokens rather than `Card` since the accent bar needs to sit flush against
  * the card's top edge, outside `Card`'s padded layout.

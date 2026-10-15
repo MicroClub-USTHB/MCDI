@@ -81,7 +81,7 @@ export function WebhookDetail({ webhook, onDeleted }: WebhookDetailProps) {
         onOpenChange={setConfirmOpen}
         variant="destructive"
         title="Delete webhook?"
-        description={`This deletes "${webhook.name}" on Discord and in MCDI. Anything the project still sends to it will fail. This cannot be undone.`}
+        description={`This deletes "${webhook.name}" on Discord and in MCID. Anything the project still sends to it will fail. This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={handleConfirm}
         isConfirming={deleteMutation.isPending}

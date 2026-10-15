@@ -14,7 +14,7 @@ Your project's API key cannot read submissions. Reading needs a member's session
 ## List the webhooks a member may read
 
 ```bash
-curl -s "$MCDI_URL/inbound-webhooks" \
+curl -s "$MCID_URL/inbound-webhooks" \
   -H "Authorization: Bearer $SESSION_TOKEN"
 ```
 
@@ -23,7 +23,7 @@ The answer is an array of the webhooks, each with its `id`, `name`, `slug`, `pro
 ## List submissions
 
 ```bash
-curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=2" \
+curl -s "$MCID_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=2" \
   -H "Authorization: Bearer $SESSION_TOKEN"
 ```
 
@@ -46,7 +46,7 @@ curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=2" \
 }
 ```
 
-Newest submissions come first. `payload` is what MCDI stored after validation, so it includes defaults and leaves out fields whose condition did not apply. Object keys are not kept in the order they were sent. `origin` is the request's `Origin` header, when there was one.
+Newest submissions come first. `payload` is what MCID stored after validation, so it includes defaults and leaves out fields whose condition did not apply. Object keys are not kept in the order they were sent. `origin` is the request's `Origin` header, when there was one.
 
 ### Filters and paging
 
@@ -60,7 +60,7 @@ Newest submissions come first. `payload` is what MCDI stored after validation, s
 A date without a time means midnight UTC, so `dateTo=2026-04-01` excludes everything received on 1 April. Use `2026-04-02` or a full timestamp to include it. `total` counts all submissions that match the filters, not just the page, so a client can compute the number of pages from `total` and `limit`.
 
 ```bash
-curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=50&offset=50&dateFrom=2026-03-01T00:00:00Z" \
+curl -s "$MCID_URL/inbound-webhooks/$WEBHOOK_ID/submissions?limit=50&offset=50&dateFrom=2026-03-01T00:00:00Z" \
   -H "Authorization: Bearer $SESSION_TOKEN"
 ```
 
@@ -73,7 +73,7 @@ A `limit` over 200 is a 400, as is a date that cannot be parsed:
 ## Get one submission
 
 ```bash
-curl -s "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submissions/$SUBMISSION_ID" \
+curl -s "$MCID_URL/inbound-webhooks/$WEBHOOK_ID/submissions/$SUBMISSION_ID" \
   -H "Authorization: Bearer $SESSION_TOKEN"
 ```
 
@@ -102,7 +102,7 @@ The detail adds where the request came from:
 | 404    | `Inbound webhook not found`  | There is no such webhook, **or** the member holds none of its reader roles. |
 | 404    | `Submission not found`       | The webhook is readable but has no such submission.                         |
 
-The 404 is deliberate. A 403 would confirm that the webhook exists and the member merely lacks permission, which would let anyone list the organisation's forms by guessing IDs. So "no access" and "does not exist" look the same. When a read is refused, MCDI also records the attempt in its audit log, and every successful read is logged, so repeated refusals on one webhook stand out.
+The 404 is deliberate. A 403 would confirm that the webhook exists and the member merely lacks permission, which would let anyone list the organisation's forms by guessing IDs. So "no access" and "does not exist" look the same. When a read is refused, MCID also records the attempt in its audit log, and every successful read is logged, so repeated refusals on one webhook stand out.
 
 ## In the admin panel
 

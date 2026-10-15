@@ -1,4 +1,4 @@
-This page gets the whole of MCDI running on your machine: the API with PostgreSQL and Redis, the admin panel, and a Discord application so you can sign in. It ends with every environment variable.
+This page gets the whole of MCID running on your machine: the API with PostgreSQL and Redis, the admin panel, and a Discord application so you can sign in. It ends with every environment variable.
 
 ## What you need
 
@@ -10,8 +10,8 @@ This page gets the whole of MCDI running on your machine: the API with PostgreSQ
 ## Get the code
 
 ```bash
-git clone https://github.com/MicroClub-USTHB/MCDI.git
-cd MCDI
+git clone https://github.com/MicroClub-USTHB/MCID.git
+cd MCID
 pnpm install
 ```
 
@@ -61,7 +61,7 @@ Compose starts three services:
 | Service | Port | Notes |
 | --- | --- | --- |
 | `api` | 3000 | The repository is mounted into the container. On start it installs dependencies, creates the schema with `db:push` (retrying until the database is ready), then runs the API in watch mode. Port 4983 is for Drizzle Studio. |
-| `database` | 5432 | PostgreSQL 16. User `myuser`, password `mypassword`, database `mcdi`. |
+| `database` | 5432 | PostgreSQL 16. User `myuser`, password `mypassword`, database `mcid`. |
 | `redis` | 6379 | Redis 7 with the password `redis_password`. |
 
 The compose file overrides the database and Redis settings with the container hostnames, so `.env` can keep the values from `.env.example`. The first start takes a few minutes. Watch it with `docker compose logs -f api` until you see `Application is running on: http://localhost:3000/api`.
@@ -95,7 +95,7 @@ docker compose up -d database redis
 In `apps/api/.env`, point the API at them. The example file uses the container names `database` and `redis`, which only exist inside Docker, and an old address for the panel:
 
 ```bash
-DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi
+DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcid
 REDIS_HOST=localhost
 ADMIN_FRONTEND_URL=http://localhost:3002/callback
 ```
@@ -114,7 +114,7 @@ When the API starts it applies the pending database migrations by itself, so the
 
 | Address | What you should see |
 | --- | --- |
-| `http://localhost:3000/api` | The text `MCDI w l3alamiya`. |
+| `http://localhost:3000/api` | The text `MCID w l3alamiya`. |
 | `http://localhost:3000/api/docs` | The Swagger page. |
 | `http://localhost:3002` | The landing page. |
 | `http://localhost:3002/docs` | These docs. |
@@ -123,7 +123,7 @@ Until you add a Discord bot token, the log shows `Discord bot login failed - bot
 
 ## Create the Discord application
 
-MCDI needs a Discord application for two things: a **bot** that reads your server, and **OAuth** so people can sign in.
+MCID needs a Discord application for two things: a **bot** that reads your server, and **OAuth** so people can sign in.
 
 <Steps>
 
@@ -131,7 +131,7 @@ MCDI needs a Discord application for two things: a **bot** that reads your serve
 
 2. On the **Bot** page, create a token. This is `DISCORD_TOKEN`. Under **Privileged Gateway Intents**, turn on **Presence Intent**, **Server Members Intent** and **Message Content Intent**. The bot asks for all three, and Discord refuses the connection when they are off.
 
-3. On the **OAuth2** page, copy the **Client ID** and **Client Secret**. They are `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. MCDI asks members for the `identify`, `email`, `guilds` and `guilds.members.read` scopes.
+3. On the **OAuth2** page, copy the **Client ID** and **Client Secret**. They are `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. MCID asks members for the `identify`, `email`, `guilds` and `guilds.members.read` scopes.
 
 4. Under **Redirects**, add the callback addresses. In the Docker setup both the member and the admin login use `http://localhost:3000/api/auth/discord/callback`, so that one is enough. When you run the API on your machine with the values from `.env.example`, also add `http://localhost:3000/api/auth/admin/discord/callback`. Discord only accepts an address that matches exactly.
 
@@ -156,7 +156,7 @@ On its first start with a `MC_GUILD_ID` and an empty database, the API creates t
 
 ## Sign in as the first admin
 
-Open `http://localhost:3002/login` and sign in with Discord. MCDI lets you sign in when you belong to the main server (`MC_GUILD_ID`). You see everything when you hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, which make you a root admin. Any other member signs in with no access. It asks Discord about your membership with your own login, so you do not have to wait for the first sync. After sign-in the API sends you to `ADMIN_FRONTEND_URL`. That must be `http://localhost:3002/callback` for you to land in the panel: set it in `.env` when the API runs on your machine, and with the override file when it runs in Docker. Left alone, Docker sends you to the legacy admin page at `http://localhost:3000/admin`.
+Open `http://localhost:3002/login` and sign in with Discord. MCID lets you sign in when you belong to the main server (`MC_GUILD_ID`). You see everything when you hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, which make you a root admin. Any other member signs in with no access. It asks Discord about your membership with your own login, so you do not have to wait for the first sync. After sign-in the API sends you to `ADMIN_FRONTEND_URL`. That must be `http://localhost:3002/callback` for you to land in the panel: set it in `.env` when the API runs on your machine, and with the override file when it runs in Docker. Left alone, Docker sends you to the legacy admin page at `http://localhost:3000/admin`.
 
 ## The database
 
@@ -196,13 +196,13 @@ The API reads `apps/api/.env`. Four of the values below (`PERMISSION_CACHE_TTL_M
 
 | Variable | Required | Default | What it does |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | yes | none | The PostgreSQL connection string, for example `postgresql://myuser:mypassword@localhost:5432/mcdi`. |
+| `DATABASE_URL` | yes | none | The PostgreSQL connection string, for example `postgresql://myuser:mypassword@localhost:5432/mcid`. |
 | `REDIS_HOST` | no | `localhost` | The Redis host. In Docker it is `redis`. |
 | `REDIS_PORT` | no | `6379` | The Redis port. |
 | `REDIS_PASSWORD` | no | none | The Redis password. The compose file starts Redis with `redis_password`. |
 | `REDIS_URL` | no | none | A full Redis URL. When set it is used instead of host, port and password. |
 | `REDIS_DB` | no | `0` | The Redis database number. |
-| `REDIS_KEY_PREFIX` | no | `mcdi` | Prefix of every key the API writes, so several environments can share a Redis. |
+| `REDIS_KEY_PREFIX` | no | `mcid` | Prefix of every key the API writes, so several environments can share a Redis. |
 
 ### Discord
 
@@ -228,7 +228,7 @@ The API reads `apps/api/.env`. Four of the values below (`PERMISSION_CACHE_TTL_M
 | `OAUTH_STATE_TTL_SEC` | no | `600` | How long the OAuth state is valid, in seconds. |
 | `CALLBACK_CODE_TTL_SEC` | no | `120` | How long the one-time code returned to a project is valid, in seconds. |
 | `SESSION_TTL_SEC` | no | `2592000` | The lifetime of a session, 30 days, in seconds. |
-| `SSO_COOKIE_NAME` | no | `mcdi_sso` | The name of the single sign-on cookie. |
+| `SSO_COOKIE_NAME` | no | `mcid_sso` | The name of the single sign-on cookie. |
 | `SSO_COOKIE_DOMAIN` | no | none | The cookie's domain, such as `.microclub.example`, so subdomains share the login. |
 | `SSO_TTL_SEC` | no | `2592000` | The lifetime of the single sign-on session, in seconds. |
 

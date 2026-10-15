@@ -1,9 +1,9 @@
-An inbound webhook is an address your project sends structured data to. MCDI checks every request against a schema, stores what is valid, and lets chosen members read it. Use one for a sign-up form, an application, an event your system wants to record, or any data a club team needs to see.
+An inbound webhook is an address your project sends structured data to. MCID checks every request against a schema, stores what is valid, and lets chosen members read it. Use one for a sign-up form, an application, an event your system wants to record, or any data a club team needs to see.
 
 ## What it gives you
 
-- **A schema as the contract.** Each webhook has a schema that says which fields exist, their types and their limits. MCDI rejects anything that does not match, and returns every problem at once. See [Schemas](/docs/integrate/inbound-webhooks/schemas).
-- **Proof the data is yours.** Requests carry your API key and, by default, a signature computed with a secret only you and MCDI know. See [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending).
+- **A schema as the contract.** Each webhook has a schema that says which fields exist, their types and their limits. MCID rejects anything that does not match, and returns every problem at once. See [Schemas](/docs/integrate/inbound-webhooks/schemas).
+- **Proof the data is yours.** Requests carry your API key and, by default, a signature computed with a secret only you and MCID know. See [Signing and sending](/docs/integrate/inbound-webhooks/signing-and-sending).
 - **Reading controlled by Discord roles.** Only members who hold a role the webhook names can read what it received. See [Reading submissions](/docs/integrate/inbound-webhooks/reading-submissions).
 
 ## One webhook per kind of data
@@ -20,7 +20,7 @@ A webhook belongs to one project. Its slug, a short lowercase name such as `recr
 
 2. The admin gives you the webhook ID and the signing secret. Your project already has its API key.
 
-3. Your backend sends JSON to `POST /api/inbound-webhooks/{id}/submit`. MCDI answers 201 with the submission's ID, or an error that says what to fix.
+3. Your backend sends JSON to `POST /api/inbound-webhooks/{id}/submit`. MCID answers 201 with the submission's ID, or an error that says what to fix.
 
 4. Members with a reader role read the submissions, in the admin panel or through the API. The panel can also export them as CSV.
 
@@ -34,7 +34,7 @@ Creating and managing webhooks is an admin task, done in the admin panel. Your p
 
 | Setting                | Default      | Effect                                                                                                                                                                                                                    |
 | ---------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Require signature      | on           | Every request must carry a valid `X-MCDI-Signature`. Switching it off lets any holder of the API key submit.                                                                                                              |
+| Require signature      | on           | Every request must carry a valid `X-MCID-Signature`. Switching it off lets any holder of the API key submit.                                                                                                              |
 | Reject unknown fields  | on           | A payload with a field the schema does not declare is refused with `UNKNOWN_FIELD`.                                                                                                                                       |
 | Accepted origins       | none         | When the list is not empty, a request must carry an `Origin` header from the list.                                                                                                                                        |
 | Allow role inheritance | off          | Members whose role inherits a reader role may read too. See [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions).                                                                                  |
@@ -46,8 +46,8 @@ Creating and managing webhooks is an admin task, done in the admin panel. Your p
 For a webhook that does not require a signature, this is all it takes:
 
 ```bash
-curl -s -X POST "$MCDI_URL/inbound-webhooks/$WEBHOOK_ID/submit" \
-  -H "X-API-Key: $MCDI_API_KEY" \
+curl -s -X POST "$MCID_URL/inbound-webhooks/$WEBHOOK_ID/submit" \
+  -H "X-API-Key: $MCID_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "memberId": "42", "plan": "pro" }'
 ```

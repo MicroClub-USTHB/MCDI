@@ -1,7 +1,7 @@
-This page explains how MCDI is tested, which command runs what, and what to test first. Read the warning about the end to end tests before you run them.
+This page explains how MCID is tested, which command runs what, and what to test first. Read the warning about the end to end tests before you run them.
 
 <Callout type="warning">
-  **The API end to end tests empty every table of the database they connect to.** `clearAllTables` in `apps/api/test/helpers/db.ts` truncates every table in the public schema, and twelve of the thirteen end to end files call it, most of them before every test. Run them only against a throwaway database, for example `mcdi_test`, and never against the database you develop in. Passing your development `DATABASE_URL` wipes your members, projects and sessions.
+  **The API end to end tests empty every table of the database they connect to.** `clearAllTables` in `apps/api/test/helpers/db.ts` truncates every table in the public schema, and twelve of the thirteen end to end files call it, most of them before every test. Run them only against a throwaway database, for example `mcid_test`, and never against the database you develop in. Passing your development `DATABASE_URL` wipes your members, projects and sessions.
 </Callout>
 
 ## The layers
@@ -70,13 +70,13 @@ These start the whole Nest application against a real PostgreSQL and a mocked Di
 
 ### Run them on a throwaway database
 
-Point `DATABASE_URL` at a database that exists only for tests. With the compose database running (see [Local setup](/docs/build/local-setup)), `mcdi_test` is one:
+Point `DATABASE_URL` at a database that exists only for tests. With the compose database running (see [Local setup](/docs/build/local-setup)), `mcid_test` is one:
 
 ```bash
 cd apps/api
-export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcdi_test
+export DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/mcid_test
 
-RESET_DB=1 pnpm run db:migrate   # drops and recreates mcdi_test, then applies the migrations
+RESET_DB=1 pnpm run db:migrate   # drops and recreates mcid_test, then applies the migrations
 pnpm run test:e2e
 ```
 

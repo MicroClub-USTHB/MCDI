@@ -19,10 +19,10 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   title: {
-    default: 'MCDI',
-    template: '%s | MCDI',
+    default: 'MCID',
+    template: '%s | MCID',
   },
-  description: 'MCDI Application',
+  description: 'MCID Application',
 };
 
 export default function RootLayout({

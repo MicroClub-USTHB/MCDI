@@ -65,7 +65,7 @@ function SettingsPage() {
           <h1 className="mt-1 text-hero text-text-primary">Settings</h1>
           <p className="mt-1 max-w-2xl text-body text-text-muted">
             {canRead
-              ? 'Configure MCDI behavior and manage your admin profile.'
+              ? 'Configure MCID behavior and manage your admin profile.'
               : 'Manage your admin profile.'}
           </p>
           {canRead && settings?.meta.updatedAt ? (

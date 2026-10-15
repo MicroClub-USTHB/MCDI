@@ -28,7 +28,7 @@ const projectDto = {
   description: null,
   isInternal: false,
   webhookUrl: null,
-  apiKeyPrefix: 'mcdi_live_abc123',
+  apiKeyPrefix: 'mcid_live_abc123',
   apiKeyCreatedAt: '2026-08-19T10:00:00.000Z',
   apiKeyLastUsedAt: null,
   isActive: true,
@@ -67,7 +67,7 @@ describe('CreateProjectDialog', () => {
       http.get(`${API_URL}/servers`, () => HttpResponse.json(servers)),
       http.post(`${API_URL}/admin/projects`, async ({ request }) => {
         createBody.push(await request.json());
-        return HttpResponse.json({ apiKey: 'mcdi_live_secret_key_123', project: projectDto });
+        return HttpResponse.json({ apiKey: 'mcid_live_secret_key_123', project: projectDto });
       }),
       http.patch(`${API_URL}/admin/projects/:id/redirect-uri`, async ({ request, params }) => {
         const body = await request.json();
@@ -91,7 +91,7 @@ describe('CreateProjectDialog', () => {
     await waitFor(() => expect(onOpenChange).not.toHaveBeenCalled());
 
     await userEvent.click(screen.getByRole('button', { name: /reveal value/i }));
-    expect(screen.getByDisplayValue('mcdi_live_secret_key_123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('mcid_live_secret_key_123')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /i've saved the key/i }));
 
@@ -112,7 +112,7 @@ describe('CreateProjectDialog', () => {
     server.use(
       http.get(`${API_URL}/servers`, () => HttpResponse.json(servers)),
       http.post(`${API_URL}/admin/projects`, () =>
-        HttpResponse.json({ apiKey: 'mcdi_live_key', project: projectDto })
+        HttpResponse.json({ apiKey: 'mcid_live_key', project: projectDto })
       ),
       http.patch(`${API_URL}/admin/projects/:id/redirect-uri`, async ({ request }) => {
         patchSpy(await request.json());
@@ -161,7 +161,7 @@ describe('CreateProjectDialog', () => {
         };
         createBody.push(body);
         return HttpResponse.json({
-          apiKey: 'mcdi_live_secret_key_123',
+          apiKey: 'mcid_live_secret_key_123',
           project: projectDto,
           inboundWebhook: {
             webhook: {
@@ -180,7 +180,7 @@ describe('CreateProjectDialog', () => {
               createdAt: '2026-08-19T10:00:00.000Z',
               updatedAt: '2026-08-19T10:00:00.000Z',
             },
-            signingSecret: 'mcdi_whsec_live_9999',
+            signingSecret: 'mcid_whsec_live_9999',
             allowedRoleIds: [],
             submitUrl: 'https://api.microclub.dz/inbound-webhooks/wh_1/submit',
             docsUrl: 'https://api.microclub.dz/admin/inbound-webhooks/wh_1/docs',
@@ -234,8 +234,8 @@ describe('CreateProjectDialog', () => {
     for (const btn of revealButtons) {
       await userEvent.click(btn);
     }
-    expect(screen.getByDisplayValue('mcdi_live_secret_key_123')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('mcdi_whsec_live_9999')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('mcid_live_secret_key_123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('mcid_whsec_live_9999')).toBeInTheDocument();
     expect(
       screen.getByDisplayValue('https://api.microclub.dz/inbound-webhooks/wh_1/submit')
     ).toBeInTheDocument();

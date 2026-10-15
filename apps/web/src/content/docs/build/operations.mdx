@@ -1,4 +1,4 @@
-This page covers how MCDI runs in production, what makes it refuse to start, how to tell whether it is healthy, and what to do about the problems that have actually happened. Every troubleshooting entry below came from a real incident, or was reproduced for this page, and shows the exact message.
+This page covers how MCID runs in production, what makes it refuse to start, how to tell whether it is healthy, and what to do about the problems that have actually happened. Every troubleshooting entry below came from a real incident, or was reproduced for this page, and shows the exact message.
 
 ## Where each part runs
 
@@ -20,7 +20,7 @@ Add the Vercel domain to `CORS_ORIGINS` on the API, or the browser blocks the pa
 
 ### The API image
 
-On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcdi` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
+On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcid` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
 
 - **pruner:** `turbo prune @mcid/api --docker` keeps only the API and the workspace packages it uses.
 - **builder:** installs with the frozen lockfile, builds, and concatenates every SQL migration, in order, into a single `/migrations/migration.sql`.
@@ -103,7 +103,7 @@ The admin panel's **Monitoring** page (`/dashboard/monitoring`) is the operator'
 The database is in the `pg_data` volume. It survives redeploys, and it is not backed up by default. Take scheduled backups of the `database` service in dokploy, or dump it yourself:
 
 ```bash
-docker compose -f "$COMPOSE_FILE" exec -T database pg_dump -U mcdi mcdi > mcdi-$(date +%F).sql
+docker compose -f "$COMPOSE_FILE" exec -T database pg_dump -U mcid mcid > mcid-$(date +%F).sql
 ```
 
 Keep dumps off the server and test a restore now and then. Redis holds only caches and short-lived counters, so it needs no backup.
@@ -126,7 +126,7 @@ Keep dumps off the server and test a restore now and then. Redis holds only cach
 ```bash
 cd apps/api
 docker compose down
-docker volume rm mcdi_redis_data
+docker volume rm mcid_redis_data
 docker compose up -d
 ```
 
@@ -140,7 +140,7 @@ In production, remove the `redis_data` volume of the stack the same way. Cached 
 Bind for 0.0.0.0:3000 failed: port is already allocated
 ```
 
-**Cause.** A Node process started on your machine, for example `pnpm dev` or a leftover `nest start`, and the `mcdi-api-1` container both listen on port 3000. On macOS the second one can bind without an error, and requests go to either.
+**Cause.** A Node process started on your machine, for example `pnpm dev` or a leftover `nest start`, and the `mcid-api-1` container both listen on port 3000. On macOS the second one can bind without an error, and requests go to either.
 
 **Fix.** Find what holds the port, and stop the one that is not Docker:
 

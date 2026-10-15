@@ -100,7 +100,7 @@ export function AuthCallbackHandler() {
           Access Denied
         </h1>
         <p className="max-w-sm text-body text-text-muted">
-          Your Discord account doesn&apos;t have the role required to access the MCDI admin panel.
+          Your Discord account doesn&apos;t have the role required to access the MCID admin panel.
           Contact a club admin if you believe this is a mistake.
         </p>
         <Button asChild variant="secondary" size="sm" className="mt-2">

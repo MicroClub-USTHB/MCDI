@@ -1,4 +1,4 @@
-This page takes you from nothing to a first successful call to the MCDI API with a project key. It takes about five minutes once an admin has set your project up.
+This page takes you from nothing to a first successful call to the MCID API with a project key. It takes about five minutes once an admin has set your project up.
 
 ## What you need first
 
@@ -14,13 +14,13 @@ Keep the key in an environment variable or a secret manager, never in a reposito
 
 <Callout type="note">
   The base URL is `http://localhost:3000/api` on a local stack. Ask an admin for the production
-  address. Every example below reads it from `MCDI_URL`.
+  address. Every example below reads it from `MCID_URL`.
 </Callout>
 
 ```bash
-export MCDI_URL=http://localhost:3000/api
-export MCDI_API_KEY=pk_xxxxxxxx.your-secret-here
-export MCDI_SERVER_ID=900000000000000001
+export MCID_URL=http://localhost:3000/api
+export MCID_API_KEY=pk_xxxxxxxx.your-secret-here
+export MCID_SERVER_ID=900000000000000001
 ```
 
 ## Make your first call
@@ -35,8 +35,8 @@ List two members of your server. The call needs the `read_members` scope and the
   <TabsContent value="curl">
 
 ```bash
-curl -s "$MCDI_URL/servers/$MCDI_SERVER_ID/members?limit=2" \
-  -H "X-API-Key: $MCDI_API_KEY"
+curl -s "$MCID_URL/servers/$MCID_SERVER_ID/members?limit=2" \
+  -H "X-API-Key: $MCID_API_KEY"
 ```
 
   </TabsContent>
@@ -44,8 +44,8 @@ curl -s "$MCDI_URL/servers/$MCDI_SERVER_ID/members?limit=2" \
 
 ```js
 const res = await fetch(
-  `${process.env.MCDI_URL}/servers/${process.env.MCDI_SERVER_ID}/members?limit=2`,
-  { headers: { 'X-API-Key': process.env.MCDI_API_KEY } }
+  `${process.env.MCID_URL}/servers/${process.env.MCID_SERVER_ID}/members?limit=2`,
+  { headers: { 'X-API-Key': process.env.MCID_API_KEY } }
 );
 
 console.log(res.status, await res.json());
@@ -89,7 +89,7 @@ The exact fields and every filter are in the [Members reference](/docs/api-refer
 Every error is JSON with a `statusCode`, an `error` and a `message`. The two you meet first are a missing or wrong key, which is a 401, and a project that is not allowed to do this, which is a 403.
 
 ```bash
-curl -s -i "$MCDI_URL/servers/$MCDI_SERVER_ID/members"
+curl -s -i "$MCID_URL/servers/$MCID_SERVER_ID/members"
 ```
 
 ```json
@@ -110,7 +110,7 @@ A 403 that says `Insufficient scope: 'read_members' is required` means the proje
 
 ## Where to go next
 
-- To let members sign in to your project, read [Login with MicroClub](/docs/integrate/sso).
+- To let members sign in to your project, read [Login with Micro Club](/docs/integrate/sso).
 - To ask what a member is allowed to do, read [Roles, permissions and inheritance](/docs/integrate/roles-and-permissions).
 - To receive forms or events from your project, read [Inbound webhooks: overview](/docs/integrate/inbound-webhooks/overview).
 - For every endpoint, see the [Project API reference](/docs/api-reference/project/overview).

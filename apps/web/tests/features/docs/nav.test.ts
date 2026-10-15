@@ -81,6 +81,6 @@ describe('docs navigation', () => {
   });
 
   it('tells which section a page belongs to, for breadcrumbs', () => {
-    expect(findDoc('start-here/what-is-mcdi')?.section).toBe('Start here');
+    expect(findDoc('start-here/what-is-mcid')?.section).toBe('Start here');
   });
 });

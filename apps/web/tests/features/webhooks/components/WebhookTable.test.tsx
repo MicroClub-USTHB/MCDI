@@ -11,7 +11,7 @@ const webhook: WebhookView = {
   channelId: '234567890123456789',
   channelLabel: '#deployments',
   serverId: '123456789012345678',
-  serverLabel: 'MicroClub',
+  serverLabel: 'Micro Club',
   usageCount: 1234,
   lastUsedLabel: 'Aug 15, 2026, 9:30 AM',
   createdAtLabel: 'Aug 1, 2026, 10:00 AM',
@@ -23,7 +23,7 @@ describe('WebhookTable', () => {
 
     const row = screen.getByRole('row', { name: /Deploy notifications/ });
     expect(within(row).getByText('#deployments')).toBeInTheDocument();
-    expect(within(row).getByText('MicroClub')).toBeInTheDocument();
+    expect(within(row).getByText('Micro Club')).toBeInTheDocument();
     expect(within(row).getByText((1234).toLocaleString())).toBeInTheDocument();
     expect(within(row).getByText('Aug 15, 2026, 9:30 AM')).toBeInTheDocument();
   });

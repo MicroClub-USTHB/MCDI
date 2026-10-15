@@ -152,7 +152,7 @@ function ProjectForm({
           value={name}
           onChange={(event) => handleNameChange(event.target.value)}
           aria-invalid={errors.name ? true : undefined}
-          placeholder="e.g. MicroClub Website"
+          placeholder="e.g. Micro Club Website"
           maxLength={50}
         />
         {errors.name && <p className="text-overline text-error">{errors.name}</p>}

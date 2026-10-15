@@ -76,7 +76,7 @@ export function DocsShell({ children }: { children: ReactNode }) {
               >
                 <Fingerprint className="size-4" />
               </span>
-              MCDI
+              MCID
             </Link>
             <span className="hidden text-body text-text-subtle sm:inline">Docs</span>
           </div>

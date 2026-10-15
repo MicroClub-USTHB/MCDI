@@ -5,7 +5,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Breadcrumb, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Breadcrumb, restyled onto the MCID V2 tokens.
  *
  * Upstream uses `text-muted-foreground`/`text-foreground`, neither of which
  * exist here. Styled as an "eyebrow" — `text-overline` (the same uppercase,

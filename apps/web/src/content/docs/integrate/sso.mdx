@@ -1,18 +1,18 @@
-MCDI is the identity provider for MicroClub projects. A member signs in with Discord once, and your project receives a session token for that member, scoped to your project. This page shows the whole flow, the two ways to start it, and every call your backend makes afterwards.
+MCID is the identity provider for Micro Club projects. A member signs in with Discord once, and your project receives a session token for that member, scoped to your project. This page shows the whole flow, the two ways to start it, and every call your backend makes afterwards.
 
 ## The flow
 
 <Diagram
   src="/docs/login-flow.svg"
-  alt="Sequence of a login: the browser asks the project to log in, the project redirects to MCDI, MCDI redirects to Discord only when there is no valid SSO cookie, then returns the browser to the project with a code, and the project backend exchanges the code for a session token."
+  alt="Sequence of a login: the browser asks the project to log in, the project redirects to MCID, MCID redirects to Discord only when there is no valid SSO cookie, then returns the browser to the project with a code, and the project backend exchanges the code for a session token."
   width={900}
   height={542}
 />
 
-1. The member clicks your login button. Your page sends the browser to MCDI with four query parameters.
-2. MCDI checks the project, the redirect address and the server. If the browser has a valid `mcdi_sso` cookie, MCDI skips Discord and goes straight to step 4. Otherwise it sends the member through Discord.
-3. After Discord, MCDI finds or creates the member, checks that they belong to the server and hold a role your project accepts, and sets the `mcdi_sso` cookie.
-4. MCDI redirects the browser to your `redirect_uri` with a one-time `code` and your `state`.
+1. The member clicks your login button. Your page sends the browser to MCID with four query parameters.
+2. MCID checks the project, the redirect address and the server. If the browser has a valid `mcid_sso` cookie, MCID skips Discord and goes straight to step 4. Otherwise it sends the member through Discord.
+3. After Discord, MCID finds or creates the member, checks that they belong to the server and hold a role your project accepts, and sets the `mcid_sso` cookie.
+4. MCID redirects the browser to your `redirect_uri` with a one-time `code` and your `state`.
 5. Your backend exchanges the code for a session token with `POST /api/auth/token`, using the project API key.
 
 ## Which entry point to use
@@ -21,17 +21,17 @@ There are two, and everything after the redirect is identical.
 
 | If you want                                                         | Use                           | Behaviour                                                                           |
 | ------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------- |
-| The standard "Login with MicroClub" button                          | `GET /api/auth/sso/authorize` | Members who already signed in on any MCDI project skip the Discord screen.          |
-| To make the member prove who they are again, for a sensitive action | `GET /api/auth/authorize`     | Always goes through Discord, even when the browser holds a valid `mcdi_sso` cookie. |
+| The standard "Login with Micro Club" button                          | `GET /api/auth/sso/authorize` | Members who already signed in on any MCID project skip the Discord screen.          |
+| To make the member prove who they are again, for a sensitive action | `GET /api/auth/authorize`     | Always goes through Discord, even when the browser holds a valid `mcid_sso` cookie. |
 
 Both take the same query parameters:
 
 | Parameter      | Meaning                                                                                                                               |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `client_id`    | Your project ID.                                                                                                                      |
-| `redirect_uri` | Where MCDI sends the browser back. It must match, character for character, one of the addresses an admin registered for your project. |
+| `redirect_uri` | Where MCID sends the browser back. It must match, character for character, one of the addresses an admin registered for your project. |
 | `server_id`    | The Discord server the member signs in to. Your project must have access to it.                                                       |
-| `state`        | A value you generate. MCDI returns it unchanged so you can check it matches.                                                          |
+| `state`        | A value you generate. MCID returns it unchanged so you can check it matches.                                                          |
 
 All four are required. Leaving one out is a 400 that lists what is missing.
 
@@ -43,12 +43,12 @@ const params = new URLSearchParams({
   state: crypto.randomUUID(), // store it, compare it on the callback
 });
 
-window.location.href = `${MCDI_URL}/auth/sso/authorize?${params}`;
+window.location.href = `${MCID_URL}/auth/sso/authorize?${params}`;
 ```
 
 Set `state` from a random value, keep it in the member's session, and refuse the callback if it does not match. That is your protection against forged callbacks.
 
-### What MCDI answers
+### What MCID answers
 
 A valid request with a valid SSO cookie redirects straight to your address:
 
@@ -57,14 +57,14 @@ HTTP/1.1 302 Found
 Location: http://localhost:4000/callback?code=7da79cc8903153d2...&state=abc123
 ```
 
-With no valid cookie it starts the Discord login. It sets a short-lived `mcdi_auth_req` cookie and redirects to `/api/auth/discord`:
+With no valid cookie it starts the Discord login. It sets a short-lived `mcid_auth_req` cookie and redirects to `/api/auth/discord`:
 
 ```http
 HTTP/1.1 302 Found
 Location: /api/auth/discord
 ```
 
-The callback code lives for 120 seconds by default and works once. When the address is registered but something else is wrong, MCDI redirects back to you with the reason, so your page can show it:
+The callback code lives for 120 seconds by default and works once. When the address is registered but something else is wrong, MCID redirects back to you with the reason, so your page can show it:
 
 ```http
 HTTP/1.1 302 Found
@@ -78,7 +78,7 @@ Location: http://localhost:4000/callback?error=access_denied&error_description=P
 | `access_denied`        | The project has no access to that server.                                            |
 | `insufficient_roles`   | The project limits who may sign in, and the member holds none of the accepted roles. |
 
-MCDI never redirects to an address it cannot trust. When `client_id` or `redirect_uri` is the problem there is nobody safe to send the member to, so it answers with a JSON 400 instead:
+MCID never redirects to an address it cannot trust. When `client_id` or `redirect_uri` is the problem there is nobody safe to send the member to, so it answers with a JSON 400 instead:
 
 ```json
 {
@@ -93,8 +93,8 @@ MCDI never redirects to an address it cannot trust. When `client_id` or `redirec
 Your backend, never the browser, trades the code for a session. The call carries your API key and must come from the project that owns the code.
 
 ```bash
-curl -s -X POST "$MCDI_URL/auth/token" \
-  -H "X-API-Key: $MCDI_API_KEY" \
+curl -s -X POST "$MCID_URL/auth/token" \
+  -H "X-API-Key: $MCID_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "clientId": "<project id>",
@@ -140,11 +140,11 @@ The session lasts 30 days. The member object holds only the public profile: `id`
 
 ## Check a session on each request
 
-Ask MCDI whether a token is still good, and what the member's roles are right now:
+Ask MCID whether a token is still good, and what the member's roles are right now:
 
 ```bash
-curl -s -X POST "$MCDI_URL/auth/validate" \
-  -H "X-API-Key: $MCDI_API_KEY" \
+curl -s -X POST "$MCID_URL/auth/validate" \
+  -H "X-API-Key: $MCID_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{ "token": "<session token>" }'
 ```
@@ -156,7 +156,7 @@ A 200 returns `{ "member": { ... }, "roles": [ ... ] }`, with roles read live, s
 Trade the pair for a new one. This call is authenticated by the session token itself, as a Bearer token, not by your API key:
 
 ```bash
-curl -s -X POST "$MCDI_URL/auth/token/refresh" \
+curl -s -X POST "$MCID_URL/auth/token/refresh" \
   -H "Authorization: Bearer <session token>" \
   -H "Content-Type: application/json" \
   -d '{ "refreshToken": "<refresh token>" }'
@@ -184,7 +184,7 @@ Three calls end sessions, from narrow to wide.
 
 ## Browser-only SSO endpoints
 
-These read the `mcdi_sso` cookie, so the browser calls them with `credentials: 'include'`. They take no API key.
+These read the `mcid_sso` cookie, so the browser calls them with `credentials: 'include'`. They take no API key.
 
 - `GET /api/auth/sso/session` answers who is signed in: `{ "authenticated": true, "member": { ... }, "expiresAt": "..." }`, or 401 `{ "authenticated": false }`. Use it for a shared "Signed in as Alice" header.
 - `GET /api/auth/sso/sessions` lists the project sessions under the cookie, without any token material, for a "Signed in to" screen:
@@ -214,7 +214,7 @@ These read the `mcdi_sso` cookie, so the browser calls them with `credentials: '
 
 | Endpoint                         | Authenticated by            | Called by    | Purpose                                                  |
 | -------------------------------- | --------------------------- | ------------ | -------------------------------------------------------- |
-| `GET /api/auth/sso/authorize`    | `mcdi_sso` cookie, optional | Browser      | SSO-aware login, skips Discord when the cookie is valid. |
+| `GET /api/auth/sso/authorize`    | `mcid_sso` cookie, optional | Browser      | SSO-aware login, skips Discord when the cookie is valid. |
 | `GET /api/auth/authorize`        | none                        | Browser      | Login that always goes through Discord.                  |
 | `GET /api/auth/discord/callback` | none                        | Discord      | Internal. Both entry points end here.                    |
 | `POST /api/auth/token`           | API key                     | Your backend | Exchange the one-time code for a session.                |
@@ -222,9 +222,9 @@ These read the `mcdi_sso` cookie, so the browser calls them with `credentials: '
 | `POST /api/auth/validate`        | API key                     | Your backend | Check a token and get the member's current roles.        |
 | `POST /api/auth/logout`          | API key                     | Your backend | End one session of your project.                         |
 | `POST /api/auth/logout-all`      | API key                     | Your backend | End all of a member's sessions on your project.          |
-| `GET /api/auth/sso/session`      | `mcdi_sso` cookie           | Browser      | Who is signed in.                                        |
-| `GET /api/auth/sso/sessions`     | `mcdi_sso` cookie           | Browser      | The project sessions under the cookie.                   |
-| `POST /api/auth/sso/logout`      | `mcdi_sso` cookie           | Browser      | Log out of every project at once.                        |
+| `GET /api/auth/sso/session`      | `mcid_sso` cookie           | Browser      | Who is signed in.                                        |
+| `GET /api/auth/sso/sessions`     | `mcid_sso` cookie           | Browser      | The project sessions under the cookie.                   |
+| `POST /api/auth/sso/logout`      | `mcid_sso` cookie           | Browser      | Log out of every project at once.                        |
 
 ## Move an existing integration to SSO
 

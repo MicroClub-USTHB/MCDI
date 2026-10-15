@@ -12,7 +12,7 @@ export default function ServersPage() {
       <div>
         <h1 className="text-hero">Servers</h1>
         <p className="mt-1 text-body text-text-muted">
-          Manage the Discord servers MCDI syncs and enforces permissions for.
+          Manage the Discord servers MCID syncs and enforces permissions for.
         </p>
       </div>
       <ServersView />

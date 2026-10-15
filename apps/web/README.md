@@ -1,6 +1,6 @@
-# MCDI-Front
+# MCID-Front
 
-> The modern admin panel for **MicroClub Discord Interface** — a Discord-inspired, dark-first web application that replaces the legacy EJS admin panel.
+> The modern admin panel for **Micro Club Identity** — a Discord-inspired, dark-first web application that replaces the legacy EJS admin panel.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
@@ -27,7 +27,7 @@
 
 ## Overview
 
-MCDI (MicroClub Discord Interface) is a full-stack platform that serves as the identity and management layer for all MicroClub applications. The backend is a NestJS API handling Discord OAuth, member sync, role management, and project lifecycle. This repo is the **frontend** — a Next.js 16 SPA that provides admins with a professional dashboard to manage servers, members, roles, projects, channels, webhooks, sync operations, and analytics.
+MCID (Micro Club Identity) is a full-stack platform that serves as the identity and management layer for all Micro Club applications. The backend is a NestJS API handling Discord OAuth, member sync, role management, and project lifecycle. This repo is the **frontend** — a Next.js 16 SPA that provides admins with a professional dashboard to manage servers, members, roles, projects, channels, webhooks, sync operations, and analytics.
 
 ### Tech stack
 
@@ -68,14 +68,14 @@ MCDI (MicroClub Discord Interface) is a full-stack platform that serves as the i
 
 - **Node.js** >= 20
 - **pnpm** >= 10 (the repo is a pnpm + Turborepo workspace)
-- A running instance of the [MCDI Backend](https://github.com/MicroClub-USTHB/MCDI) (NestJS API)
+- A running instance of the [MCID Backend](https://github.com/MicroClub-USTHB/MCID) (NestJS API)
 
 ### Installation
 
 ```bash
 # Clone the monorepo and install every workspace from the repository root
-git clone https://github.com/MicroClub-USTHB/MCDI.git
-cd MCDI
+git clone https://github.com/MicroClub-USTHB/MCID.git
+cd MCID
 pnpm install
 
 # Everything below runs from apps/web
@@ -204,7 +204,7 @@ import { useAuthStore } from '@/features/auth';
 
 ## Design system
 
-The MCDI V2 design system is **Discord-inspired and dark-only**. There is no light mode, no theme toggle, and no `dark:` prefixed classes anywhere in the codebase.
+The MCID V2 design system is **Discord-inspired and dark-only**. There is no light mode, no theme toggle, and no `dark:` prefixed classes anywhere in the codebase.
 
 All tokens are defined in `src/shared/styles/globals.css` using Tailwind CSS v4's `@theme` directive. There is no `tailwind.config.ts` — the CSS file is the single source of truth.
 
@@ -272,7 +272,7 @@ Always use the correct layer for the context. A card sitting on the page uses `b
 
 ### Component recipes
 
-These are the standard patterns for building UI in MCDI. Always use these as your starting point:
+These are the standard patterns for building UI in MCID. Always use these as your starting point:
 
 **Primary button:**
 ```tsx
@@ -662,7 +662,7 @@ Reference guides that agents consult during implementation:
 | Skill | Content |
 |---|---|
 | **tailwind-design-system** | Full V2 token reference, component recipes, surface hierarchy rules |
-| **tailwind-css-patterns** | Responsive layouts, flexbox/grid, mobile-first patterns (adapted for MCDI tokens) |
+| **tailwind-css-patterns** | Responsive layouts, flexbox/grid, mobile-first patterns (adapted for MCID tokens) |
 | **vercel-react-best-practices** | 64 performance rules: waterfalls, bundle size, re-renders, SSR |
 | **tanstack-query-best-practices** | 21 rules: query keys, caching, mutations, prefetching, SSR, offline |
 | **tanstack-integration-best-practices** | 4 rules: Router + Query integration, SSR hydration |
@@ -824,4 +824,4 @@ Refs #<issue-number>
 
 ## License
 
-This project is maintained by [MicroClub USTHB](https://github.com/MicroClub-USTHB).
+This project is maintained by [Micro Club USTHB](https://github.com/MicroClub-USTHB).

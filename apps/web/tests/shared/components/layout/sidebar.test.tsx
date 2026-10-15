@@ -66,7 +66,7 @@ beforeEach(() => {
   nav.push.mockClear();
   server.use(
     http.get(`${API_URL}/servers`, () =>
-      HttpResponse.json([serverDto('srv_1', 'MicroClub'), serverDto('srv_2', 'Events')])
+      HttpResponse.json([serverDto('srv_1', 'Micro Club'), serverDto('srv_2', 'Events')])
     ),
     http.get(`${API_URL}/admin/projects`, () =>
       HttpResponse.json([

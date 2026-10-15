@@ -20,7 +20,7 @@ const mockUser = {
   id: '1',
   username: 'admin',
   name: 'Admin',
-  email: 'admin@mcdi.dev',
+  email: 'admin@mcid.dev',
   avatar: null,
   isSystemAdmin: true,
   root: true,

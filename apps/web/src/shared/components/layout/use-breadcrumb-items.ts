@@ -27,7 +27,7 @@ function toTitleCase(segment: string): string {
 /**
  * Pure so it's testable without mounting a component.
  *
- * - A page under a server or project reads "Servers › MicroClub › Roles", the
+ * - A page under a server or project reads "Servers › Micro Club › Roles", the
  *   name coming from `names` (or "Server" until the list has loaded).
  * - Any other page is matched to its sidebar link; deeper pages stay under it.
  * - Unknown routes fall back to title-casing the trailing segment.
