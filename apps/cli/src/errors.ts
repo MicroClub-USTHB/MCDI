@@ -33,6 +33,6 @@ export function stripControlCharacters(text: string): string {
 export function exitWithError(command: string, err: unknown): never {
   const message = err instanceof Error ? err.message : String(err);
   const code = err instanceof CliError ? err.exitCode : ExitCode.Unexpected;
-  process.stderr.write(`mcdi-cli ${command}: ${stripControlCharacters(message)}\n`);
+  process.stderr.write(`mcid-cli ${command}: ${stripControlCharacters(message)}\n`);
   process.exit(code);
 }

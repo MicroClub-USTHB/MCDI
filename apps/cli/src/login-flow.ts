@@ -12,12 +12,12 @@ import {
 } from './config.js';
 import { defaultKeyProvider, encrypt, sessionContext, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode, stripControlCharacters } from './errors.js';
-import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcdi.js';
+import { adminDisplayName, exchangeAdminLoginCode, getAdminLoginUrl, getAdminMe } from './mcid.js';
 import { createPkcePair } from './pkce.js';
 
 const CALLBACK_PATH = '/callback';
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
-/** The only host the CLI opens a login URL on: MCDI's login always goes through Discord. */
+/** The only host the CLI opens a login URL on: MCID's login always goes through Discord. */
 const DISCORD_HOST = 'discord.com';
 
 export interface LoginOptions {
@@ -54,8 +54,8 @@ export type CallbackResult =
   | { kind: 'ignore'; reason: string };
 
 /**
- * Reads MCDI's redirect to the loopback listener: `?code=<one-time code>&state=`
- * once the admin login succeeded, or `?error=<message>&state=` when MCDI
+ * Reads MCID's redirect to the loopback listener: `?code=<one-time code>&state=`
+ * once the admin login succeeded, or `?error=<message>&state=` when MCID
  * refused it (for example, no admin role).
  *
  * A code is only accepted alongside the exact `state` this login started with,
@@ -75,17 +75,17 @@ export function readCallback(params: URLSearchParams, expectedState: string): Ca
   return { kind: 'code', code };
 }
 
-/** Pulls the OAuth `state` MCDI generated out of the Discord URL, so the callback can be tied back to it. */
+/** Pulls the OAuth `state` MCID generated out of the Discord URL, so the callback can be tied back to it. */
 export function extractState(discordUrl: string): string {
   let url: URL;
   try {
     url = new URL(discordUrl);
   } catch {
-    throw new CliError('MCDI returned an invalid Discord URL', ExitCode.Unexpected);
+    throw new CliError('MCID returned an invalid Discord URL', ExitCode.Unexpected);
   }
   if (url.protocol !== 'https:') {
     throw new CliError(
-      `refusing to open a non-https login URL from MCDI (${url.protocol})`,
+      `refusing to open a non-https login URL from MCID (${url.protocol})`,
       ExitCode.Unexpected,
     );
   }
@@ -97,7 +97,7 @@ export function extractState(discordUrl: string): string {
   }
   const state = url.searchParams.get('state');
   if (!state)
-    throw new CliError('MCDI login URL has no OAuth state parameter', ExitCode.Unexpected);
+    throw new CliError('MCID login URL has no OAuth state parameter', ExitCode.Unexpected);
   return state;
 }
 
@@ -110,7 +110,7 @@ const page = (title: string, body: string, variant: 'success' | 'error' = 'succe
   return `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>mcdi-cli</title>
+<title>mcid-cli</title>
 <style>
   :root { color-scheme: light dark; }
   body {
@@ -154,7 +154,7 @@ const page = (title: string, body: string, variant: 'success' | 'error' = 'succe
 
 interface CallbackListener {
   redirectUri: string;
-  /** Resolves with the one-time login code, rejects on an MCDI error or timeout. */
+  /** Resolves with the one-time login code, rejects on an MCID error or timeout. */
   waitForCode(expectedState: string, timeoutMs: number): Promise<string>;
   close(): Promise<void>;
 }
@@ -190,7 +190,7 @@ export async function startCallbackListener(
       res
         .writeHead(400)
         .end(
-          page('Ignored', 'This request does not belong to the current mcdi-cli login.', 'error'),
+          page('Ignored', 'This request does not belong to the current mcid-cli login.', 'error'),
         );
     }
   });
@@ -210,8 +210,8 @@ export async function startCallbackListener(
           reject(
             new CliError(
               `timed out after ${Math.round(timeoutMs / 1000)}s waiting for the browser login. ` +
-                'If your browser ended up on the MCDI admin panel instead, this MCDI instance does not ' +
-                'support CLI login yet (mcdi-cli issue #2).',
+                'If your browser ended up on the MCID admin panel instead, this MCID instance does not ' +
+                'support CLI login yet (mcid-cli issue #2).',
               ExitCode.Auth,
             ),
           );
@@ -223,7 +223,7 @@ export async function startCallbackListener(
           onRequest = () => ({ kind: 'ignore', reason: 'login already finished' });
           if (result.kind === 'code') resolve(result.code);
           else
-            reject(new CliError(`MCDI reported a login failure: ${result.message}`, ExitCode.Auth));
+            reject(new CliError(`MCID reported a login failure: ${result.message}`, ExitCode.Auth));
           return result;
         };
       });
@@ -245,7 +245,7 @@ export async function login(options: LoginOptions, deps: LoginDeps): Promise<voi
   if (existing && secrets > 0 && normalizeBaseUrl(existing.baseUrl) !== baseUrl) {
     throw new CliError(
       `profile "${profileName}" holds ${secrets} webhook signing secret(s) for ${existing.baseUrl}; ` +
-        'log in to another MCDI on a new profile instead (`mcdi-cli profile add`)',
+        'log in to another MCID on a new profile instead (`mcid-cli profile add`)',
       ExitCode.PrecheckFailed,
     );
   }

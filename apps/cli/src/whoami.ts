@@ -1,7 +1,7 @@
 import { configPath, loadConfig, resolveProfileName } from './config.js';
 import { defaultKeyProvider, type KeyProvider } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { adminDisplayName, getAdminMeRaw, parseAdminMe } from './mcdi.js';
+import { adminDisplayName, getAdminMeRaw, parseAdminMe } from './mcid.js';
 import { resolveSession } from './session.js';
 
 export interface WhoamiOptions {
@@ -25,7 +25,7 @@ export function defaultWhoamiDeps(): WhoamiDeps {
 }
 
 /**
- * Read-only: resolves the profile's stored session and asks MCDI who it
+ * Read-only: resolves the profile's stored session and asks MCID who it
  * belongs to. Never writes the config file and never prints the token,
  * in either human or `--json` mode. There is no refresh endpoint for the
  * admin session (see the Admin API reference), so a 401 here is final — no retry.
@@ -38,13 +38,13 @@ export async function whoami(options: WhoamiOptions, deps: WhoamiDeps): Promise<
   const { status, body } = await getAdminMeRaw(session.baseUrl, session.token);
   if (status === 401) {
     throw new CliError(
-      `session expired, run \`mcdi-cli login --profile ${profileName}\``,
+      `session expired, run \`mcid-cli login --profile ${profileName}\``,
       ExitCode.Auth,
     );
   }
   if (status === 403) {
     throw new CliError(
-      'this Discord account is not allowed to use the MCDI admin API',
+      'this Discord account is not allowed to use the MCID admin API',
       ExitCode.Auth,
     );
   }
@@ -56,6 +56,6 @@ export async function whoami(options: WhoamiOptions, deps: WhoamiDeps): Promise<
 
   const me = parseAdminMe(body);
   deps.out(`Logged in as ${adminDisplayName(me)} (${me.username}) on ${profileName}`);
-  deps.out(`MCDI: ${session.baseUrl}`);
+  deps.out(`MCID: ${session.baseUrl}`);
   deps.out(`Session expires: ${me.sessionExpiresAt}`);
 }

@@ -14,7 +14,7 @@ const session = {
 const secretEntry = { secret: 'v1:s:e:c', name: 'Recruitment', slug: 'recruitment' };
 
 async function tempConfigPath(config: Config): Promise<string> {
-  const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-config-show-')), 'config.json');
+  const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-config-show-')), 'config.json');
   await saveConfig(config, path);
   return path;
 }

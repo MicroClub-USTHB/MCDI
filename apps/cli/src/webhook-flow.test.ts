@@ -37,7 +37,7 @@ describe('maskSecret', () => {
 
 describe('webhookRotateSecret confirmation', () => {
   async function seededConfigPath(keys: KeyProvider, baseUrl: string): Promise<string> {
-    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-rotate-')), 'config.json');
+    const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-rotate-')), 'config.json');
     const session = {
       accessToken: await encrypt('session-token', keys, sessionContext('prod')),
       expiresAt: '2026-10-05T00:00:00.000Z',
@@ -73,9 +73,9 @@ describe('webhookRotateSecret confirmation', () => {
   }
 
   // These all target an unreachable loopback port (http://127.0.0.1:9 — "discard", nothing listens
-  // for TCP there) rather than any mock/fake MCDI server, so the assertions below prove whether a
+  // for TCP there) rather than any mock/fake MCID server, so the assertions below prove whether a
   // network call was attempted at all: a confirmation refusal never reaches `request()`, so it never
-  // produces "could not reach MCDI"; only a confirmed rotation does.
+  // produces "could not reach MCID"; only a confirmed rotation does.
   const UNREACHABLE = 'http://127.0.0.1:9';
 
   it('refuses without --yes when there is no interactive terminal, before any network call', async () => {
@@ -109,7 +109,7 @@ describe('webhookRotateSecret confirmation', () => {
 
     const err = await captureError(webhookRotateSecret('wh-1', { profile: 'prod' }, deps));
     expect(err.exitCode).toBe(ExitCode.Unexpected);
-    expect(err.message).toMatch(/could not reach MCDI/);
+    expect(err.message).toMatch(/could not reach MCID/);
   });
 
   it('proceeds to the network step on "yes" too', async () => {
@@ -119,7 +119,7 @@ describe('webhookRotateSecret confirmation', () => {
 
     const err = await captureError(webhookRotateSecret('wh-1', { profile: 'prod' }, deps));
     expect(err.exitCode).toBe(ExitCode.Unexpected);
-    expect(err.message).toMatch(/could not reach MCDI/);
+    expect(err.message).toMatch(/could not reach MCID/);
   });
 
   it('--yes skips the prompt entirely and still reaches the network step', async () => {
@@ -133,7 +133,7 @@ describe('webhookRotateSecret confirmation', () => {
     );
     expect(ask).not.toHaveBeenCalled();
     expect(err.exitCode).toBe(ExitCode.Unexpected);
-    expect(err.message).toMatch(/could not reach MCDI/);
+    expect(err.message).toMatch(/could not reach MCID/);
   });
 });
 
@@ -142,7 +142,7 @@ describe('webhookCreate: --project and --roles', () => {
   const ROLE = '123456789012345678';
 
   async function seededConfigPath(keys: KeyProvider, baseUrl: string): Promise<string> {
-    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-create-')), 'config.json');
+    const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-create-')), 'config.json');
     const session = {
       accessToken: await encrypt('session-token', keys, sessionContext('prod')),
       expiresAt: '2026-10-05T00:00:00.000Z',
@@ -153,7 +153,7 @@ describe('webhookCreate: --project and --roles', () => {
   }
 
   async function seededSchemaPath(): Promise<string> {
-    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-create-schema-')), 'schema.json');
+    const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-create-schema-')), 'schema.json');
     await writeFile(
       path,
       JSON.stringify({
@@ -235,7 +235,7 @@ describe('webhookCreate: --project and --roles', () => {
     expect(err.message).toContain(message);
   });
 
-  it('sends valid role ids on to MCDI', async () => {
+  it('sends valid role ids on to MCID', async () => {
     const keys = fixedKeys();
     const path = await seededConfigPath(keys, UNREACHABLE);
     const schemaPath = await seededSchemaPath();
@@ -249,14 +249,14 @@ describe('webhookCreate: --project and --roles', () => {
       ),
     );
     expect(err.exitCode).toBe(ExitCode.Unexpected);
-    expect(err.message).toMatch(/could not reach MCDI/);
+    expect(err.message).toMatch(/could not reach MCID/);
   });
 });
 
 describe('webhookSecretGet', () => {
   async function twoSecrets(keys: KeyProvider): Promise<string> {
-    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-secret-')), 'config.json');
-    let config = addProfile(emptyConfig(), 'prod', 'https://mcdi.example.com');
+    const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-secret-')), 'config.json');
+    let config = addProfile(emptyConfig(), 'prod', 'https://mcid.example.com');
     for (const [id, slug] of [
       ['wh-1', 'signup'],
       ['wh-2', 'workshop'],

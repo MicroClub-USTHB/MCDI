@@ -11,7 +11,7 @@ import {
 export function registerProfileCommand(program: Command): void {
   const profile = program
     .command('profile')
-    .description('Manage named MCDI profiles (base URL + session)');
+    .description('Manage named MCID profiles (base URL + session)');
 
   profile
     .command('list')
@@ -27,7 +27,7 @@ export function registerProfileCommand(program: Command): void {
   profile
     .command('add <name>')
     .description('Add a new profile')
-    .requiredOption('--base-url <url>', 'MCDI base URL for this profile')
+    .requiredOption('--base-url <url>', 'MCID base URL for this profile')
     .action(async (name: string, options: { baseUrl: string }) => {
       try {
         await profileAdd(name, options, defaultProfileDeps());

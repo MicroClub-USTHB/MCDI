@@ -7,7 +7,7 @@ import { saveConfig } from './config.js';
 
 /**
  * Runs the real CLI entry point and closes its stdout before it writes, the way
- * `mcdi-cli ... | head` does once head has read enough.
+ * `mcid-cli ... | head` does once head has read enough.
  */
 async function runWithClosedStdout(args: string[], env: NodeJS.ProcessEnv) {
   const child = spawn(
@@ -28,18 +28,18 @@ async function runWithClosedStdout(args: string[], env: NodeJS.ProcessEnv) {
 describe('stdout closed early (EPIPE)', () => {
   it('exits quietly with 0 instead of crashing with a stack trace', async () => {
     // A profile without a session: `logout` prints one stdout line and never touches the keychain.
-    const configPath = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-epipe-')), 'config.json');
+    const configPath = join(await mkdtemp(join(tmpdir(), 'mcid-cli-epipe-')), 'config.json');
     await saveConfig(
       {
         version: 1,
         activeProfile: 'prod',
-        profiles: { prod: { baseUrl: 'https://mcdi.example.com', session: null } },
+        profiles: { prod: { baseUrl: 'https://mcid.example.com', session: null } },
       },
       configPath,
     );
 
     const { code, stderr } = await runWithClosedStdout(['logout', '--profile', 'prod'], {
-      MCDI_CLI_CONFIG_PATH: configPath,
+      MCID_CLI_CONFIG_PATH: configPath,
     });
 
     expect(stderr).not.toContain('EPIPE');

@@ -5,8 +5,8 @@ import { configDir } from '../config.js';
 import { CliError, ExitCode } from '../errors.js';
 
 /**
- * Custom ("house") validation rules, loaded from `.mcdi-cli/rules/*.json` in the
- * project and `~/.mcdi-cli/rules/*.json` globally (PRD §9.2). Rule files are
+ * Custom ("house") validation rules, loaded from `.mcid-cli/rules/*.json` in the
+ * project and `~/.mcid-cli/rules/*.json` globally (PRD §9.2). Rule files are
  * read as plain JSON and checked against a closed set of rule types; nothing in
  * them is ever executed.
  */
@@ -30,7 +30,7 @@ export interface CustomRule {
   file: string;
 }
 
-/** Same limit MCDI puts on stored schema patterns. */
+/** Same limit MCID puts on stored schema patterns. */
 const MAX_PATTERN_LENGTH = SCHEMA_LIMITS.MAX_PATTERN_LENGTH;
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const COMMON_KEYS = ['id', 'type', 'appliesTo', 'message'];
@@ -176,11 +176,11 @@ async function loadRulesDir(dir: string): Promise<CustomRule[]> {
   return rules;
 }
 
-/** The nearest `.mcdi-cli/rules` directory from `startDir` upwards, like git looks for `.git`. */
+/** The nearest `.mcid-cli/rules` directory from `startDir` upwards, like git looks for `.git`. */
 export async function findProjectRulesDir(startDir: string): Promise<string | undefined> {
   let dir = resolve(startDir);
   for (;;) {
-    const candidate = join(dir, '.mcdi-cli', 'rules');
+    const candidate = join(dir, '.mcid-cli', 'rules');
     if (await isDirectory(candidate)) return candidate;
     const parent = dirname(dir);
     if (parent === dir) return undefined;
@@ -189,13 +189,13 @@ export async function findProjectRulesDir(startDir: string): Promise<string | un
 }
 
 export interface RuleLocations {
-  /** Where to start looking for the project's `.mcdi-cli/rules`. */
+  /** Where to start looking for the project's `.mcid-cli/rules`. */
   cwd: string;
-  /** The global rules directory, normally `~/.mcdi-cli/rules`. */
+  /** The global rules directory, normally `~/.mcid-cli/rules`. */
   globalDir: string;
 }
 
-/** The current directory upwards for project rules, and `~/.mcdi-cli/rules` for global ones. */
+/** The current directory upwards for project rules, and `~/.mcid-cli/rules` for global ones. */
 export function defaultRuleLocations(): RuleLocations {
   return { cwd: process.cwd(), globalDir: join(configDir(), 'rules') };
 }

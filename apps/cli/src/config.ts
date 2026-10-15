@@ -11,9 +11,9 @@ export interface StoredSession {
 }
 
 /**
- * A webhook signing secret mcdi-cli keeps because MCDI never re-issues one
+ * A webhook signing secret mcid-cli keeps because MCID never re-issues one
  * (see the Admin API reference). `secret` is always encrypted, like `accessToken`;
- * the rest only labels it for `mcdi-cli webhook secret get`.
+ * the rest only labels it for `mcid-cli webhook secret get`.
  */
 export interface StoredWebhookSecret {
   secret: string;
@@ -43,15 +43,15 @@ export function isValidProfileName(name: string): boolean {
   return PROFILE_NAME_PATTERN.test(name);
 }
 
-/** Where mcdi-cli keeps its state: the config file's directory, so `MCDI_CLI_CONFIG_PATH` moves the key file and global rules too. */
+/** Where mcid-cli keeps its state: the config file's directory, so `MCID_CLI_CONFIG_PATH` moves the key file and global rules too. */
 export function configDir(env: NodeJS.ProcessEnv = process.env): string {
-  return env.MCDI_CLI_CONFIG_PATH
-    ? dirname(env.MCDI_CLI_CONFIG_PATH)
-    : join(homedir(), '.mcdi-cli');
+  return env.MCID_CLI_CONFIG_PATH
+    ? dirname(env.MCID_CLI_CONFIG_PATH)
+    : join(homedir(), '.mcid-cli');
 }
 
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
-  return env.MCDI_CLI_CONFIG_PATH || join(configDir(env), 'config.json');
+  return env.MCID_CLI_CONFIG_PATH || join(configDir(env), 'config.json');
 }
 
 export function emptyConfig(): Config {
@@ -119,7 +119,7 @@ async function acquireLock(lockPath: string): Promise<() => Promise<void>> {
       }
       if (Date.now() > deadline) {
         throw new CliError(
-          `another mcdi-cli command is updating ${lockPath.replace(/\.lock$/, '')}; try again`,
+          `another mcid-cli command is updating ${lockPath.replace(/\.lock$/, '')}; try again`,
           ExitCode.Unexpected,
         );
       }
@@ -172,7 +172,7 @@ export function resolveBaseUrl(
   const raw = flag ?? config.profiles[profileName]?.baseUrl;
   if (!raw) {
     throw new CliError(
-      `profile "${profileName}" has no base URL yet; pass --base-url <url> (e.g. https://mcdi.example.com)`,
+      `profile "${profileName}" has no base URL yet; pass --base-url <url> (e.g. https://mcid.example.com)`,
       ExitCode.Unexpected,
     );
   }
@@ -183,8 +183,8 @@ export function resolveBaseUrl(
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
- * Validates an MCDI base URL. The admin session token is sent to it, so it
- * must be https, except for a local MCDI on a loopback address.
+ * Validates an MCID base URL. The admin session token is sent to it, so it
+ * must be https, except for a local MCID on a loopback address.
  */
 export function normalizeBaseUrl(raw: string): string {
   let url: URL;
@@ -211,7 +211,7 @@ export function normalizeBaseUrl(raw: string): string {
 
 /**
  * Stores a session on a profile (creating it if needed) and makes it active if none is.
- * Keeps the profile's other fields: its webhook secrets can't be recovered from MCDI if lost.
+ * Keeps the profile's other fields: its webhook secrets can't be recovered from MCID if lost.
  */
 export function setSession(
   config: Config,
@@ -298,7 +298,7 @@ export function setActiveProfile(config: Config, name: string): Config {
 
 /**
  * Removes a profile unconditionally — callers that need to refuse while a
- * session or webhook secrets are still present (PRD §5.2, `mcdi-cli profile
+ * session or webhook secrets are still present (PRD §5.2, `mcid-cli profile
  * remove`) must check that before calling this. Nulls `activeProfile` when
  * the removed profile was active; other profiles are untouched.
  */

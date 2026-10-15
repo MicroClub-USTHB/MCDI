@@ -21,13 +21,13 @@ import {
 } from '../webhook-flow.js';
 
 export function registerWebhookCommand(program: Command): void {
-  const webhook = program.command('webhook').description('Manage MCDI Inbound Webhooks');
+  const webhook = program.command('webhook').description('Manage MCID Inbound Webhooks');
 
   webhook
     .command('create <schema-path>')
-    .description('Create a webhook on MCDI from a schema file and store its signing secret')
+    .description('Create a webhook on MCID from a schema file and store its signing secret')
     .requiredOption('--name <name>', 'webhook display name')
-    .option('--project <projectId>', 'owning MCDI project id (omit to pick interactively)')
+    .option('--project <projectId>', 'owning MCID project id (omit to pick interactively)')
     .requiredOption(
       '--roles <roleIds>',
       'comma-separated Discord role ids allowed to read submissions',

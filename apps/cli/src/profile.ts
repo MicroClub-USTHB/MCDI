@@ -60,7 +60,7 @@ export async function profileList(deps: ProfileDeps): Promise<void> {
   const names = Object.keys(config.profiles);
   if (names.length === 0) {
     deps.out(
-      'No profiles configured; run `mcdi-cli profile add <name> --base-url <url>` or `mcdi-cli login`.',
+      'No profiles configured; run `mcid-cli profile add <name> --base-url <url>` or `mcid-cli login`.',
     );
     return;
   }
@@ -118,7 +118,7 @@ export async function profileRemove(
 
   if (profile.session) {
     throw new CliError(
-      `profile "${name}" is still logged in; run \`mcdi-cli logout --profile ${name}\` first`,
+      `profile "${name}" is still logged in; run \`mcid-cli logout --profile ${name}\` first`,
       ExitCode.PrecheckFailed,
     );
   }
@@ -127,13 +127,13 @@ export async function profileRemove(
   if (secrets > 0 && !options.yes) {
     if (!deps.isInteractive) {
       throw new CliError(
-        `profile "${name}" still holds ${secrets} webhook signing secret(s) that MCDI can never re-issue, and ` +
+        `profile "${name}" still holds ${secrets} webhook signing secret(s) that MCID can never re-issue, and ` +
           'there is no interactive terminal to confirm; pass --yes to confirm',
         ExitCode.PrecheckFailed,
       );
     }
     deps.info(
-      `Profile "${name}" still holds ${secrets} webhook signing secret(s). MCDI never re-issues a rotated secret, ` +
+      `Profile "${name}" still holds ${secrets} webhook signing secret(s). MCID never re-issues a rotated secret, ` +
         `so removing this profile loses ${secrets === 1 ? 'it' : 'them'} forever.`,
     );
     const answer = (await deps.ask('Remove it? [y/N] ')).trim().toLowerCase();

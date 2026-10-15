@@ -5,9 +5,9 @@ import type { CustomRule } from './rules.js';
 
 /**
  * Applies custom rules to a schema. Rules can only add errors on top of the
- * built-in checks, which are MCDI's own Layer 1 validator from
+ * built-in checks, which are MCID's own Layer 1 validator from
  * `@mcid/form-schema`, never remove or relax one, so the local pre-check can
- * only ever be stricter than MCDI.
+ * only ever be stricter than MCID.
  */
 
 export interface PrecheckResult {
@@ -19,7 +19,7 @@ export interface PrecheckResult {
 const PATTERN_TIMEOUT_MS = 100;
 
 // `vm` is used only for its timeout, which interrupts a runaway regex instead of
-// hanging the CLI (the same technique MCDI's own payload validator uses).
+// hanging the CLI (the same technique MCID's own payload validator uses).
 const sandbox: { re: RegExp; s: string } = { re: /(?:)/, s: '' };
 const context = createContext(sandbox);
 const testScript = new Script('re.test(s)');
@@ -125,7 +125,7 @@ export function applyCustomRules(schema: unknown, rules: readonly CustomRule[]):
   return errors;
 }
 
-/** The full local pre-check: MCDI's Layer 1 checks, plus any custom rules on top. */
+/** The full local pre-check: MCID's Layer 1 checks, plus any custom rules on top. */
 export function precheckSchema(schema: unknown, rules: readonly CustomRule[]): PrecheckResult {
   const builtIn = validateSchema(schema);
   const errors = [...(builtIn.ok ? [] : builtIn.errors), ...applyCustomRules(schema, rules)];

@@ -14,7 +14,7 @@ import {
   type KeyProvider,
 } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
-import { postAdminLogout } from './mcdi.js';
+import { postAdminLogout } from './mcid.js';
 
 export interface LogoutOptions {
   /** Required: a state-changing command never falls back to the active profile (CLAUDE.md). */
@@ -39,13 +39,13 @@ export function defaultLogoutDeps(): LogoutDeps {
   };
 }
 
-/** Re-reads the config right before saving (like login does) so a change made while we waited on MCDI isn't clobbered. */
+/** Re-reads the config right before saving (like login does) so a change made while we waited on MCID isn't clobbered. */
 async function clearLocally(path: string, profileName: string): Promise<void> {
   await updateConfig(path, (latest) => clearSession(latest, profileName));
 }
 
 /**
- * Calls MCDI's logout endpoint with the stored session's bearer token, then
+ * Calls MCID's logout endpoint with the stored session's bearer token, then
  * always drops the session from the local profile — a session that's
  * already expired, unrevokable, or unreachable server-side should still be
  * clearable locally (see the Admin API reference). Never prints the token.
@@ -77,7 +77,7 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
     deps.out(`Logged out of ${profileName}`);
     deps.warn(
       `warning: the stored session for profile "${profileName}" could not be decrypted, so it could not be ` +
-        `revoked on MCDI and may stay valid there until ${session.expiresAt}`,
+        `revoked on MCID and may stay valid there until ${session.expiresAt}`,
     );
     return;
   }
@@ -90,24 +90,24 @@ export async function logout(options: LogoutOptions, deps: LogoutDeps): Promise<
     serverError = err;
   }
 
-  // Clear locally whatever MCDI said, and before any server error propagates.
+  // Clear locally whatever MCID said, and before any server error propagates.
   await clearLocally(deps.configPath, profileName);
 
   if (serverError !== undefined) {
     const reason = serverError instanceof Error ? serverError.message : String(serverError);
     throw new CliError(
-      `logged out of ${profileName} locally, but MCDI could not revoke the session (${reason}); ` +
-        `it may still be valid on MCDI until ${session.expiresAt}`,
+      `logged out of ${profileName} locally, but MCID could not revoke the session (${reason}); ` +
+        `it may still be valid on MCID until ${session.expiresAt}`,
       ExitCode.Unexpected,
     );
   }
 
   deps.out(`Logged out of ${profileName}`);
   if (status === 401) {
-    deps.out('(the session had already expired on MCDI)');
+    deps.out('(the session had already expired on MCID)');
   } else if (status === 403) {
     deps.warn(
-      'warning: MCDI refused the logout because this account may no longer use the admin API, so the session ' +
+      'warning: MCID refused the logout because this account may no longer use the admin API, so the session ' +
         "could not be revoked server-side (that session can't be used for admin actions either way)",
     );
   }

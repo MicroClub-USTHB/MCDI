@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 /**
  * PKCE (RFC 7636) for the admin login: the CLI keeps `verifier` to itself and
- * sends only `challenge` to MCDI, so a login code intercepted on the loopback
+ * sends only `challenge` to MCID, so a login code intercepted on the loopback
  * redirect is useless without it.
  */
 export interface PkcePair {

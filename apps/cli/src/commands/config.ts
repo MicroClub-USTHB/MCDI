@@ -3,7 +3,7 @@ import { configShow, configShowPath, defaultConfigDeps } from '../config-show.js
 import { exitWithError } from '../errors.js';
 
 export function registerConfigCommand(program: Command): void {
-  const config = program.command('config').description('Inspect the mcdi-cli config file');
+  const config = program.command('config').description('Inspect the mcid-cli config file');
 
   config
     .command('path')

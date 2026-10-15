@@ -1,20 +1,20 @@
 # Custom validation rules
 
-House rules a team adds on top of MCDI's own schema checks — e.g. "every field
+House rules a team adds on top of MCID's own schema checks — e.g. "every field
 needs a `label`", "field keys must be `snake_case`". They run as part of the
-local pre-check in `mcdi-cli schema validate`, `mcdi-cli webhook create`, and
-`mcdi-cli webhook update --schema`, so a schema that breaks a house rule is
-stopped before anything is sent to MCDI.
+local pre-check in `mcid-cli schema validate`, `mcid-cli webhook create`, and
+`mcid-cli webhook update --schema`, so a schema that breaks a house rule is
+stopped before anything is sent to MCID.
 
 Custom rules can only make the pre-check **stricter**: they add errors on top of
-the built-in (MCDI Layer 1) checks and can never disable or relax one.
+the built-in (MCID Layer 1) checks and can never disable or relax one.
 
 ## Where rule files live
 
 | Scope | Location |
 |---|---|
-| Project | the nearest `.mcdi-cli/rules/*.json`, looking from the current directory upwards (like `.git`) |
-| Global | `~/.mcdi-cli/rules/*.json` |
+| Project | the nearest `.mcid-cli/rules/*.json`, looking from the current directory upwards (like `.git`) |
+| Global | `~/.mcid-cli/rules/*.json` |
 
 Both are loaded, global first. A project rule with the same `id` as a global one
 replaces it, so a project can tune a team-wide rule. Files are read in file-name
@@ -96,14 +96,14 @@ it is never silently skipped:
 
 ```
 ✗ Could not load custom rules (source: local)
-  /repo/.mcdi-cli/rules/team.json  INVALID_RULE  rules[0] ("require-label"): "type" must be one of forbid-pattern, require-present, max-value, key-pattern
+  /repo/.mcid-cli/rules/team.json  INVALID_RULE  rules[0] ("require-label"): "type" must be one of forbid-pattern, require-present, max-value, key-pattern
 ```
 
 ## Safety
 
 - Rule files are parsed as JSON and checked against this closed set of types and
   properties; nothing in them is executed, and unknown properties are rejected.
-- `pattern` is limited to 200 characters and must compile, the same limits MCDI
+- `pattern` is limited to 200 characters and must compile, the same limits MCID
   puts on schema patterns.
 - Each pattern test runs under a 100 ms budget. A pattern that backtracks
   catastrophically (e.g. `(a+)+$`) fails with an error naming the rule instead of

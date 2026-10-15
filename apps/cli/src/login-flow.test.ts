@@ -26,7 +26,7 @@ describe('readCallback', () => {
     });
   });
 
-  it('reports an MCDI error only with the matching state, without control characters', () => {
+  it('reports an MCID error only with the matching state, without control characters', () => {
     expect(readCallback(params({ error: 'Not an admin' }), 's').kind).toBe('ignore');
     expect(
       readCallback(params({ error: 'Not \u001b]0;x\u0007an admin', state: 's' }), 's'),
