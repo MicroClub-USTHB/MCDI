@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { link, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { configDir } from './config.js';
 
@@ -68,14 +68,20 @@ export class FileKeyStore implements KeyStore {
     if (existing) return existing;
     const key = randomBytes(32);
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
+    // Write the key to a private temp file, then link it into place. link()
+    // publishes the complete file atomically and fails rather than overwrite a
+    // key another process created meanwhile, so no reader sees a partial key.
+    const tmp = `${this.path}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+    await writeFile(tmp, key.toString('base64'), { mode: 0o600, flag: 'wx' });
     try {
-      // 'wx' fails rather than overwrite a key another process created meanwhile.
-      await writeFile(this.path, key.toString('base64'), { mode: 0o600, flag: 'wx' });
+      await link(tmp, this.path);
       return key;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
       // Another process won the race: use its key, not ours.
       return (await this.read())!;
+    } finally {
+      await unlink(tmp).catch(() => undefined);
     }
   }
 
