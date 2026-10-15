@@ -52,10 +52,10 @@
     "commander": "^13.1.0"
   },
   "devDependencies": {
-    "@mcdi/contracts": "workspace:*",
-    "@mcdi/eslint-config": "workspace:*",
-    "@mcdi/form-schema": "workspace:*",
-    "@mcdi/typescript-config": "workspace:*",
+    "@mcid/contracts": "workspace:*",
+    "@mcid/eslint-config": "workspace:*",
+    "@mcid/form-schema": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
     "@types/node": "^22.19.15",
     "@vitest/coverage-v8": "^4.1.4",
     "eslint": "9.39.4",

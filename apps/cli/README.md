@@ -72,7 +72,7 @@ pnpm turbo run lint typecheck test --filter=mcdi-cli
 ## Release
 
 The package is published to npm as `mcdi-cli`. Workspace packages
-(`@mcdi/form-schema`, `@mcdi/contracts`) are bundled into `dist/`, so the
+(`@mcid/form-schema`, `@mcid/contracts`) are bundled into `dist/`, so the
 published package depends only on `commander` and `@napi-rs/keyring`. Bump
 `version`, then from the repository root:
 

@@ -1,12 +1,12 @@
 import { createContext, Script } from 'node:vm';
-import { validateSchema, type SchemaError } from '@mcdi/form-schema';
+import { validateSchema, type SchemaError } from '@mcid/form-schema';
 import { CliError, ExitCode } from '../errors.js';
 import type { CustomRule } from './rules.js';
 
 /**
  * Applies custom rules to a schema. Rules can only add errors on top of the
  * built-in checks, which are MCDI's own Layer 1 validator from
- * `@mcdi/form-schema`, never remove or relax one, so the local pre-check can
+ * `@mcid/form-schema`, never remove or relax one, so the local pre-check can
  * only ever be stricter than MCDI.
  */
 

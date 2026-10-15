@@ -30,7 +30,7 @@ services:
       redis:
         condition: service_started
 
-    command: sh -lc "corepack enable && pnpm install --filter '@mcdi/api...' && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm exec turbo run dev --filter=@mcdi/api --ui=stream"
+    command: sh -lc "corepack enable && pnpm install --filter '@mcid/api...' && until pnpm run db:push; do echo 'Waiting for database schema...' && sleep 2; done && pnpm exec turbo run dev --filter=@mcid/api --ui=stream"
 
     volumes:
       - ../..:/usr/src/app

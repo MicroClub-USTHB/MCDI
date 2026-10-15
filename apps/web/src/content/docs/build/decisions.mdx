@@ -24,7 +24,7 @@ This is a short log of why MCDI is the way it is. Each entry gives the context, 
 
 **Context.** The API and the admin panel need the same cookie name, enums and error types, and keeping copies in both drifts. The API runs as compiled CommonJS and cannot load a workspace package that ships TypeScript source.
 
-**Decision.** `@mcdi/contracts` is built with `tsc` to CommonJS and type declarations, depends on nothing, and holds only what both apps really share.
+**Decision.** `@mcid/contracts` is built with `tsc` to CommonJS and type declarations, depends on nothing, and holds only what both apps really share.
 
 **Consequences.** It must be built before the apps that use it, which Turborepo does through `^build`, and a stale `dist` is a common cause of a missing export. See [Shared contracts](/docs/build/contracts).
 
@@ -84,7 +84,7 @@ This is a short log of why MCDI is the way it is. Each entry gives the context, 
 
 **Context.** The admin editor should suggest field types and properties and flag mistakes. The `codemirror-json-schema` package does that, but it pulls in shiki and markdown-it and has an unguarded highlighter promise.
 
-**Decision.** The editor is plain CodeMirror 6 with autocomplete driven by the catalog in `@mcdi/contracts`, instant checks for unknown properties, and the API's own errors from the preview endpoint placed in the text. It loads on demand with `next/dynamic`.
+**Decision.** The editor is plain CodeMirror 6 with autocomplete driven by the catalog in `@mcid/contracts`, instant checks for unknown properties, and the API's own errors from the preview endpoint placed in the text. It loads on demand with `next/dynamic`.
 
 **Consequences.** The hints cannot drift from the validator, because API tests compare the catalog with it. The API stays the authority. See [Shared contracts](/docs/build/contracts).
 

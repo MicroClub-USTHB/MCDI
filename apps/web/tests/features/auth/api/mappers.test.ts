@@ -1,4 +1,4 @@
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, it, expect } from 'vitest';
 import { mapAdminProfileToUser } from '@/features/auth/api/mappers';
 import type { AdminProfileDto } from '@/features/auth/types';

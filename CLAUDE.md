@@ -8,17 +8,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MCDI (MicroClub Discord Identity/Interface) is a pnpm 10 + Turborepo monorepo (Node >= 22):
 
-- `apps/api` (`@mcdi/api`): NestJS 11 API, Drizzle ORM + Postgres, Redis, discord.js bot. CommonJS. Shipped as a Docker image.
-- `apps/web` (`@mcdi/web`): Next.js 16 admin panel, deployed on Vercel. It has its own `apps/web/CLAUDE.md` / `AGENTS.md` with frontend conventions; read them before touching web code. Next.js 16 differs from training data: check `apps/web/node_modules/next/dist/docs/` before writing Next code.
+- `apps/api` (`@mcid/api`): NestJS 11 API, Drizzle ORM + Postgres, Redis, discord.js bot. CommonJS. Shipped as a Docker image.
+- `apps/web` (`@mcid/web`): Next.js 16 admin panel, deployed on Vercel. It has its own `apps/web/CLAUDE.md` / `AGENTS.md` with frontend conventions; read them before touching web code. Next.js 16 differs from training data: check `apps/web/node_modules/next/dist/docs/` before writing Next code.
 - `apps/cli` (`mcdi-cli`): the MCDI command-line client. The MVP covers Inbound Webhooks (login, schema pre-check, webhook management); it is meant to grow to cover the other MCDI features. ESM, bundled with tsup, tested with Vitest. Read `apps/cli/CLAUDE.md` before touching CLI code; the `mcdi-cli` skill in `.claude/skills/mcdi-cli` covers running it.
-- `packages/contracts` (`@mcdi/contracts`): wire types and constants shared by api and web (e.g. the `admin_session` cookie name). It is a **compiled** package (CJS + .d.ts) because the API cannot load a just-in-time TS package. Keep it dependency-free.
-- `packages/form-schema` (`@mcdi/form-schema`): the inbound webhook FormSchema language (types, Layer 1 schema validator, condition evaluator), compiled like contracts. The API and the CLI both import it; change schema rules here, never in a copy. Layer 2 (payload validation) stays in `apps/api`.
+- `packages/contracts` (`@mcid/contracts`): wire types and constants shared by api and web (e.g. the `admin_session` cookie name). It is a **compiled** package (CJS + .d.ts) because the API cannot load a just-in-time TS package. Keep it dependency-free.
+- `packages/form-schema` (`@mcid/form-schema`): the inbound webhook FormSchema language (types, Layer 1 schema validator, condition evaluator), compiled like contracts. The API and the CLI both import it; change schema rules here, never in a copy. Layer 2 (payload validation) stays in `apps/api`.
 - `packages/typescript-config`, `packages/eslint-config`: config-only presets that apps extend.
 - `docs/`: historical design records (specifications, the inbound webhooks PRD, the original auth guide). They are no longer updated. The current documentation is in `apps/web/src/content/docs`, see Documentation below.
 
 ## Commands
 
-Run from the repository root. Every turbo task depends on `^build`, so `@mcdi/contracts` builds first automatically.
+Run from the repository root. Every turbo task depends on `^build`, so `@mcid/contracts` builds first automatically.
 
 ```bash
 pnpm install
@@ -28,14 +28,14 @@ pnpm lint           # NOTE: the API lint script runs eslint --fix
 pnpm typecheck
 pnpm test           # Jest (api) + Vitest (web, cli)
 pnpm test:e2e       # API e2e, needs Postgres
-pnpm turbo run test --filter=@mcdi/web
+pnpm turbo run test --filter=@mcid/web
 ```
 
 CI (`.github/workflows/ci.yml`) runs `pnpm turbo run lint typecheck`, `test:ci` (with coverage), `build`, then API e2e against Postgres 16.
 
-### API (`pnpm --filter @mcdi/api run <script>` or from `apps/api`)
+### API (`pnpm --filter @mcid/api run <script>` or from `apps/api`)
 
-- Single test file: `pnpm --filter @mcdi/api exec jest src/modules/auth/auth.service.spec.ts`. Filter by name with `-t "name"`.
+- Single test file: `pnpm --filter @mcid/api exec jest src/modules/auth/auth.service.spec.ts`. Filter by name with `-t "name"`.
 - Unit specs live next to source (`src/**/*.spec.ts`). The coverage thresholds in `jest.config.cjs` are enforced: lines 80, functions 75, branches 68, statements 80.
 - E2E specs live in `test/*.e2e-spec.ts` and use `test/helpers/` (`create-app.ts` mirrors `main.ts` setup, `db.ts` seeds and clears tables, `discord-mock.ts`). Run against a fresh DB: `RESET_DB=1 pnpm run db:migrate` drops and recreates the database, then `pnpm run test:e2e`.
 - DB: `db:generate` (drizzle-kit migration from entity changes), `db:migrate`, `db:seed`, `db:studio`. Schema lives in `src/database/entities/*.entity.ts`. Migrations live in `src/database/migrations`.
@@ -43,7 +43,7 @@ CI (`.github/workflows/ci.yml`) runs `pnpm turbo run lint typecheck`, `test:ci` 
 
 ### Web (from `apps/web`)
 
-- Single test: `pnpm --filter @mcdi/web exec vitest run tests/path/to/file.test.tsx`. Tests live under `tests/` only (not `src/`), use jsdom, RTL and MSW.
+- Single test: `pnpm --filter @mcid/web exec vitest run tests/path/to/file.test.tsx`. Tests live under `tests/` only (not `src/`), use jsdom, RTL and MSW.
 - Playwright: `e2e:install`, `e2e:auth`, `e2e:test`.
 
 ## API architecture
@@ -69,7 +69,7 @@ Put security pins in `overrides` in `pnpm-workspace.yaml`. Prefer scoped overrid
 
 ## Documentation
 
-The developer documentation is MDX in `apps/web/src/content/docs`, served at `/docs` by the web app. `apps/web/src/features/docs/nav.ts` lists every page and is the only place a page is registered. To add one, create the `.mdx` file (no title heading, end with a `Source:` line naming the files it describes), add its entry to `nav.ts`, and run `pnpm --filter @mcdi/web exec vitest run tests/features/docs`. See `apps/web/src/content/docs/build/writing-docs.mdx`.
+The developer documentation is MDX in `apps/web/src/content/docs`, served at `/docs` by the web app. `apps/web/src/features/docs/nav.ts` lists every page and is the only place a page is registered. To add one, create the `.mdx` file (no title heading, end with a `Source:` line naming the files it describes), add its entry to `nav.ts`, and run `pnpm --filter @mcid/web exec vitest run tests/features/docs`. See `apps/web/src/content/docs/build/writing-docs.mdx`.
 
 - The API reference under `api-reference/` is generated. After you change an endpoint, a DTO or a Swagger decorator, run `pnpm docs:api` and commit the result. CI fails when it is out of date.
 - Update the hand-written pages in the same pull request when you change behaviour they describe. Tests check that every environment variable is documented and that the code excerpts in the API and web guides still match their files.

@@ -31,7 +31,7 @@ import {
   servers,
 } from '../../database/entities';
 import type { InboundWebhookSettingsRow } from '../../database/entities';
-import type { FormSchema } from '@mcdi/form-schema';
+import type { FormSchema } from '@mcid/form-schema';
 
 export interface InboundWebhookRow {
   id: string;

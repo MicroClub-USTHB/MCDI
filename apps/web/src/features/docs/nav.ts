@@ -72,7 +72,7 @@ export const DOCS_NAV: DocSection[] = [
         slug: 'build/contracts',
         title: 'Shared contracts',
         description:
-          'Why @mcdi/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
+          'Why @mcid/contracts is compiled, what belongs in it, how to rebuild it and the tests that keep it equal to the validator.',
       },
       {
         slug: 'build/testing',

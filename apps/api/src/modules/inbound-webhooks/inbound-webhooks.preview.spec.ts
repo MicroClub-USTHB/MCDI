@@ -1,6 +1,6 @@
 import { InboundWebhooksService } from './inbound-webhooks.service';
 import { validatePayload } from './schema/payload.validator';
-import type { FormSchema } from '@mcdi/form-schema';
+import type { FormSchema } from '@mcid/form-schema';
 
 const VALID: FormSchema = {
   version: 1,

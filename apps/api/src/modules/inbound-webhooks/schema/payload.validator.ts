@@ -19,7 +19,7 @@ import {
   isDateTime,
   isFlatSchema,
   normalizeSchema,
-} from '@mcdi/form-schema';
+} from '@mcid/form-schema';
 import { createContext, Script } from 'vm';
 
 export type FieldError = { path: string; code: string; message: string };

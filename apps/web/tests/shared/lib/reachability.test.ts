@@ -1,4 +1,4 @@
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import type { Permissions } from '@/shared/lib/access';

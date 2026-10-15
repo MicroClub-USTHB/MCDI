@@ -80,7 +80,7 @@ Run `docker compose up -d` again after you create it, so the API container picks
 Then start the admin panel, from the repository root:
 
 ```bash
-pnpm --filter @mcdi/web run dev
+pnpm --filter @mcid/web run dev
 ```
 
 ### 2b. API on your machine
@@ -106,7 +106,7 @@ Then, from the repository root, run the API and the panel together:
 pnpm dev
 ```
 
-`pnpm dev` runs the contracts package in watch mode, the API on port 3000 and the panel on port 3002. To run only the API, use `pnpm --filter @mcdi/api run dev`.
+`pnpm dev` runs the contracts package in watch mode, the API on port 3000 and the panel on port 3002. To run only the API, use `pnpm --filter @mcid/api run dev`.
 
 When the API starts it applies the pending database migrations by itself, so there is no separate step.
 
@@ -275,7 +275,7 @@ The panel reads `apps/web/.env`, and refuses to start when a value is missing.
 
 - **Port 3000 is already taken.** Something else, often a leftover Node process, holds the port. Stop it, or the API container cannot publish its port.
 - **The panel hangs, or a page reloads in a loop.** The dev server's `.next` cache is stale, which happens when a production build ran at the same time as the dev server. Stop the dev server, delete `apps/web/.next`, and start it again.
-- **The panel runs out of memory.** On a machine with 8 GB, start it with a larger heap: `NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcdi/web run dev`.
+- **The panel runs out of memory.** On a machine with 8 GB, start it with a larger heap: `NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcid/web run dev`.
 - **The API container crashes with `MODULE_NOT_FOUND`.** A build on your machine wrote into the folder the container watches. Run `docker compose restart api` from `apps/api`.
 - **The log says `Redis cache unavailable ... NOAUTH`.** The password in `.env` does not match Redis. The compose Redis password is `redis_password`.
 

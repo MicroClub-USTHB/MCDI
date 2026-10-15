@@ -34,7 +34,7 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 |---|---|
 | Scope | Both the permission-aware panel and the Access screen, as one spec delivered in three PRs |
 | Depth of gating | Sidebar, pages and actions |
-| Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcdi/contracts` |
+| Rule approach | Central rules (a route table, `useCan`, `<Can>`), with the resource and level catalog moved into `@mcid/contracts` |
 | Where overrides are managed | A root-only Access page per member (`/dashboard/members/[discordId]/access`), linked from the member page, and opened in place from the Members tab of the Access screen (one new API endpoint marks who already has an override) |
 | Role editor layout | A role list and a one-role editor, with one Save per role |
 | Buttons below the member's level | Hidden, not disabled. A readable form that cannot be changed is shown read-only |
@@ -61,7 +61,7 @@ The API now decides what an admin may do by a level (`none`, `read`, `write`, `m
 - `ACCESS_RESOURCES`, `AccessResource`, `ACCESS_LEVELS`, `AccessLevel`, `GRANT_LEVELS`, `GrantLevel`
 - `levelAtLeast(effective, required)`, `isAccessResource`, `isAccessLevel`, `isGrantLevel`
 
-`apps/api/src/common/permissions/catalog.ts` imports these from `@mcdi/contracts` and re-exports them, and keeps `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`, which `GET /admin/access/catalog` serves to the panel. The contracts package stays dependency-free and compiled, as `CLAUDE.md` requires.
+`apps/api/src/common/permissions/catalog.ts` imports these from `@mcid/contracts` and re-exports them, and keeps `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`, which `GET /admin/access/catalog` serves to the panel. The contracts package stays dependency-free and compiled, as `CLAUDE.md` requires.
 
 The panel keeps friendly titles for the resources (for example `project_keys` is "Project API keys") in the `access` feature, and takes the descriptions from the catalog endpoint.
 

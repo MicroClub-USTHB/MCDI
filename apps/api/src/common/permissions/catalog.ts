@@ -9,7 +9,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 export {
   ACCESS_LEVELS,

@@ -116,7 +116,7 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          pnpm --filter @mcdi/api exec node -e "const { Client } = require('pg'); (async () => {
+          pnpm --filter @mcid/api exec node -e "const { Client } = require('pg'); (async () => {
             for (let i = 0; i < 30; i++) {
               try {
                 const c = new Client({ connectionString: process.env.DATABASE_URL });
@@ -150,7 +150,7 @@ jobs:
         run: |
           for i in 1 2 3; do
             echo "Migration attempt $i"
-            RESET_DB=1 pnpm --filter @mcdi/api run db:migrate && exit 0
+            RESET_DB=1 pnpm --filter @mcid/api run db:migrate && exit 0
             sleep 3
           done
           exit 1
@@ -158,7 +158,7 @@ jobs:
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test
 
       - name: Run E2E tests
-        run: pnpm turbo run test:e2e --filter=@mcdi/api
+        run: pnpm turbo run test:e2e --filter=@mcid/api
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/mcdi_test

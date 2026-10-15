@@ -169,7 +169,7 @@ In `apps/api/src/common/guards/admin-access-coverage.spec.ts`, add to `EXPECTED`
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/api exec jest src/modules/admin-access src/common/guards/admin-access-coverage.spec.ts`
+Run: `pnpm --filter @mcid/api exec jest src/modules/admin-access src/common/guards/admin-access-coverage.spec.ts`
 Expected: FAIL (`listMemberOverrides` does not exist, `getMemberEffective` lacks the profile).
 
 - [ ] **Step 3: Repository**
@@ -317,9 +317,9 @@ and update the `getMemberEffective` Swagger text: description `'The member's nam
 - [ ] **Step 6: Run the tests and typecheck**
 
 ```bash
-pnpm --filter @mcdi/api exec eslint --fix src/modules/admin-access src/common/guards/admin-access-coverage.spec.ts
-pnpm --filter @mcdi/api exec jest src/modules/admin-access src/common/guards
-pnpm --filter @mcdi/api run typecheck
+pnpm --filter @mcid/api exec eslint --fix src/modules/admin-access src/common/guards/admin-access-coverage.spec.ts
+pnpm --filter @mcid/api exec jest src/modules/admin-access src/common/guards
+pnpm --filter @mcid/api run typecheck
 ```
 
 Expected: PASS and no type errors.
@@ -432,7 +432,7 @@ Expected: PASS (both `admin-access` suites). Run the e2e in a subshell or a new 
 
 ```bash
 pnpm docs:api
-pnpm --filter @mcdi/web exec vitest run tests/features/docs
+pnpm --filter @mcid/web exec vitest run tests/features/docs
 ```
 
 Expected: `apps/api/openapi.json` and `api-reference/admin/admin-access.mdx` and `overview.mdx` change (a new `GET /api/admin/access/overrides` and the extended `effective` text); docs tests PASS.
@@ -587,7 +587,7 @@ describe('access mutations', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/api/access-api.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/api/access-api.test.tsx`
 Expected: FAIL, `@/features/access` not found.
 
 - [ ] **Step 3: Types, keys and service**
@@ -595,7 +595,7 @@ Expected: FAIL, `@/features/access` not found.
 Create `apps/web/src/features/access/types/index.ts`:
 
 ```ts
-import type { AccessLevel, AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessLevel, AccessResource, GrantLevel } from '@mcid/contracts';
 
 export interface CatalogEntryDto<K extends string> {
   key: K;
@@ -848,7 +848,7 @@ export type * from './types';
 
 - [ ] **Step 5: Run the test and commit**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/api`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/api`
 Expected: PASS.
 
 ```bash
@@ -874,7 +874,7 @@ git commit -m "feat(web): add the data layer for the Access screen"
 Create `apps/web/tests/features/access/lib/grants.test.ts`:
 
 ```ts
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -940,7 +940,7 @@ describe('member overrides', () => {
 Create `apps/web/tests/shared/lib/reachability.test.ts`:
 
 ```ts
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import type { Permissions } from '@/shared/lib/access';
@@ -994,7 +994,7 @@ describe('unreachableGrants', () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/lib tests/shared/lib/reachability.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/lib tests/shared/lib/reachability.test.ts`
 Expected: FAIL, modules not found.
 
 - [ ] **Step 3: The grants helpers**
@@ -1008,7 +1008,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 import type { MemberOverridesMap, RoleGrantsDto } from '@/features/access/types';
 
@@ -1071,7 +1071,7 @@ export function loweredOverrides(effective: Draft, draft: OverrideDraft): Access
 Create `apps/web/src/shared/lib/reachability.ts`:
 
 ```ts
-import { ACCESS_RESOURCES, type AccessResource, type GrantLevel } from '@mcdi/contracts';
+import { ACCESS_RESOURCES, type AccessResource, type GrantLevel } from '@mcid/contracts';
 
 import {
   allOf,
@@ -1159,7 +1159,7 @@ export function describeUnreachable(grant: UnreachableGrant): string {
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/lib tests/shared/lib/reachability.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/lib tests/shared/lib/reachability.test.ts`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -1192,7 +1192,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { ACCESS_LEVELS, ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_LEVELS, ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { server } from '../../../setup';
@@ -1336,7 +1336,7 @@ describe('RoleEditor', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/components/role-editor.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/components/role-editor.test.tsx`
 Expected: FAIL, components not found.
 
 - [ ] **Step 3: The level control**
@@ -1566,7 +1566,7 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
 
 - [ ] **Step 5: Run the tests and commit**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/components/role-editor.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/components/role-editor.test.tsx`
 Expected: PASS. If a test cannot find the confirm dialog's text or button because the dialog renders in a portal, query through `screen` (already used) and confirm the button label matches `confirmLabel`.
 
 ```bash
@@ -1642,7 +1642,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ACCESS_LEVELS, ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_LEVELS, ACCESS_RESOURCES } from '@mcid/contracts';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -1722,7 +1722,7 @@ describe('AccessView', () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/components/overrides-list.test.tsx tests/app/dashboard/access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/components/overrides-list.test.tsx tests/app/dashboard/access.test.tsx`
 Expected: FAIL, modules not found.
 
 - [ ] **Step 3: The member chip, the role list and the overrides list**
@@ -2001,7 +2001,7 @@ In `apps/web/src/shared/components/layout/nav-items.ts`: add `LockKeyhole` to th
 
 - [ ] **Step 6: Update the tests that list the System group**
 
-Run `pnpm --filter @mcdi/web exec vitest run tests/shared`. For each failure that lists the System group, add `Access` after `Settings` for root. In `tests/shared/components/layout/visible-nav.test.ts` change the root expectation to `['System', ['Monitoring', 'Settings', 'Access'], undefined]` and add:
+Run `pnpm --filter @mcid/web exec vitest run tests/shared`. For each failure that lists the System group, add `Access` after `Settings` for root. In `tests/shared/components/layout/visible-nav.test.ts` change the root expectation to `['System', ['Monitoring', 'Settings', 'Access'], undefined]` and add:
 
 ```ts
   it('shows Access to root only', () => {
@@ -2012,7 +2012,7 @@ Run `pnpm --filter @mcdi/web exec vitest run tests/shared`. For each failure tha
 
 - [ ] **Step 7: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access tests/app/dashboard/access.test.tsx tests/shared`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access tests/app/dashboard/access.test.tsx tests/shared`
 Expected: PASS, including the route-table coverage test (it now finds the two new pages: create the member page in Task 7 before running this, or temporarily expect the test to fail on `/dashboard/members/[discordId]/access` until Task 7).
 
 - [ ] **Step 8: Commit**
@@ -2046,7 +2046,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
@@ -2198,7 +2198,7 @@ describe('MemberAccessEditor', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access/components/member-access-editor.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access/components/member-access-editor.test.tsx`
 Expected: FAIL, component not found.
 
 - [ ] **Step 3: The member editor**
@@ -2486,7 +2486,7 @@ In `apps/web/src/app/dashboard/members/[discordId]/page.tsx`: add `import Link f
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/access tests/app tests/shared`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/access tests/app tests/shared`
 Expected: PASS, including the route-table coverage test (the member Access page now exists) and the existing member page tests (the member page tests sign in root by default, so the Access link appears and does not disturb them; adjust a test that counts the header buttons if one does).
 
 - [ ] **Step 6: Commit**
@@ -2527,7 +2527,7 @@ describe('AuditLogFilters', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/monitoring/audit-filters-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/monitoring/audit-filters-access.test.tsx`
 Expected: FAIL.
 
 - [ ] **Step 3: Add the type**
@@ -2543,7 +2543,7 @@ In `AuditLogFilters.tsx`, add `{ value: 'access', label: 'Access' },` at the end
 
 - [ ] **Step 4: Run the tests and commit**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/monitoring`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/monitoring`
 Expected: PASS.
 
 ```bash
@@ -2571,16 +2571,16 @@ Add `` `apps/web/src/features/access` `` and `` `apps/web/src/app/dashboard/acce
 
 - [ ] **Step 2: Run the docs tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/docs`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/docs`
 Expected: PASS.
 
 - [ ] **Step 3: Full verification**
 
 ```bash
 pnpm typecheck
-pnpm --filter @mcdi/web exec vitest run
-pnpm --filter @mcdi/web run lint
-pnpm --filter @mcdi/api exec jest --config jest.config.cjs --coverage
+pnpm --filter @mcid/web exec vitest run
+pnpm --filter @mcid/web run lint
+pnpm --filter @mcid/api exec jest --config jest.config.cjs --coverage
 pnpm build
 ```
 

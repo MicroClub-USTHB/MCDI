@@ -21,7 +21,7 @@ The original product requirements are a historical record in
 
 mcdi-cli is a **thin client** in front of MCDI's own API (`apps/api` in this
 monorepo). It owns no data. It validates a schema locally with
-`@mcdi/form-schema`, the same Layer 1 validator the API runs, so the local
+`@mcid/form-schema`, the same Layer 1 validator the API runs, so the local
 pre-check can never disagree with the server; Layer 2 (submission-time)
 validation stays in the API. The endpoints it calls are documented in the
 generated Admin API reference (`apps/web/src/content/docs/api-reference/admin`).

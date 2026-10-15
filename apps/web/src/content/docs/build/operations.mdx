@@ -12,8 +12,8 @@ The panel has no Docker files. The Vercel project is set up like this, as the ro
 | Setting | Value |
 | --- | --- |
 | Root Directory | `apps/web`, with *Include source files outside of the Root Directory* enabled |
-| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcdi/web`, which builds `@mcdi/contracts` first |
-| Ignored Build Step | `npx turbo-ignore @mcdi/web`, so a change that only touches the API does not redeploy the panel |
+| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcid/web`, which builds `@mcid/contracts` first |
+| Ignored Build Step | `npx turbo-ignore @mcid/web`, so a change that only touches the API does not redeploy the panel |
 | Environment variables | `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_APP_URL` |
 
 Add the Vercel domain to `CORS_ORIGINS` on the API, or the browser blocks the panel's calls.
@@ -22,7 +22,7 @@ Add the Vercel domain to `CORS_ORIGINS` on the API, or the browser blocks the pa
 
 On every push to `main`, after the tests pass, CI builds `apps/api/Dockerfile` from the repository root and pushes it to `ghcr.io/microclub-usthb/mcdi` with two tags: `latest`, and an immutable `sha-<short commit>`. The Dockerfile has these stages:
 
-- **pruner:** `turbo prune @mcdi/api --docker` keeps only the API and the workspace packages it uses.
+- **pruner:** `turbo prune @mcid/api --docker` keeps only the API and the workspace packages it uses.
 - **builder:** installs with the frozen lockfile, builds, and concatenates every SQL migration, in order, into a single `/migrations/migration.sql`.
 - **deps:** installs the production dependencies only.
 - **production:** a small Node 24 image with `postgresql-client`, running as the unprivileged `node` user.
@@ -163,7 +163,7 @@ FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaS
 **Fix.** Give it a larger heap:
 
 ```bash
-NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcdi/web run dev
+NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter @mcid/web run dev
 ```
 
 ### The API cannot reach Redis: `getaddrinfo ENOTFOUND redis`
@@ -222,7 +222,7 @@ ChunkLoadError: Failed to load chunk /_next/static/chunks/..._layout_tsx_....js
 
 ```bash
 rm -rf apps/web/.next
-pnpm --filter @mcdi/web run dev
+pnpm --filter @mcid/web run dev
 ```
 
 ### A hydration warning in the console

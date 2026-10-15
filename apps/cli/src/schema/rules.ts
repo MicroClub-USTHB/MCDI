@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { FIELD_TYPES, SCHEMA_LIMITS } from '@mcdi/form-schema';
+import { FIELD_TYPES, SCHEMA_LIMITS } from '@mcid/form-schema';
 import { configDir } from '../config.js';
 import { CliError, ExitCode } from '../errors.js';
 

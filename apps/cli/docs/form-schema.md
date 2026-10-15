@@ -418,7 +418,7 @@ default, one step with one field), `recruitment`, `workshop`, `event` and
 
 ## Where the rules come from
 
-The pre-check runs `@mcdi/form-schema`, the validator MCDI itself runs when a
+The pre-check runs `@mcid/form-schema`, the validator MCDI itself runs when a
 webhook is created or updated, so a schema that passes `mcdi-cli schema
 validate` (without custom rules) passes MCDI's schema check too. MCDI's own
 reference for the schema language is

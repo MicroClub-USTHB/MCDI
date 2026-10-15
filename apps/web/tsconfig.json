@@ -1,5 +1,5 @@
 {
-  "extends": "@mcdi/typescript-config/nextjs.json",
+  "extends": "@mcid/typescript-config/nextjs.json",
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"]

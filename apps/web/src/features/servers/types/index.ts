@@ -1,4 +1,4 @@
-import type { PermissionPolicy, ServerType } from '@mcdi/contracts';
+import type { PermissionPolicy, ServerType } from '@mcid/contracts';
 
 /**
  * Raw shape returned by `GET /api/servers`. This list response omits

@@ -20,7 +20,7 @@ import {
   evaluateCondition,
   isFlatSchema,
   normalizeSchema,
-} from '@mcdi/form-schema';
+} from '@mcid/form-schema';
 import { validatePayload } from '../schema/payload.validator';
 
 export interface WebhookDocsInput {

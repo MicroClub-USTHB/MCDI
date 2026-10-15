@@ -1,7 +1,7 @@
 /**
  * Turns `apps/api/openapi.json` into one MDX page per Swagger group under
  * `src/content/docs/api-reference`. Run with `pnpm docs:api` from the repository root (which
- * exports the spec first) or `pnpm --filter @mcdi/web run docs:api` to use the committed spec.
+ * exports the spec first) or `pnpm --filter @mcid/web run docs:api` to use the committed spec.
  */
 import fs from 'node:fs';
 import path from 'node:path';

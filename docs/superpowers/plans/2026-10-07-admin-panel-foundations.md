@@ -4,7 +4,7 @@
 
 **Goal:** Give the admin panel the rules and the plumbing to adapt to the signed-in member's access levels: the shared catalog, the access data in the auth store, the rules library, the route table, a page guard that denies unmapped routes, a sidebar that shows only what the member can use, and a 403 refresh. Buttons, sections and queries are gated in the next PR.
 
-**Architecture:** `GET /auth/admin/me` already returns `root` and a `permissions` map; the panel stores them with the user. One catalog (resources and levels) moves into `@mcdi/contracts` and is shared with the API. A pure rules library (`Requirement`, `canAccess`) and one route table drive the sidebar and a page guard that denies unmapped routes. `useCan` and `<Can>` gate sections and buttons, and every query hook is disabled when the member cannot read its resource. A 403 from the API invalidates the `/me` query.
+**Architecture:** `GET /auth/admin/me` already returns `root` and a `permissions` map; the panel stores them with the user. One catalog (resources and levels) moves into `@mcid/contracts` and is shared with the API. A pure rules library (`Requirement`, `canAccess`) and one route table drive the sidebar and a page guard that denies unmapped routes. `useCan` and `<Can>` gate sections and buttons, and every query hook is disabled when the member cannot read its resource. A 403 from the API invalidates the `/me` query.
 
 **Tech Stack:** Next.js 16 (App Router), React 19, TypeScript, Zustand, TanStack Query v5, Tailwind v4, Vitest + React Testing Library + MSW.
 
@@ -48,7 +48,7 @@
 
 ---
 
-### Task 1: Move the catalog into `@mcdi/contracts`
+### Task 1: Move the catalog into `@mcid/contracts`
 
 **Files:**
 - Create: `packages/contracts/src/access.ts`
@@ -56,7 +56,7 @@
 - Modify: `apps/api/src/common/permissions/catalog.ts`
 
 **Interfaces:**
-- Produces from `@mcdi/contracts`: `ACCESS_RESOURCES`, `AccessResource`, `ACCESS_LEVELS`, `AccessLevel`, `GRANT_LEVELS`, `GrantLevel`, `levelAtLeast(effective, required)`, `isAccessResource(v)`, `isAccessLevel(v)`, `isGrantLevel(v)`. The API's `catalog.ts` keeps exporting the same names plus `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`.
+- Produces from `@mcid/contracts`: `ACCESS_RESOURCES`, `AccessResource`, `ACCESS_LEVELS`, `AccessLevel`, `GRANT_LEVELS`, `GrantLevel`, `levelAtLeast(effective, required)`, `isAccessResource(v)`, `isAccessLevel(v)`, `isGrantLevel(v)`. The API's `catalog.ts` keeps exporting the same names plus `RESOURCE_DESCRIPTIONS` and `LEVEL_DESCRIPTIONS`.
 
 The API's existing `catalog.spec.ts` (15 tests) and every API consumer of `catalog.ts` are the regression test for this move: nothing about behavior changes.
 
@@ -153,7 +153,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 export {
   ACCESS_LEVELS,
@@ -171,9 +171,9 @@ export type { AccessLevel, AccessResource, GrantLevel };
 - [ ] **Step 3: Build contracts and run the API regression tests**
 
 ```bash
-pnpm --filter @mcdi/contracts run build
-pnpm --filter @mcdi/api run typecheck
-pnpm --filter @mcdi/api exec jest src/common/permissions src/modules/admin-access src/common/guards src/modules/auth
+pnpm --filter @mcid/contracts run build
+pnpm --filter @mcid/api run typecheck
+pnpm --filter @mcid/api exec jest src/common/permissions src/modules/admin-access src/common/guards src/modules/auth
 ```
 
 Expected: build and typecheck pass, and all the API tests pass (the catalog spec still imports from `./catalog`).
@@ -182,7 +182,7 @@ Expected: build and typecheck pass, and all the API tests pass (the catalog spec
 
 ```bash
 git add packages/contracts apps/api/src/common/permissions/catalog.ts
-git commit -m "refactor: share the admin access catalog through @mcdi/contracts"
+git commit -m "refactor: share the admin access catalog through @mcid/contracts"
 ```
 
 ---
@@ -195,7 +195,7 @@ git commit -m "refactor: share the admin access catalog through @mcdi/contracts"
 - Test: `apps/web/tests/shared/lib/access.test.ts`
 
 **Interfaces:**
-- Consumes: `ACCESS_RESOURCES`, `levelAtLeast`, `AccessLevel`, `AccessResource`, `GrantLevel` from `@mcdi/contracts`.
+- Consumes: `ACCESS_RESOURCES`, `levelAtLeast`, `AccessLevel`, `AccessResource`, `GrantLevel` from `@mcid/contracts`.
 - Produces from `access.ts`: `Permissions`, `AccessSubject`, `Requirement`, `OPEN`, `ANY_ACCESS`, `ROOT_ONLY`, `need(resource, level)`, `allOf(...)`, `anyOf(...)`, `levelOf(subject, resource)`, `hasAnyAccess(subject)`, `canAccess(subject, requirement)`. From `access-labels.ts`: `RESOURCE_TITLES`, `describeRequirement(requirement)`.
 
 - [ ] **Step 1: Write the failing test**
@@ -203,7 +203,7 @@ git commit -m "refactor: share the admin access catalog through @mcdi/contracts"
 Create `apps/web/tests/shared/lib/access.test.ts`:
 
 ```ts
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -310,7 +310,7 @@ describe('describeRequirement', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/access.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/access.test.ts`
 Expected: FAIL, cannot resolve `@/shared/lib/access`.
 
 - [ ] **Step 3: Write the rules**
@@ -324,7 +324,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 export type Permissions = Record<AccessResource, AccessLevel>;
 
@@ -392,7 +392,7 @@ export function canAccess(subject: AccessSubject | null, requirement: Requiremen
 Create `apps/web/src/shared/lib/access-labels.ts`:
 
 ```ts
-import type { AccessResource } from '@mcdi/contracts';
+import type { AccessResource } from '@mcid/contracts';
 
 import type { Requirement } from '@/shared/lib/access';
 
@@ -434,7 +434,7 @@ export function describeRequirement(requirement: Requirement): string {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/access.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/access.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -487,11 +487,11 @@ In `apps/web/tests/features/auth/api/mappers.test.ts`, add this test inside the 
   });
 ```
 
-and the imports `import { ACCESS_RESOURCES } from '@mcdi/contracts';` and `import type { Permissions } from '@/shared/lib/access';` at the top of that file.
+and the imports `import { ACCESS_RESOURCES } from '@mcid/contracts';` and `import type { Permissions } from '@/shared/lib/access';` at the top of that file.
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/features/auth/api/mappers.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/features/auth/api/mappers.test.ts`
 Expected: FAIL (`user.root` is undefined).
 
 - [ ] **Step 3: Carry the data through the types and mapper**
@@ -535,7 +535,7 @@ and update the doc comment of `useCurrentAdminQuery` with one sentence: "It also
 Create `apps/web/tests/helpers/auth.ts`:
 
 ```ts
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 
 import type { AdminProfileDto } from '@/features/auth/types';
 import { useAuthStore } from '@/features/auth/stores/auth';
@@ -637,7 +637,7 @@ Where a test asserts the store starts without a user, add `signOut()` (from the 
 
 - [ ] **Step 7: Run the whole web suite and fix what breaks**
 
-Run: `pnpm --filter @mcdi/web run typecheck && pnpm --filter @mcdi/web exec vitest run`
+Run: `pnpm --filter @mcid/web run typecheck && pnpm --filter @mcid/web exec vitest run`
 Expected: typecheck passes and the suite passes. A failure is almost always a test that assumed `user === null` (add `signOut()`) or built a `User` without the new fields (use `makeUser`). Fix each, then re-run until green.
 
 - [ ] **Step 8: Commit**
@@ -748,7 +748,7 @@ describe('<Can>', () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/use-access.test.tsx tests/shared/components/common/Can.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/use-access.test.tsx tests/shared/components/common/Can.test.tsx`
 Expected: FAIL, modules not found.
 
 - [ ] **Step 3: Implement**
@@ -759,7 +759,7 @@ Create `apps/web/src/shared/lib/use-access.ts`:
 'use client';
 
 import { useMemo } from 'react';
-import type { AccessLevel, AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessLevel, AccessResource, GrantLevel } from '@mcid/contracts';
 
 import { useAuthStore } from '@/features/auth/stores/auth';
 import {
@@ -801,7 +801,7 @@ Create `apps/web/src/shared/components/common/Can.tsx`:
 'use client';
 
 import type { ReactNode } from 'react';
-import type { AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessResource, GrantLevel } from '@mcid/contracts';
 
 import { useCan } from '@/shared/lib/use-access';
 
@@ -823,7 +823,7 @@ Open `apps/web/src/shared/components/common/index.ts` and add the line `export {
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/use-access.test.tsx tests/shared/components/common/Can.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/use-access.test.tsx tests/shared/components/common/Can.test.tsx`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -925,7 +925,7 @@ describe('requirementForPath', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/route-access.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/route-access.test.ts`
 Expected: FAIL, module not found.
 
 - [ ] **Step 3: Write the table**
@@ -1046,7 +1046,7 @@ export function requirementForPath(pathname: string): Requirement | null {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/lib/route-access.test.ts`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/lib/route-access.test.ts`
 Expected: PASS. If "has an entry for every dashboard page" fails, the failure message lists the pattern that differs: add or remove that entry.
 
 - [ ] **Step 5: Commit**
@@ -1077,7 +1077,7 @@ git commit -m "feat(web): add the route access table"
 Create `apps/web/tests/shared/components/layout/visible-nav.test.ts`:
 
 ```ts
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 import { describe, expect, it } from 'vitest';
 
 import type { AccessSubject, Permissions } from '@/shared/lib/access';
@@ -1213,7 +1213,7 @@ describe('RequireAccess', () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/components/layout/visible-nav.test.ts tests/shared/components/layout/require-access.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/components/layout/visible-nav.test.ts tests/shared/components/layout/require-access.test.tsx`
 Expected: FAIL, modules not found.
 
 - [ ] **Step 3: Implement the visible navigation**
@@ -1382,7 +1382,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/components/layout`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/components/layout`
 Expected: PASS, including the existing `dashboard-shell`, `sidebar` and `nav-items` tests.
 
 - [ ] **Step 6: Commit**
@@ -1459,7 +1459,7 @@ In `apps/web/tests/shared/components/layout/sidebar.test.tsx`, add the import `i
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/components/layout/sidebar.test.tsx`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/components/layout/sidebar.test.tsx`
 Expected: the four new tests FAIL (the sidebar still renders every group). The "does not ask for servers" test also needs the query gating of the next PR, so mark it `it.skip` with the comment `// un-skipped by the gating PR` and leave it for that PR.
 
 - [ ] **Step 3: Filter the groups in the sidebar**
@@ -1508,7 +1508,7 @@ with
 
 - [ ] **Step 4: Run the sidebar tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/shared/components/layout`
+Run: `pnpm --filter @mcid/web exec vitest run tests/shared/components/layout`
 Expected: PASS (the skipped test aside).
 
 - [ ] **Step 5: Commit**
@@ -1540,7 +1540,7 @@ Create `tests/providers/query-provider.test.tsx`: render `<QueryProvider>` with 
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/lib/api-client.test.ts tests/providers`
+Run: `pnpm --filter @mcid/web exec vitest run tests/lib/api-client.test.ts tests/providers`
 Expected: FAIL (`setForbiddenHandler` does not exist).
 
 - [ ] **Step 3: Implement**
@@ -1582,7 +1582,7 @@ In `QueryProvider.tsx`, import `useEffect`, `authKeys` (`@/features/auth/api/key
 
 - [ ] **Step 4: Run the tests**
 
-Run: `pnpm --filter @mcdi/web exec vitest run tests/lib tests/providers tests/features/auth tests/features/docs`
+Run: `pnpm --filter @mcid/web exec vitest run tests/lib tests/providers tests/features/auth tests/features/docs`
 Expected: PASS. If a docs excerpt test fails for `api-client.ts`, update that excerpt in `web-guide.mdx` to the new lines.
 
 - [ ] **Step 5: Commit**
@@ -1604,9 +1604,9 @@ git commit -m "feat(web): refresh the member's access when the API answers 403"
 
 ```bash
 pnpm typecheck
-pnpm --filter @mcdi/web exec vitest run
-pnpm --filter @mcdi/web run lint
-pnpm --filter @mcdi/api exec jest --config jest.config.cjs
+pnpm --filter @mcid/web exec vitest run
+pnpm --filter @mcid/web run lint
+pnpm --filter @mcid/api exec jest --config jest.config.cjs
 pnpm build
 ```
 
@@ -1623,7 +1623,7 @@ First of three PRs for the panel. Design: \`docs/superpowers/specs/2026-10-07-ad
 
 The API already decides what an admin may do by a level per resource. This adds the rules and plumbing for the panel to follow it:
 - \`/auth/admin/me\` data (\`root\`, \`permissions\`) is kept in the auth store, revalidated every minute and on focus.
-- The resource and level catalog moves into \`@mcdi/contracts\` and is shared with the API.
+- The resource and level catalog moves into \`@mcid/contracts\` and is shared with the API.
 - A rules library (\`canAccess\`, \`Requirement\`), \`useCan\` and \`<Can>\`.
 - One route table (\`route-access.ts\`) drives the sidebar and a page guard. An unlisted route is denied, and a test fails when a dashboard page has no entry.
 - A member with no access sees a 'No access yet' page; a forbidden URL shows what it needs and where to go. The sidebar shows only the links the member can use.

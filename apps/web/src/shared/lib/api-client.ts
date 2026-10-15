@@ -1,4 +1,4 @@
-import type { NestErrorBody } from '@mcdi/contracts';
+import type { NestErrorBody } from '@mcid/contracts';
 import type { ApiError, ApiResponse } from '@/shared/types';
 import { env } from '@/shared/lib/env';
 import { useAuthStore } from '@/features/auth/stores/auth';

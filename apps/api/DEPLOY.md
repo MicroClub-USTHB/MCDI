@@ -7,7 +7,7 @@ server never builds the image. The web app (`apps/web`) is **not** part of this
 stack: it is deployed on Vercel (see the root README).
 
 The image is built from the repository root with
-`docker build -f apps/api/Dockerfile .` (`turbo prune @mcdi/api --docker` keeps
+`docker build -f apps/api/Dockerfile .` (`turbo prune @mcid/api --docker` keeps
 the build context limited to the API and the workspace packages it uses).
 
 ## 1. Make the GHCR package public (one-time)

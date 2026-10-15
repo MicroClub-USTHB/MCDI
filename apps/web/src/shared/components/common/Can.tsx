@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessResource, GrantLevel } from '@mcid/contracts';
 
 import { useCan } from '@/shared/lib/use-access';
 

@@ -1,5 +1,5 @@
 {
-  "extends": "@mcdi/typescript-config/library.json",
+  "extends": "@mcid/typescript-config/library.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",

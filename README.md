@@ -15,7 +15,7 @@ packages/
 docs/                  Historical design records (the current docs are in apps/web, see below)
 ```
 
-Workspace packages are named `@mcdi/*`: `@mcdi/api`, `@mcdi/web`, `@mcdi/contracts`, `@mcdi/form-schema`, `@mcdi/typescript-config`, `@mcdi/eslint-config`. The one exception is `apps/cli`, published to npm as `mcdi-cli`.
+Workspace packages are named `@mcid/*`: `@mcid/api`, `@mcid/web`, `@mcid/contracts`, `@mcid/form-schema`, `@mcid/typescript-config`, `@mcid/eslint-config`. The one exception is `apps/cli`, published to npm as `mcdi-cli`.
 
 ## Documentation
 
@@ -45,20 +45,20 @@ Run from the repository root; Turborepo runs them per package in dependency orde
 
 | Command | What it does |
 |---|---|
-| `pnpm dev` | Watch-builds `@mcdi/contracts`, runs the API and the web app |
+| `pnpm dev` | Watch-builds `@mcid/contracts`, runs the API and the web app |
 | `pnpm build` | Builds everything (contracts → api, web) |
 | `pnpm lint` | ESLint (note: the API's `lint` runs with `--fix`) |
 | `pnpm typecheck` | `tsc --noEmit` in every package |
 | `pnpm test` | Unit tests (Jest for the API, Vitest for the web and the CLI) |
 | `pnpm test:e2e` | API end-to-end tests (needs Postgres, see `.github/workflows/ci.yml`) |
 
-Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcdi/web`, or run a script inside it: `pnpm --filter @mcdi/api run db:migrate`.
+Target one package with a filter, e.g. `pnpm turbo run test --filter=@mcid/web`, or run a script inside it: `pnpm --filter @mcid/api run db:migrate`.
 
 ## How the packages fit together
 
-- **`@mcdi/contracts`** is a *compiled* internal package. The API is CommonJS and resolves modules the classic way, so a just-in-time TypeScript package would not load there. Every task that imports it depends on `^build` in `turbo.json`, so `pnpm build`/`test`/`typecheck` build it first; in `pnpm dev` it rebuilds on change. Keep it dependency-free and limited to things both sides really share (wire types, enum-like unions, the `admin_session` cookie name, …).
-- **`@mcdi/form-schema`** is compiled the same way. It holds the FormSchema language of inbound webhooks: its types, the Layer 1 schema validator and the condition evaluator. The API validates schemas with it and the CLI pre-checks them with it, so the two can never disagree. Its only runtime dependency is `validator`.
-- **`@mcdi/typescript-config`** and **`@mcdi/eslint-config`** are config-only packages. Apps extend them (`"extends": "@mcdi/typescript-config/nextjs.json"`, `import base from '@mcdi/eslint-config/base'`) and keep only their own overrides.
+- **`@mcid/contracts`** is a *compiled* internal package. The API is CommonJS and resolves modules the classic way, so a just-in-time TypeScript package would not load there. Every task that imports it depends on `^build` in `turbo.json`, so `pnpm build`/`test`/`typecheck` build it first; in `pnpm dev` it rebuilds on change. Keep it dependency-free and limited to things both sides really share (wire types, enum-like unions, the `admin_session` cookie name, …).
+- **`@mcid/form-schema`** is compiled the same way. It holds the FormSchema language of inbound webhooks: its types, the Layer 1 schema validator and the condition evaluator. The API validates schemas with it and the CLI pre-checks them with it, so the two can never disagree. Its only runtime dependency is `validator`.
+- **`@mcid/typescript-config`** and **`@mcid/eslint-config`** are config-only packages. Apps extend them (`"extends": "@mcid/typescript-config/nextjs.json"`, `import base from '@mcid/eslint-config/base'`) and keep only their own overrides.
 - Dependency versions that must be pinned for security live in `overrides` in `pnpm-workspace.yaml`. Some are scoped (`jsdom>undici`, `msw>path-to-regexp`) because a global pin broke the web test tooling — prefer scoped overrides.
 
 ## Deployment
@@ -71,7 +71,7 @@ Only the backend ships as a container. CI builds and pushes the image to GHCR on
 docker build -f apps/api/Dockerfile .      # run from the repository root
 ```
 
-The Dockerfile uses `turbo prune @mcdi/api --docker`, so the image contains only the API and the workspace packages it depends on. Compose files live in `apps/api/` (`docker-compose.yml` for dev, `docker-compose.prod.yml` for dokploy, `docker-compose.fuzz.yml` for fuzzing). See [`apps/api/DEPLOY.md`](apps/api/DEPLOY.md).
+The Dockerfile uses `turbo prune @mcid/api --docker`, so the image contains only the API and the workspace packages it depends on. Compose files live in `apps/api/` (`docker-compose.yml` for dev, `docker-compose.prod.yml` for dokploy, `docker-compose.fuzz.yml` for fuzzing). See [`apps/api/DEPLOY.md`](apps/api/DEPLOY.md).
 
 ### Web — Vercel
 
@@ -80,8 +80,8 @@ The web app is not containerised. Import the repository in Vercel as a project w
 | Setting | Value |
 |---|---|
 | Root Directory | `apps/web` (keep *Include source files outside of the Root Directory* enabled) |
-| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcdi/web` (builds `@mcdi/contracts` first) |
-| Ignored Build Step | `npx turbo-ignore @mcdi/web` |
+| Build Command | `cd ../.. && pnpm turbo run build --filter=@mcid/web` (builds `@mcid/contracts` first) |
+| Ignored Build Step | `npx turbo-ignore @mcid/web` |
 | Environment variables | `NEXT_PUBLIC_API_URL` (API URL including `/api`), `NEXT_PUBLIC_APP_URL` |
 
 Add the Vercel domain to `CORS_ORIGINS` on the API.

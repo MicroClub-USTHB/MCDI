@@ -9,7 +9,7 @@ import {
   WebhookDocsInput,
 } from './webhook-docs.generator';
 import { validatePayload } from '../schema/payload.validator';
-import type { Field, FormSchema } from '@mcdi/form-schema';
+import type { Field, FormSchema } from '@mcid/form-schema';
 
 const schema: FormSchema = {
   version: 1,

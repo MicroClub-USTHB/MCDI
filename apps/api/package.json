@@ -1,5 +1,5 @@
 {
-  "name": "@mcdi/api",
+  "name": "@mcid/api",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -42,8 +42,8 @@
     "docker:db:studio:stop": "docker exec mcdi-api-1 sh -lc \"pkill -f 'drizzle-kit studio --host 0.0.0.0 --port 4983' 2>/dev/null || true\""
   },
   "dependencies": {
-    "@mcdi/contracts": "workspace:*",
-    "@mcdi/form-schema": "workspace:*",
+    "@mcid/contracts": "workspace:*",
+    "@mcid/form-schema": "workspace:*",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -66,8 +66,8 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
-    "@mcdi/eslint-config": "workspace:*",
-    "@mcdi/typescript-config": "workspace:*",
+    "@mcid/eslint-config": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.1.14",

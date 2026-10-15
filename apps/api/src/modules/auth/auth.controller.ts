@@ -15,7 +15,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
+import { ADMIN_SESSION_COOKIE } from '@mcid/contracts';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,

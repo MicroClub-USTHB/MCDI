@@ -31,7 +31,7 @@ import {
 } from './mcdi.js';
 import { precheckSchema } from './schema/custom-rules.js';
 import { defaultRuleLocations, loadCustomRules, type CustomRule } from './schema/rules.js';
-import type { SchemaError } from '@mcdi/form-schema';
+import type { SchemaError } from '@mcid/form-schema';
 import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {

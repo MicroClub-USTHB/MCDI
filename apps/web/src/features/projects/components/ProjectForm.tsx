@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcid/contracts';
 
 import { isValidSlug, slugify } from '@/features/inbound-webhooks/api/mappers';
 import { useServersQuery } from '@/features/servers';

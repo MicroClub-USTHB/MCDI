@@ -15,7 +15,7 @@ First release. The CLI covers MCDI Inbound Webhooks: logging in as an admin, wri
 
 - `mcdi-cli login` and `logout`: browser-based Discord login with PKCE, one session per named profile (`--profile`).
 - `mcdi-cli whoami`, `profile` and `config` commands to inspect and manage profiles.
-- `mcdi-cli schema init` to scaffold a FormSchema file from the admin panel's templates, and `schema validate` to check it offline with the same validator the MCDI API runs (`@mcdi/form-schema`).
+- `mcdi-cli schema init` to scaffold a FormSchema file from the admin panel's templates, and `schema validate` to check it offline with the same validator the MCDI API runs (`@mcid/form-schema`).
 - Custom validation rules ("house rules") that extend the built-in pre-check, per project or global.
 - `mcdi-cli webhook create`, `list`, `get`, `update` and `delete`; `update` accepts `--name`, `--schema`, `--active` and `--inactive`.
 - `mcdi-cli webhook roles set` to choose which Discord roles can read submissions, and `webhook rotate-secret` to issue a new signing secret.
