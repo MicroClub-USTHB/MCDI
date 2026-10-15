@@ -147,7 +147,7 @@ describe('buildRoleOptions', () => {
       ],
     },
   ];
-  const defaults = [{ id: 'rx', name: 'MC Executive', serverId: 'main', serverName: 'MCDI' }];
+  const defaults = [{ id: 'rx', name: 'MC Executive', serverId: 'main', serverName: 'MCID' }];
 
   it('offers the roles of the given servers, grouped by server', () => {
     const options = buildRoleOptions(servers, []);
@@ -163,7 +163,7 @@ describe('buildRoleOptions', () => {
 
     expect(options.find((o) => o.id === 'rx')).toMatchObject({
       name: 'MC Executive',
-      serverName: 'MCDI',
+      serverName: 'MCID',
       isDefault: true,
     });
   });

@@ -29,7 +29,7 @@ export function InboundWebhooksView({ projectId }: { projectId: string }) {
         <div>
           <h1 className="text-hero">Inbound webhooks</h1>
           <p className="mt-1 max-w-2xl text-body text-text-muted">
-            Structured data this project sends to MCDI: forms, events, anything a schema can
+            Structured data this project sends to MCID: forms, events, anything a schema can
             describe. Each webhook has a schema, a signing secret and the roles allowed to read what
             it receives.
           </p>
@@ -61,7 +61,7 @@ export function InboundWebhooksView({ projectId }: { projectId: string }) {
             <EmptyState
               icon={Inbox}
               title="No inbound webhooks"
-              description="Create one to start receiving data from outside MCDI, such as a form or a project event."
+              description="Create one to start receiving data from outside MCID, such as a form or a project event."
               action={newButton ?? undefined}
               className="rounded-none border-0"
             />

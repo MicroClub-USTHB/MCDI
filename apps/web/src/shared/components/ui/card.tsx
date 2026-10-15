@@ -3,7 +3,7 @@ import * as React from 'react';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Card, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Card, restyled onto the MCID V2 tokens.
  *
  * Upstream uses `bg-card` / `text-card-foreground` / `rounded-xl` /
  * `shadow-sm`. Here the surface is `surface-raised`, the radius is

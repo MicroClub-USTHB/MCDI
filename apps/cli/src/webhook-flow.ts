@@ -28,10 +28,10 @@ import {
   type InboundWebhook,
   type CreateInboundWebhookBody,
   type InboundWebhookPatch,
-} from './mcdi.js';
+} from './mcid.js';
 import { precheckSchema } from './schema/custom-rules.js';
 import { defaultRuleLocations, loadCustomRules, type CustomRule } from './schema/rules.js';
-import type { SchemaError } from '@mcdi/form-schema';
+import type { SchemaError } from '@mcid/form-schema';
 import { resolveSession, type Session } from './session.js';
 
 export interface WebhookDeps {
@@ -152,7 +152,7 @@ export async function webhookGet(
   const data = options.schemaOnly ? webhook.schema : webhook;
   if (options.json) {
     // PRD §11 envelope.
-    deps.out(JSON.stringify({ ok: true, data, source: 'mcdi' }, null, 2));
+    deps.out(JSON.stringify({ ok: true, data, source: 'mcid' }, null, 2));
   } else if (options.schemaOnly) {
     deps.out(JSON.stringify(data, null, 2));
   } else {
@@ -212,12 +212,12 @@ export interface WebhookRolesSetOptions {
   roles: string;
 }
 
-/** MCDI's rule for a role id: a Discord snowflake. */
+/** MCID's rule for a role id: a Discord snowflake. */
 const ROLE_ID_PATTERN = /^\d{17,20}$/;
 
 /**
- * Splits a comma-separated `--roles` value and checks it the way MCDI does, so
- * a mistake fails before any call. MCDI requires at least one role: an empty
+ * Splits a comma-separated `--roles` value and checks it the way MCID does, so
+ * a mistake fails before any call. MCID requires at least one role: an empty
  * allowed-readers set would mean nobody can read the submissions.
  */
 function parseRoleIds(raw: string): string[] {
@@ -270,7 +270,7 @@ export async function webhookSecretGet(
   if (stored.length === 0) {
     throw new CliError(
       `no signing secret is stored locally for profile "${profileName}"; ` +
-        `MCDI never re-issues one, so run \`mcdi-cli webhook rotate-secret <id> --profile ${profileName}\` to get a new one`,
+        `MCID never re-issues one, so run \`mcid-cli webhook rotate-secret <id> --profile ${profileName}\` to get a new one`,
       ExitCode.NotFound,
     );
   }
@@ -328,14 +328,14 @@ export interface WebhookCreateOptions {
   name: string;
   /** Omitted → prompted for interactively from `GET /admin/projects` (requires a TTY). */
   project?: string;
-  /** Comma-separated Discord role ids allowed to read submissions; MCDI requires at least one. */
+  /** Comma-separated Discord role ids allowed to read submissions; MCID requires at least one. */
   roles: string;
   acceptOrigin: string[];
   slug?: string;
   reveal?: boolean;
 }
 
-/** MCDI's `CreateInboundWebhookDto.slug` rule. */
+/** MCID's `CreateInboundWebhookDto.slug` rule. */
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
 
 /** "Recruitment 2026!" → "recruitment-2026"; may still fail SLUG_PATTERN (e.g. a one-character name). */
@@ -361,7 +361,7 @@ function resolveSlug(options: WebhookCreateOptions): string {
   );
 }
 
-/** Same layout as `mcdi-cli schema validate`. */
+/** Same layout as `mcid-cli schema validate`. */
 function formatLocalErrors(errors: SchemaError[]): string {
   const noun = errors.length === 1 ? 'error' : 'errors';
   return [
@@ -448,12 +448,12 @@ export async function webhookCreate(
     allowedRoleIds,
   };
   if (options.acceptOrigin.length > 0) body.acceptedOrigins = options.acceptOrigin;
-  // Get the encryption key before MCDI issues a secret it will never show again.
+  // Get the encryption key before MCID issues a secret it will never show again.
   await deps.keys.keyForWrite();
   const created = await createInboundWebhook(session, body);
   const { webhook } = created;
 
-  // MCDI will never show this secret again, so it has to land in the local store now.
+  // MCID will never show this secret again, so it has to land in the local store now.
   try {
     const entry = {
       secret: await encrypt(
@@ -470,8 +470,8 @@ export async function webhookCreate(
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
-      `webhook ${webhook.name} (${webhook.id}) was created on MCDI, but its signing secret could not be stored locally ` +
-        `(${reason}); run \`mcdi-cli webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` to get a new one`,
+      `webhook ${webhook.name} (${webhook.id}) was created on MCID, but its signing secret could not be stored locally ` +
+        `(${reason}); run \`mcid-cli webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` to get a new one`,
       ExitCode.Unexpected,
     );
   }
@@ -488,7 +488,7 @@ export async function webhookCreate(
     `Signing secret: ${options.reveal ? created.signingSecret : maskSecret(created.signingSecret)}`,
   );
   deps.info(
-    `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
+    `The signing secret is stored encrypted; get it again with \`mcid-cli webhook secret get --profile ${session.profileName}\`` +
       (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
   );
 }
@@ -524,7 +524,7 @@ export async function webhookDelete(
 
   await deleteInboundWebhook(session, id);
 
-  // Only now that MCDI confirmed the deletion: a secret for a webhook that no longer exists is useless.
+  // Only now that MCID confirmed the deletion: a secret for a webhook that no longer exists is useless.
   let removedSecret = false;
   try {
     await updateConfig(deps.configPath, (latest) => {
@@ -535,7 +535,7 @@ export async function webhookDelete(
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
-      `webhook ${id} was deleted on MCDI, but its locally stored signing secret could not be removed (${reason})`,
+      `webhook ${id} was deleted on MCID, but its locally stored signing secret could not be removed (${reason})`,
       ExitCode.Unexpected,
     );
   }
@@ -577,13 +577,13 @@ export async function webhookRotateSecret(
   }
 
   // Fetched first so a 404 (unknown id) exits before anything is rotated, and so the
-  // name/slug are available for the local store without MCDI having to echo them back.
+  // name/slug are available for the local store without MCID having to echo them back.
   const webhook = await getInboundWebhook(session, id);
-  // Get the encryption key before MCDI issues a secret it will never show again.
+  // Get the encryption key before MCID issues a secret it will never show again.
   await deps.keys.keyForWrite();
   const signingSecret = await rotateInboundWebhookSecret(session, id);
 
-  // MCDI never shows this secret again, so it has to land in the local store now.
+  // MCID never shows this secret again, so it has to land in the local store now.
   try {
     const entry = {
       secret: await encrypt(
@@ -600,8 +600,8 @@ export async function webhookRotateSecret(
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     throw new CliError(
-      `the signing secret for ${webhook.name} (${webhook.id}) was rotated on MCDI, but could not be stored locally ` +
-        `(${reason}); the old secret no longer works; run \`mcdi-cli webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` ` +
+      `the signing secret for ${webhook.name} (${webhook.id}) was rotated on MCID, but could not be stored locally ` +
+        `(${reason}); the old secret no longer works; run \`mcid-cli webhook rotate-secret ${webhook.id} --profile ${session.profileName}\` ` +
         'again to get a new one',
       ExitCode.Unexpected,
     );
@@ -612,7 +612,7 @@ export async function webhookRotateSecret(
   );
   deps.out(`Signing secret: ${options.reveal ? signingSecret : maskSecret(signingSecret)}`);
   deps.info(
-    `The signing secret is stored encrypted; get it again with \`mcdi-cli webhook secret get --profile ${session.profileName}\`` +
+    `The signing secret is stored encrypted; get it again with \`mcid-cli webhook secret get --profile ${session.profileName}\`` +
       (options.reveal ? '.' : ' (pass --reveal to print it in plain text).'),
   );
 }

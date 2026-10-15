@@ -18,7 +18,7 @@ function wrapper({ children }: { children: ReactNode }) {
 function serveServers() {
   server.use(
     http.get(`${API}/servers`, () =>
-      HttpResponse.json([{ id: 'srv_1', name: 'MicroClub', isActive: true }])
+      HttpResponse.json([{ id: 'srv_1', name: 'Micro Club', isActive: true }])
     )
   );
 }
@@ -40,6 +40,6 @@ describe('ProjectForm server access', () => {
     render(<ProjectForm mode="create" onSubmit={vi.fn()} />, { wrapper });
 
     expect(await screen.findByText('Server access')).toBeInTheDocument();
-    expect(await screen.findByLabelText('Grant access to MicroClub')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Grant access to Micro Club')).toBeInTheDocument();
   });
 });

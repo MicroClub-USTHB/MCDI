@@ -1,8 +1,8 @@
-# MCDI - Current Release Requirements
+# MCID - Current Release Requirements
 
-## MicroClub Discord Interface
+## Micro Club Identity
 
-> **Historical design record.** This file is the requirements of the MVP release as they stood when it shipped. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+> **Historical design record.** This file is the requirements of the MVP release as they stood when it shipped. It is kept for the reasoning behind past decisions and is no longer updated. For how MCID behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
 
 
 > This document reflects the requirements implemented in the current backend release.
@@ -13,23 +13,23 @@
 
 ## 1. Project Overview
 
-### What is MCDI?
+### What is MCID?
 
-MCDI is the centralized backend service that connects MicroClub applications to Discord for authentication, membership checks, permission resolution, and multi-server administration.
+MCID is the centralized backend service that connects Micro Club applications to Discord for authentication, membership checks, permission resolution, and multi-server administration.
 
 ### Current Release Goal
 
 The current release focuses on:
 
-- one reusable Discord login flow for MicroClub projects
+- one reusable Discord login flow for Micro Club projects
 - central member and role synchronization
 - project-scoped access control per server
 - admin tooling for projects, servers, sync, and cross-server visibility
 
 ### Primary Users
 
-- **Club Members**: sign in to MicroClub apps with Discord
-- **Project Developers**: integrate their apps through MCDI APIs
+- **Club Members**: sign in to Micro Club apps with Discord
+- **Project Developers**: integrate their apps through MCID APIs
 - **System Admins**: manage projects, servers, permissions, and sync operations
 
 ---
@@ -59,16 +59,16 @@ The current release focuses on:
 
 #### F1. Discord OAuth Login
 
-**What**: Members can log in to a MicroClub application through Discord using MCDI as the central identity service.
+**What**: Members can log in to a Micro Club application through Discord using MCID as the central identity service.
 
 **Implemented Capabilities**:
 
 - Project initiates login with `client_id`, `redirect_uri`, `server_id`, and `state`
-- MCDI validates the project and the exact redirect URI
-- MCDI confirms the project has access to the requested server
+- MCID validates the project and the exact redirect URI
+- MCID confirms the project has access to the requested server
 - User is redirected to Discord OAuth
-- After callback, MCDI verifies guild membership and project access rules
-- MCDI returns a one-time callback code to the project for backend exchange
+- After callback, MCID verifies guild membership and project access rules
+- MCID returns a one-time callback code to the project for backend exchange
 
 **Acceptance Notes**:
 
@@ -106,8 +106,8 @@ This was not called out explicitly in the original MVP document, but it is part 
 **Implemented Capabilities**:
 
 - Admin login is handled through Discord OAuth
-- MCDI verifies that the user belongs to the configured main guild
-- MCDI verifies the user holds the configured admin role ID
+- MCID verifies that the user belongs to the configured main guild
+- MCID verifies the user holds the configured admin role ID
 - A bearer session token and `admin_session` cookie are issued after successful login
 
 ---
@@ -136,7 +136,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 #### F5. Member Synchronization Using Discord.js
 
-**What**: MCDI keeps member data aligned with Discord.
+**What**: MCID keeps member data aligned with Discord.
 
 **Implemented Capabilities**:
 
@@ -158,7 +158,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 #### F6. Role-Based Permissions
 
-**What**: MCDI resolves permissions from synchronized Discord roles.
+**What**: MCID resolves permissions from synchronized Discord roles.
 
 **Implemented Capabilities**:
 
@@ -197,7 +197,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 #### F8. Server Registration And Configuration
 
-**What**: Admins can register and manage Discord servers under MCDI.
+**What**: Admins can register and manage Discord servers under MCID.
 
 **Implemented Capabilities**:
 
@@ -235,7 +235,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 #### F10. Server-Scoped Permissions
 
-**What**: MCDI applies access control in the context of a specific Discord server.
+**What**: MCID applies access control in the context of a specific Discord server.
 
 **Implemented Capabilities**:
 
@@ -254,7 +254,7 @@ This was not called out explicitly in the original MVP document, but it is part 
 
 #### F11. Server Synchronization
 
-**What**: MCDI keeps managed servers synchronized with Discord.
+**What**: MCID keeps managed servers synchronized with Discord.
 
 **Implemented Capabilities**:
 

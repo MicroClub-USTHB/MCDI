@@ -1,6 +1,6 @@
 import { writeFile, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcid/contracts';
 import { Command } from 'commander';
 import { CliError, ExitCode } from '../errors.js';
 import { precheckSchema } from '../schema/custom-rules.js';

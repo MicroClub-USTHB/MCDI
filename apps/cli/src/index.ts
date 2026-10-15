@@ -10,7 +10,7 @@ import { registerSchemaCommand } from './commands/schema.js';
 import { registerWebhookCommand } from './commands/webhook.js';
 import { registerConfigCommand } from './commands/config.js';
 
-// When stdout is closed early (e.g. `mcdi-cli webhook list | head`), stop quietly
+// When stdout is closed early (e.g. `mcid-cli webhook list | head`), stop quietly
 // instead of crashing with an unhandled EPIPE stack trace.
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EPIPE') process.exit(0);
@@ -30,9 +30,9 @@ program.exitOverride((err) => {
 });
 
 program
-  .name('mcdi-cli')
+  .name('mcid-cli')
   .description(
-    'Authenticate against MCDI and author, validate, create, update, and inspect Inbound Webhooks from the terminal',
+    'Authenticate against MCID and author, validate, create, update, and inspect Inbound Webhooks from the terminal',
   )
   .version(version);
 

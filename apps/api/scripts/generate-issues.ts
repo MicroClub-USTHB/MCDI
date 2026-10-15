@@ -374,7 +374,7 @@ function buildLintReport(): string {
 
 function buildIndex(): string {
   const lines: string[] = [
-    `# MCDI Issue Report — ${OUTPUT_DATE}`,
+    `# MCID Issue Report — ${OUTPUT_DATE}`,
     '',
     `Generated: ${new Date().toISOString()}`,
     '',

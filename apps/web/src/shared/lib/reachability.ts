@@ -1,4 +1,4 @@
-import { ACCESS_RESOURCES, type AccessResource, type GrantLevel } from '@mcdi/contracts';
+import { ACCESS_RESOURCES, type AccessResource, type GrantLevel } from '@mcid/contracts';
 
 import {
   allOf,

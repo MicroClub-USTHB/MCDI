@@ -1,4 +1,4 @@
-import type { AccessLevel, AccessResource, GrantLevel } from '@mcdi/contracts';
+import type { AccessLevel, AccessResource, GrantLevel } from '@mcid/contracts';
 
 export interface CatalogEntryDto<K extends string> {
   key: K;

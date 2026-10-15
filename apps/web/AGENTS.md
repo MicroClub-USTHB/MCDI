@@ -6,13 +6,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:nextjs-agent-rules -->
 
-# MCDI-Front — Agent Instructions
+# MCID-Front — Agent Instructions
 
 > This file is consumed by all AI coding agents (Claude Code, OpenCode, Copilot, Cursor, etc.)
 
 ## 1. Project Overview & Tech Stack
 
-**MCDI** (MicroClub Discord Interface) is a full-stack admin platform for managing MicroClub's Discord infrastructure. This repo is the **frontend SPA** — a Next.js 16 app with a Discord-inspired dark-only design system.
+**MCID** (Micro Club Identity) is a full-stack admin platform for managing Micro Club's Discord infrastructure. This repo is the **frontend SPA** — a Next.js 16 app with a Discord-inspired dark-only design system.
 
 | Layer | Stack |
 |---|---|
@@ -27,7 +27,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Testing | Vitest + RTL + MSW |
 | Linting | ESLint 9 (flat config) + Prettier |
 
-**Backend**: NestJS REST API at `NEXT_PUBLIC_API_URL`. Full spec: `../../docs/MCDI-V2-SPECIFICATION.md`.
+**Backend**: NestJS REST API at `NEXT_PUBLIC_API_URL`. Full spec: `../../docs/MCID-V2-SPECIFICATION.md`.
 
 ## 2. Architecture & Directory Structure
 

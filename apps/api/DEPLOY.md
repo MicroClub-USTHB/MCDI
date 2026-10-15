@@ -1,13 +1,13 @@
-# Deploying MCDI to dokploy
+# Deploying MCID to dokploy
 
-MCDI's backend (`apps/api`) is deployed as a single Compose stack described in
+MCID's backend (`apps/api`) is deployed as a single Compose stack described in
 [`docker-compose.prod.yml`](docker-compose.prod.yml). The API image is built and
 pushed by CI to GitHub Container Registry (GHCR) and **pulled** by dokploy — the
 server never builds the image. The web app (`apps/web`) is **not** part of this
 stack: it is deployed on Vercel (see the root README).
 
 The image is built from the repository root with
-`docker build -f apps/api/Dockerfile .` (`turbo prune @mcdi/api --docker` keeps
+`docker build -f apps/api/Dockerfile .` (`turbo prune @mcid/api --docker` keeps
 the build context limited to the API and the workspace packages it uses).
 
 ## 1. Make the GHCR package public (one-time)
@@ -15,10 +15,10 @@ the build context limited to the API and the workspace packages it uses).
 The CI workflow builds and pushes the image to GHCR, but the package starts as
 **private**. Before dokploy can pull it, make the package **Public** once:
 
-- GitHub → org **Packages** → `mcdi` → **Package settings** →
+- GitHub → org **Packages** → `mcid` → **Package settings** →
   **Change visibility** → **Public**.
 
-A public package means dokploy can pull `ghcr.io/microclub-usthb/mcdi:latest`
+A public package means dokploy can pull `ghcr.io/microclub-usthb/mcid:latest`
 without registry credentials. You only need to do this once — subsequent pushes
 keep the visibility setting.
 
@@ -61,7 +61,7 @@ to resolve the image host:
 
 CI pushes every `main` build to GHCR as both `latest` and an immutable
 `sha-<short commit>` tag (visible under the package's *Tags*). The compose file
-uses `ghcr.io/microclub-usthb/mcdi:${IMAGE_TAG:-latest}`:
+uses `ghcr.io/microclub-usthb/mcid:${IMAGE_TAG:-latest}`:
 
 - **Follow the newest build:** leave `IMAGE_TAG` unset (or `latest`) and redeploy.
 - **Deploy or roll back to an exact build:** set `IMAGE_TAG=sha-1a2b3c4` in the
@@ -113,7 +113,50 @@ project name and therefore new, empty `pg_data` / `redis_data` volumes.
 3. Deploy, then restart the stack once and confirm the API comes back healthy
    (proves the migrations re-apply cleanly).
 
-## 5. Postgres backups
+## 5. Moving an existing deployment from the MCID name to MCID
+
+The project was renamed from MCID to MCID (Micro Club Identity). Production
+stacks created before the rename have a Postgres role and database named
+`mcid`, while `docker-compose.prod.yml` now connects as `mcid` to database
+`mcid`. Rename them once, in place, before deploying the renamed stack. The
+`pg_data` volume and every row in it are kept.
+
+1. Rename the GitHub repository to `MCID` **before** merging the rename into
+   `main`. CI pushes the image to `ghcr.io/<owner>/<repository>`, so after the
+   rename it publishes `ghcr.io/microclub-usthb/mcid`, the image the compose
+   file pulls. Make that new package **Public** (step 1 above): it is a new
+   package, so the old visibility setting does not carry over.
+2. Back up the database (see "Postgres backups" below).
+3. In dokploy, stop the `api` service so nothing holds a connection. Keep the
+   `database` service running.
+4. On the dokploy host, rename the role and the database. A role cannot rename
+   itself, so a temporary superuser does it (the official Postgres image
+   trusts connections over the container's local socket):
+
+   ```bash
+   DB=$(docker ps --filter name=database --format '{{.Names}}' | head -n1)
+   docker exec "$DB" psql -U mcid -d postgres -c "CREATE ROLE rename_admin SUPERUSER LOGIN;"
+   docker exec "$DB" psql -U rename_admin -d postgres \
+     -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mcid';" \
+     -c "ALTER DATABASE mcid RENAME TO mcid;" \
+     -c "ALTER ROLE mcid RENAME TO mcid;"
+   docker exec "$DB" psql -U mcid -d mcid -c "DROP ROLE rename_admin;"
+   ```
+
+   Check that `$DB` names this stack's database container before running the
+   rest. Postgres 16 stores the password as SCRAM, which survives the rename,
+   so `POSTGRES_PASSWORD` stays valid.
+5. Redeploy. The API connects as `mcid`, re-applies the migrations (a no-op)
+   and starts. Then restart once and check `/api/health` returns `200`.
+
+What else changes for running clients:
+
+- Redis keys now use the `mcid` prefix, so caches start empty and refill.
+- The SSO cookie is now `mcid_sso`: members sign in with Discord once more.
+- Inbound webhook senders must sign with the `X-MCID-Signature` header; the
+  old header is no longer read.
+
+## 6. Postgres backups
 
 The database data lives in the `pg_data` volume and **survives redeploys**, but it
 is not backed up by default. Own your backups:
@@ -132,11 +175,11 @@ COMPOSE_FILE=/etc/dokploy/compose/<app-name>/code/apps/api/docker-compose.prod.y
 
 # one-off dump
 docker compose -f "$COMPOSE_FILE" exec -T database \
-  pg_dump -U mcdi mcdi > mcdi-$(date +%F).sql
+  pg_dump -U mcid mcid > mcid-$(date +%F).sql
 
 # restore
 docker compose -f "$COMPOSE_FILE" exec -T database \
-  psql -U mcdi mcdi < mcdi-YYYY-MM-DD.sql
+  psql -U mcid mcid < mcid-YYYY-MM-DD.sql
 ```
 
 Store dumps off-host (object storage / another machine). Test the restore path

@@ -9,7 +9,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 export {
   ACCESS_LEVELS,
@@ -24,16 +24,16 @@ export type { AccessLevel, AccessResource, GrantLevel };
 
 export const RESOURCE_DESCRIPTIONS: Record<AccessResource, string> = {
   servers:
-    'Discord servers registered in MCDI: list, register, edit, enable, disable and delete.',
+    'Discord servers registered in MCID: list, register, edit, enable, disable and delete.',
   members:
     'The member directory: lists, cross-server views and exports of member data.',
   channels:
     'The channel structure of a server (names and types), not the messages.',
   messages:
-    'The text of messages in a channel. The most sensitive data in MCDI.',
+    'The text of messages in a channel. The most sensitive data in MCID.',
   roles:
-    'Discord roles in MCDI: their permissions, inheritance rules and the impact of changing them.',
-  projects: 'Projects that integrate with MCDI and their access to servers.',
+    'Discord roles in MCID: their permissions, inheritance rules and the impact of changing them.',
+  projects: 'Projects that integrate with MCID and their access to servers.',
   project_keys:
     'Project API keys: view key details, regenerate, restore and revoke.',
   webhooks: 'Outgoing Discord webhooks created by projects.',

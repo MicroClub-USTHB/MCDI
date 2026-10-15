@@ -82,7 +82,7 @@ export class ProjectInboundWebhookDto {
 }
 
 export class CreateProjectDto {
-  @ApiProperty({ example: 'MicroClub Website' })
+  @ApiProperty({ example: 'Micro Club Website' })
   @IsString()
   @MaxLength(255)
   name: string;
@@ -94,7 +94,7 @@ export class CreateProjectDto {
 
   @ApiPropertyOptional({
     description:
-      'Whether this is an internal MicroClub platform project. ' +
+      'Whether this is an internal Micro Club platform project. ' +
       'Internal projects use the main server automatically. Defaults to false.',
     example: false,
   })

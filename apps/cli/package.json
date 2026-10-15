@@ -1,30 +1,30 @@
 {
-  "name": "mcdi-cli",
+  "name": "mcid-cli",
   "version": "0.1.0",
-  "description": "The MCDI command-line client: log in with Discord, pre-check FormSchema files and manage MCDI Inbound Webhooks from the terminal",
+  "description": "The MCID command-line client: log in with Discord, pre-check FormSchema files and manage MCID Inbound Webhooks from the terminal",
   "keywords": [
-    "mcdi",
+    "mcid",
     "microclub",
     "cli",
     "webhooks",
     "inbound-webhooks",
     "form-schema"
   ],
-  "homepage": "https://github.com/MicroClub-USTHB/MCDI/tree/main/apps/cli#readme",
+  "homepage": "https://github.com/MicroClub-USTHB/MCID/tree/main/apps/cli#readme",
   "bugs": {
-    "url": "https://github.com/MicroClub-USTHB/MCDI/issues"
+    "url": "https://github.com/MicroClub-USTHB/MCID/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MicroClub-USTHB/MCDI.git",
+    "url": "git+https://github.com/MicroClub-USTHB/MCID.git",
     "directory": "apps/cli"
   },
   "license": "MIT",
-  "author": "MicroClub USTHB",
+  "author": "Micro Club USTHB",
   "type": "module",
   "bin": {
-    "mcdi-cli": "./bin/mcdi-cli.js",
-    "mcdi": "./bin/mcdi-cli.js"
+    "mcid-cli": "./bin/mcid-cli.js",
+    "mcid": "./bin/mcid-cli.js"
   },
   "files": [
     "dist",
@@ -45,17 +45,17 @@
     "test": "vitest run",
     "test:ci": "vitest run --coverage",
     "clean": "rm -rf dist coverage",
-    "prepublishOnly": "pnpm --dir ../.. exec turbo run lint typecheck test build --filter=mcdi-cli"
+    "prepublishOnly": "pnpm --dir ../.. exec turbo run lint typecheck test build --filter=mcid-cli"
   },
   "dependencies": {
     "@napi-rs/keyring": "^2.1.0",
     "commander": "^13.1.0"
   },
   "devDependencies": {
-    "@mcdi/contracts": "workspace:*",
-    "@mcdi/eslint-config": "workspace:*",
-    "@mcdi/form-schema": "workspace:*",
-    "@mcdi/typescript-config": "workspace:*",
+    "@mcid/contracts": "workspace:*",
+    "@mcid/eslint-config": "workspace:*",
+    "@mcid/form-schema": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
     "@types/node": "^22.19.15",
     "@vitest/coverage-v8": "^4.1.4",
     "eslint": "9.39.4",

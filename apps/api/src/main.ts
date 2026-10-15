@@ -81,7 +81,7 @@ async function bootstrap() {
   );
 
   SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
-    customSiteTitle: 'MCDI API Documentation',
+    customSiteTitle: 'MCID API Documentation',
     customfavIcon: 'https://nestjs.com/img/logo-small.svg',
     customCss: '.swagger-ui .topbar { display: none }',
   });

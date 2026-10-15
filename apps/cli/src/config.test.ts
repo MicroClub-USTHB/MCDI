@@ -25,7 +25,7 @@ import {
 import { CliError } from './errors.js';
 
 const tempPath = async () =>
-  join(await mkdtemp(join(tmpdir(), 'mcdi-cli-config-')), 'sub', 'config.json');
+  join(await mkdtemp(join(tmpdir(), 'mcid-cli-config-')), 'sub', 'config.json');
 const session = {
   accessToken: 'v1:enc',
   expiresAt: '2026-10-05T00:00:00.000Z',
@@ -33,12 +33,12 @@ const session = {
 };
 
 describe('configPath', () => {
-  it('honours MCDI_CLI_CONFIG_PATH', () => {
-    expect(configPath({ MCDI_CLI_CONFIG_PATH: '/tmp/x.json' })).toBe('/tmp/x.json');
+  it('honours MCID_CLI_CONFIG_PATH', () => {
+    expect(configPath({ MCID_CLI_CONFIG_PATH: '/tmp/x.json' })).toBe('/tmp/x.json');
   });
 
-  it('defaults to ~/.mcdi-cli/config.json', () => {
-    expect(configPath({})).toMatch(/\.mcdi-cli[/\\]config\.json$/);
+  it('defaults to ~/.mcid-cli/config.json', () => {
+    expect(configPath({})).toMatch(/\.mcid-cli[/\\]config\.json$/);
   });
 });
 
@@ -49,12 +49,12 @@ describe('resolveProfileName', () => {
 });
 
 describe('configDir', () => {
-  it('follows MCDI_CLI_CONFIG_PATH, so the key file and global rules move with the config', () => {
-    expect(configDir({ MCDI_CLI_CONFIG_PATH: '/ci/state/config.json' })).toBe('/ci/state');
+  it('follows MCID_CLI_CONFIG_PATH, so the key file and global rules move with the config', () => {
+    expect(configDir({ MCID_CLI_CONFIG_PATH: '/ci/state/config.json' })).toBe('/ci/state');
   });
 
-  it('defaults to ~/.mcdi-cli', () => {
-    expect(configDir({})).toMatch(/\.mcdi-cli$/);
+  it('defaults to ~/.mcid-cli', () => {
+    expect(configDir({})).toMatch(/\.mcid-cli$/);
   });
 });
 
@@ -65,7 +65,7 @@ describe('loadConfig/saveConfig', () => {
 
   it('round-trips and writes the file with mode 0600', async () => {
     const path = await tempPath();
-    const config = setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session);
+    const config = setSession(emptyConfig(), 'prod', 'https://mcid.example.com', session);
     await saveConfig(config, path);
 
     expect(await loadConfig(path)).toEqual(config);
@@ -110,7 +110,7 @@ describe('resolveBaseUrl', () => {
   it('rejects invalid and non-https URLs', () => {
     expect(() => normalizeBaseUrl('not a url')).toThrow('invalid base URL');
     expect(() => normalizeBaseUrl('file:///etc/passwd')).toThrow('must be https');
-    expect(() => normalizeBaseUrl('http://mcdi.example.com')).toThrow('must be https');
+    expect(() => normalizeBaseUrl('http://mcid.example.com')).toThrow('must be https');
   });
 
   it('allows plain http only on a loopback address', () => {
@@ -122,9 +122,9 @@ describe('resolveBaseUrl', () => {
 
   it('rejects credentials, a query or a fragment', () => {
     for (const raw of [
-      'https://user:pw@mcdi.example.com',
-      'https://mcdi.example.com/?x=1',
-      'https://mcdi.example.com/#top',
+      'https://user:pw@mcid.example.com',
+      'https://mcid.example.com/?x=1',
+      'https://mcid.example.com/#top',
     ]) {
       expect(() => normalizeBaseUrl(raw)).toThrow('must not contain');
     }
@@ -319,8 +319,8 @@ describe('removeProfile', () => {
 
 describe('updateConfig', () => {
   it('never loses a change when commands run at the same time', async () => {
-    const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-lock-')), 'config.json');
-    await saveConfig(addProfile(emptyConfig(), 'prod', 'https://mcdi.example.com'), path);
+    const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-lock-')), 'config.json');
+    await saveConfig(addProfile(emptyConfig(), 'prod', 'https://mcid.example.com'), path);
     await Promise.all(
       Array.from({ length: 10 }, (_, i) =>
         updateConfig(path, async (config) => {

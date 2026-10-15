@@ -117,7 +117,7 @@ export class SyncController {
   @ApiOperation({
     summary: 'Get latest sync status for all active servers',
     description:
-      'Returns the most recent sync result for every active server managed by MCDI.',
+      'Returns the most recent sync result for every active server managed by MCID.',
   })
   @ApiOkResponse({
     description: 'All server sync statuses retrieved.',

@@ -30,10 +30,10 @@ importers:
 
   apps/api:
     dependencies:
-      '@mcdi/contracts':
+      '@mcid/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@mcdi/form-schema':
+      '@mcid/form-schema':
         specifier: workspace:*
         version: link:../../packages/form-schema
       '@nestjs/common':
@@ -97,10 +97,10 @@ importers:
         specifier: ^5.0.1
         version: 5.0.1(express@5.2.1)
     devDependencies:
-      '@mcdi/eslint-config':
+      '@mcid/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@mcdi/typescript-config':
+      '@mcid/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@nestjs/cli':
@@ -185,16 +185,16 @@ importers:
         specifier: ^13.1.0
         version: 13.1.0
     devDependencies:
-      '@mcdi/contracts':
+      '@mcid/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@mcdi/eslint-config':
+      '@mcid/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@mcdi/form-schema':
+      '@mcid/form-schema':
         specifier: workspace:*
         version: link:../../packages/form-schema
-      '@mcdi/typescript-config':
+      '@mcid/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
@@ -248,7 +248,7 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.13
         version: 6.43.13
-      '@mcdi/contracts':
+      '@mcid/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@mdx-js/loader':
@@ -336,10 +336,10 @@ importers:
         specifier: ^5.0.12
         version: 5.0.15(@types/react@19.3.0)(react@19.2.4)
     devDependencies:
-      '@mcdi/eslint-config':
+      '@mcid/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@mcdi/typescript-config':
+      '@mcid/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@mdx-js/mdx':
@@ -414,7 +414,7 @@ importers:
 
   packages/contracts:
     devDependencies:
-      '@mcdi/typescript-config':
+      '@mcid/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       typescript:
@@ -448,10 +448,10 @@ importers:
         specifier: ^13.15.22
         version: 13.15.26
     devDependencies:
-      '@mcdi/eslint-config':
+      '@mcid/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@mcdi/typescript-config':
+      '@mcid/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/validator':

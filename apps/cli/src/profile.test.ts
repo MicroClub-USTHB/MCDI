@@ -21,7 +21,7 @@ const session = {
 const secretEntry = { secret: 'v1:s:e:c', name: 'Recruitment', slug: 'recruitment' };
 
 async function tempConfigPath(config: Config): Promise<string> {
-  const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-profile-')), 'config.json');
+  const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-profile-')), 'config.json');
   await saveConfig(config, path);
   return path;
 }
@@ -57,7 +57,7 @@ describe('profileList', () => {
     const out = collect();
     await profileList(fakeDeps(path, { out: out.out }));
     expect(out.lines).toEqual([
-      'No profiles configured; run `mcdi-cli profile add <name> --base-url <url>` or `mcdi-cli login`.',
+      'No profiles configured; run `mcid-cli profile add <name> --base-url <url>` or `mcid-cli login`.',
     ]);
   });
 
@@ -111,15 +111,15 @@ describe('profileAdd', () => {
     const out = collect();
     await profileAdd(
       'prod',
-      { baseUrl: 'https://mcdi.example.com/' },
+      { baseUrl: 'https://mcid.example.com/' },
       fakeDeps(path, { out: out.out }),
     );
     expect(out.lines[0]).toBe(
-      'Added profile "prod" (https://mcdi.example.com); it is now the active profile',
+      'Added profile "prod" (https://mcid.example.com); it is now the active profile',
     );
 
     const config = await loadConfig(path);
-    expect(config.profiles.prod).toEqual({ baseUrl: 'https://mcdi.example.com', session: null });
+    expect(config.profiles.prod).toEqual({ baseUrl: 'https://mcid.example.com', session: null });
     expect(config.activeProfile).toBe('prod');
 
     const out2 = collect();
@@ -201,7 +201,7 @@ describe('profileRemove', () => {
     const err = await captureError(profileRemove('prod', {}, fakeDeps(path)));
     expect(err.exitCode).toBe(1);
     expect(err.message).toBe(
-      'profile "prod" is still logged in; run `mcdi-cli logout --profile prod` first',
+      'profile "prod" is still logged in; run `mcid-cli logout --profile prod` first',
     );
     expect(await loadConfig(path)).toEqual(config);
   });

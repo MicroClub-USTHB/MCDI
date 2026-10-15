@@ -162,7 +162,7 @@ describe('WebhooksController (integration)', () => {
         channelId: 'ch-1',
         channelName: 'general',
         serverId: '123',
-        serverName: 'MicroClub',
+        serverName: 'Micro Club',
         avatar: null,
         createdAt: '2025-01-15T14:30:00.000Z',
         usageCount: 0,

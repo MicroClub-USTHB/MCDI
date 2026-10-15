@@ -5,7 +5,7 @@ import {
   INBOUND_FIELD_TYPES,
   INBOUND_SCHEMA_PROPERTIES,
   INBOUND_WEBHOOK_TEMPLATES,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 import { buildExamplePayload } from '../docs/webhook-docs.generator';
 import {
   CONDITION_OPERATOR_NAMES,
@@ -13,16 +13,16 @@ import {
   baseFieldPropertyNames,
   fieldPropertyNames,
   validateSchema,
-} from '@mcdi/form-schema';
-import type { FormSchema } from '@mcdi/form-schema';
+} from '@mcid/form-schema';
+import type { FormSchema } from '@mcid/form-schema';
 import { validatePayload } from './payload.validator';
 
 /**
- * The admin schema editor suggests and checks names from `@mcdi/contracts`.
+ * The admin schema editor suggests and checks names from `@mcid/contracts`.
  * These tests keep that catalog and the templates in step with the validator
  * the API really enforces, so neither can drift without a failing test.
  */
-describe('@mcdi/contracts inbound webhook catalog', () => {
+describe('@mcid/contracts inbound webhook catalog', () => {
   it('lists exactly the field types the API supports', () => {
     expect([...INBOUND_FIELD_TYPES].sort()).toEqual([...FIELD_TYPES].sort());
   });
@@ -58,7 +58,7 @@ describe('@mcdi/contracts inbound webhook catalog', () => {
   });
 });
 
-describe('@mcdi/contracts schema properties', () => {
+describe('@mcid/contracts schema properties', () => {
   it('offers steps and fields at the top level, the two ways to describe a payload', () => {
     expect(INBOUND_SCHEMA_PROPERTIES.map((p) => p.name)).toEqual([
       'version',
@@ -68,7 +68,7 @@ describe('@mcdi/contracts schema properties', () => {
   });
 });
 
-describe('@mcdi/contracts starter templates', () => {
+describe('@mcid/contracts starter templates', () => {
   it('offers the starting points, forms first and the flat one before blank', () => {
     expect(INBOUND_WEBHOOK_TEMPLATES.map((t) => t.id)).toEqual([
       'recruitment',

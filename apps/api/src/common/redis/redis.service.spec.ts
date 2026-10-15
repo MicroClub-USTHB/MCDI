@@ -217,7 +217,7 @@ describe('RedisService', () => {
     client.scanIterator.mockReturnValue(makeAsyncIterable(['a', 'b']));
 
     const { service } = await buildService({}, client);
-    await expect(service.scanKeys('mcdi:*')).resolves.toEqual(['a', 'b']);
+    await expect(service.scanKeys('mcid:*')).resolves.toEqual(['a', 'b']);
   });
 
   it('returns the raw INFO payload for the requested section', async () => {
@@ -240,7 +240,7 @@ describe('RedisService', () => {
     await expect(service.setNx('k', '1', 10)).resolves.toBe(false);
     await expect(service.delete('a')).resolves.toBe(0);
     await expect(service.sMembers('set')).resolves.toEqual([]);
-    await expect(service.scanKeys('mcdi:*')).resolves.toEqual([]);
+    await expect(service.scanKeys('mcid:*')).resolves.toEqual([]);
     await expect(service.info('stats')).resolves.toBeNull();
   });
 });

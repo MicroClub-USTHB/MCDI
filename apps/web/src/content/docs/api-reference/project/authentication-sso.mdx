@@ -6,7 +6,7 @@ SSO-aware entry point (`/auth/sso/authorize`) and the cookie-backed browser endp
 
 <Endpoint method="GET" path="/api/auth/sso/authorize" />
 
-Recommended default for new "Login with MicroClub" buttons. Same query contract as `GET /auth/authorize`. If the caller has a valid `mcdi_sso` cookie, the Discord OAuth bounce is skipped and the browser is redirected straight to the platform's redirect_uri with `?code=...&state=...`. Otherwise this falls back to the existing `/auth/authorize` flow (Discord OAuth).
+Recommended default for new "Login with Micro Club" buttons. Same query contract as `GET /auth/authorize`. If the caller has a valid `mcid_sso` cookie, the Discord OAuth bounce is skipped and the browser is redirected straight to the platform's redirect_uri with `?code=...&state=...`. Otherwise this falls back to the existing `/auth/authorize` flow (Discord OAuth).
 
 Use `GET /auth/authorize` instead when you need to force a fresh Discord consent.
 
@@ -34,7 +34,7 @@ Use `GET /auth/authorize` instead when you need to force a fresh Discord consent
 
 <Endpoint method="POST" path="/api/auth/sso/logout" />
 
-Reads the `mcdi_sso` httpOnly cookie, destroys the SSO session, cascades to every project session for the same member, and clears the cookie. Idempotent - succeeds even if the cookie is missing.
+Reads the `mcid_sso` httpOnly cookie, destroys the SSO session, cascades to every project session for the same member, and clears the cookie. Idempotent - succeeds even if the cookie is missing.
 
 **Authentication:** None, this endpoint is public.
 
@@ -50,7 +50,7 @@ Reads the `mcdi_sso` httpOnly cookie, destroys the SSO session, cascades to ever
 
 <Endpoint method="GET" path="/api/auth/sso/session" />
 
-Reads the `mcdi_sso` httpOnly cookie set after Discord login and returns the authenticated member. Returns 401 with `{ authenticated: false }` when the cookie is missing or expired.
+Reads the `mcid_sso` httpOnly cookie set after Discord login and returns the authenticated member. Returns 401 with `{ authenticated: false }` when the cookie is missing or expired.
 
 **Authentication:** None, this endpoint is public.
 
@@ -67,7 +67,7 @@ Reads the `mcdi_sso` httpOnly cookie set after Discord login and returns the aut
 
 <Endpoint method="GET" path="/api/auth/sso/sessions" />
 
-Returns one entry per active (non-expired) project session for the member identified by the `mcdi_sso` cookie. Token material is never returned. Returns 401 when the SSO cookie is missing or expired.
+Returns one entry per active (non-expired) project session for the member identified by the `mcid_sso` cookie. Token material is never returned. Returns 401 when the SSO cookie is missing or expired.
 
 **Authentication:** None, this endpoint is public.
 
@@ -87,7 +87,7 @@ Returns one entry per active (non-expired) project session for the member identi
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `avatar` | `string or null` | no |  |
-| `discordId` | `string` | yes | Discord user ID (same as `id` in MCDI) |
+| `discordId` | `string` | yes | Discord user ID (same as `id` in MCID) |
 | `id` | `string` | yes |  |
 | `username` | `string` | yes |  |
 

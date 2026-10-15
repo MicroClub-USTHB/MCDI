@@ -1,7 +1,7 @@
-# MCDI — Inbound Webhooks
+# MCID — Inbound Webhooks
 ## Product Requirements Document
 
-> **Historical design record.** This file is the product requirements written before inbound webhooks were built. The behaviour shipped differs in places, for example flat `fields` schemas were added and every field must set `required`. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+> **Historical design record.** This file is the product requirements written before inbound webhooks were built. The behaviour shipped differs in places, for example flat `fields` schemas were added and every field must set `required`. It is kept for the reasoning behind past decisions and is no longer updated. For how MCID behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
 
 
 > **Status**: Draft — Ready for GitHub Issue Creation
@@ -37,15 +37,15 @@
 
 ### 1.1 Problem
 
-MCDI has no way for an external MicroClub application to submit structured data
+MCID has no way for an external Micro Club application to submit structured data
 into the platform. Today a club project that runs a registration form, a workshop
 sign-up, or a recruitment flow must build and host its own backend, its own
-validation, and its own access control — then separately ask MCDI who is allowed
+validation, and its own access control — then separately ask MCID who is allowed
 to read the results.
 
 ### 1.2 Solution
 
-**Inbound Webhooks**: MCDI-owned HTTP endpoints that accept structured submissions
+**Inbound Webhooks**: MCID-owned HTTP endpoints that accept structured submissions
 from an authenticated project, validate them against a schema the project declared
 up front, persist them, and expose the results **only** to Discord members holding
 one of an explicitly declared set of roles.
@@ -53,10 +53,10 @@ one of an explicitly declared set of roles.
 In one sentence: *a schema-validated form backend, with Discord roles as the
 authorization layer.*
 
-### 1.3 Why MCDI is the right home
+### 1.3 Why MCID is the right home
 
-MCDI already owns the two things this needs and nobody else has: the API-key
-identity of every MicroClub project (`projects`, `ApiKeyGuard`), and a live,
+MCID already owns the two things this needs and nobody else has: the API-key
+identity of every Micro Club project (`projects`, `ApiKeyGuard`), and a live,
 synced picture of who holds which Discord role (`server_member_roles`, `sync`
 module). Building this anywhere else means duplicating both.
 
@@ -67,8 +67,8 @@ reuse it:
 
 | Existing | Meaning | Status |
 |---|---|---|
-| `DiscordService.getWebhooks` / `createWebhook` | Discord-owned webhook URLs; MCDI is the client posting into a channel | wrapper exists, no controller calls it |
-| `project.webhookUrl` | Outbound — the project's URL, for MCDI to POST events to | column exists, never read by any caller |
+| `DiscordService.getWebhooks` / `createWebhook` | Discord-owned webhook URLs; MCID is the client posting into a channel | wrapper exists, no controller calls it |
+| `project.webhookUrl` | Outbound — the project's URL, for MCID to POST events to | column exists, never read by any caller |
 | `MANAGE_WEBHOOKS` | Two distinct permissions sharing a name: Discord's bit `536870912n`, and the `project_servers` operation flag | both in use |
 
 ---
@@ -77,18 +77,18 @@ reuse it:
 
 A webhook's direction is defined by **which party opens the HTTP connection**.
 
-**Outbound** (`project.webhookUrl`, today): MCDI is the *client*. An event happens
-inside MCDI and MCDI calls out to an address the project registered.
+**Outbound** (`project.webhookUrl`, today): MCID is the *client*. An event happens
+inside MCID and MCID calls out to an address the project registered.
 
 ```
-Discord event ──▶ MCDI ──POST──▶ https://client-app.com/hooks/mcdi
+Discord event ──▶ MCID ──POST──▶ https://client-app.com/hooks/mcid
 ```
 
-**Inbound** (this feature): MCDI is the *server*. It does not store anybody's
+**Inbound** (this feature): MCID is the *server*. It does not store anybody's
 address — it **is** the address.
 
 ```
-client-app.com backend ──POST──▶ https://mcdi/api/inbound-webhooks/:id/submit
+client-app.com backend ──POST──▶ https://mcid/api/inbound-webhooks/:id/submit
 ```
 
 These are opposite arrows with almost no shared machinery. Outbound needs a retry
@@ -119,7 +119,7 @@ distinct operation flag, `MANAGE_INBOUND_WEBHOOKS`, so that reading
 | # | Non-goal | Rationale |
 |---|---|---|
 | N1 | Outbound event delivery / retry queue | Opposite direction; separate feature. `project.webhookUrl` stays untouched |
-| N2 | A rendering front-end for the forms | The caller owns their UI; MCDI owns the contract and the data |
+| N2 | A rendering front-end for the forms | The caller owns their UI; MCID owns the contract and the data |
 | N3 | Browser-direct submission from a public page | API-key auth means server-to-server. See [9.1](#91-why-server-to-server) |
 | N4 | Posting submissions into Discord channels | Deliberately deferred; the sink is persistence only in v1 |
 | N5 | Per-role field-level redaction | v2. v1 gates at the webhook level, not the field level |
@@ -160,7 +160,7 @@ when, and via which role grant.
 Project backend
    │ POST /api/inbound-webhooks/:id/submit
    │ Authorization: Bearer pk_a8f3.<secret>
-   │ X-MCDI-Signature: t=1759190400,v1=4f2b…
+   │ X-MCID-Signature: t=1759190400,v1=4f2b…
    │ Origin: https://app.client.com
    │ { "identity": { "name": "Ada", "firstname": "Lovelace" } }
    ▼
@@ -588,7 +588,7 @@ mode with token-in-URL auth and no API key — explicitly out of scope for v1.
 Header format:
 
 ```
-X-MCDI-Signature: t=<unix seconds>,v1=<hex hmac-sha256>
+X-MCID-Signature: t=<unix seconds>,v1=<hex hmac-sha256>
 ```
 
 The signed string is `"<t>.<raw request body>"`. Verification uses `timingSafeEqual`,

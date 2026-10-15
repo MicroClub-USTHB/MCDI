@@ -5,7 +5,7 @@ import {
   exchangeAdminLoginCode,
   parseAdminLoginSession,
   parseRotatedSecret,
-} from './mcdi.js';
+} from './mcid.js';
 
 describe('parseRotatedSecret', () => {
   it('returns the signing secret from a well-shaped response', () => {
@@ -27,7 +27,7 @@ describe('parseRotatedSecret', () => {
 });
 
 describe('adminLoginQuery', () => {
-  it('asks MCDI for a CLI login with a loopback redirect and an S256 challenge', () => {
+  it('asks MCID for a CLI login with a loopback redirect and an S256 challenge', () => {
     const query = adminLoginQuery(
       'http://127.0.0.1:53123/callback',
       'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
@@ -64,14 +64,14 @@ describe('parseAdminLoginSession', () => {
 });
 
 describe('exchangeAdminLoginCode', () => {
-  it('sends the exchange to MCDI and reports an unreachable MCDI as exit 5', async () => {
-    // Nothing listens on the discard port: proves a request is attempted, with no fake MCDI.
+  it('sends the exchange to MCID and reports an unreachable MCID as exit 5', async () => {
+    // Nothing listens on the discard port: proves a request is attempted, with no fake MCID.
     const err = await exchangeAdminLoginCode('http://127.0.0.1:9', 'code', 'verifier').then(
       () => undefined,
       (e: unknown) => e,
     );
     expect(err).toBeInstanceOf(CliError);
     expect((err as CliError).exitCode).toBe(ExitCode.Unexpected);
-    expect((err as CliError).message).toMatch(/could not reach MCDI at http:\/\/127\.0\.0\.1:9/);
+    expect((err as CliError).message).toMatch(/could not reach MCID at http:\/\/127\.0\.0\.1:9/);
   });
 });

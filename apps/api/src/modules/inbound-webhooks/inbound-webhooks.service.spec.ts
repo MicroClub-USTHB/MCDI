@@ -2,7 +2,7 @@ import { ConflictException, Logger } from '@nestjs/common';
 import { encryptSecret } from '../../common/utils/encryption.util';
 import { signPayload } from '../../common/utils/inbound-webhook-signature.util';
 import { InboundWebhooksService } from './inbound-webhooks.service';
-import type { Field } from '@mcdi/form-schema';
+import type { Field } from '@mcid/form-schema';
 
 const WEBHOOK = 'wh-1';
 const PROJECT = 'project-1';

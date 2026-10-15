@@ -1,4 +1,4 @@
-When a submission fails, MCDI tells you why in the status code and the body. This page lists every status the submit endpoint returns, the shape of the 422 that lists schema problems, and every code that can appear in it.
+When a submission fails, MCID tells you why in the status code and the body. This page lists every status the submit endpoint returns, the shape of the 422 that lists schema problems, and every code that can appear in it.
 
 ## Status codes
 
@@ -20,7 +20,7 @@ Errors that are not about the schema share the shape `{ "message": ..., "error":
 
 ## The 422: every problem at once
 
-MCDI does not stop at the first mistake. It validates the whole payload and returns every problem, each with the path of the field, a stable `code` and a human `message`:
+MCID does not stop at the first mistake. It validates the whole payload and returns every problem, each with the path of the field, a stable `code` and a human `message`:
 
 ```json
 {
@@ -107,7 +107,7 @@ Files cannot be uploaded yet, so a webhook with a required file field cannot cur
 | ---------------------- | ----------------------------- | ----------------------------------------------------------------------- |
 | Request body           | 512 KB                        | The whole API. A larger body is rejected before it reaches the webhook. |
 | Submissions per minute | 120                           | Each webhook, and also each project across its webhooks.                |
-| Signature age          | 5 minutes                     | Either side of MCDI's clock.                                            |
+| Signature age          | 5 minutes                     | Either side of MCID's clock.                                            |
 | Submissions per page   | 200 entries at most           | The read endpoint's `limit`.                                            |
 | Schema size            | 20 steps, 200 fields, depth 5 | Checked when an admin saves the schema.                                 |
 
@@ -116,6 +116,6 @@ Files cannot be uploaded yet, so a webhook with a required file field cannot cur
 - Treat 401, 403, 404 and 410 as configuration problems: fix the key, secret, origin or webhook ID, and do not retry in a loop.
 - Treat 422 as a data problem. Log the `errors` array and fix the payload. Retrying the same body fails the same way.
 - Retry 429 after a short delay, and 5xx with backoff, signing the new request afresh so it has a current timestamp.
-- After a network timeout you cannot tell whether MCDI got the request. Resend the identical signed request: a 201 means it is stored now, and a 409 means the first attempt was already stored. Both are success.
+- After a network timeout you cannot tell whether MCID got the request. Resend the identical signed request: a 201 means it is stored now, and a 409 means the first attempt was already stored. Both are success.
 
 Source: `apps/api/src/modules/inbound-webhooks/inbound-webhooks.service.ts`, `apps/api/src/modules/inbound-webhooks/schema/payload.validator.ts`, `apps/api/src/modules/inbound-webhooks/inbound-webhook-ingest.controller.ts`, `apps/api/src/main.ts`.

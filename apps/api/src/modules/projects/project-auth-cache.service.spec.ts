@@ -59,13 +59,13 @@ describe('ProjectAuthCacheService', () => {
   it('stores a serialized project entry and project index in Redis', async () => {
     const service = await buildService({
       'app.projectAuthCacheTtlMs': 30_000,
-      'redis.keyPrefix': 'mcdi',
+      'redis.keyPrefix': 'mcid',
     });
 
     await service.set('pk_test.secret', fakeProject());
 
     expect(mockRedisService.setJson).toHaveBeenCalledWith(
-      expect.stringMatching(/^mcdi:project-auth:entry:/),
+      expect.stringMatching(/^mcid:project-auth:entry:/),
       expect.objectContaining({
         id: 'proj-1',
         apiKeyCreatedAt: '2026-03-23T10:00:00.000Z',
@@ -73,11 +73,11 @@ describe('ProjectAuthCacheService', () => {
       30_000,
     );
     expect(mockRedisService.sAdd).toHaveBeenCalledWith(
-      'mcdi:project-auth:project:proj-1',
-      expect.stringMatching(/^mcdi:project-auth:entry:/),
+      'mcid:project-auth:project:proj-1',
+      expect.stringMatching(/^mcid:project-auth:entry:/),
     );
     expect(mockRedisService.expire).toHaveBeenCalledWith(
-      'mcdi:project-auth:project:proj-1',
+      'mcid:project-auth:project:proj-1',
       90,
     );
   });
@@ -112,42 +112,42 @@ describe('ProjectAuthCacheService', () => {
 
   it('invalidates all entries indexed for a project', async () => {
     mockRedisService.sMembers.mockResolvedValue([
-      'mcdi:project-auth:entry:a',
-      'mcdi:project-auth:entry:b',
+      'mcid:project-auth:entry:a',
+      'mcid:project-auth:entry:b',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await service.invalidateProject('proj-1');
 
     expect(mockRedisService.delete).toHaveBeenCalledWith(
-      'mcdi:project-auth:project:proj-1',
-      'mcdi:project-auth:entry:a',
-      'mcdi:project-auth:entry:b',
+      'mcid:project-auth:project:proj-1',
+      'mcid:project-auth:entry:a',
+      'mcid:project-auth:entry:b',
     );
   });
 
   it('clears all project-auth keys discovered by scan', async () => {
     mockRedisService.scanKeys.mockResolvedValue([
-      'mcdi:project-auth:entry:a',
-      'mcdi:project-auth:project:proj-1',
+      'mcid:project-auth:entry:a',
+      'mcid:project-auth:project:proj-1',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await service.clear();
 
     expect(mockRedisService.delete).toHaveBeenCalledWith(
-      'mcdi:project-auth:entry:a',
-      'mcdi:project-auth:project:proj-1',
+      'mcid:project-auth:entry:a',
+      'mcid:project-auth:project:proj-1',
     );
   });
 
   it('returns the number of cached auth entries from size()', async () => {
     mockRedisService.scanKeys.mockResolvedValue([
-      'mcdi:project-auth:entry:a',
-      'mcdi:project-auth:entry:b',
+      'mcid:project-auth:entry:a',
+      'mcid:project-auth:entry:b',
     ]);
 
-    const service = await buildService({ 'redis.keyPrefix': 'mcdi' });
+    const service = await buildService({ 'redis.keyPrefix': 'mcid' });
     await expect(service.size()).resolves.toBe(2);
   });
 
@@ -156,12 +156,12 @@ describe('ProjectAuthCacheService', () => {
 
     const service = await buildService({
       'app.projectLastUsedWriteTtlMs': 60_000,
-      'redis.keyPrefix': 'mcdi',
+      'redis.keyPrefix': 'mcid',
     });
 
     await expect(service.shouldRefreshLastUsed('proj-1')).resolves.toBe(true);
     expect(mockRedisService.setNx).toHaveBeenCalledWith(
-      'mcdi:project-auth:last-used:proj-1',
+      'mcid:project-auth:last-used:proj-1',
       '1',
       60_000,
     );

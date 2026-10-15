@@ -1,8 +1,8 @@
-# MCDI V2 Design System — Tailwind Token Guide
+# MCID V2 Design System — Tailwind Token Guide
 
 ## Overview
 
-This skill documents the MCDI V2 design system built on Tailwind CSS v4 with CSS-first `@theme` configuration. The design system is Discord-inspired, dark-only, and uses a layered surface hierarchy.
+This skill documents the MCID V2 design system built on Tailwind CSS v4 with CSS-first `@theme` configuration. The design system is Discord-inspired, dark-only, and uses a layered surface hierarchy.
 
 **Source of truth**: `src/shared/styles/globals.css`
 

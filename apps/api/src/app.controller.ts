@@ -19,7 +19,7 @@ export class AppController {
 
   @Get()
   getHello(): string {
-    return 'MCDI w l3alamiya';
+    return 'MCID w l3alamiya';
   }
 
   @Get('admin')

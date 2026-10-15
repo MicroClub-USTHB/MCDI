@@ -1,5 +1,5 @@
 import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
-import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
+import { ADMIN_SESSION_COOKIE } from '@mcid/contracts';
 import { Request, Response, NextFunction } from 'express';
 import { AuditRepository, InsertAuditLog } from '../audit.repository';
 import { AuditService } from '../audit.service';

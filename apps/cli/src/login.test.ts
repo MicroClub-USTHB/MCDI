@@ -7,19 +7,19 @@ import { addProfile, emptyConfig, loadConfig, saveConfig, setWebhookSecret } fro
 import { decrypt, sessionContext } from './crypto-store.js';
 import { CliError, ExitCode } from './errors.js';
 import { login, type LoginDeps } from './login-flow.js';
-import { fakeMcdi, json } from './test-support/fake-mcdi.js';
+import { fakeMcid, json } from './test-support/fake-mcid.js';
 import { fixedKeys } from './test-support/keys.js';
 
-const BASE = 'https://mcdi.example.com';
+const BASE = 'https://mcid.example.com';
 const ME = { id: '42', username: 'kal', sessionExpiresAt: '2026-10-20T00:00:00.000Z' };
 
 afterEach(() => vi.unstubAllGlobals());
 
 const tempConfig = async () =>
-  join(await mkdtemp(join(tmpdir(), 'mcdi-cli-login-')), 'config.json');
+  join(await mkdtemp(join(tmpdir(), 'mcid-cli-login-')), 'config.json');
 
 function deps(configPath: string, keys = fixedKeys()): LoginDeps {
-  // The "browser" follows MCDI's redirect: it calls the CLI's loopback listener with a code.
+  // The "browser" follows MCID's redirect: it calls the CLI's loopback listener with a code.
   const openBrowser = async (discordUrl: string) => {
     const url = new URL(discordUrl);
     const redirect = new URL(url.searchParams.get('redirect_uri')!);
@@ -31,12 +31,12 @@ function deps(configPath: string, keys = fixedKeys()): LoginDeps {
   return { configPath, keys, openBrowser, info: () => {}, out: () => {}, timeoutMs: 5_000 };
 }
 
-describe('login (end to end against a fake MCDI)', () => {
+describe('login (end to end against a fake MCID)', () => {
   it('exchanges the loopback code with the PKCE verifier and stores the session encrypted', async () => {
     const configPath = await tempConfig();
     const keys = fixedKeys();
     let verifier: string | undefined;
-    fakeMcdi({
+    fakeMcid({
       'GET /auth/admin/discord': (url) => {
         const discord = new URL('https://discord.com/oauth2/authorize');
         discord.searchParams.set('state', 'st-1');
@@ -63,7 +63,7 @@ describe('login (end to end against a fake MCDI)', () => {
     );
   });
 
-  it('refuses to repoint a profile that holds signing secrets at another MCDI', async () => {
+  it('refuses to repoint a profile that holds signing secrets at another MCID', async () => {
     const configPath = await tempConfig();
     const config = setWebhookSecret(addProfile(emptyConfig(), 'prod', BASE), 'prod', 'wh-1', {
       secret: 'v1:kc:a:b:c',

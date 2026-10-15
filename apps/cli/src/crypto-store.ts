@@ -11,11 +11,11 @@ import { configDir } from './config.js';
  * Every encrypted value records which of the two keys encrypted it, and is
  * only ever decrypted with that key. A run where the keychain happens to be
  * unreachable (a locked keychain, an SSH session) therefore never produces a
- * value the next run cannot read: MCDI never re-issues a signing secret, so a
+ * value the next run cannot read: MCID never re-issues a signing secret, so a
  * value encrypted with the wrong key would be lost for good.
  */
 
-const KEYCHAIN_SERVICE = 'mcdi-cli';
+const KEYCHAIN_SERVICE = 'mcid-cli';
 const KEYCHAIN_ACCOUNT = 'encryption-key';
 const KEY_FILE_NAME = 'key';
 const FORMAT = 'v1';

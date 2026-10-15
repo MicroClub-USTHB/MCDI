@@ -94,7 +94,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
         )}
       >
         <div className="flex h-topbar items-center justify-between border-b border-border px-4">
-          <span className="text-heading text-text-primary">MCDI</span>
+          <span className="text-heading text-text-primary">MCID</span>
           <button
             ref={closeButtonRef}
             type="button"

@@ -11,7 +11,7 @@
 <text x="90" y="152" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#712b13">Admin frontend</text>
 <text x="90" y="170" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#712b13">Discord OAuth</text>
 <rect x="210" y="80" width="140" height="56" rx="8" fill="#eeedfe" stroke="#534ab7" stroke-width="0.5"/>
-<text x="280" y="108" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#3c3489">MCDI API</text>
+<text x="280" y="108" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="600" fill="#3c3489">MCID API</text>
 <line x1="160" y1="78" x2="208" y2="100" stroke="#888780" stroke-width="1" fill="none" marker-end="url(#arrow)"/>
 <line x1="160" y1="158" x2="208" y2="116" stroke="#888780" stroke-width="1" fill="none" marker-end="url(#arrow)"/>
 <rect x="200" y="168" width="280" height="216" rx="12" fill="none" stroke="#b4b2a9" stroke-width="0.5" stroke-dasharray="5 4"/>

@@ -4,7 +4,7 @@
 
 Expert guide for building modern, responsive user interfaces with Tailwind CSS utility-first framework. Covers v4.1+ features including CSS-first configuration, custom utilities, and enhanced developer experience.
 
-## MCDI-Front Adaptation
+## MCID-Front Adaptation
 
 This project uses **Tailwind CSS v4** with CSS-based `@theme` configuration in `src/shared/styles/globals.css`. There is no `tailwind.config.ts` file. All design tokens are defined as CSS custom properties in the `@theme` block.
 
@@ -16,7 +16,7 @@ This project uses **Tailwind CSS v4** with CSS-based `@theme` configuration in `
 - Building responsive layouts with breakpoints
 - Implementing flexbox and grid layouts
 - Managing spacing, colors, and typography
-- Using the MCDI V2 design system tokens
+- Using the MCID V2 design system tokens
 
 ## Core Concepts
 
@@ -25,7 +25,7 @@ This project uses **Tailwind CSS v4** with CSS-based `@theme` configuration in `
 Always use project design tokens, not Tailwind defaults:
 
 ```tsx
-// CORRECT — uses MCDI design tokens
+// CORRECT — uses MCID design tokens
 <button className="bg-brand hover:bg-brand-hover text-white font-medium py-2 px-4 rounded">
   Click me
 </button>
@@ -69,7 +69,7 @@ Use Tailwind's spacing scale aligned with the 4px grid:
 - `p-1` = 4px, `p-2` = 8px, `p-3` = 12px, `p-4` = 16px
 - `gap-1` = 4px, `gap-2` = 8px, etc.
 
-### MCDI Component Patterns
+### MCID Component Patterns
 
 Card:
 ```tsx
@@ -133,7 +133,7 @@ function Card({ className, ...props }) {
 }
 ```
 
-## Best Practices for MCDI
+## Best Practices for MCID
 
 1. **Always use design tokens** — `bg-surface-base` not `bg-[#1E1F22]`
 2. **Mobile-first** — base styles for mobile, add responsive prefixes

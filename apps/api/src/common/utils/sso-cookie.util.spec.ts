@@ -7,7 +7,7 @@ describe('sso-cookie.util', () => {
   describe('buildSsoCookieOptions', () => {
     it('locks down the cookie in production (httpOnly + secure + lax + maxAge)', () => {
       const options = buildSsoCookieOptions({
-        name: 'mcdi_sso',
+        name: 'mcid_sso',
         ttlSec: 60,
         isProduction: true,
         domain: '.microclub.dz',
@@ -25,7 +25,7 @@ describe('sso-cookie.util', () => {
 
     it('keeps secure=false in development so the cookie ships over http://localhost', () => {
       const options = buildSsoCookieOptions({
-        name: 'mcdi_sso',
+        name: 'mcid_sso',
         ttlSec: 30,
         isProduction: false,
       });
@@ -36,7 +36,7 @@ describe('sso-cookie.util', () => {
 
     it('multiplies ttlSec by 1000 for maxAge (cookie API expects ms)', () => {
       const options = buildSsoCookieOptions({
-        name: 'mcdi_sso',
+        name: 'mcid_sso',
         ttlSec: 2_592_000,
         isProduction: true,
       });

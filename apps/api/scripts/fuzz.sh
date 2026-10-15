@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fuzz.sh — Schemathesis API fuzzing pipeline against the MCDI API.
+# fuzz.sh — Schemathesis API fuzzing pipeline against the MCID API.
 #
 # Schemathesis is a Python-based property-testing fuzzer that:
 #   - Generates test cases from the OpenAPI spec automatically
@@ -80,7 +80,7 @@ echo "    Schema ready."
 echo ""
 echo "==> [3/4] Waiting for API to become healthy (up to 3 min)..."
 for i in $(seq 1 36); do
-  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcdi-api-fuzz 2>/dev/null || echo "notfound")
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' mcid-api-fuzz 2>/dev/null || echo "notfound")
   if [[ "$STATUS" == "healthy" ]]; then
     echo "    API is healthy."
     break

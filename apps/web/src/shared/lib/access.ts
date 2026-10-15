@@ -4,7 +4,7 @@ import {
   type AccessLevel,
   type AccessResource,
   type GrantLevel,
-} from '@mcdi/contracts';
+} from '@mcid/contracts';
 
 export type Permissions = Record<AccessResource, AccessLevel>;
 

@@ -14,7 +14,7 @@ import {
 import { fixedKeys } from './test-support/keys.js';
 
 const CONTEXT = 'prod/session';
-const tempDir = () => mkdtemp(join(tmpdir(), 'mcdi-cli-crypto-'));
+const tempDir = () => mkdtemp(join(tmpdir(), 'mcid-cli-crypto-'));
 const store = (key = randomBytes(32)): KeyStore => ({ getKey: async () => key });
 const broken = (message = 'no secret service'): KeyStore => ({
   getKey: () => Promise.reject(new Error(message)),
@@ -102,7 +102,7 @@ describe('FileKeyStore', () => {
 
 describe('FallbackKeyProvider', () => {
   const provider = (keychain: KeyStore, file: KeyStore, warn = vi.fn()) =>
-    new FallbackKeyProvider(keychain, file, '/home/me/.mcdi-cli/key', warn);
+    new FallbackKeyProvider(keychain, file, '/home/me/.mcid-cli/key', warn);
 
   it('encrypts with the keychain when it works, without touching the key file', async () => {
     const file = { getKey: vi.fn() };

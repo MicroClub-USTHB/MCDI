@@ -1,8 +1,8 @@
-# MCDI - Architecture And Next-Phase Requirements
+# MCID - Architecture And Next-Phase Requirements
 
-## MicroClub Discord Interface
+## Micro Club Identity
 
-> **Historical design record.** This file is the architecture direction and the roadmap after the MVP. Some of the roadmap has since been built, some changed. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+> **Historical design record.** This file is the architecture direction and the roadmap after the MVP. Some of the roadmap has since been built, some changed. It is kept for the reasoning behind past decisions and is no longer updated. For how MCID behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
 
 
 > This document tracks the architecture direction and the next phases after the current implemented release.
@@ -13,7 +13,7 @@
 
 ## 1. Current Architecture Baseline
 
-The current backend already delivers the identity, synchronization, and administrative core of MCDI:
+The current backend already delivers the identity, synchronization, and administrative core of MCID:
 
 - modular NestJS API
 - PostgreSQL as source of truth
@@ -32,7 +32,7 @@ The next phases should build on this baseline instead of re-specifying a differe
 
 ```mermaid
 flowchart LR
-  P["MicroClub Projects"] -->|"X-API-Key / OAuth redirect"| API["MCDI API"]
+  P["Micro Club Projects"] -->|"X-API-Key / OAuth redirect"| API["MCID API"]
   A["Admin Frontend"] -->|"Bearer session / admin cookie"| API
   API --> AUTH["Auth Module"]
   API --> MEM["Members Module"]
@@ -59,19 +59,19 @@ flowchart LR
 sequenceDiagram
   participant Browser
   participant ProjectBackend as Project Backend
-  participant MCDI
+  participant MCID
   participant Discord
 
-  Browser->>MCDI: GET /api/auth/authorize
-  MCDI->>MCDI: Validate project, redirect URI, server access
-  MCDI->>Browser: Redirect to Discord OAuth
+  Browser->>MCID: GET /api/auth/authorize
+  MCID->>MCID: Validate project, redirect URI, server access
+  MCID->>Browser: Redirect to Discord OAuth
   Browser->>Discord: User authorizes
-  Discord->>MCDI: Callback with code + state
-  MCDI->>Discord: Exchange code and fetch identity
-  MCDI->>MCDI: Verify guild membership and project access
-  MCDI->>Browser: Redirect with one-time callback code
-  ProjectBackend->>MCDI: POST /api/auth/token
-  MCDI->>ProjectBackend: Session token + member context
+  Discord->>MCID: Callback with code + state
+  MCID->>Discord: Exchange code and fetch identity
+  MCID->>MCID: Verify guild membership and project access
+  MCID->>Browser: Redirect with one-time callback code
+  ProjectBackend->>MCID: POST /api/auth/token
+  MCID->>ProjectBackend: Session token + member context
 ```
 
 ### 2.3 Sync And Event Flow
@@ -194,7 +194,7 @@ The old "Version 2 / Version 3" roadmap has been refreshed below so it reflects 
 
 #### F17. Send Messages To Channels
 
-**Target**: let authorized projects send Discord messages through MCDI.
+**Target**: let authorized projects send Discord messages through MCID.
 
 **Desired Capabilities**:
 
@@ -256,7 +256,7 @@ These three requirements should be implemented together because they share the s
 
 #### F24. Event Delivery
 
-MCDI already receives Discord events for synchronization. The next step is exposing selected events to projects.
+MCID already receives Discord events for synchronization. The next step is exposing selected events to projects.
 
 **Desired Capabilities**:
 
@@ -316,7 +316,7 @@ The running backend already generates Swagger docs from real DTOs and controller
 
 - lightweight server middleware
 - helper client packages
-- example integrations for common MicroClub stacks
+- example integrations for common Micro Club stacks
 
 ---
 

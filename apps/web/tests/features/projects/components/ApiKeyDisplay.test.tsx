@@ -5,10 +5,10 @@ import { ApiKeyDisplay } from '@/features/projects/components';
 describe('ApiKeyDisplay', () => {
   it('shows the key prefix in a masked field', () => {
     render(
-      <ApiKeyDisplay prefix="mcdi_abc123" isActive onReveal={vi.fn()} onRegenerate={vi.fn()} />
+      <ApiKeyDisplay prefix="mcid_abc123" isActive onReveal={vi.fn()} onRegenerate={vi.fn()} />
     );
 
-    expect(screen.getByDisplayValue('mcdi_abc123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('mcid_abc123')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reveal/i })).toBeInTheDocument();
   });
 
@@ -19,7 +19,7 @@ describe('ApiKeyDisplay', () => {
 
     render(
       <ApiKeyDisplay
-        prefix="mcdi_abc123"
+        prefix="mcid_abc123"
         isActive
         onReveal={onReveal}
         onRegenerate={onRegenerate}
@@ -39,7 +39,7 @@ describe('ApiKeyDisplay', () => {
 
     render(
       <ApiKeyDisplay
-        prefix="mcdi_abc123"
+        prefix="mcid_abc123"
         isActive={false}
         onReveal={vi.fn()}
         onRegenerate={onRegenerate}

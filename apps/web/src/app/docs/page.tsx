@@ -7,10 +7,10 @@ export default function DocsHome() {
     <div className="px-4 py-10 sm:px-8">
       <div className="max-w-[70ch]">
         <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
-          MCDI developer documentation
+          MCID developer documentation
         </h1>
         <p className="mt-3 max-w-[60ch] text-lead text-text-muted">
-          How MCDI works, how to use it from your project, and how to work on it.
+          How MCID works, how to use it from your project, and how to work on it.
         </p>
       </div>
       <div className="mt-10 grid max-w-4xl gap-4 md:grid-cols-2">

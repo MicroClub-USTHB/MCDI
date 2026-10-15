@@ -23,7 +23,7 @@ function buildSettings(overrides: Partial<SettingsDto> = {}): SettingsDto {
     discord: {
       clientId: { value: '123456789012345678', editable: false },
       guildId: { value: '987654321098765432', editable: false },
-      callbackUrl: { value: 'https://mcdi.example.com/callback', editable: false },
+      callbackUrl: { value: 'https://mcid.example.com/callback', editable: false },
       token: { isSet: true, editable: false },
       clientSecret: { isSet: true, editable: false },
     },

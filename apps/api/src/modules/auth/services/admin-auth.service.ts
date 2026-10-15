@@ -32,7 +32,7 @@ import type { ClientInfo } from '../../../common/utils/client-info.util';
 
 const ADMIN_SESSION_TTL_SEC = 24 * 60 * 60;
 
-/** What a CLI (mcdi-cli) passes to start an admin login it can receive itself. */
+/** What a CLI (mcid-cli) passes to start an admin login it can receive itself. */
 export interface AdminCliLoginRequest {
   redirectUri?: string;
   codeChallenge?: string;
@@ -162,7 +162,7 @@ export class AdminAuthService {
    *  1. Validate & consume the admin state token
    *  2. Exchange the Discord code for an access token (using admin redirect URI)
    *  3. Fetch the Discord profile & upsert the member
-   *  4. Verify the user is a member of the main MCDI guild
+   *  4. Verify the user is a member of the main MCID guild
    *  5. Sync roles into the DB and clear the member's cached admin access
    *  6. Issue a 24-hour session token
    *  7. Return token + member info
@@ -222,7 +222,7 @@ export class AdminAuthService {
   }
 
   /**
-   * Discord callback for a CLI login (mcdi-cli). Runs the same checks as the
+   * Discord callback for a CLI login (mcid-cli). Runs the same checks as the
    * web panel login, but instead of a cookie it hands a one-time code back to
    * the CLI's loopback URL (`?code=&state=`); a refusal is handed back the
    * same way (`?error=&state=`) so the CLI can show it. The session itself is
@@ -377,7 +377,7 @@ export class AdminAuthService {
       );
       throw this.rejectLogin(
         new ForbiddenException(
-          'You must be a member of the main MCDI Discord server to access the admin panel',
+          'You must be a member of the main MCID Discord server to access the admin panel',
         ),
         clientInfo,
         identity,

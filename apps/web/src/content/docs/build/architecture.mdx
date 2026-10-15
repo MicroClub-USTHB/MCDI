@@ -1,24 +1,24 @@
-This page explains how MCDI is put together: what is in the repository, how a request travels through the API, who is allowed to call what, where data lives and how it stays in step with Discord. Read it before you change anything in `apps/api`.
+This page explains how MCID is put together: what is in the repository, how a request travels through the API, who is allowed to call what, where data lives and how it stays in step with Discord. Read it before you change anything in `apps/api`.
 
 ## The repository
 
-MCDI is one repository managed with pnpm 10 workspaces and Turborepo, for Node 22 or newer.
+MCID is one repository managed with pnpm 10 workspaces and Turborepo, for Node 22 or newer.
 
 | Workspace | Package | What it is |
 | --- | --- | --- |
-| `apps/api` | `@mcdi/api` | The NestJS 11 API. It uses Drizzle ORM with PostgreSQL, Redis, and a discord.js bot. It is built as CommonJS and shipped as a Docker image. |
-| `apps/web` | `@mcdi/web` | The Next.js 16 admin panel, and these docs. It is deployed on Vercel. |
-| `apps/cli` | `mcdi-cli` | The MCDI command-line client for admins. It covers inbound webhooks for now. It is ESM, bundled with tsup. |
-| `packages/form-schema` | `@mcdi/form-schema` | The inbound webhook schema language: its types, the schema validator and the condition evaluator. The API and the CLI both use it, so the CLI checks a schema with the exact rules the API enforces. |
-| `packages/contracts` | `@mcdi/contracts` | Types and constants shared by the API and the web app. See [Shared contracts](/docs/build/contracts). |
-| `packages/typescript-config` | `@mcdi/typescript-config` | TypeScript presets the apps extend. |
-| `packages/eslint-config` | `@mcdi/eslint-config` | ESLint presets the apps extend. |
+| `apps/api` | `@mcid/api` | The NestJS 11 API. It uses Drizzle ORM with PostgreSQL, Redis, and a discord.js bot. It is built as CommonJS and shipped as a Docker image. |
+| `apps/web` | `@mcid/web` | The Next.js 16 admin panel, and these docs. It is deployed on Vercel. |
+| `apps/cli` | `mcid-cli` | The MCID command-line client for admins. It covers inbound webhooks for now. It is ESM, bundled with tsup. |
+| `packages/form-schema` | `@mcid/form-schema` | The inbound webhook schema language: its types, the schema validator and the condition evaluator. The API and the CLI both use it, so the CLI checks a schema with the exact rules the API enforces. |
+| `packages/contracts` | `@mcid/contracts` | Types and constants shared by the API and the web app. See [Shared contracts](/docs/build/contracts). |
+| `packages/typescript-config` | `@mcid/typescript-config` | TypeScript presets the apps extend. |
+| `packages/eslint-config` | `@mcid/eslint-config` | ESLint presets the apps extend. |
 
-Every Turbo task depends on `^build`, so `@mcdi/contracts` and `@mcdi/form-schema` are always built before the apps that use them.
+Every Turbo task depends on `^build`, so `@mcid/contracts` and `@mcid/form-schema` are always built before the apps that use them.
 
 ## The system at a glance
 
-<Diagram src="/docs/system-overview.svg" alt="Three kinds of caller reach the MCDI API: a project backend with an API key, a member's browser with a session token or SSO cookie, and the admin panel with an admin session cookie. The API stores data in PostgreSQL, keeps caches and counters in Redis, and talks to Discord through OAuth and a bot connection." width={960} height={520} />
+<Diagram src="/docs/system-overview.svg" alt="Three kinds of caller reach the MCID API: a project backend with an API key, a member's browser with a session token or SSO cookie, and the admin panel with an admin session cookie. The API stores data in PostgreSQL, keeps caches and counters in Redis, and talks to Discord through OAuth and a bot connection." width={960} height={520} />
 
 - Three kinds of caller use the API: **project backends** with an API key, **members' browsers** during login, and the **admin panel** with an admin session.
 - **PostgreSQL** is the source of truth. The API reads Discord data from it, never from Discord, when it answers a request.
@@ -67,9 +67,9 @@ A request goes through these steps, in this order:
 
 **Members.** A member signs in with Discord and receives a session token, either through the admin login or through a project's login flow. `SessionGuard` accepts any valid, unexpired session. It is used for routes that act on the member's own data, such as their sessions and the inbound webhook submissions they may read.
 
-**Admins.** Admins sign in with Discord OAuth, and any member of the main server can sign in. `AdminAccessGuard` accepts only sessions issued by the admin login, never one a project holds. It then compares the member's effective level on the endpoint's resource (`none`, `read`, `write` or `manage`, each including the one before it) with the level the endpoint declares through `@RequirePermission`. An endpoint with no declaration is refused. Members who hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, are root: they hold `manage` on everything, and only root edits grants. Root grants a level on a resource to a Discord role of the main server through `/api/admin/access`, and can give one person an override that replaces what their roles grant for that resource, including `none` to deny it. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. `GET /api/auth/admin/me` returns the member's effective level per resource, which the panel uses to build its navigation. The admin panel's Access screen edits grants through these endpoints, and the panel adds a root-only list of the members who have overrides, `GET /api/admin/access/overrides`. A command-line tool such as mcdi-cli can run the same login itself: it starts `GET /api/auth/admin/discord` with a loopback `redirect_uri` (`127.0.0.1`, `localhost` or `[::1]`, with a port) and a PKCE S256 `code_challenge`. After the same guild check and role sync, MCDI redirects to that address with a one-time code instead of setting a cookie, and the tool exchanges the code and its PKCE verifier at `POST /api/auth/admin/token` for a Bearer session.
+**Admins.** Admins sign in with Discord OAuth, and any member of the main server can sign in. `AdminAccessGuard` accepts only sessions issued by the admin login, never one a project holds. It then compares the member's effective level on the endpoint's resource (`none`, `read`, `write` or `manage`, each including the one before it) with the level the endpoint declares through `@RequirePermission`. An endpoint with no declaration is refused. Members who hold `MC_EXECUTIVE_ROLE_ID`, or the optional `MC_DEV_LEADS_ROLE_ID` or `MC_IT_LEADS_ROLE_ID`, are root: they hold `manage` on everything, and only root edits grants. Root grants a level on a resource to a Discord role of the main server through `/api/admin/access`, and can give one person an override that replaces what their roles grant for that resource, including `none` to deny it. The admin panel sends the session as the `admin_session` httpOnly cookie, and curl or Swagger can send it as `Authorization: Bearer`. `GET /api/auth/admin/me` returns the member's effective level per resource, which the panel uses to build its navigation. The admin panel's Access screen edits grants through these endpoints, and the panel adds a root-only list of the members who have overrides, `GET /api/admin/access/overrides`. A command-line tool such as mcid-cli can run the same login itself: it starts `GET /api/auth/admin/discord` with a loopback `redirect_uri` (`127.0.0.1`, `localhost` or `[::1]`, with a port) and a PKCE S256 `code_challenge`. After the same guild check and role sync, MCID redirects to that address with a one-time code instead of setting a cookie, and the tool exchanges the code and its PKCE verifier at `POST /api/auth/admin/token` for a Bearer session.
 
-For the full login flow a project integrates with, see [Login with MicroClub](/docs/integrate/sso).
+For the full login flow a project integrates with, see [Login with Micro Club](/docs/integrate/sso).
 
 ## Data
 

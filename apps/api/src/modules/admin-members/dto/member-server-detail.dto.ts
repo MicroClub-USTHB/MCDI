@@ -49,7 +49,7 @@ export class MemberServerDetailDto {
 
   @ApiProperty({
     description: 'Server name',
-    example: 'MicroClub Main',
+    example: 'Micro Club Main',
     type: String,
   })
   serverName: string;

@@ -4,8 +4,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
-import { validateSchema } from '@mcdi/form-schema';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcid/contracts';
+import { validateSchema } from '@mcid/form-schema';
 import { describe, expect, it } from 'vitest';
 import { CliError, ExitCode } from '../errors.js';
 import { applyCustomRules, precheckSchema, ruleCode } from './custom-rules.js';
@@ -231,7 +231,7 @@ describe('precheckSchema', () => {
 /** tsx's loader, resolved from here since the CLI child runs in a temp directory with no node_modules. */
 const TSX_LOADER = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 
-/** The real `mcdi-cli schema validate` command, run from a temp project with a temp HOME. */
+/** The real `mcid-cli schema validate` command, run from a temp project with a temp HOME. */
 async function cli(args: string[], cwd: string, home: string) {
   const entry = join(import.meta.dirname, '..', 'index.ts');
   const child = spawn(process.execPath, ['--import', TSX_LOADER, entry, ...args], {
@@ -239,7 +239,7 @@ async function cli(args: string[], cwd: string, home: string) {
     env: {
       ...process.env,
       HOME: home,
-      MCDI_CLI_CONFIG_PATH: join(home, '.mcdi-cli', 'config.json'),
+      MCID_CLI_CONFIG_PATH: join(home, '.mcid-cli', 'config.json'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -251,13 +251,13 @@ async function cli(args: string[], cwd: string, home: string) {
   return { code, stdout, stderr };
 }
 
-describe('mcdi-cli schema validate with custom rules (CLI)', () => {
+describe('mcid-cli schema validate with custom rules (CLI)', () => {
   async function workspace() {
-    const root = await mkdtemp(join(tmpdir(), 'mcdi-cli-rules-cli-'));
+    const root = await mkdtemp(join(tmpdir(), 'mcid-cli-rules-cli-'));
     const home = join(root, 'home');
     const repo = join(root, 'repo');
-    await mkdir(join(home, '.mcdi-cli', 'rules'), { recursive: true });
-    await mkdir(join(repo, '.mcdi-cli', 'rules'), { recursive: true });
+    await mkdir(join(home, '.mcid-cli', 'rules'), { recursive: true });
+    await mkdir(join(repo, '.mcid-cli', 'rules'), { recursive: true });
     await mkdir(join(repo, 'forms'), { recursive: true });
     await writeFile(
       join(repo, 'forms', 'form.json'),
@@ -269,11 +269,11 @@ describe('mcdi-cli schema validate with custom rules (CLI)', () => {
   it('reports global and project rule failures in the built-in format and exits 1', async () => {
     const { home, repo } = await workspace();
     await writeFile(
-      join(home, '.mcdi-cli', 'rules', 'team.json'),
+      join(home, '.mcid-cli', 'rules', 'team.json'),
       JSON.stringify({ rules: [requireLabel] }),
     );
     await writeFile(
-      join(repo, '.mcdi-cli', 'rules', 'project.json'),
+      join(repo, '.mcid-cli', 'rules', 'project.json'),
       JSON.stringify({ rules: [snakeKeys] }),
     );
 
@@ -297,7 +297,7 @@ describe('mcdi-cli schema validate with custom rules (CLI)', () => {
       JSON.stringify(schema(field({ key: 'full_name', label: 'Name' }))),
     );
     await writeFile(
-      join(repo, '.mcdi-cli', 'rules', 'project.json'),
+      join(repo, '.mcid-cli', 'rules', 'project.json'),
       JSON.stringify({ rules: [requireLabel, snakeKeys] }),
     );
     const { code, stdout } = await cli(
@@ -311,7 +311,7 @@ describe('mcdi-cli schema validate with custom rules (CLI)', () => {
 
   it('names the broken rule file and exits 1', async () => {
     const { home, repo } = await workspace();
-    const broken = join(repo, '.mcdi-cli', 'rules', 'broken.json');
+    const broken = join(repo, '.mcid-cli', 'rules', 'broken.json');
     await writeFile(broken, JSON.stringify({ rules: [{ ...requireLabel, type: 'eval' }] }));
     const { code, stderr } = await cli(
       ['schema', 'validate', 'form.json'],

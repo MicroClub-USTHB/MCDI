@@ -18,7 +18,7 @@ const webhook: WebhookView = {
   channelId: '234567890123456789',
   channelLabel: '#deployments',
   serverId: '123456789012345678',
-  serverLabel: 'MicroClub',
+  serverLabel: 'Micro Club',
   usageCount: 1234,
   lastUsedLabel: 'Aug 15, 2026, 9:30 AM',
   createdAtLabel: 'Aug 1, 2026, 10:00 AM',
@@ -47,7 +47,7 @@ describe('WebhookDetail', () => {
     expect(screen.getByText((1234).toLocaleString())).toBeInTheDocument();
     expect(screen.getByText('Aug 15, 2026, 9:30 AM')).toBeInTheDocument();
     expect(screen.getByText('#deployments')).toBeInTheDocument();
-    expect(screen.getByText('MicroClub')).toBeInTheDocument();
+    expect(screen.getByText('Micro Club')).toBeInTheDocument();
   });
 
   it('asks for confirmation and sends nothing when cancelled', async () => {

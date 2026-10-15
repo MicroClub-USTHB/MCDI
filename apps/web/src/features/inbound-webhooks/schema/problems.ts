@@ -19,8 +19,8 @@ import {
   INBOUND_OPTION_PROPERTIES,
   INBOUND_SCHEMA_PROPERTIES,
   INBOUND_STEP_PROPERTIES,
-} from '@mcdi/contracts';
-import type { InboundFieldType, InboundSchemaProperty } from '@mcdi/contracts';
+} from '@mcid/contracts';
+import type { InboundFieldType, InboundSchemaProperty } from '@mcid/contracts';
 
 import type { SchemaProblemDto } from '@/features/inbound-webhooks/types';
 import {

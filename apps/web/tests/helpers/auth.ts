@@ -1,4 +1,4 @@
-import { ACCESS_RESOURCES } from '@mcdi/contracts';
+import { ACCESS_RESOURCES } from '@mcid/contracts';
 
 import type { AdminProfileDto } from '@/features/auth/types';
 import { useAuthStore } from '@/features/auth/stores/auth';

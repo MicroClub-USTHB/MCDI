@@ -9,13 +9,13 @@ import { logout } from './logout.js';
 import { fixedKeys } from './test-support/keys.js';
 
 async function loggedIn(keys: KeyProvider): Promise<string> {
-  const path = join(await mkdtemp(join(tmpdir(), 'mcdi-cli-logout-')), 'config.json');
+  const path = join(await mkdtemp(join(tmpdir(), 'mcid-cli-logout-')), 'config.json');
   const session = {
     accessToken: await encrypt('session-token', keys, sessionContext('prod')),
     expiresAt: '2026-10-05T00:00:00.000Z',
     adminIdentity: 'kal#1',
   };
-  await saveConfig(setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session), path);
+  await saveConfig(setSession(emptyConfig(), 'prod', 'https://mcid.example.com', session), path);
   return path;
 }
 

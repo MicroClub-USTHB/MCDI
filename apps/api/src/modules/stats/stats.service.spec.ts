@@ -115,9 +115,9 @@ describe('StatsService', () => {
 
     it('caches the result on a miss (key includes scope + range, 5-min TTL)', async () => {
       await service.getMemberStats({ dateRange: '30d' });
-      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:members:all:30d');
+      expect(redis.getJson).toHaveBeenCalledWith('mcid:stats:members:all:30d');
       expect(redis.setJson).toHaveBeenCalledWith(
-        'mcdi:stats:members:all:30d',
+        'mcid:stats:members:all:30d',
         expect.objectContaining({ totalMembers: 1200 }),
         300000,
       );
@@ -133,7 +133,7 @@ describe('StatsService', () => {
 
     it('scopes the cache key and repo calls to a serverId', async () => {
       await service.getMemberStats({ serverId: 's1', dateRange: '7d' });
-      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:members:s1:7d');
+      expect(redis.getJson).toHaveBeenCalledWith('mcid:stats:members:s1:7d');
       expect(repo.countMembers).toHaveBeenCalledWith('s1');
       expect(repo.countNewMembers).toHaveBeenCalledWith(expect.any(Date), 's1');
     });
@@ -246,7 +246,7 @@ describe('StatsService', () => {
         granularity: 'daily',
       } as any);
       expect(redis.getJson).toHaveBeenCalledWith(
-        'mcdi:stats:growth:s1:30d:daily',
+        'mcid:stats:growth:s1:30d:daily',
       );
       expect(repo.countMembersBefore).toHaveBeenCalledWith(
         expect.any(Date),
@@ -327,7 +327,7 @@ describe('StatsService', () => {
 
       const result = await service.getRoleStats({ serverId: 's1' });
 
-      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:roles:s1');
+      expect(redis.getJson).toHaveBeenCalledWith('mcid:stats:roles:s1');
       expect(result).toEqual({
         serverId: 's1',
         serverName: 'Main',
@@ -361,7 +361,7 @@ describe('StatsService', () => {
 
       const result = await service.getRoleStats({});
 
-      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:roles:all');
+      expect(redis.getJson).toHaveBeenCalledWith('mcid:stats:roles:all');
       expect(result).toEqual({
         serverId: null,
         serverName: null,
@@ -482,7 +482,7 @@ describe('StatsService', () => {
 
       const result = await service.getCrossServerStats();
 
-      expect(redis.getJson).toHaveBeenCalledWith('mcdi:stats:cross-server');
+      expect(redis.getJson).toHaveBeenCalledWith('mcid:stats:cross-server');
       expect(result).toEqual({
         membersInMultipleServers: 42,
         overlaps: [
@@ -629,17 +629,17 @@ describe('StatsService', () => {
       // 3 org-wide reports + 2 servers × 2 per-server reports = 7 cache writes
       expect(redis.setJson).toHaveBeenCalledTimes(7);
       expect(redis.setJson).toHaveBeenCalledWith(
-        'mcdi:stats:members:all:30d',
+        'mcid:stats:members:all:30d',
         expect.any(Object),
         300000,
       );
       expect(redis.setJson).toHaveBeenCalledWith(
-        'mcdi:stats:roles:s1',
+        'mcid:stats:roles:s1',
         expect.any(Object),
         300000,
       );
       expect(redis.setJson).toHaveBeenCalledWith(
-        'mcdi:stats:growth:s2:30d:daily',
+        'mcid:stats:growth:s2:30d:daily',
         expect.any(Object),
         300000,
       );
@@ -657,7 +657,7 @@ describe('StatsService', () => {
       await service.refreshDailySnapshot();
 
       expect(redis.setJson).toHaveBeenCalledWith(
-        'mcdi:stats:members:all:30d',
+        'mcid:stats:members:all:30d',
         expect.objectContaining({ totalMembers: 5 }),
         300000,
       );
@@ -709,11 +709,11 @@ describe('StatsService', () => {
     it('flushes the stats namespace only when statsCacheTtlMs decreases', async () => {
       expect(settings.registerChangeListener).toHaveBeenCalledTimes(1);
       const listener = settings.registerChangeListener.mock.calls[0][0];
-      redis.scanKeys.mockResolvedValue(['mcdi:stats:members:all:30d']);
+      redis.scanKeys.mockResolvedValue(['mcid:stats:members:all:30d']);
 
       await listener([{ key: 'statsCacheTtlMs', from: 300_000, to: 60_000 }]);
-      expect(redis.scanKeys).toHaveBeenCalledWith('mcdi:stats:*');
-      expect(redis.delete).toHaveBeenCalledWith('mcdi:stats:members:all:30d');
+      expect(redis.scanKeys).toHaveBeenCalledWith('mcid:stats:*');
+      expect(redis.delete).toHaveBeenCalledWith('mcid:stats:members:all:30d');
 
       redis.scanKeys.mockClear();
       await listener([{ key: 'statsCacheTtlMs', from: 60_000, to: 300_000 }]);

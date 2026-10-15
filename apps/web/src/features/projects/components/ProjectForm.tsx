@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
-import { INBOUND_WEBHOOK_TEMPLATES } from '@mcdi/contracts';
+import { INBOUND_WEBHOOK_TEMPLATES } from '@mcid/contracts';
 
 import { isValidSlug, slugify } from '@/features/inbound-webhooks/api/mappers';
 import { useServersQuery } from '@/features/servers';
@@ -152,7 +152,7 @@ function ProjectForm({
           value={name}
           onChange={(event) => handleNameChange(event.target.value)}
           aria-invalid={errors.name ? true : undefined}
-          placeholder="e.g. MicroClub Website"
+          placeholder="e.g. Micro Club Website"
           maxLength={50}
         />
         {errors.name && <p className="text-overline text-error">{errors.name}</p>}

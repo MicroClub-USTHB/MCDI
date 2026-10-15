@@ -104,7 +104,7 @@ A `key` starts with a letter or underscore, continues with letters, digits and u
 
 Notes on a few types:
 
-- **`string`** applies `trim` before checking lengths and the `pattern`. A `pattern` is a regular expression of at most 200 characters, and MCDI stops evaluating one that takes longer than 50 ms.
+- **`string`** applies `trim` before checking lengths and the `pattern`. A `pattern` is a regular expression of at most 200 characters, and MCID stops evaluating one that takes longer than 50 ms.
 - **`email`** has a practical format check and a maximum of 254 characters. With `allowedDomains`, other domains give `DOMAIN_NOT_ALLOWED`.
 - **`phone`** accepts an optional leading `+` then 6 to 20 digits, spaces, brackets and hyphens.
 - **`date`** is `YYYY-MM-DD`. **`datetime`** is ISO 8601 and must include a timezone, for example `2026-01-31T09:00:00Z`.

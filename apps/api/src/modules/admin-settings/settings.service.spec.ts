@@ -15,10 +15,10 @@ const ENV_DEFAULTS: Record<string, number | string> = {
   'app.sessionTtlSec': 2_592_000,
   'app.ssoTtlSec': 2_592_000,
   'app.webhookEncryptionKey': 'a'.repeat(64),
-  'redis.keyPrefix': 'mcdi',
+  'redis.keyPrefix': 'mcid',
   'discord.clientId': 'client-123',
   'discord.mainGuildId': 'guild-123',
-  'discord.adminRedirectUri': 'https://mcdi.test/callback',
+  'discord.adminRedirectUri': 'https://mcid.test/callback',
   'discord.token': 'bot-token',
   'discord.clientSecret': '',
   // Not in the Joi schema — ConfigService returns the raw string.
@@ -95,7 +95,7 @@ describe('SettingsService', () => {
     await service.onModuleInit();
     expect(service.getStatsCacheTtlMs()).toBe(111_000);
     expect(redis.setJson).toHaveBeenCalledWith(
-      'mcdi:app-settings:row',
+      'mcid:app-settings:row',
       expect.objectContaining({ statsCacheTtlMs: 111_000 }),
       expect.any(Number),
     );
@@ -148,7 +148,7 @@ describe('SettingsService', () => {
         'admin-1',
       );
       expect(redis.setJson).toHaveBeenLastCalledWith(
-        'mcdi:app-settings:row',
+        'mcid:app-settings:row',
         expect.objectContaining({ permissionCacheTtlMs: 600_000 }),
         expect.any(Number),
       );

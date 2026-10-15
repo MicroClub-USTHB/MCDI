@@ -6,9 +6,9 @@ Project-scoped login (`/auth/authorize`), backend-to-backend session API (`/auth
 
 <Endpoint method="GET" path="/api/auth/authorize" />
 
-Always bounces through Discord OAuth, even if the browser already holds a valid `mcdi_sso` cookie. Use this when you need fresh Discord consent (step-up auth, admin operations) or to keep a pre-SSO integration unchanged. For the default login button, prefer `GET /auth/sso/authorize` - it skips the Discord screen for returning users.
+Always bounces through Discord OAuth, even if the browser already holds a valid `mcid_sso` cookie. Use this when you need fresh Discord consent (step-up auth, admin operations) or to keep a pre-SSO integration unchanged. For the default login button, prefer `GET /auth/sso/authorize` - it skips the Discord screen for returning users.
 
-The platform redirects the user here with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters. MCDI validates the params, creates a short-lived auth request in the DB, sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.
+The platform redirects the user here with `client_id`, `redirect_uri`, `server_id`, and `state` as query parameters. MCID validates the params, creates a short-lived auth request in the DB, sets an httpOnly cookie with the request ID, and redirects to Discord OAuth.
 
 **Authentication:** None, this endpoint is public.
 
@@ -36,7 +36,7 @@ The platform redirects the user here with `client_id`, `redirect_uri`, `server_i
 
 <Endpoint method="GET" path="/api/auth/discord" />
 
-Reads the auth request ID from the httpOnly `mcdi_auth_req` cookie set by GET /auth/authorize. Resolves the request, marks it as used, and redirects to Discord OAuth.
+Reads the auth request ID from the httpOnly `mcid_auth_req` cookie set by GET /auth/authorize. Resolves the request, marks it as used, and redirects to Discord OAuth.
 
 **Authentication:** None, this endpoint is public.
 
@@ -53,7 +53,7 @@ Reads the auth request ID from the httpOnly `mcdi_auth_req` cookie set by GET /a
 
 <Endpoint method="POST" path="/api/auth/logout" />
 
-External platforms call this when their user logs out to invalidate the MCDI session token.
+External platforms call this when their user logs out to invalidate the MCID session token.
 
 Requires a valid `X-API-Key` header. Only sessions belonging to the calling project are deleted - tokens from other projects are ignored.
 

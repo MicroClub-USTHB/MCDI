@@ -33,7 +33,7 @@ export class ListServersDto {
 
   @ApiPropertyOptional({
     description: 'Filter by server name (case-insensitive partial match).',
-    example: 'MicroClub',
+    example: 'Micro Club',
     maxLength: 255,
   })
   @IsString()

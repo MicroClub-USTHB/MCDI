@@ -18,7 +18,7 @@ describe('docs routes', () => {
       params: Promise.resolve({ slug: ['build', 'contributing'] }),
     });
 
-    expect(metadata.title).toBe('Contributing | Build MCDI');
+    expect(metadata.title).toBe('Contributing | Build MCID');
     expect(metadata.description).toMatch(/issues, branches, pull requests/);
   });
 

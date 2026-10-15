@@ -19,7 +19,7 @@ const API = 'http://localhost:3000/api';
 
 const serverDto = {
   id: 'srv_1',
-  name: 'MicroClub',
+  name: 'Micro Club',
   icon: null,
   type: 'main',
   isMain: false,
@@ -50,7 +50,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'read' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.queryByRole('button', { name: /add server/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /sync all servers/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Disable' })).not.toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('Servers list actions', () => {
     signInAs({ permissions: { servers: 'write', sync: 'write' } });
     render(<ServersView />, { wrapper });
 
-    await screen.findByText('MicroClub');
+    await screen.findByText('Micro Club');
     expect(screen.getAllByRole('button', { name: /add server/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /sync all servers/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();

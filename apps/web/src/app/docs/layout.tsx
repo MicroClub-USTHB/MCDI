@@ -5,9 +5,9 @@ import '@/features/docs/docs.css';
 import { DocsShell } from '@/features/docs/components/docs-shell';
 
 export const metadata: Metadata = {
-  title: { default: 'MCDI Docs', template: '%s | MCDI Docs' },
+  title: { default: 'MCID Docs', template: '%s | MCID Docs' },
   description:
-    'Developer documentation for MCDI, the MicroClub identity platform: how to use it from your project and how to work on it.',
+    'Developer documentation for MCID, the Micro Club identity platform: how to use it from your project and how to work on it.',
 };
 
 export default function DocsLayout({ children }: { children: ReactNode }) {

@@ -1,4 +1,4 @@
-import { ADMIN_SESSION_COOKIE } from '@mcdi/contracts';
+import { ADMIN_SESSION_COOKIE } from '@mcid/contracts';
 import { UnauthorizedException } from '@nestjs/common';
 import { and, eq, isNull } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';

@@ -144,21 +144,21 @@ describe('parseRuleFile', () => {
 
 describe('loading rule directories', () => {
   async function project() {
-    const root = await mkdtemp(join(tmpdir(), 'mcdi-cli-rules-'));
+    const root = await mkdtemp(join(tmpdir(), 'mcid-cli-rules-'));
     const home = join(root, 'home');
     const repo = join(root, 'repo');
-    await mkdir(join(home, '.mcdi-cli', 'rules'), { recursive: true });
-    await mkdir(join(repo, '.mcdi-cli', 'rules'), { recursive: true });
+    await mkdir(join(home, '.mcid-cli', 'rules'), { recursive: true });
+    await mkdir(join(repo, '.mcid-cli', 'rules'), { recursive: true });
     await mkdir(join(repo, 'src', 'deep'), { recursive: true });
     return {
       root,
-      globalDir: join(home, '.mcdi-cli', 'rules'),
-      projectDir: join(repo, '.mcdi-cli', 'rules'),
+      globalDir: join(home, '.mcid-cli', 'rules'),
+      projectDir: join(repo, '.mcid-cli', 'rules'),
       repo,
     };
   }
 
-  it('finds the nearest .mcdi-cli/rules walking up, like git', async () => {
+  it('finds the nearest .mcid-cli/rules walking up, like git', async () => {
     const { repo, projectDir, root } = await project();
     expect(await findProjectRulesDir(join(repo, 'src', 'deep'))).toBe(projectDir);
     expect(await findProjectRulesDir(root)).toBeUndefined();

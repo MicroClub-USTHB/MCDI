@@ -3,13 +3,13 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Optional query for `GET /auth/admin/discord`. Omitted by the admin web panel;
- * a CLI (mcdi-cli) passes all three to receive the login result itself.
+ * a CLI (mcid-cli) passes all three to receive the login result itself.
  */
 export class AdminDiscordLoginQueryDto {
   @ApiPropertyOptional({
     description:
       'CLI login only: the loopback URL (http, 127.0.0.1 / localhost / [::1], explicit port) ' +
-      'MCDI redirects to with ?code=&state= (or ?error=&state=) once Discord is done.',
+      'MCID redirects to with ?code=&state= (or ?error=&state=) once Discord is done.',
     example: 'http://127.0.0.1:53123/callback',
   })
   @IsOptional()

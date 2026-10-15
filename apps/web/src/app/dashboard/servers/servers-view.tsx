@@ -139,7 +139,7 @@ function ServersView() {
           description={
             hasActiveFilters
               ? 'Try adjusting or clearing your search and filters.'
-              : 'Add a Discord server to start managing it from MCDI.'
+              : 'Add a Discord server to start managing it from MCID.'
           }
           action={
             hasActiveFilters ? (

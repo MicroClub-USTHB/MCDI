@@ -1,6 +1,6 @@
 /**
  * Writes the API's OpenAPI document to `apps/api/openapi.json`, the file the developer docs are
- * generated from. Run it with `pnpm --filter @mcdi/api run openapi:export`, or everything at once
+ * generated from. Run it with `pnpm --filter @mcid/api run openapi:export`, or everything at once
  * with `pnpm docs:api` from the repository root.
  */
 import { writeFileSync } from 'node:fs';

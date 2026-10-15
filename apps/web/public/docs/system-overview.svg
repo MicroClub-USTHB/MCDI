@@ -10,7 +10,7 @@
 <text x="145.0" y="388.0" text-anchor="middle" font-size="17" font-weight="600" fill="#F2F3F5">Admin panel</text>
 <text x="145.0" y="408.0" text-anchor="middle" font-size="14" fill="#B5BAC1">Next.js, admin_session cookie</text>
 <rect x="340" y="140" width="270" height="250" rx="8" fill="#2B2D31" stroke="#8B9CFC" stroke-width="2"/>
-<text x="475" y="176" text-anchor="middle" font-size="18" font-weight="600" fill="#F2F3F5">MCDI API</text>
+<text x="475" y="176" text-anchor="middle" font-size="18" font-weight="600" fill="#F2F3F5">MCID API</text>
 <text x="475" y="198" text-anchor="middle" font-size="14" fill="#B5BAC1">NestJS</text>
 <text x="475" y="244" text-anchor="middle" font-size="15" fill="#DBDEE1">Auth and SSO</text>
 <text x="475" y="272" text-anchor="middle" font-size="15" fill="#DBDEE1">Members and permissions</text>

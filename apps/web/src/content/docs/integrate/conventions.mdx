@@ -1,4 +1,4 @@
-These rules hold across the whole MCDI API. They cover how errors look, how requests are limited, how browsers are allowed in, and how lists are paged.
+These rules hold across the whole MCID API. They cover how errors look, how requests are limited, how browsers are allowed in, and how lists are paged.
 
 ## Errors
 
@@ -37,7 +37,7 @@ Treat the status code and, when present, `error`, `reason` and `code` as the con
 | Status | Usually means                                                                                     |
 | ------ | ------------------------------------------------------------------------------------------------- |
 | 400    | The request is malformed: an unknown or invalid field, a bad ID, bad JSON.                        |
-| 401    | MCDI does not know who you are: no key or token, or an invalid one.                               |
+| 401    | MCID does not know who you are: no key or token, or an invalid one.                               |
 | 403    | It does, and you are not allowed: no access to the server, a missing scope, or a disabled server. |
 | 404    | The thing does not exist, or you may not know that it does.                                       |
 | 405    | The HTTP method is not supported. The answer carries an `Allow` header.                           |
@@ -86,7 +86,7 @@ Browsers may call the API from another origin when it allows that origin. The AP
 
 - methods `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`
 - headers `Content-Type`, `Authorization`, `Accept` and `X-API-Key`
-- credentials, so the `mcdi_sso` cookie can travel
+- credentials, so the `mcid_sso` cookie can travel
 
 Which origins are allowed depends on the environment. In development every origin is accepted. Otherwise the API allows `localhost` and `127.0.0.1` on any port, plus the origins an operator lists in `CORS_ORIGINS`, separated by commas. Ask an admin to add the origin of your browser app, and remember the browser app never holds the project API key.
 

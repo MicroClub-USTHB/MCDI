@@ -5,7 +5,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '@/shared/lib/utils';
 
 /**
- * shadcn/ui Badge, restyled onto the MCDI V2 tokens.
+ * shadcn/ui Badge, restyled onto the MCID V2 tokens.
  *
  * Upstream ships `bg-primary` / `bg-destructive` / `dark:` variants, none of
  * which exist here. Variants below map to the directive's pill usages:

@@ -35,7 +35,7 @@ export default async function LoginPage({
             MC
           </span>
           <div>
-            <h1 className="text-hero text-text-primary">Welcome to MCDI</h1>
+            <h1 className="text-hero text-text-primary">Welcome to MCID</h1>
             <p className="mt-1 text-body text-text-muted">
               Sign in with your Discord account to continue
             </p>

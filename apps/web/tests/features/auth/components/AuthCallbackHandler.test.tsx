@@ -25,7 +25,7 @@ const mockProfile = {
   globalName: null,
   displayName: 'Prez',
   avatar: null,
-  email: 'admin@mcdi.dev',
+  email: 'admin@mcid.dev',
   isSystemAdmin: true,
   sessionExpiresAt: '2026-08-07T10:00:00.000Z',
   root: true,
@@ -57,7 +57,7 @@ describe('AuthCallbackHandler', () => {
       id: '1',
       username: 'admin',
       name: 'Prez',
-      email: 'admin@mcdi.dev',
+      email: 'admin@mcid.dev',
       avatar: null,
       isSystemAdmin: true,
       root: true,
@@ -82,7 +82,7 @@ describe('AuthCallbackHandler', () => {
   it('shows Access Denied when the member is not in the main guild', async () => {
     searchParams.set(
       'error',
-      'You must be a member of the main MCDI Discord server to access the admin panel'
+      'You must be a member of the main MCID Discord server to access the admin panel'
     );
     const { AuthCallbackHandler } = await import('@/features/auth/components/AuthCallbackHandler');
 

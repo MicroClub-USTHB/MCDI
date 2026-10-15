@@ -322,12 +322,12 @@ From the repository root:
 
 ```bash
 pnpm turbo run lint typecheck
-pnpm --filter @mcdi/api run test
-pnpm --filter @mcdi/api run test:e2e   # needs PostgreSQL, and clears its tables
+pnpm --filter @mcid/api run test
+pnpm --filter @mcid/api run test:e2e   # needs PostgreSQL, and clears its tables
 ```
 
 <Callout type="warning">
-  The end to end tests empty every table of the database in `DATABASE_URL`. Point them at a throwaway database, for example `mcdi_test`, never at the one you develop in.
+  The end to end tests empty every table of the database in `DATABASE_URL`. Point them at a throwaway database, for example `mcid_test`, never at the one you develop in.
 </Callout>
 
 The unit tests enforce coverage thresholds in `jest.config.cjs`: 80 percent of lines and statements, 75 of functions, and 68 of branches.

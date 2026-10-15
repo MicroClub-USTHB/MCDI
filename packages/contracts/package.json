@@ -1,5 +1,5 @@
 {
-  "name": "@mcdi/contracts",
+  "name": "@mcid/contracts",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -22,7 +22,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "devDependencies": {
-    "@mcdi/typescript-config": "workspace:*",
+    "@mcid/typescript-config": "workspace:*",
     "typescript": "^5.9.3"
   }
 }

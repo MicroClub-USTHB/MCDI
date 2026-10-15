@@ -1,7 +1,7 @@
-# MCDI V2 — Full Specification Document
-## MicroClub Discord Interface — Version 2
+# MCID V2 — Full Specification Document
+## Micro Club Identity — Version 2
 
-> **Historical design record.** This file is the full V2 specification, written before the work it describes. Parts of it were built differently or not at all. It is kept for the reasoning behind past decisions and is no longer updated. For how MCDI behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
+> **Historical design record.** This file is the full V2 specification, written before the work it describes. Parts of it were built differently or not at all. It is kept for the reasoning behind past decisions and is no longer updated. For how MCID behaves today, read the developer docs: at `/docs` in the admin panel app, or in `apps/web/src/content/docs`. See [`docs/README.md`](README.md).
 
 
 > **Status**: Draft — Ready for GitHub Issue Creation
@@ -31,7 +31,7 @@
 
 ### 1.1 Current State
 
-MCDI is a production-ready NestJS backend API that serves as the Discord identity layer for all MicroClub applications. It currently provides:
+MCID is a production-ready NestJS backend API that serves as the Discord identity layer for all Micro Club applications. It currently provides:
 - Discord OAuth authentication for projects and admins
 - Member synchronization via Discord.js bot
 - Role-based permission system with inheritance
@@ -42,7 +42,7 @@ MCDI is a production-ready NestJS backend API that serves as the Discord identit
 
 ### 1.2 V2 Goals
 
-V2 transforms MCDI from a **backend-only API** into a **full-stack platform**:
+V2 transforms MCID from a **backend-only API** into a **full-stack platform**:
 
 | Area | Goal |
 |---|---|
@@ -82,7 +82,7 @@ V2 transforms MCDI from a **backend-only API** into a **full-stack platform**:
 └──────────────────────────┬──────────────────────────────────┘
                            │ HTTP / REST API
 ┌──────────────────────────▼──────────────────────────────────┐
-│                   MCDI Backend (NestJS)                      │
+│                   MCID Backend (NestJS)                      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐   │
 │  │   Auth   │ │ Members  │ │Permis-   │ │   Servers    │   │
 │  │  Module  │ │  Module  │ │ sions    │ │   Module     │   │
@@ -258,7 +258,7 @@ Every feature module follows this contract:
 **Key Capabilities**:
 - Next.js 15 with App Router
 - TypeScript strict mode
-- TailwindCSS with MicroClub design tokens
+- TailwindCSS with Micro Club design tokens
 - ESLint + Prettier configuration
 - TanStack Query for all data fetching
 - Environment variable validation (Zod)
@@ -302,7 +302,7 @@ Every feature module follows this contract:
 **Acceptance Criteria**:
 - [ ] Project builds and runs locally with `npm run dev`
 - [ ] TypeScript strict mode enabled, zero `any` types in core files
-- [ ] TailwindCSS configured with MCDI design tokens (Discord-inspired dark theme — brand, surface, text, border, semantic colors)
+- [ ] TailwindCSS configured with MCID design tokens (Discord-inspired dark theme — brand, surface, text, border, semantic colors)
 - [ ] API client configured with auth interceptors (auto-attach Bearer token)
 - [ ] ESLint passes with zero warnings
 - [ ] Environment variables validated at startup via Zod schema
@@ -440,7 +440,7 @@ Dashboard
 ### FE-04: Server Management UI
 
 **User Story**:
-> As a system admin, I want to view, add, edit, and manage Discord servers from the admin panel, so I can control which servers MCDI manages without using API calls directly.
+> As a system admin, I want to view, add, edit, and manage Discord servers from the admin panel, so I can control which servers MCID manages without using API calls directly.
 
 **Key Capabilities**:
 - Server list table with filters (active, type, main)
@@ -535,7 +535,7 @@ DELETE /api/servers/:serverId                → Delete server
 ### FE-05: Project Management UI
 
 **User Story**:
-> As a system admin, I want to create and manage projects that integrate with MCDI, so I can control which applications have access to club data and what operations they can perform.
+> As a system admin, I want to create and manage projects that integrate with MCID, so I can control which applications have access to club data and what operations they can perform.
 
 **Key Capabilities**:
 - Project list with search and filters
@@ -893,7 +893,7 @@ GET    /api/permissions/inheritance-rules                → List rules
 ### FE-09: Sync Management UI
 
 **User Story**:
-> As a system admin, I want to monitor and trigger data synchronization between Discord and MCDI, so I can ensure member data is always up to date.
+> As a system admin, I want to monitor and trigger data synchronization between Discord and MCID, so I can ensure member data is always up to date.
 
 **Key Capabilities**:
 - Sync status overview (all servers)
@@ -970,7 +970,7 @@ GET  /api/admin/sync/logs/:syncLogId/changes     → Granular change details
 ### FE-10: Discord Channel Operations UI
 
 **User Story**:
-> As a project developer or admin, I want to send messages to Discord channels and view channel information through the admin panel, so I can manage communications without leaving MCDI.
+> As a project developer or admin, I want to send messages to Discord channels and view channel information through the admin panel, so I can manage communications without leaving MCID.
 
 **Key Capabilities**:
 - Channel list per server (tree view by category)
@@ -1185,7 +1185,7 @@ GET  /api/admin/audit/logs/export          → Export audit logs
 ### FE-13: Settings & Configuration UI
 
 **User Story**:
-> As an admin, I want to configure system settings and manage my profile, so I can customize MCDI behavior without editing environment files.
+> As an admin, I want to configure system settings and manage my profile, so I can customize MCID behavior without editing environment files.
 
 **Key Capabilities**:
 - Admin profile settings
@@ -1239,7 +1239,7 @@ PATCH /api/admin/profile              → Update profile
 ### FE-14: Responsive Design & Mobile Support
 
 **User Story**:
-> As an admin who occasionally checks the system from my phone, I want the admin panel to work well on mobile devices, so I can monitor and manage MCDI on the go.
+> As an admin who occasionally checks the system from my phone, I want the admin panel to work well on mobile devices, so I can monitor and manage MCID on the go.
 
 **Key Capabilities**:
 - Mobile-first responsive layouts
@@ -1288,7 +1288,7 @@ PATCH /api/admin/profile              → Update profile
 ### BE-01: Discord Channel Operations API
 
 **User Story**:
-> As a project developer, I want to send messages to Discord channels through MCDI's API, so I can notify users about important events without building Discord integration myself.
+> As a project developer, I want to send messages to Discord channels through MCID's API, so I can notify users about important events without building Discord integration myself.
 
 **New Endpoints**:
 
@@ -1497,7 +1497,7 @@ src/modules/channels/
 ### BE-02: Webhook Management API
 
 **User Story**:
-> As a project developer, I want to create and manage Discord webhooks through MCDI, so I can send high-volume messages without hitting bot rate limits.
+> As a project developer, I want to create and manage Discord webhooks through MCID, so I can send high-volume messages without hitting bot rate limits.
 
 **New Endpoints**:
 
@@ -2172,7 +2172,7 @@ CREATE INDEX idx_audit_logs_severity ON audit_logs(severity);
 ### BE-06: Session Lifecycle Extensions
 
 **User Story**:
-> As a club member using multiple MicroClub apps, I want my sessions to stay valid with automatic refresh, so I don't get logged out unexpectedly while working.
+> As a club member using multiple Micro Club apps, I want my sessions to stay valid with automatic refresh, so I don't get logged out unexpectedly while working.
 
 **Context**: The base session system already exists (creation, validation, logout, logout-all). This issue adds **refresh tokens, session introspection, and client metadata** on top of the existing `sessions` table and auth flow.
 
@@ -2270,21 +2270,21 @@ CREATE INDEX idx_sessions_refresh_token ON sessions(refresh_token_hash) WHERE re
 ### BE-07: Single Sign-On (SSO) Across Projects
 
 **User Story**:
-> As a club member, I want to log in once with Discord and be automatically authenticated across all MicroClub projects, so I don't have to re-authorize every time I switch between apps.
+> As a club member, I want to log in once with Discord and be automatically authenticated across all Micro Club projects, so I don't have to re-authorize every time I switch between apps.
 
-**Context**: Currently sessions are project-scoped — a user who logs into Project A must go through Discord OAuth again when visiting Project B. SSO introduces a **global browser session** (httpOnly cookie) that MCDI recognizes across all projects, skipping the Discord redirect if the user is already authenticated.
+**Context**: Currently sessions are project-scoped — a user who logs into Project A must go through Discord OAuth again when visiting Project B. SSO introduces a **global browser session** (httpOnly cookie) that MCID recognizes across all projects, skipping the Discord redirect if the user is already authenticated.
 
 **How It Works**:
 
 ```
-Browser → Project A → MCDI /api/auth/authorize
-  → MCDI checks for global session cookie
+Browser → Project A → MCID /api/auth/authorize
+  → MCID checks for global session cookie
   → No cookie found → redirect to Discord OAuth
   → Discord callback → create global session cookie + project session
   → Redirect back to Project A with callback code
 
-Browser → Project B → MCDI /api/auth/authorize
-  → MCDI checks for global session cookie
+Browser → Project B → MCID /api/auth/authorize
+  → MCID checks for global session cookie
   → Cookie found and valid → skip Discord OAuth
   → Create project session for Project B
   → Redirect back to Project B with callback code (instant)
@@ -2292,7 +2292,7 @@ Browser → Project B → MCDI /api/auth/authorize
 
 **Existing Flow (no SSO)**:
 ```
-Every project → Discord OAuth → MCDI callback → Project
+Every project → Discord OAuth → MCID callback → Project
 ```
 
 **New Flow (with SSO)**:
@@ -2407,7 +2407,7 @@ CREATE INDEX idx_sso_sessions_expires_at ON sso_sessions(expires_at);
 **Cookie Configuration**:
 | Property | Value | Notes |
 |---|---|---|
-| Name | `mcdi_sso` | |
+| Name | `mcid_sso` | |
 | httpOnly | true | Not accessible via JavaScript |
 | secure | true | HTTPS only (false in dev) |
 | sameSite | lax | CSRF protection |
@@ -2839,10 +2839,10 @@ src/modules/module_name/
 
 | Term | Definition |
 |---|---|
-| MCDI | MicroClub Discord Interface |
-| Project | A MicroClub application integrated with MCDI |
-| Server | A Discord guild managed by MCDI |
+| MCID | Micro Club Identity |
+| Project | A Micro Club application integrated with MCID |
+| Server | A Discord guild managed by MCID |
 | Scope | API permission level (read_members, check_permissions) |
 | Operation | Server-level action permission (READ, SEND_MESSAGES, MANAGE_WEBHOOKS) |
-| Club Member | A Discord user who is a member of the main MicroClub server |
+| Club Member | A Discord user who is a member of the main Micro Club server |
 | System Admin | A Discord user with the configured admin role in the main guild |

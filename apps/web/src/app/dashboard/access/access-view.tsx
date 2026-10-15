@@ -78,7 +78,7 @@ export function AccessView() {
         <p className="text-overline text-brand-light uppercase">System</p>
         <h1 className="mt-1 text-hero text-text-primary">Access</h1>
         <p className="mt-1 max-w-2xl text-body text-text-muted">
-          Give each role a level on every area of MCDI, and override it for one person when needed.
+          Give each role a level on every area of MCID, and override it for one person when needed.
           Changes apply on the next request.
         </p>
       </header>

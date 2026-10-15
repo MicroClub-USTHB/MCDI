@@ -33,7 +33,7 @@ describe('AppController', () => {
 
   describe('root', () => {
     it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('MCDI w l3alamiya');
+      expect(appController.getHello()).toBe('MCID w l3alamiya');
     });
   });
 

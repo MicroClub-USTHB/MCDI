@@ -3,7 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 /**
  * HMAC request signing for inbound webhooks.
  *
- *   X-MCDI-Signature: t=<unix seconds>,v1=<hex hmac-sha256>
+ *   X-MCID-Signature: t=<unix seconds>,v1=<hex hmac-sha256>
  *
  * The signed string is `"<t>.<raw request body>"`.
  *
@@ -12,7 +12,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
  * signature will fail.
  */
 
-export const SIGNATURE_HEADER = 'x-mcdi-signature';
+export const SIGNATURE_HEADER = 'x-mcid-signature';
 export const DEFAULT_TOLERANCE_SECONDS = 300;
 
 export type ParsedSignature = { timestamp: number; signature: string };

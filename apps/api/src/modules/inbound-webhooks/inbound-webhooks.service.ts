@@ -30,8 +30,8 @@ import {
   InboundWebhooksRepository,
   ListSubmissionsFilters,
 } from './inbound-webhooks.repository';
-import { validateSchema } from '@mcdi/form-schema';
-import type { FormSchema, SchemaError } from '@mcdi/form-schema';
+import { validateSchema } from '@mcid/form-schema';
+import type { FormSchema, SchemaError } from '@mcid/form-schema';
 import { validatePayload, FileMeta } from './schema/payload.validator';
 import { CreateInboundWebhookDto } from './dto/create-inbound-webhook.dto';
 import {

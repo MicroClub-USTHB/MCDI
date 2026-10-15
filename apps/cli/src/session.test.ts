@@ -23,11 +23,11 @@ describe('resolveSession', () => {
       expiresAt: '2026-10-05T00:00:00.000Z',
       adminIdentity: 'kal#1',
     };
-    const config = setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session);
+    const config = setSession(emptyConfig(), 'prod', 'https://mcid.example.com', session);
 
     expect(await resolveSession(config, 'prod', keys)).toEqual({
       profileName: 'prod',
-      baseUrl: 'https://mcdi.example.com',
+      baseUrl: 'https://mcid.example.com',
       token: 'session-token',
     });
   });
@@ -35,7 +35,7 @@ describe('resolveSession', () => {
   it('errors with a login hint when the profile does not exist', async () => {
     await expectAuthError(
       resolveSession(emptyConfig(), 'ghost', fixedKeys()),
-      /not logged in on profile "ghost"[\s\S]*mcdi-cli login --profile ghost/,
+      /not logged in on profile "ghost"[\s\S]*mcid-cli login --profile ghost/,
     );
   });
 
@@ -46,7 +46,7 @@ describe('resolveSession', () => {
     };
     await expectAuthError(
       resolveSession(config, 'prod', fixedKeys()),
-      /not logged in on profile "prod"[\s\S]*mcdi-cli login --profile prod/,
+      /not logged in on profile "prod"[\s\S]*mcid-cli login --profile prod/,
     );
   });
 
@@ -57,11 +57,11 @@ describe('resolveSession', () => {
       expiresAt: '2026-10-05T00:00:00.000Z',
       adminIdentity: 'kal#1',
     };
-    const config = setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session);
+    const config = setSession(emptyConfig(), 'prod', 'https://mcid.example.com', session);
 
     await expectAuthError(
       resolveSession(config, 'prod', fixedKeys()),
-      /could not decrypt the stored session for profile "prod"[\s\S]*mcdi-cli login --profile prod.*again/,
+      /could not decrypt the stored session for profile "prod"[\s\S]*mcid-cli login --profile prod.*again/,
     );
   });
 
@@ -72,8 +72,8 @@ describe('resolveSession', () => {
       expiresAt: '2026-10-05T00:00:00.000Z',
       adminIdentity: 'kal#1',
     };
-    const config = setSession(emptyConfig(), 'prod', 'https://mcdi.example.com', session);
-    config.profiles.prod!.baseUrl = 'http://mcdi.example.com';
+    const config = setSession(emptyConfig(), 'prod', 'https://mcid.example.com', session);
+    config.profiles.prod!.baseUrl = 'http://mcid.example.com';
     await expect(resolveSession(config, 'prod', keys)).rejects.toThrow('must be https');
   });
 });
