@@ -74,8 +74,10 @@ const buttonVariants = cva(
       {
         destructive: true,
         variant: 'tertiary',
+        // In dark mode the tertiary surface is navy, where the destructive red falls below 4.5:1;
+        // a red tint with the light destructive foreground reads clearly instead.
         className:
-          'text-destructive hover:bg-destructive/10 active:ring-4 active:ring-destructive/20',
+          'text-destructive hover:bg-destructive/10 active:ring-4 active:ring-destructive/20 dark:bg-destructive/20 dark:text-destructive-foreground dark:hover:bg-destructive/30',
       },
       {
         destructive: true,
