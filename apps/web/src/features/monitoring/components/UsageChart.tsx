@@ -1,7 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 
 import type { UsageStats } from '@/features/monitoring/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { McCard, McCardContent } from '@/shared/components/ui/mc-card';
 
 interface UsageChartProps {
   data: UsageStats;
@@ -13,12 +13,12 @@ function UsageChart({ data }: UsageChartProps) {
   const maxRequests = Math.max(1, ...data.byProject.map((project) => project.requests));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Requests by project</CardTitle>
+    <McCard>
+      <div className="flex flex-col gap-1">
+        <h3 className="paragraph-md font-semibold text-foreground">Requests by project</h3>
         <p className="paragraph-sm text-muted-foreground">API traffic for the selected period.</p>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <McCardContent>
         {data.byProject.length === 0 ? (
           <div className="flex items-center gap-2 py-8 paragraph-sm text-muted-foreground">
             <BarChart3 className="size-4" aria-hidden="true" />
@@ -48,8 +48,8 @@ function UsageChart({ data }: UsageChartProps) {
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </McCardContent>
+    </McCard>
   );
 }
 

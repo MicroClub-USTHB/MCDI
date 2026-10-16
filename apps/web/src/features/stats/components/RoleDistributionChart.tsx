@@ -8,12 +8,13 @@ interface RoleDistributionChartProps {
   stats: RoleStats;
 }
 
+// The mcoli-ui chart palette, ordered so neighbouring slices alternate light and dark.
 const roleColors = [
-  'var(--primary)',
-  'var(--primary)',
-  'var(--color-accent)',
-  'var(--color-warning)',
-  'var(--color-success)',
+  'var(--chart-3)',
+  'var(--chart-1)',
+  'var(--chart-5)',
+  'var(--chart-2)',
+  'var(--chart-4)',
 ];
 
 function getDonutPath(startPercentage: number, endPercentage: number, innerRadius: number) {
@@ -73,7 +74,7 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
           {activeRole ? (
             <div
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-md border border-border bg-muted px-3 py-2 paragraph-xs font-semibold tracking-wide text-foreground shadow-md"
+              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 paragraph-xs font-semibold text-foreground shadow-md"
             >
               {activeRole.roleName}: {activeRole.memberCount.toLocaleString()} (
               {activeRole.percentage.toFixed(1)}%)
@@ -114,14 +115,12 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
             <span className="paragraph-md font-semibold text-foreground">
               {stats.totalMembers.toLocaleString()}
             </span>
-            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
-              members
-            </span>
+            <span className="paragraph-xs text-muted-foreground">members</span>
           </div>
         </div>
-        <div className="min-w-0 flex-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
+        <div className="min-w-0 flex-1 paragraph-xs font-semibold text-muted-foreground">
           <p>{description}</p>
-          <p className="mt-1 text-muted-foreground/70">Role membership distribution</p>
+          <p className="mt-1 font-normal">Role membership distribution</p>
         </div>
       </div>
       <div className="max-h-48 space-y-2 overflow-y-auto pr-2">

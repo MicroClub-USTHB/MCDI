@@ -40,7 +40,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
   const activePercentage = total === 0 ? 0 : (stats.activeMembers / total) * 100;
   const inactivePercentage = total === 0 ? 0 : (stats.inactiveMembers / total) * 100;
   const donutStyle = {
-    background: `conic-gradient(var(--color-success) 0 ${activePercentage}%, var(--muted) ${activePercentage}% 100%)`,
+    background: `conic-gradient(var(--success) 0 ${activePercentage}%, var(--border) ${activePercentage}% 100%)`,
   } satisfies CSSProperties;
   const activityItems: DonutItem[] = [
     {
@@ -53,7 +53,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
       label: 'Inactive',
       value: stats.inactiveMembers,
       percentage: inactivePercentage,
-      color: 'bg-muted',
+      color: 'bg-border',
     },
   ];
   const activeItem = activeIndex === null ? undefined : activityItems[activeIndex];
@@ -75,7 +75,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
         {activeItem ? (
           <div
             role="tooltip"
-            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-md border border-border bg-muted px-3 py-2 paragraph-xs font-semibold tracking-wide text-foreground shadow-md"
+            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 paragraph-xs font-semibold text-foreground shadow-md"
           >
             {activeItem.label}: {activeItem.value.toLocaleString()} (
             {activeItem.percentage.toFixed(1)}%)
@@ -111,9 +111,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
           <span className="paragraph-md font-semibold text-foreground">
             {total.toLocaleString()}
           </span>
-          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
-            members
-          </span>
+          <span className="paragraph-xs text-muted-foreground">members</span>
         </div>
       </div>
       <dl className="grid w-full max-w-xs gap-3 paragraph-sm">

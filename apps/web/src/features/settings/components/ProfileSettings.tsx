@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { UserRound } from 'lucide-react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { MemberAvatar } from '@/features/members';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import type { AdminProfileDto, UpdateProfilePayload } from '@/features/settings/types';
@@ -73,44 +72,43 @@ function ProfileSettings({ profile, onSave, isSaving = false }: ProfileSettingsP
           />
           <div>
             <p className="paragraph-sm font-medium text-foreground">{displayName}</p>
-            <div className="mt-0.5 flex items-center gap-2 paragraph-xs font-semibold tracking-wide text-muted-foreground">
+            <div className="mt-0.5 flex items-center gap-2 paragraph-xs text-muted-foreground">
               <span>@{profile.username}</span>
-              {profile.isSystemAdmin ? <Badge variant="brand-light">System Admin</Badge> : null}
+              {profile.isSystemAdmin ? <McBadge variant="secondary">System Admin</McBadge> : null}
             </div>
           </div>
         </div>
         {!isEditing && (
-          <Button type="button" variant="ghost" size="sm" onClick={startEditing}>
+          <McButton type="button" variant="tertiary" size="sm" onClick={startEditing}>
             Edit name
-          </Button>
+          </McButton>
         )}
       </div>
 
       {isEditing && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="preferredName">Preferred name</Label>
-          <Input
+          <McInput
             id="preferredName"
+            label="Preferred name"
             value={draftName}
             onChange={(event) => setDraftName(event.target.value)}
             placeholder="Leave blank to use the Discord name"
-            aria-invalid={!!error}
+            error={error}
             autoFocus
           />
-          {error && <p className="paragraph-sm text-error">{error}</p>}
           <div className="mt-2 flex gap-2">
-            <Button type="button" size="sm" disabled={isSaving || !isDirty} onClick={handleSave}>
+            <McButton type="button" size="sm" disabled={isSaving || !isDirty} onClick={handleSave}>
               Save
-            </Button>
-            <Button
+            </McButton>
+            <McButton
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="sm"
               disabled={isSaving}
               onClick={() => setIsEditing(false)}
             >
               Cancel
-            </Button>
+            </McButton>
           </div>
         </div>
       )}

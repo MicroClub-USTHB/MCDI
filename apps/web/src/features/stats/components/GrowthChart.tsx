@@ -57,13 +57,11 @@ function Tooltip({ point, x }: { point: GrowthPoint; x: number }) {
 
   return (
     <div
-      className="pointer-events-none absolute top-1 z-10 w-44 -translate-x-1/2 rounded-md border border-border bg-muted p-3 text-left shadow-md"
+      className="pointer-events-none absolute top-1 z-10 w-44 -translate-x-1/2 rounded-lg border border-border bg-card p-3 text-left shadow-md"
       style={{ left: `${left}%` }}
     >
-      <p className="paragraph-xs font-semibold tracking-wide text-foreground">
-        {formatDate(point.date)}
-      </p>
-      <dl className="mt-2 space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
+      <p className="paragraph-xs font-semibold text-foreground">{formatDate(point.date)}</p>
+      <dl className="mt-2 space-y-1 paragraph-xs font-semibold text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
           <dt>Cumulative</dt>
           <dd className="font-mono text-foreground">{point.count.toLocaleString()}</dd>
@@ -126,11 +124,11 @@ function GrowthChart({ stats }: GrowthChartProps) {
   return (
     <div className="min-w-0 space-y-3">
       <div
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 paragraph-xs font-semibold text-muted-foreground"
         aria-label="Chart legend"
       >
         <span className="inline-flex items-center gap-2">
-          <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+          <span className="size-2 rounded-full bg-chart-3" aria-hidden="true" />
           Cumulative members
         </span>
         <span className="inline-flex items-center gap-2">
@@ -143,7 +141,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
         </span>
       </div>
 
-      <div className="relative min-w-0 overflow-hidden rounded-md border border-border bg-background p-2">
+      <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-background p-2">
         {activePoint ? <Tooltip point={activePoint.point} x={activePoint.x} /> : null}
         <svg
           className="h-56 w-full"
@@ -153,8 +151,8 @@ function GrowthChart({ stats }: GrowthChartProps) {
         >
           <defs>
             <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.24" />
-              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--chart-3)" stopOpacity="0.24" />
+              <stop offset="100%" stopColor="var(--chart-3)" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -201,7 +199,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
                     width={barWidth}
                     height={newHeight}
                     rx="1.5"
-                    fill="var(--color-success)"
+                    fill="var(--success)"
                     fillOpacity="0.9"
                   >
                     <title>{`New members: ${point.newMembers}`}</title>
@@ -214,7 +212,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
                     width={barWidth}
                     height={leftHeight}
                     rx="1.5"
-                    fill="var(--color-error)"
+                    fill="var(--error)"
                     fillOpacity="0.9"
                   >
                     <title>{`Members left: ${point.leftMembers}`}</title>
@@ -238,7 +236,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
           <path
             d={linePath}
             fill="none"
-            stroke="var(--primary)"
+            stroke="var(--chart-3)"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -250,7 +248,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
               cy={y}
               r={activeIndex === index ? 5 : 3.5}
               fill="var(--card)"
-              stroke="var(--primary)"
+              stroke="var(--chart-3)"
               strokeWidth="2.5"
               tabIndex={0}
               role="button"

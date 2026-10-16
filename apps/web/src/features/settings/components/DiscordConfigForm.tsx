@@ -1,7 +1,7 @@
+import { useId } from 'react';
 import { Bot } from 'lucide-react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import { MaskedInput } from '@/shared/components/ui/masked-input';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import type { DiscordSettings } from '@/features/settings/types';
@@ -10,12 +10,17 @@ interface DiscordConfigFormProps {
   config: DiscordSettings;
 }
 
-/** Not a secret — just a copyable read-only value (guild/client id, callback URL). */
+/** Not a secret, just a copyable read-only value (guild/client id, callback URL). */
+const labelClass = 'text-sm font-medium text-muted-foreground';
+
 function CopyableValue({ label, value }: { label: string; value: string }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
-      <MaskedInput value={value} />
+      <label htmlFor={id} className={labelClass}>
+        {label}
+      </label>
+      <MaskedInput id={id} value={value} />
     </div>
   );
 }
@@ -23,16 +28,19 @@ function CopyableValue({ label, value }: { label: string; value: string }) {
 function SecretStatus({ label, isSet }: { label: string; isSet: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <Label>{label}</Label>
-      <Badge variant={isSet ? 'success' : 'outline'}>
+      <span className={labelClass}>{label}</span>
+      <McBadge
+        variant="outline"
+        className={isSet ? 'border-success/30 bg-success/10 text-success' : undefined}
+      >
         {isSet ? 'Configured' : 'Not configured'}
-      </Badge>
+      </McBadge>
     </div>
   );
 }
 
 /**
- * Boot-time Discord config, surfaced read-only — these come from environment
+ * Boot-time Discord config, surfaced read-only: these come from environment
  * variables and are only ever writable by editing the backend's `.env`.
  * Secrets never carry a value over the wire, only `isSet`, so there is
  * nothing to reveal or edit here.

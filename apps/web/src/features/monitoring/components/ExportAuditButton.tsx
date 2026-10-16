@@ -1,8 +1,8 @@
-import { Download, LoaderCircle } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 import { useExportAuditLogsMutation } from '@/features/monitoring/api/mutations';
 import type { AuditLogFilters } from '@/features/monitoring/types';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 
 interface ExportAuditButtonProps {
   filters: AuditLogFilters;
@@ -14,23 +14,20 @@ function ExportAuditButton({ filters }: ExportAuditButtonProps) {
   return (
     <div className="flex items-center gap-3">
       {mutation.isError ? (
-        <span className="paragraph-xs font-semibold tracking-wide text-error">Export failed.</span>
+        <span className="paragraph-xs font-semibold text-error">Export failed.</span>
       ) : null}
-      <Button
+      <McButton
         type="button"
         variant="secondary"
         size="sm"
+        icon="leading"
+        iconDefinition={<Download aria-hidden="true" />}
         onClick={() => mutation.mutate(filters)}
-        disabled={mutation.isPending}
+        isLoading={mutation.isPending}
         aria-busy={mutation.isPending}
       >
-        {mutation.isPending ? (
-          <LoaderCircle className="animate-spin" aria-hidden="true" />
-        ) : (
-          <Download aria-hidden="true" />
-        )}
         Export CSV
-      </Button>
+      </McButton>
     </div>
   );
 }

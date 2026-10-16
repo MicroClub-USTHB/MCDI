@@ -24,9 +24,16 @@ import {
   useServerStatsQuery,
 } from '@/features/stats/api/queries';
 import type { GrowthGranularity, StatsDateRange } from '@/features/stats/types';
-import { Badge } from '@/shared/components/ui/badge';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import {
+  McSelect,
+  McSelectContent,
+  McSelectItem,
+  McSelectTrigger,
+  McSelectValue,
+} from '@/shared/components/ui/mc-select';
 import { StatCard, StatCardError, StatCardSkeleton } from '@/shared/components/ui/stat-card';
-import { cn } from '@/shared/lib/utils';
 
 const DATE_RANGE_OPTIONS: Array<{ value: StatsDateRange; label: string }> = [
   { value: '7d', label: '7 days' },
@@ -197,6 +204,9 @@ function MemberSummary({
   );
 }
 
+/** Sentinel for "All servers", since a select value cannot be empty. */
+const ALL_SERVERS = 'all';
+
 function MemberStatisticsPage() {
   const [dateRange, setDateRange] = useState<StatsDateRange>('30d');
   const [selectedServerId, setSelectedServerId] = useState('');
@@ -210,6 +220,10 @@ function MemberStatisticsPage() {
   const roleQuery = useRoleStatsQuery(serverId);
   const serverStatsQuery = useServerStatsQuery();
 
+  const serverItems = [
+    { value: ALL_SERVERS, label: 'All servers' },
+    ...(serversQuery.data ?? []).map((server) => ({ value: server.id, label: server.name })),
+  ];
   const selectedServer = serversQuery.data?.find((server) => server.id === selectedServerId);
   const scopeLabel = selectedServer?.name ?? 'All servers';
 
@@ -239,59 +253,65 @@ function MemberStatisticsPage() {
         </p>
       </header>
 
-      {/* One filter bar: every control the same 36px height and surface, export pushed right. */}
+      {/* One filter bar: compact controls on one surface, export pushed right. */}
       <div
         className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2"
         role="group"
         aria-label="Statistics filters"
       >
         <div
-          className="flex h-9 items-center rounded-md border border-border bg-background p-0.5"
+          className="flex items-center gap-1 rounded-lg border border-border bg-background p-0.5"
           role="group"
           aria-label="Date range"
         >
           {DATE_RANGE_OPTIONS.map((option) => (
-            <button
+            <McButton
               key={option.value}
               type="button"
-              className={cn(
-                'h-full rounded px-3 paragraph-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
-                dateRange === option.value && 'bg-muted text-foreground'
-              )}
+              size="sm"
+              variant={dateRange === option.value ? 'secondary' : 'tertiary'}
               aria-pressed={dateRange === option.value}
               onClick={() => setDateRange(option.value)}
             >
               {option.label}
-            </button>
+            </McButton>
           ))}
         </div>
 
         {canServers ? (
           <>
-            <select
-              aria-label="Server"
-              className="h-9 w-48 rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none transition-colors focus:border-ring disabled:cursor-not-allowed disabled:opacity-60"
-              value={selectedServerId}
-              onChange={(event) => setSelectedServerId(event.target.value)}
+            <McSelect
+              items={serverItems}
+              value={selectedServerId || ALL_SERVERS}
+              onValueChange={(value) =>
+                setSelectedServerId(value && value !== ALL_SERVERS ? String(value) : '')
+              }
               disabled={serversQuery.isPending}
             >
-              <option value="">All servers</option>
-              {serversQuery.data?.map((server) => (
-                <option key={server.id} value={server.id}>
-                  {server.name}
-                </option>
-              ))}
-            </select>
+              <McSelectTrigger aria-label="Server" size="sm" className="w-48">
+                <McSelectValue />
+              </McSelectTrigger>
+              <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+                {serverItems.map((item) => (
+                  <McSelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </McSelectItem>
+                ))}
+              </McSelectContent>
+            </McSelect>
 
             {serversQuery.isError ? (
-              <button
+              <McButton
                 type="button"
+                variant="tertiary"
+                size="sm"
+                destructive
+                icon="leading"
+                iconDefinition={<RotateCw aria-hidden="true" />}
                 onClick={() => void serversQuery.refetch()}
-                className="inline-flex h-9 items-center gap-1.5 rounded-md px-2 paragraph-xs font-semibold tracking-wide text-error transition-colors hover:bg-error/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
-                <RotateCw className="size-3.5" aria-hidden="true" />
                 Servers failed — retry
-              </button>
+              </McButton>
             ) : null}
           </>
         ) : null}
@@ -302,7 +322,7 @@ function MemberStatisticsPage() {
       </div>
 
       <section aria-labelledby="summary-heading" className="flex flex-col gap-3">
-        <h2 id="summary-heading" className="paragraph-sm font-semibold text-foreground">
+        <h2 id="summary-heading" className="paragraph-md font-semibold text-foreground">
           Overview
         </h2>
         <MemberSummary
@@ -331,10 +351,17 @@ function MemberStatisticsPage() {
           hint={lowData}
           action={
             growthQuery.data ? (
-              <Badge variant={growthQuery.data.totalGrowth >= 0 ? 'success' : 'error'}>
+              <McBadge
+                variant={growthQuery.data.totalGrowth >= 0 ? 'outline' : 'destructive'}
+                className={
+                  growthQuery.data.totalGrowth >= 0
+                    ? 'border-success/30 bg-success/10 text-success'
+                    : undefined
+                }
+              >
                 Net {growthQuery.data.totalGrowth > 0 ? '+' : ''}
                 {growthQuery.data.totalGrowth.toLocaleString()}
-              </Badge>
+              </McBadge>
             ) : null
           }
         >
@@ -357,7 +384,9 @@ function MemberStatisticsPage() {
               : 'Global role distribution'
           }
           hint={lowData}
-          action={roleQuery.data ? <Badge variant="secondary">{roleQuery.data.scope}</Badge> : null}
+          action={
+            roleQuery.data ? <McBadge variant="outline">{roleQuery.data.scope}</McBadge> : null
+          }
         >
           {roleQuery.isPending ? <ChartLoading label="role distribution" /> : null}
           {roleQuery.isError ? <ChartError onRetry={() => void roleQuery.refetch()} /> : null}

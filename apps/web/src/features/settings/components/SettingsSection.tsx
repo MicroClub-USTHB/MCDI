@@ -1,14 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/shared/components/ui/card';
+import { McCard, McCardContent } from '@/shared/components/ui/mc-card';
 
 interface SettingsSectionProps {
   title: string;
@@ -26,17 +19,19 @@ function SettingsSection({
   children,
 }: SettingsSectionProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {Icon ? <Icon className="size-4 text-primary" aria-hidden="true" /> : null}
-          {title}
-        </CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-        {action ? <CardAction>{action}</CardAction> : null}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">{children}</CardContent>
-    </Card>
+    <McCard>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h3 className="flex items-center gap-2 paragraph-md font-semibold text-foreground">
+            {Icon ? <Icon className="size-4 text-primary" aria-hidden="true" /> : null}
+            {title}
+          </h3>
+          {description ? <p className="paragraph-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <McCardContent className="flex flex-col gap-4">{children}</McCardContent>
+    </McCard>
   );
 }
 

@@ -1,3 +1,12 @@
+import { McInput } from '@/shared/components/ui/mc-input';
+import { McRadioGroup, McRadioGroupItem } from '@/shared/components/ui/mc-radio-group';
+import {
+  McSelect,
+  McSelectContent,
+  McSelectItem,
+  McSelectTrigger,
+  McSelectValue,
+} from '@/shared/components/ui/mc-select';
 import { cn } from '@/shared/lib/utils';
 import type { CrossServerListItemDto } from '@/features/members/types';
 import type {
@@ -26,6 +35,18 @@ const ACTIONS: Array<{ value: AuditActionType; label: string }> = [
   { value: 'access', label: 'Access' },
 ];
 
+/** Sentinel for the "no filter" option, since a select value cannot be empty. */
+const ALL = 'all';
+
+const SEVERITIES = [
+  { value: ALL, label: 'All severities' },
+  { value: 'info', label: 'Info' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'error', label: 'Error' },
+];
+
+const fieldLabelClass = 'text-sm font-medium text-muted-foreground';
+
 function AuditLogFilters({
   filters,
   onChange,
@@ -33,101 +54,103 @@ function AuditLogFilters({
   showActorFilter = true,
 }: AuditLogFiltersProps) {
   const update = (next: Partial<AuditLogFilterState>) => onChange({ ...filters, ...next });
+  const actorItems = [
+    { value: ALL, label: 'All actors' },
+    ...actors.map((actor) => ({
+      value: actor.memberId,
+      label: actor.globalName ?? actor.username,
+    })),
+  ];
 
   return (
     <section className="rounded-lg border border-border bg-card p-4" aria-label="Audit log filters">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          <span>Date from</span>
-          <input
-            type="date"
-            value={filters.dateFrom ?? ''}
-            onChange={(event) => update({ dateFrom: event.target.value || undefined })}
-            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
-          />
-        </label>
-        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          <span>Date to</span>
-          <input
-            type="date"
-            value={filters.dateTo ?? ''}
-            onChange={(event) => update({ dateTo: event.target.value || undefined })}
-            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
-          />
-        </label>
+        <McInput
+          type="date"
+          label="Date from"
+          value={filters.dateFrom ?? ''}
+          onChange={(event) => update({ dateFrom: event.target.value || undefined })}
+        />
+        <McInput
+          type="date"
+          label="Date to"
+          value={filters.dateTo ?? ''}
+          onChange={(event) => update({ dateTo: event.target.value || undefined })}
+        />
         {showActorFilter ? (
-          <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
-            <span>Actor</span>
-            <select
-              value={filters.actorId ?? ''}
-              onChange={(event) => update({ actorId: event.target.value || undefined })}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
+          <div className="flex flex-col gap-1.5">
+            <span className={fieldLabelClass}>Actor</span>
+            <McSelect
+              items={actorItems}
+              value={filters.actorId ?? ALL}
+              onValueChange={(value) =>
+                update({ actorId: value && value !== ALL ? String(value) : undefined })
+              }
             >
-              <option value="">All actors</option>
-              {actors.map((actor) => (
-                <option key={actor.memberId} value={actor.memberId}>
-                  {actor.globalName ?? actor.username}
-                </option>
-              ))}
-            </select>
-          </label>
+              <McSelectTrigger aria-label="Actor" className="w-full">
+                <McSelectValue />
+              </McSelectTrigger>
+              <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+                {actorItems.map((item) => (
+                  <McSelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </McSelectItem>
+                ))}
+              </McSelectContent>
+            </McSelect>
+          </div>
         ) : null}
-        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          <span>Severity</span>
-          <select
-            value={filters.severity ?? ''}
-            onChange={(event) =>
-              update({ severity: (event.target.value || undefined) as AuditSeverity | undefined })
+        <div className="flex flex-col gap-1.5">
+          <span className={fieldLabelClass}>Severity</span>
+          <McSelect
+            items={SEVERITIES}
+            value={filters.severity ?? ALL}
+            onValueChange={(value) =>
+              update({
+                severity: value && value !== ALL ? (value as AuditSeverity) : undefined,
+              })
             }
-            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
           >
-            <option value="">All severities</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="error">Error</option>
-          </select>
-        </label>
-      </div>
-      <fieldset className="mt-4">
-        <legend className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          Action type
-        </legend>
-        <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Action type">
-          <label
-            className={cn(
-              'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 paragraph-sm text-muted-foreground transition-colors',
-              !filters.actionType && 'border-primary bg-secondary text-foreground'
-            )}
-          >
-            <input
-              type="radio"
-              name="actionType"
-              checked={!filters.actionType}
-              onChange={() => update({ actionType: undefined })}
-              className="accent-primary"
-            />
-            All
-          </label>
-          {ACTIONS.map((action) => (
-            <label
-              key={action.value}
-              className={cn(
-                'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 paragraph-sm text-muted-foreground transition-colors',
-                filters.actionType === action.value && 'border-primary bg-secondary text-foreground'
-              )}
-            >
-              <input
-                type="radio"
-                name="actionType"
-                checked={filters.actionType === action.value}
-                onChange={() => update({ actionType: action.value })}
-                className="accent-primary"
-              />
-              {action.label}
-            </label>
-          ))}
+            <McSelectTrigger aria-label="Severity" className="w-full">
+              <McSelectValue />
+            </McSelectTrigger>
+            <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+              {SEVERITIES.map((item) => (
+                <McSelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </McSelectItem>
+              ))}
+            </McSelectContent>
+          </McSelect>
         </div>
-      </fieldset>
+      </div>
+      <div className="mt-4 space-y-2">
+        <span id="audit-action-type-label" className={fieldLabelClass}>
+          Action type
+        </span>
+        <McRadioGroup
+          aria-labelledby="audit-action-type-label"
+          value={filters.actionType ?? ALL}
+          onValueChange={(value) =>
+            update({
+              actionType: value && value !== ALL ? (value as AuditActionType) : undefined,
+            })
+          }
+          className="flex flex-wrap gap-2"
+        >
+          {[{ value: ALL, label: 'All' }, ...ACTIONS].map((action) => (
+            <McRadioGroupItem
+              key={action.value}
+              value={action.value}
+              text={action.label}
+              className={cn(
+                'rounded-lg border border-border px-3 py-2 transition-colors',
+                (filters.actionType ?? ALL) === action.value && 'border-primary bg-secondary'
+              )}
+            />
+          ))}
+        </McRadioGroup>
+      </div>
     </section>
   );
 }

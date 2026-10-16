@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-import { FileImage, FileSpreadsheet, LoaderCircle } from 'lucide-react';
+import { FileImage, FileSpreadsheet } from 'lucide-react';
 
 import type { GrowthStats, MemberStats, RoleStats, ServerStats } from '@/features/stats/types';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 
 export interface StatsExportData {
   memberStats?: MemberStats;
@@ -19,7 +19,16 @@ interface StatsExportButtonsProps {
 }
 
 type CanvasColors = Record<
-  'base' | 'raised' | 'elevated' | 'primary' | 'muted' | 'brand' | 'success' | 'error' | 'warning',
+  | 'background'
+  | 'card'
+  | 'muted'
+  | 'border'
+  | 'foreground'
+  | 'mutedForeground'
+  | 'primary'
+  | 'success'
+  | 'error'
+  | 'warning',
   string
 >;
 
@@ -150,15 +159,16 @@ function readCanvasColors(): CanvasColors {
   const read = (token: string) => styles.getPropertyValue(token).trim() || 'transparent';
 
   return {
-    base: read('--background'),
-    raised: read('--card'),
-    elevated: read('--muted'),
-    primary: read('--foreground'),
-    muted: read('--muted-foreground'),
-    brand: read('--primary'),
-    success: read('--color-success'),
-    error: read('--color-error'),
-    warning: read('--color-warning'),
+    background: read('--background'),
+    card: read('--card'),
+    muted: read('--muted'),
+    border: read('--border'),
+    foreground: read('--foreground'),
+    mutedForeground: read('--muted-foreground'),
+    primary: read('--primary'),
+    success: read('--success'),
+    error: read('--error'),
+    warning: read('--warning'),
   };
 }
 
@@ -183,12 +193,12 @@ function drawStatTile(
   value: string,
   accent: string
 ) {
-  context.fillStyle = colors.raised;
+  context.fillStyle = colors.card;
   context.fillRect(x, 88, 260, 68);
   context.fillStyle = accent;
   context.fillRect(x, 88, 260, 4);
-  drawText(context, label, x + 16, 112, colors.muted, '600 13px sans-serif');
-  drawText(context, value, x + 16, 140, colors.primary, '700 24px sans-serif');
+  drawText(context, label, x + 16, 112, colors.mutedForeground, '600 13px sans-serif');
+  drawText(context, value, x + 16, 140, colors.foreground, '700 24px sans-serif');
 }
 
 function drawPanel(
@@ -200,9 +210,9 @@ function drawPanel(
   height: number,
   title: string
 ) {
-  context.fillStyle = colors.raised;
+  context.fillStyle = colors.card;
   context.fillRect(x, y, width, height);
-  drawText(context, title, x + 20, y + 30, colors.primary, '700 16px sans-serif');
+  drawText(context, title, x + 20, y + 30, colors.foreground, '700 16px sans-serif');
 }
 
 function drawGrowthReport(
@@ -222,7 +232,7 @@ function drawGrowthReport(
     ...data.data.flatMap((point) => [point.newMembers, point.leftMembers])
   );
 
-  context.strokeStyle = colors.elevated;
+  context.strokeStyle = colors.border;
   context.lineWidth = 1;
   [0, 0.5, 1].forEach((fraction) => {
     const lineY = chartY + chartHeight - fraction * chartHeight;
@@ -234,7 +244,7 @@ function drawGrowthReport(
 
   if (data.data.length > 0) {
     const step = chartWidth / Math.max(data.data.length - 1, 1);
-    context.strokeStyle = colors.brand;
+    context.strokeStyle = colors.primary;
     context.lineWidth = 3;
     context.beginPath();
     data.data.forEach((point, index) => {
@@ -262,7 +272,14 @@ function drawGrowthReport(
     });
   }
 
-  drawText(context, `Period: ${data.period}`, x + 20, y + 236, colors.muted, '600 13px sans-serif');
+  drawText(
+    context,
+    `Period: ${data.period}`,
+    x + 20,
+    y + 236,
+    colors.mutedForeground,
+    '600 13px sans-serif'
+  );
   drawText(
     context,
     `Net growth: ${data.totalGrowth > 0 ? '+' : ''}${data.totalGrowth}`,
@@ -290,17 +307,17 @@ function drawRoleReport(
       role.roleName.slice(0, 18),
       x + 20,
       rowY,
-      colors.muted,
+      colors.mutedForeground,
       '500 12px sans-serif'
     );
-    context.fillStyle = colors.brand;
+    context.fillStyle = colors.primary;
     context.fillRect(x + 160, rowY - 11, 160 * (role.memberCount / maxMembers), 12);
     drawText(
       context,
       role.memberCount.toLocaleString(),
       x + 330,
       rowY,
-      colors.primary,
+      colors.foreground,
       '600 12px sans-serif'
     );
   });
@@ -315,7 +332,7 @@ function drawServerReport(
 ) {
   const servers = data.servers.slice(0, 8);
   const metrics = [
-    { key: 'memberCount' as const, color: colors.brand },
+    { key: 'memberCount' as const, color: colors.primary },
     { key: 'activeMembers' as const, color: colors.success },
     { key: 'roleCount' as const, color: colors.warning },
   ];
@@ -342,7 +359,7 @@ function drawServerReport(
       server.serverName.slice(0, 13),
       groupX,
       y + 204,
-      colors.muted,
+      colors.mutedForeground,
       '500 11px sans-serif'
     );
   });
@@ -356,15 +373,15 @@ async function downloadStatsPng(data: StatsExportData) {
   if (!context) throw new Error('Canvas export is not supported');
 
   const colors = readCanvasColors();
-  context.fillStyle = colors.base;
+  context.fillStyle = colors.background;
   context.fillRect(0, 0, canvas.width, canvas.height);
-  drawText(context, 'Member Statistics', 40, 48, colors.primary, '700 28px sans-serif');
+  drawText(context, 'Member Statistics', 40, 48, colors.foreground, '700 28px sans-serif');
   drawText(
     context,
     `Generated ${new Date().toLocaleString()}`,
     40,
     70,
-    colors.muted,
+    colors.mutedForeground,
     '500 13px sans-serif'
   );
   if (data.memberStats) {
@@ -374,7 +391,7 @@ async function downloadStatsPng(data: StatsExportData) {
       40,
       'Total members',
       data.memberStats.totalMembers.toLocaleString(),
-      colors.brand
+      colors.primary
     );
     drawStatTile(
       context,
@@ -382,7 +399,7 @@ async function downloadStatsPng(data: StatsExportData) {
       320,
       'Club members',
       data.memberStats.clubMembers.toLocaleString(),
-      colors.brand
+      colors.primary
     );
     drawStatTile(
       context,
@@ -456,38 +473,34 @@ function StatsExportButtons({ data }: StatsExportButtonsProps) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       {error ? (
-        <span className="paragraph-xs font-semibold tracking-wide text-error" role="alert">
+        <span className="paragraph-xs font-semibold text-error" role="alert">
           Export failed. Try again.
         </span>
       ) : null}
-      <Button
+      <McButton
         type="button"
         variant="secondary"
         size="sm"
+        icon="leading"
+        iconDefinition={<FileImage aria-hidden="true" />}
         disabled={disabled}
+        isLoading={isExporting}
         onClick={() => void handleExport('png')}
       >
-        {isExporting ? (
-          <LoaderCircle className="animate-spin" aria-hidden="true" />
-        ) : (
-          <FileImage aria-hidden="true" />
-        )}
         PNG
-      </Button>
-      <Button
+      </McButton>
+      <McButton
         type="button"
         variant="secondary"
         size="sm"
+        icon="leading"
+        iconDefinition={<FileSpreadsheet aria-hidden="true" />}
         disabled={disabled}
+        isLoading={isExporting}
         onClick={() => void handleExport('csv')}
       >
-        {isExporting ? (
-          <LoaderCircle className="animate-spin" aria-hidden="true" />
-        ) : (
-          <FileSpreadsheet aria-hidden="true" />
-        )}
         CSV
-      </Button>
+      </McButton>
       <span className="sr-only" aria-live="polite">
         {isExporting
           ? 'Exporting statistics'
