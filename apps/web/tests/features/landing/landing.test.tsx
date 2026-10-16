@@ -52,10 +52,13 @@ describe('Landing page', () => {
   it('shows the admin panel with a description for screen readers', () => {
     render(<Home />);
 
-    const image = screen.getByRole('img', { name: /admin panel/i });
+    // A light and a dark shot; CSS shows only the one for the active theme.
+    const [light, dark] = screen.getAllByRole('img', { name: /admin panel/i });
 
-    expect(image).toHaveAttribute('alt', LANDING.screenshot.alt);
-    expect(image.getAttribute('src')).toContain('admin-panel');
+    expect(light).toHaveAttribute('alt', LANDING.screenshot.alt);
+    expect(light?.getAttribute('src')).toContain('admin-panel-light');
+    expect(dark).toHaveAttribute('alt', LANDING.screenshot.alt);
+    expect(dark?.getAttribute('src')).toContain('admin-panel-dark');
   });
 
   it('lets keyboard users skip to the content', () => {

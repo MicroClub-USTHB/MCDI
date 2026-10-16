@@ -39,6 +39,7 @@ export function LandingHero() {
           aria-hidden="true"
           className="pointer-events-none absolute -inset-8 bg-[radial-gradient(55%_50%_at_65%_40%,color-mix(in_srgb,var(--primary)_18%,transparent),transparent_70%),radial-gradient(45%_45%_at_25%_75%,color-mix(in_srgb,var(--color-purple-secondary-500)_22%,transparent),transparent_70%)]"
         />
+        {/* One shot per theme; only the one matching the active theme is displayed. */}
         <Image
           src={LANDING.screenshot.src}
           width={LANDING.screenshot.width}
@@ -46,7 +47,15 @@ export function LandingHero() {
           alt={LANDING.screenshot.alt}
           preload
           sizes="(min-width: 1024px) 58vw, 100vw"
-          className="relative h-auto w-full rounded-xl border border-border shadow-xl lg:rounded-r-none lg:border-r-0"
+          className="relative h-auto w-full rounded-xl border border-border shadow-xl lg:rounded-r-none lg:border-r-0 dark:hidden"
+        />
+        <Image
+          src={LANDING.screenshot.srcDark}
+          width={LANDING.screenshot.width}
+          height={LANDING.screenshot.height}
+          alt={LANDING.screenshot.alt}
+          sizes="(min-width: 1024px) 58vw, 100vw"
+          className="relative hidden h-auto w-full rounded-xl border border-border shadow-xl lg:rounded-r-none lg:border-r-0 dark:block"
         />
       </div>
     </section>
