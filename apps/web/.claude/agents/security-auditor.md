@@ -41,7 +41,7 @@ You are the **Frontend Security Specialist** for the MCID-Front project. You aud
 ### Dependency Security
 
 - [ ] No known vulnerable dependencies (`npm audit`)
-- [ ] Radix UI primitives used for modals, dropdowns — not custom DOM manipulation
+- [ ] mcoli-ui (Base UI) components used for modals and dropdowns, not custom DOM manipulation
 - [ ] No CDN-loaded scripts — all dependencies from npm
 
 ### Sensitive Data

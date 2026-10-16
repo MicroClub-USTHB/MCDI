@@ -10,10 +10,10 @@
 |---|---|---|
 | Framework | Next.js (App Router) | 16.2.2 |
 | Language | TypeScript (strict mode) | ^5 |
-| UI | Tailwind CSS v4 (CSS-based `@theme`) | ^4 |
+| UI | Tailwind CSS v4 (CSS-based `@theme`) + mcoli-ui `primary` theme | ^4 |
 | State (server) | TanStack React Query | ^5 |
 | State (client) | Zustand (persist middleware) | ^5 |
-| Components | Radix UI primitives | latest |
+| Components | mcoli-ui (shadcn registry on Base UI) | latest |
 | Icons | Lucide React | ^1.8 |
 | Validation | Zod v4 | ^4 |
 | Testing | Vitest + React Testing Library + MSW | latest |
@@ -26,9 +26,9 @@
 ```
 src/
 ├── app/                          # Next.js App Router
-│   ├── layout.tsx                # Root layout (DM Sans + JetBrains Mono fonts)
+│   ├── layout.tsx                # Root layout (DM Sans, Plus Jakarta Sans, JetBrains Mono fonts)
 │   ├── page.tsx                  # Landing page
-│   ├── providers.tsx             # Client-side providers (QueryProvider)
+│   ├── providers.tsx             # Client-side providers (theme, query, tooltips, toasts)
 │   └── (dashboard)/              # Route group — all authenticated views
 │       ├── layout.tsx            # Dashboard shell (sidebar + topbar)
 │       └── page.tsx              # Dashboard home
@@ -57,7 +57,7 @@ src/
 │   │   ├── api-client.ts         # HTTP client with token refresh
 │   │   ├── env.ts                # Zod-validated env variables
 │   │   └── utils.ts              # cn() utility (clsx + tailwind-merge)
-│   ├── styles/globals.css        # Design system tokens (@theme block)
+│   ├── styles/globals.css        # mcoli-ui theme tokens (light and dark)
 │   └── types/index.ts            # Shared TypeScript interfaces
 └── proxy.ts                      # Auth guard (cookie-based redirect)
 ```
@@ -67,7 +67,7 @@ src/
 - **Feature-sliced design**: Each feature module is self-contained with its own stores, API, components, and types. Cross-feature imports go through `@/shared/`.
 - **Path alias**: `@/` maps to `./src/` (configured in `tsconfig.json`).
 - **No `tailwind.config.ts`**: Tailwind v4 uses CSS-based config via `@theme` in `globals.css`.
-- **Dark-only UI**: No light mode, no theme toggle, no `dark:` prefixed classes. The design system is a Discord-inspired dark theme.
+- **Light and dark UI**: the mcoli-ui `primary` theme in both palettes, following the system setting with a toggle in the top bar.
 - **Deployment**: the web app is deployed on Vercel straight from this monorepo (Root Directory `apps/web`); there is no Docker image for it.
 
 ## 3. Code Style & Gotchas
@@ -99,45 +99,32 @@ src/
 
 ## 4. UI & Design System
 
-### V2 Design System — Discord-Inspired Dark Theme
+### mcoli-ui, the Micro Club design system
 
-**Brand Colors (Discord Blurple)**:
-| Token | Value | Usage |
-|---|---|---|
-| `brand` | `#5865F2` | Primary buttons, links, focus rings |
-| `brand-hover` | `#4752C4` | Hover states |
-| `brand-active` | `#3C45A5` | Active/pressed states |
-| `brand-light` | `#8B9CFC` | Light accent, badges |
-| `brand-tint` | `rgba(88,101,242,0.15)` | Background highlights |
+The panel is built on [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction) with its `primary` theme: a deep blue primary (`#0006B1` light, `#D9DDFF` dark) with purple accents, DM Sans for text and Plus Jakarta Sans for headings. mcoli-ui is a shadcn registry built on Base UI: its components are copied into `src/shared/components/ui/mc-*.tsx`, and the project owns them.
 
-**Surface Colors (Layered Dark)**:
-| Token | Value | Usage |
-|---|---|---|
-| `surface-base` | `#1E1F22` | Page background |
-| `surface-raised` | `#2B2D31` | Cards, sidebar |
-| `surface-main` | `#313338` | Main content area |
-| `surface-hover` | `#35363C` | Hover backgrounds |
-| `surface-active` | `#404249` | Active/selected items |
-| `surface-elevated` | `#4E5058` | Tooltips, dropdowns |
+- **Theme**: `npx mcoli-ui@latest init primary` writes the tokens into `src/shared/styles/globals.css`: a light palette under `:root`, a dark one under `.dark`, mapped to Tailwind colours in `@theme inline`, plus the `header-*` / `paragraph-*` type utilities. Re-run it to update the theme instead of editing those blocks by hand.
+- **Light and dark**: the panel follows the system setting; the ThemeToggle (`shared/components/common/ThemeToggle.tsx`) in the top bar overrides it. `next-themes` sets the `dark` class on `<html>`, which switches every token. Components do not need `dark:` classes to change colour.
+- **Components**: add one with `npx mcoli-ui@latest add <name>` (`npx mcoli-ui@latest list` shows them all). App-level composites built on them live next to them: `empty-state`, `confirm-dialog` (an alert dialog), `masked-input`, `stat-card`, `data-table` (TanStack Table v9 through `mc-data-table`) and `pagination`.
 
-**Text Hierarchy**:
-| Token | Value | Usage |
-|---|---|---|
-| `text-primary` | `#F2F3F5` | Headings, important text |
-| `text-normal` | `#DBDEE1` | Body text |
-| `text-muted` | `#B5BAC1` | Secondary text |
-| `text-subtle` | `#949BA4` | Tertiary text, timestamps |
-| `text-faint` | `#6D6F78` | Disabled, placeholder |
-
-**Semantic Colors**: `success` (#23A559), `error` (#DA373C), `warning` (#F0B232), `info` (#5865F2), `accent` (#EB459E)
-
-**Typography**: DM Sans (body/headings) + JetBrains Mono (code/data). 4px spacing grid. Border radius: `sm` (4px), `md` (6px), `DEFAULT` (8px), `lg` (12px).
+**Tokens**:
+| Group | Tokens |
+|---|---|
+| Base | `background`, `foreground` |
+| Brand and actions | `primary`, `secondary`, `accent` (+ `-foreground`) |
+| Surfaces | `card`, `popover`, `muted`, `surface` (+ `-foreground`) |
+| State | `success`, `warning`, `error`, `destructive`, `info` (+ `-foreground`) |
+| Form and focus | `border`, `input`, `ring` |
+| Sidebar | `sidebar`, `sidebar-primary`, `sidebar-accent`, `sidebar-border`, `sidebar-ring` |
+| Charts | `chart-1` … `chart-5` |
+| Type | `header-xl` … `header-xs` (headings), `paragraph-xl` … `paragraph-xs` (text), `font-mono` (JetBrains Mono) for ids and code |
 
 ### Usage Rules
 
-- Use Tailwind utility classes with design tokens: `bg-surface-base`, `text-text-muted`, `border-border`, etc.
-- Never hardcode hex colors — always reference tokens.
-- Never use `dark:` prefixed classes — the app is dark-only.
+- Build screens from the `Mc*` components in `src/shared/components/ui` before writing your own markup.
+- Use token utilities (`bg-card`, `text-muted-foreground`, `border-border`); never hardcode hex colours.
+- Base UI composes with a `render` prop, not `asChild`. A link styled as a button is `<Link className={buttonVariants({ variant, size })}>`, not `McButton render={<Link />}` (that would give the link `role="button"`).
+- `McSelect` needs an `items` list (`{ value, label }`) so the trigger shows the label; `McInput`/`McTextarea` put `className` on their wrapper and take `label`, `description` and `error` props.
 - Use `cn()` for conditional/merged classes.
 - Icons: use `lucide-react` exclusively.
 
@@ -179,9 +166,9 @@ Before every commit, ensure:
 
 ## 6. Agent Brief & Persona
 
-You are a **senior frontend engineer** working on a Discord-inspired admin panel. Your priorities:
+You are a **senior frontend engineer** working on the MCID admin panel, built with the mcoli-ui design system. Your priorities:
 
-1. **Design system compliance**: Every UI element must use the V2 design tokens. No hardcoded colors, no light mode, no `dark:` classes.
+1. **Design system compliance**: Every UI element uses mcoli-ui components and tokens, and works in light and dark mode. No hardcoded colours.
 2. **Type safety**: Leverage TypeScript's strict mode. No `any`, no type assertions unless absolutely necessary.
 3. **Feature isolation**: Keep feature modules independent. Shared logic goes in `@/shared/`.
 4. **Performance**: Use React Query for server state, Zustand for client state. No prop drilling. Lazy load feature routes.

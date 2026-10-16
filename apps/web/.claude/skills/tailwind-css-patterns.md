@@ -6,9 +6,9 @@ Expert guide for building modern, responsive user interfaces with Tailwind CSS u
 
 ## MCID-Front Adaptation
 
-This project uses **Tailwind CSS v4** with CSS-based `@theme` configuration in `src/shared/styles/globals.css`. There is no `tailwind.config.ts` file. All design tokens are defined as CSS custom properties in the `@theme` block.
+This project uses **Tailwind CSS v4** with CSS-based configuration in `src/shared/styles/globals.css` and the mcoli-ui `primary` theme (light `:root` and dark `.dark` palettes). There is no `tailwind.config.ts` file. Prefer the `Mc*` components in `src/shared/components/ui` over hand-written markup; see the `tailwind-design-system` skill.
 
-**Critical**: This project is **dark-only**. Never use `dark:` prefixed classes. Never use light-mode color tokens. All colors come from the V2 Discord-inspired design system tokens.
+**Critical**: Use the mcoli-ui tokens (`bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`…). Both light and dark mode apply; tokens switch with the `dark` class, so do not add `dark:` classes just to change colours.
 
 ## When to Use
 
@@ -16,7 +16,7 @@ This project uses **Tailwind CSS v4** with CSS-based `@theme` configuration in `
 - Building responsive layouts with breakpoints
 - Implementing flexbox and grid layouts
 - Managing spacing, colors, and typography
-- Using the MCID V2 design system tokens
+- Using the mcoli-ui theme tokens
 
 ## Core Concepts
 
@@ -26,7 +26,7 @@ Always use project design tokens, not Tailwind defaults:
 
 ```tsx
 // CORRECT — uses MCID design tokens
-<button className="bg-brand hover:bg-brand-hover text-white font-medium py-2 px-4 rounded">
+<button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-2 px-4 rounded-lg">
   Click me
 </button>
 
@@ -73,33 +73,33 @@ Use Tailwind's spacing scale aligned with the 4px grid:
 
 Card:
 ```tsx
-<div className="bg-surface-raised border border-border rounded-lg p-4 shadow-sm">
-  <h3 className="text-lg font-semibold text-text-primary">Title</h3>
-  <p className="text-text-muted mt-2">Description</p>
+<div className="bg-card text-card-foreground border border-border rounded-lg p-4 shadow-sm">
+  <h3 className="header-xs font-bold text-foreground">Title</h3>
+  <p className="paragraph-sm text-muted-foreground mt-2">Description</p>
 </div>
 ```
 
 Button:
 ```tsx
-<button className="bg-brand hover:bg-brand-hover active:bg-brand-active text-white font-medium py-2 px-4 rounded transition">
+<button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium py-2 px-4 rounded-lg transition">
   Action
 </button>
 ```
 
 Input:
 ```tsx
-<input className="w-full bg-surface-main border border-border rounded px-3 py-2 text-text-normal placeholder:text-text-faint focus:border-border-focus focus:ring-2 focus:ring-brand/20 outline-none" />
+<input className="w-full bg-input border border-border rounded-lg px-3.5 py-2.5 text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring outline-none" />
 ```
 
 Nav link:
 ```tsx
-<a className="text-text-normal hover:text-brand transition">Link</a>
+<a className="text-foreground hover:text-primary transition">Link</a>
 ```
 
 ### Interactive States
 
 ```tsx
-<button className="bg-brand hover:bg-brand-hover active:bg-brand-active disabled:opacity-50 disabled:cursor-not-allowed transition">
+<button className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition">
   Button
 </button>
 ```
@@ -107,7 +107,7 @@ Nav link:
 ### Focus Management
 
 ```tsx
-<button className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base">
+<button className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring">
   Accessible Button
 </button>
 ```
@@ -128,17 +128,17 @@ import { cn } from '@/shared/lib/utils';
 
 function Card({ className, ...props }) {
   return (
-    <div className={cn('bg-surface-raised rounded-lg p-4 border border-border', className)} {...props} />
+    <div className={cn('bg-card rounded-lg p-4 border border-border', className)} {...props} />
   );
 }
 ```
 
 ## Best Practices for MCID
 
-1. **Always use design tokens** — `bg-surface-base` not `bg-[#1E1F22]`
+1. **Always use design tokens** — `bg-background` not `bg-[#0A0A0A]`
 2. **Mobile-first** — base styles for mobile, add responsive prefixes
 3. **4px grid** — use Tailwind spacing scale consistently
 4. **`cn()` for merging** — never concatenate class strings manually
-5. **No `dark:` classes** — the app is dark-only
+5. **No `dark:` classes for colour** — the tokens switch between light and dark on their own
 6. **Semantic HTML** — proper elements with Tailwind classes
 7. **`lucide-react` for icons** — not inline SVGs or other icon libraries

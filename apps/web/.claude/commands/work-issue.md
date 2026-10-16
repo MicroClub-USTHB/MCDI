@@ -92,7 +92,7 @@ After all tasks are done, run the auditor agents:
 
 1. **UI/UX guardian agent** — check all new/modified components for:
    - Design token compliance (no hardcoded colors)
-   - Correct surface layering hierarchy
+   - mcoli-ui components and tokens used, no hand-written controls
    - Proper hover/focus/active states
    - 4px grid spacing alignment
    - CLS prevention
@@ -137,8 +137,8 @@ After all tasks are done, run the auditor agents:
    ```bash
    npm run dev
    ```
-   - Dark surfaces render correctly with proper layering
-   - Brand colors are Blurple (#5865F2), not purple
+   - Light and dark mode both render correctly
+   - Brand colours are the mcoli-ui `primary` theme tokens (no hardcoded hex)
    - DM Sans font loads
    - All interactive states work (hover, focus, active, disabled)
    - Responsive breakpoints work

@@ -34,7 +34,7 @@ Create a well-structured GitHub pull request for the current branch.
    | `src/path/file.tsx` | Description |
 
    ## Design System Compliance
-   - [ ] All colors use V2 design tokens
+   - [ ] All colours use mcoli-ui theme tokens and screens use the Mc* components
    - [ ] No hardcoded hex values
    - [ ] No `dark:` prefixed classes
    - [ ] Typography uses DM Sans / JetBrains Mono
