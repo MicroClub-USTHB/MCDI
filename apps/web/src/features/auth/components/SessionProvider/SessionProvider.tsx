@@ -39,7 +39,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     clearAuth();
     showToast('Your session has expired. Please log in again.', 'warning');
     router.replace('/login');
-  }, [isError, isAuthenticated, clearAuth, showToast, router]);
+  }, [isError, isAuthenticated, clearAuth, router]);
 
   return <>{children}</>;
 }

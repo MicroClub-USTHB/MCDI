@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Card } from '@/shared/components/ui/card';
+import { McCard } from '@/shared/components/ui/mc-card';
 import { DiscordLoginButton } from '@/features/auth/components/DiscordLoginButton';
 import { getSafeRedirectPath } from '@/features/auth/lib/safe-redirect';
 
@@ -26,11 +26,11 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm gap-0 p-8 py-8">
+      <McCard className="w-full max-w-sm gap-0 p-8 shadow-lg">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground"
+            className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-primary to-purple-secondary-600 font-heading text-lg font-bold text-primary-foreground"
           >
             MC
           </span>
@@ -42,7 +42,7 @@ export default async function LoginPage({
           </div>
         </div>
         <DiscordLoginButton size="lg" redirectPath={redirectPath} className="w-full" />
-      </Card>
+      </McCard>
     </div>
   );
 }

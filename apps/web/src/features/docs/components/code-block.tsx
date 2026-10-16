@@ -4,6 +4,8 @@ import { Children, isValidElement, useEffect, useRef, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { Check, Copy } from 'lucide-react';
 
+import { McButton } from '@/shared/components/ui/mc-button';
+
 const COPIED_FOR_MS = 1500;
 
 /** The language the highlighter recorded on the code element, if any. */
@@ -42,19 +44,23 @@ export function CodeBlock({ children, ...props }: ComponentProps<'pre'>) {
         <span className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
           {language ?? ''}
         </span>
-        <button
-          type="button"
+        <McButton
+          variant="tertiary"
+          size="sm"
+          icon="leading"
+          iconDefinition={
+            copied ? (
+              <Check className="text-success" aria-hidden="true" />
+            ) : (
+              <Copy aria-hidden="true" />
+            )
+          }
           onClick={() => void copy()}
           aria-label={copied ? 'Copied' : 'Copy code'}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 paragraph-xs font-semibold tracking-wide text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-7 bg-transparent px-2 py-1 paragraph-xs font-semibold text-muted-foreground hover:text-foreground"
         >
-          {copied ? (
-            <Check className="size-3.5 text-success" aria-hidden="true" />
-          ) : (
-            <Copy className="size-3.5" aria-hidden="true" />
-          )}
           {copied ? 'Copied' : 'Copy'}
-        </button>
+        </McButton>
         <span role="status" className="sr-only">
           {copied ? 'Copied to clipboard' : ''}
         </span>

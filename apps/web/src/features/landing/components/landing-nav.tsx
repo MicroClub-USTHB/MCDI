@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { Fingerprint } from 'lucide-react';
 
 import { LANDING } from '@/features/landing/content';
-import { Button } from '@/shared/components/ui/button';
+import { ThemeToggle } from '@/shared/components/common/ThemeToggle';
+import { buttonVariants } from '@/shared/components/ui/mc-button';
 
 export function LandingNav() {
   return (
@@ -17,15 +18,21 @@ export function LandingNav() {
         >
           <span
             aria-hidden="true"
-            className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary"
+            className="flex size-8 items-center justify-center rounded-lg bg-linear-to-br from-primary to-purple-secondary-600 text-primary-foreground shadow-sm"
           >
             <Fingerprint className="size-4" />
           </span>
           {LANDING.name}
         </Link>
-        <Button asChild variant="ghost" size="sm">
-          <Link href={LANDING.signIn.href}>{LANDING.signIn.label}</Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Link
+            href={LANDING.signIn.href}
+            className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            {LANDING.signIn.label}
+          </Link>
+        </div>
       </nav>
     </header>
   );

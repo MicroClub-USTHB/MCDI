@@ -3,16 +3,24 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Dialog } from 'radix-ui';
 import { Fingerprint, Menu, X } from 'lucide-react';
 
 import { DocsSidebar } from '@/features/docs/components/docs-sidebar';
 import { API_REFERENCE_HREF } from '@/features/docs/links';
-import { Button } from '@/shared/components/ui/button';
+import { ThemeToggle } from '@/shared/components/common/ThemeToggle';
+import { McButton, buttonVariants } from '@/shared/components/ui/mc-button';
+import {
+  McDialog,
+  McDialogClose,
+  McDialogContent,
+  McDialogTitle,
+  McDialogTrigger,
+} from '@/shared/components/ui/mc-dialog';
+import { cn } from '@/shared/lib/utils';
 
 /**
  * The frame of every docs page: a top bar, the navigation (fixed beside the content from `md`,
- * a drawer below it) and the content area. The drawer is Radix Dialog, which traps focus, closes
+ * a drawer below it) and the content area. The drawer is McDialog (Base UI), which traps focus, closes
  * on Escape and gives focus back to the button that opened it.
  */
 export function DocsShell({ children }: { children: ReactNode }) {
@@ -29,43 +37,50 @@ export function DocsShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
           <div className="flex items-center gap-2">
-            <Dialog.Root open={open} onOpenChange={setOpen}>
-              <Dialog.Trigger asChild>
-                <button
-                  type="button"
-                  aria-label="Open navigation"
-                  className="rounded-md p-2 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-                >
-                  <Menu className="size-5" aria-hidden="true" />
-                </button>
-              </Dialog.Trigger>
-              <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20 md:hidden" />
-                <Dialog.Content
-                  aria-describedby={undefined}
-                  className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-4 overflow-y-auto border-r border-border bg-background p-4 outline-none md:hidden"
-                >
-                  <div className="flex items-center justify-between">
-                    <Dialog.Title className="paragraph-md font-semibold text-foreground">
-                      Documentation navigation
-                    </Dialog.Title>
-                    <Dialog.Close
-                      aria-label="Close navigation"
-                      className="rounded-md p-2 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <X className="size-5" aria-hidden="true" />
-                    </Dialog.Close>
-                  </div>
-                  <DocsSidebar onNavigate={() => setOpen(false)} />
-                  <a
-                    href={API_REFERENCE_HREF}
-                    className="rounded-md border-t border-border px-3 py-3 paragraph-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            <McDialog open={open} onOpenChange={setOpen}>
+              <McDialogTrigger
+                render={
+                  <McButton
+                    variant="tertiary"
+                    size="sm"
+                    icon="only"
+                    iconDefinition={<Menu aria-hidden="true" />}
+                    className="md:hidden"
                   >
-                    API reference
-                  </a>
-                </Dialog.Content>
-              </Dialog.Portal>
-            </Dialog.Root>
+                    Open navigation
+                  </McButton>
+                }
+              />
+              <McDialogContent
+                showCloseButton={false}
+                className="top-0 left-0 flex h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-none border-0 border-r border-border bg-background p-4 sm:min-h-0 md:hidden data-open:zoom-in-100 data-closed:zoom-out-100"
+              >
+                <div className="flex items-center justify-between">
+                  <McDialogTitle className="paragraph-md font-semibold text-foreground">
+                    Documentation navigation
+                  </McDialogTitle>
+                  <McDialogClose
+                    render={
+                      <McButton
+                        variant="tertiary"
+                        size="sm"
+                        icon="only"
+                        iconDefinition={<X aria-hidden="true" />}
+                      >
+                        Close navigation
+                      </McButton>
+                    }
+                  />
+                </div>
+                <DocsSidebar onNavigate={() => setOpen(false)} />
+                <a
+                  href={API_REFERENCE_HREF}
+                  className="rounded-md border-t border-border px-3 py-3 paragraph-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  API reference
+                </a>
+              </McDialogContent>
+            </McDialog>
             <Link
               href="/"
               className="flex items-center gap-2 rounded-md paragraph-md font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -81,12 +96,19 @@ export function DocsShell({ children }: { children: ReactNode }) {
             <span className="hidden paragraph-sm text-muted-foreground sm:inline">Docs</span>
           </div>
           <div className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-              <a href={API_REFERENCE_HREF}>API reference</a>
-            </Button>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/login">Admin sign in</Link>
-            </Button>
+            <a
+              href={API_REFERENCE_HREF}
+              className={cn(
+                buttonVariants({ variant: 'tertiary', size: 'sm' }),
+                'hidden bg-transparent sm:inline-flex'
+              )}
+            >
+              API reference
+            </a>
+            <ThemeToggle />
+            <Link href="/login" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+              Admin sign in
+            </Link>
           </div>
         </div>
       </header>

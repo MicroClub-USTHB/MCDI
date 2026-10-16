@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Loader2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/shared/components/ui/button';
+import { buttonVariants } from '@/shared/components/ui/mc-button';
+import { cn } from '@/shared/lib/utils';
 import { useAuthStore } from '@/features/auth/stores/auth';
 import { consumePostLoginRedirect, fetchCurrentAdmin } from '@/features/auth/api/service';
 import { mapAdminProfileToUser } from '@/features/auth/api/mappers';
@@ -103,9 +104,12 @@ export function AuthCallbackHandler() {
           Your Discord account doesn&apos;t have the role required to access the MCID admin panel.
           Contact a club admin if you believe this is a mistake.
         </p>
-        <Button asChild variant="secondary" size="sm" className="mt-2">
-          <Link href="/login">Back to login</Link>
-        </Button>
+        <Link
+          href="/login"
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'mt-2')}
+        >
+          Back to login
+        </Link>
       </div>
     );
   }
@@ -123,9 +127,12 @@ export function AuthCallbackHandler() {
           Sign-in failed
         </h1>
         <p className="max-w-sm paragraph-sm text-error">{errorMessage}</p>
-        <Button asChild variant="secondary" size="sm" className="mt-2">
-          <Link href="/login">Retry</Link>
-        </Button>
+        <Link
+          href="/login"
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'mt-2')}
+        >
+          Retry
+        </Link>
       </div>
     );
   }

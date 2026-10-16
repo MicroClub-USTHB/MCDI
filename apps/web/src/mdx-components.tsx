@@ -11,7 +11,7 @@ import { Endpoint } from '@/features/docs/components/endpoint';
 import { InboundContract } from '@/features/docs/components/inbound-contract';
 import { Steps } from '@/features/docs/components/steps';
 import { SwaggerLink } from '@/features/docs/components/swagger-link';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { McTabs, McTabsList, McTabsPanel, McTabsTrigger } from '@/shared/components/ui/mc-tabs';
 
 /** Inline code only: a block's code carries the highlighter's `language-` class. */
 function InlineCode({ className, ...props }: ComponentProps<'code'>) {
@@ -39,10 +39,11 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Endpoint,
     SwaggerLink,
     InboundContract,
-    Tabs,
-    TabsList,
-    TabsTrigger,
-    TabsContent,
+    // The MDX content uses the <Tabs>/<TabsList>/<TabsTrigger>/<TabsContent> tag names.
+    Tabs: (props: ComponentProps<typeof McTabs>) => <McTabs className="my-5" {...props} />,
+    TabsList: McTabsList,
+    TabsTrigger: McTabsTrigger,
+    TabsContent: McTabsPanel,
     ...components,
   };
 }
