@@ -12,7 +12,7 @@ import {
   RoleList,
 } from '@/features/members/components';
 import { useMemberPermissionsQueries, useMemberQuery } from '@/features/members/api/queries';
-import { Button } from '@/shared/components/ui/button';
+import { McButton, buttonVariants } from '@/shared/components/ui/mc-button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { LoadingSkeleton } from '@/shared/components/common';
 import { ROOT_ONLY } from '@/shared/lib/access';
@@ -69,28 +69,34 @@ export default function MemberDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
-        <Button variant="secondary" onClick={() => router.push('/dashboard/members')}>
-          <ArrowLeft className="size-4" aria-hidden="true" />
+        <McButton
+          variant="secondary"
+          icon="leading"
+          iconDefinition={<ArrowLeft aria-hidden="true" />}
+          onClick={() => router.push('/dashboard/members')}
+        >
           Back to members
-        </Button>
+        </McButton>
         <div className="flex items-center gap-2">
           {isRoot ? (
-            <Button variant="secondary" asChild>
-              <Link href={`/dashboard/members/${encodeURIComponent(discordId)}/access`}>
-                Access
-              </Link>
-            </Button>
+            <Link
+              href={`/dashboard/members/${encodeURIComponent(discordId)}/access`}
+              className={buttonVariants({ variant: 'secondary' })}
+            >
+              Access
+            </Link>
           ) : null}
-          <Button
+          <McButton
             variant="secondary"
+            icon="leading"
+            iconDefinition={<RefreshCcw aria-hidden="true" />}
             onClick={() => {
               void memberQuery.refetch();
               void permissionsQuery.refetch();
             }}
           >
-            <RefreshCcw className="size-4" aria-hidden="true" />
             Refresh
-          </Button>
+          </McButton>
         </div>
       </div>
 

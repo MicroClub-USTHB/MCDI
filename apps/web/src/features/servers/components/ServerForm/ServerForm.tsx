@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/components/ui/select';
-import { Switch } from '@/shared/components/ui/switch';
+  McSelect,
+  McSelectContent,
+  McSelectItem,
+  McSelectTrigger,
+  McSelectValue,
+} from '@/shared/components/ui/mc-select';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
 import { useCan } from '@/shared/lib/use-access';
 import type { CreateServerPayload, ServerDto, UpdateServerPayload } from '@/features/servers/types';
 import {
@@ -35,6 +34,23 @@ type ServerFormProps =
       onSubmit: (payload: UpdateServerPayload) => void | Promise<void>;
       isSubmitting?: boolean;
     };
+
+const TYPE_ITEMS: { value: CreateServerFormValues['type']; label: string }[] = [
+  { value: 'main', label: 'Main' },
+  { value: 'competition', label: 'Competition' },
+  { value: 'event', label: 'Event' },
+  { value: 'other', label: 'Other' },
+];
+
+const POLICY_ITEMS: { value: CreateServerFormValues['defaultPermissionPolicy']; label: string }[] =
+  [
+    { value: 'deny_all', label: 'Deny all' },
+    { value: 'allow_all', label: 'Allow all' },
+    { value: 'custom', label: 'Custom' },
+  ];
+
+const LABEL_CLASS = 'text-sm font-medium text-muted-foreground';
+const SELECT_CONTENT_CLASS = 'h-auto max-h-80 w-(--anchor-width)';
 
 const DEFAULT_VALUES: CreateServerFormValues = {
   guildId: '',
@@ -122,113 +138,114 @@ function ServerForm(props: ServerFormProps) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="guildId">Discord Guild ID</Label>
-          <Input
-            id="guildId"
-            value={values.guildId}
-            onChange={(event) => setField('guildId', event.target.value)}
-            placeholder="123456789012345678"
-            disabled={props.mode === 'edit'}
-            aria-invalid={!!errors.guildId}
-          />
-          {errors.guildId && <p className="text-body text-error">{errors.guildId}</p>}
-        </div>
+        <McInput
+          id="guildId"
+          label="Discord Guild ID"
+          value={values.guildId}
+          onChange={(event) => setField('guildId', event.target.value)}
+          placeholder="123456789012345678"
+          disabled={props.mode === 'edit'}
+          error={errors.guildId}
+        />
+
+        <McInput
+          id="name"
+          label="Server Name"
+          value={values.name}
+          onChange={(event) => setField('name', event.target.value)}
+          placeholder="Auto-filled from Discord"
+          error={errors.name}
+        />
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="name">Server Name</Label>
-          <Input
-            id="name"
-            value={values.name}
-            onChange={(event) => setField('name', event.target.value)}
-            placeholder="Auto-filled from Discord"
-            aria-invalid={!!errors.name}
-          />
-          {errors.name && <p className="text-body text-error">{errors.name}</p>}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="type">Server Type</Label>
-          <Select
+          <label htmlFor="type" className={LABEL_CLASS}>
+            Server Type
+          </label>
+          <McSelect
+            items={TYPE_ITEMS}
             value={values.type}
-            onValueChange={(value) => setField('type', value as CreateServerFormValues['type'])}
+            onValueChange={(value) => {
+              if (value) setField('type', value);
+            }}
+            disabled={readOnly}
           >
-            <SelectTrigger id="type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="main">Main</SelectItem>
-              <SelectItem value="competition">Competition</SelectItem>
-              <SelectItem value="event">Event</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
+            <McSelectTrigger id="type" className="w-full">
+              <McSelectValue />
+            </McSelectTrigger>
+            <McSelectContent className={SELECT_CONTENT_CLASS}>
+              {TYPE_ITEMS.map((item) => (
+                <McSelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </McSelectItem>
+              ))}
+            </McSelectContent>
+          </McSelect>
         </div>
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="isMain">Is Main Server</Label>
-            <Switch
+            <label htmlFor="isMain" className={LABEL_CLASS}>
+              Is Main Server
+            </label>
+            <McSwitch
               id="isMain"
               checked={isMainLocked ? true : values.isMain}
-              disabled={isMainLocked}
+              disabled={isMainLocked || readOnly}
               onCheckedChange={(checked) => setField('isMain', checked)}
             />
           </div>
           {isMainLocked && (
-            <p className="text-body text-text-muted">
+            <p className="paragraph-sm text-muted-foreground">
               To change the main server, set a different server as main from its own edit page.
             </p>
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="syncFrequencyHours">Sync Frequency (hours)</Label>
-          <Input
-            id="syncFrequencyHours"
-            type="number"
-            min={1}
-            max={24}
-            value={values.syncFrequencyHours}
-            onChange={(event) => setField('syncFrequencyHours', Number(event.target.value))}
-            aria-invalid={!!errors.syncFrequencyHours}
-          />
-          {errors.syncFrequencyHours && (
-            <p className="text-body text-error">{errors.syncFrequencyHours}</p>
-          )}
-        </div>
+        <McInput
+          id="syncFrequencyHours"
+          label="Sync Frequency (hours)"
+          type="number"
+          min={1}
+          max={24}
+          value={values.syncFrequencyHours}
+          onChange={(event) => setField('syncFrequencyHours', Number(event.target.value))}
+          error={errors.syncFrequencyHours}
+        />
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="defaultPermissionPolicy">Default Permission Policy</Label>
-          <Select
+          <label htmlFor="defaultPermissionPolicy" className={LABEL_CLASS}>
+            Default Permission Policy
+          </label>
+          <McSelect
+            items={POLICY_ITEMS}
             value={values.defaultPermissionPolicy}
-            onValueChange={(value) =>
-              setField(
-                'defaultPermissionPolicy',
-                value as CreateServerFormValues['defaultPermissionPolicy']
-              )
-            }
+            onValueChange={(value) => {
+              if (value) setField('defaultPermissionPolicy', value);
+            }}
+            disabled={readOnly}
           >
-            <SelectTrigger id="defaultPermissionPolicy">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="deny_all">Deny all</SelectItem>
-              <SelectItem value="allow_all">Allow all</SelectItem>
-              <SelectItem value="custom">Custom</SelectItem>
-            </SelectContent>
-          </Select>
+            <McSelectTrigger id="defaultPermissionPolicy" className="w-full">
+              <McSelectValue />
+            </McSelectTrigger>
+            <McSelectContent className={SELECT_CONTENT_CLASS}>
+              {POLICY_ITEMS.map((item) => (
+                <McSelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </McSelectItem>
+              ))}
+            </McSelectContent>
+          </McSelect>
         </div>
       </fieldset>
 
       {readOnly ? (
-        <Badge variant="secondary" className="self-start">
+        <McBadge variant="outline" className="self-start">
           Read only
-        </Badge>
+        </McBadge>
       ) : (
-        <Button type="submit" variant="primary" disabled={isSubmitting} className="mt-2">
+        <McButton type="submit" variant="primary" disabled={isSubmitting} className="mt-2">
           {props.mode === 'create' ? 'Add Server' : 'Save Changes'}
-        </Button>
+        </McButton>
       )}
     </form>
   );

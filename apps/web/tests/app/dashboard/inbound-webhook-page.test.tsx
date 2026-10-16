@@ -3,11 +3,11 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '../../setup';
 import { WebhookView } from '@/app/dashboard/projects/[id]/inbound-webhooks/[webhookId]/webhook-view';
-import { useToastStore } from '@/shared/stores/toast';
+import { toastMessages } from '../../helpers/toasts';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -104,7 +104,6 @@ function serve(
 }
 
 beforeEach(() => localStorage.clear());
-afterEach(() => useToastStore.setState({ toasts: [] }));
 
 describe('Inbound webhook page: submissions', () => {
   it('shows the webhook and, by default, the first three answers in schema order', async () => {
@@ -308,11 +307,7 @@ describe('Inbound webhook page: header and settings', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain(
-        'name too long'
-      )
-    );
+    await waitFor(() => expect(toastMessages()).toContain('name too long'));
     expect(screen.getByLabelText('Name')).toHaveValue('Recruitmentx');
   });
 });

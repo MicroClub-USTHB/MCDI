@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McCard, McCardContent } from '@/shared/components/ui/mc-card';
 import type { MemberPermissionsDto } from '@/features/members/types';
 
 interface MemberPermissionsPanelProps {
@@ -31,7 +31,7 @@ function PermissionTree({ value }: { value: unknown }) {
     return (
       <ul className="space-y-2">
         {value.map((item, index) => (
-          <li key={index} className="rounded-md border border-border bg-surface-base p-3">
+          <li key={index} className="rounded-md border border-border bg-background p-3">
             <PermissionTree value={item} />
           </li>
         ))}
@@ -44,8 +44,10 @@ function PermissionTree({ value }: { value: unknown }) {
     return (
       <div className="space-y-2">
         {entries.map(([key, item]) => (
-          <div key={key} className="rounded-md border border-border bg-surface-base p-3">
-            <div className="mb-2 text-overline text-text-subtle">{key}</div>
+          <div key={key} className="rounded-md border border-border bg-background p-3">
+            <div className="mb-2 paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              {key}
+            </div>
             <PermissionTree value={item} />
           </div>
         ))}
@@ -54,58 +56,62 @@ function PermissionTree({ value }: { value: unknown }) {
   }
 
   if (typeof value === 'boolean') {
-    return <Badge variant={value ? 'success' : 'error'}>{value ? 'Allowed' : 'Denied'}</Badge>;
+    return value ? (
+      <McBadge variant="outline" className="border-success/30 bg-success/10 text-success">
+        Allowed
+      </McBadge>
+    ) : (
+      <McBadge variant="destructive">Denied</McBadge>
+    );
   }
 
   const formattedValue = formatValue(value);
 
   if (formattedValue === '') {
-    return <span className="text-body text-text-muted">Unsupported value</span>;
+    return <span className="paragraph-sm text-muted-foreground">Unsupported value</span>;
   }
 
-  return <span className="text-body text-text-normal">{formattedValue}</span>;
+  return <span className="paragraph-sm text-foreground">{formattedValue}</span>;
 }
 
 export function MemberPermissionsPanel({ permissionsByServer }: MemberPermissionsPanelProps) {
   return (
     <section className="space-y-4" aria-label="Member permissions">
-      <h2 className="text-heading text-text-primary">Resolved permissions</h2>
+      <h2 className="header-xs font-bold text-foreground">Resolved permissions</h2>
       <div className="space-y-4">
         {permissionsByServer.map((server) => (
-          <Card key={server.serverId}>
-            <CardHeader className="pb-0">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle>{server.serverName}</CardTitle>
-                {server.permissions ? (
-                  <span className="text-overline text-text-faint">
-                    {server.permissions.permissions.length} permission
-                    {server.permissions.permissions.length === 1 ? '' : 's'}
-                  </span>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <McCard key={server.serverId}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="header-xs font-bold text-card-foreground">{server.serverName}</h3>
+              {server.permissions ? (
+                <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                  {server.permissions.permissions.length} permission
+                  {server.permissions.permissions.length === 1 ? '' : 's'}
+                </span>
+              ) : null}
+            </div>
+            <McCardContent className="space-y-4">
               {server.permissions ? (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <p className="text-body text-text-muted">
+                    <p className="paragraph-sm text-muted-foreground">
                       Discord ID: {server.permissions.discordId}
                     </p>
-                    <p className="text-body text-text-muted">
+                    <p className="paragraph-sm text-muted-foreground">
                       Server ID: {server.permissions.serverId}
                     </p>
                   </div>
                   {server.permissions.permissions.length > 0 ? (
                     <PermissionTree value={server.permissions} />
                   ) : (
-                    <p className="text-body text-text-muted">No permissions returned.</p>
+                    <p className="paragraph-sm text-muted-foreground">No permissions returned.</p>
                   )}
                 </div>
               ) : (
-                <p className="text-body text-text-muted">No permissions data returned.</p>
+                <p className="paragraph-sm text-muted-foreground">No permissions data returned.</p>
               )}
-            </CardContent>
-          </Card>
+            </McCardContent>
+          </McCard>
         ))}
       </div>
     </section>

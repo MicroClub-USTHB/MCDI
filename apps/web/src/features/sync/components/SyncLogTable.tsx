@@ -1,13 +1,12 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
-import { Badge } from '@/shared/components/ui/badge';
 import type { SyncLogEntry } from '@/features/sync/api/mappers';
 import { formatAbsoluteTime, formatDuration, formatRelativeTime } from '@/features/sync/lib/format';
+import { SyncToneBadge } from './SyncToneBadge';
 
 interface SyncLogTableProps {
   logs: SyncLogEntry[];
@@ -33,17 +32,17 @@ export function SyncLogTable({
   onPageChange,
   emptyState,
 }: SyncLogTableProps) {
-  const columns = useMemo<ColumnDef<SyncLogEntry>[]>(
+  const columns = useMemo<DataTableColumn<SyncLogEntry>[]>(
     () => [
       {
         id: 'startedAt',
         header: 'Started',
         cell: ({ row }) => (
           <div className="flex flex-col">
-            <span className="text-body text-text-normal">
+            <span className="paragraph-sm text-foreground">
               {formatRelativeTime(row.original.startedAt) ?? '—'}
             </span>
-            <span className="font-mono text-overline text-text-subtle">
+            <span className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
               {formatAbsoluteTime(row.original.startedAt) ?? ''}
             </span>
           </div>
@@ -53,7 +52,9 @@ export function SyncLogTable({
         id: 'type',
         header: 'Type',
         cell: ({ row }) => (
-          <span className="text-body text-text-muted capitalize">{row.original.syncType}</span>
+          <span className="paragraph-sm text-muted-foreground capitalize">
+            {row.original.syncType}
+          </span>
         ),
       },
       {
@@ -63,10 +64,10 @@ export function SyncLogTable({
           const { tone, label } = row.original.meta;
           return (
             <div className="flex flex-col gap-1">
-              <Badge variant={tone === 'neutral' ? 'secondary' : tone}>{label}</Badge>
+              <SyncToneBadge tone={tone}>{label}</SyncToneBadge>
               {row.original.status === 'failed' && row.original.message && (
                 <span
-                  className="max-w-64 truncate text-overline text-error"
+                  className="max-w-64 truncate paragraph-xs font-semibold tracking-wide text-error"
                   title={row.original.message}
                 >
                   {row.original.message}
@@ -80,7 +81,7 @@ export function SyncLogTable({
         id: 'synced',
         header: 'Synced',
         cell: ({ row }) => (
-          <span className="text-body text-text-normal">
+          <span className="paragraph-sm text-foreground">
             {row.original.membersSynced.toLocaleString()} members ·{' '}
             {row.original.rolesSynced.toLocaleString()} roles
           </span>
@@ -90,7 +91,7 @@ export function SyncLogTable({
         id: 'duration',
         header: 'Duration',
         cell: ({ row }) => (
-          <span className="font-mono text-overline text-text-subtle">
+          <span className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
             {formatDuration(row.original.durationMs) ?? '—'}
           </span>
         ),

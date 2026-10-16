@@ -29,7 +29,6 @@ export {
   CrossServerView,
   RoleList,
   MemberPermissionsPanel,
-  SearchInput,
 } from './components';
 export type {
   CrossServerListItemDto,

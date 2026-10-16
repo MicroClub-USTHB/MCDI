@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ShieldOff } from 'lucide-react';
 
 import { useAuthStore } from '@/features/auth/stores/auth';
-import { Button } from '@/shared/components/ui/button';
+import { buttonVariants } from '@/shared/components/ui/mc-button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import type { Requirement } from '@/shared/lib/access';
 import { describeRequirement } from '@/shared/lib/access-labels';
@@ -19,9 +19,12 @@ export function NoAccessYet() {
       title="No access yet"
       description={`${name ? `You are signed in as ${name}, but you` : 'You'} have not been given access to any part of MCID. Ask an admin to grant your role access to what you need.`}
       action={
-        <Button variant="secondary" size="sm" asChild>
-          <Link href="/dashboard/settings">Open Settings</Link>
-        </Button>
+        <Link
+          href="/dashboard/settings"
+          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+        >
+          Open Settings
+        </Link>
       }
     />
   );
@@ -46,11 +49,9 @@ export function AccessDenied({ requirement, href }: AccessDeniedProps) {
           : 'This page is not available.'
       }
       action={
-        <Button variant="secondary" size="sm" asChild>
-          <Link href={href}>
-            {href === '/dashboard' ? 'Go to the dashboard' : 'Go to a page you can use'}
-          </Link>
-        </Button>
+        <Link href={href} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+          {href === '/dashboard' ? 'Go to the dashboard' : 'Go to a page you can use'}
+        </Link>
       }
     />
   );

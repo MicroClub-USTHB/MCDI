@@ -5,9 +5,9 @@ import clsx from 'clsx';
 // `clsx`, not `cn`: tailwind-merge does not know the custom font-size tokens and would drop them next to a colour class.
 
 const STYLES = {
-  2: 'mt-12 mb-4 text-hero text-text-primary',
-  3: 'mt-8 mb-3 text-heading text-text-primary',
-  4: 'mt-6 mb-2 text-subhead text-text-primary',
+  2: 'mt-12 mb-4 header-xs font-bold text-foreground',
+  3: 'mt-8 mb-3 paragraph-md font-semibold text-foreground',
+  4: 'mt-6 mb-2 paragraph-sm font-semibold text-foreground',
 } as const;
 
 function textOf(node: ReactNode): string {
@@ -32,7 +32,7 @@ export function DocHeading({ level, id, children, className, ...props }: DocHead
         <a
           href={`#${id}`}
           aria-label={`Link to ${textOf(children)}`}
-          className="ml-2 rounded-sm text-text-subtle no-underline opacity-0 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="ml-2 rounded-sm text-muted-foreground no-underline opacity-0 outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span aria-hidden="true">#</span>
         </a>

@@ -27,7 +27,10 @@ export function DocsSidebar({ onNavigate }: DocsSidebarProps) {
             aria-labelledby={headingId}
             className="flex flex-col gap-1"
           >
-            <p id={headingId} className="px-3 text-overline text-text-subtle uppercase">
+            <p
+              id={headingId}
+              className="px-3 paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase"
+            >
               {section.title}
             </p>
             {section.pages.map((page) => {
@@ -39,10 +42,10 @@ export function DocsSidebar({ onNavigate }: DocsSidebarProps) {
                   aria-current={isCurrent ? 'page' : undefined}
                   onClick={onNavigate}
                   className={clsx(
-                    'rounded-md px-3 py-2 text-body outline-none transition-colors focus-visible:ring-2 focus-visible:ring-border-focus',
+                    'rounded-md px-3 py-2 paragraph-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
                     isCurrent
-                      ? 'bg-surface-active text-text-primary'
-                      : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
+                      ? 'bg-secondary text-foreground'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   )}
                 >
                   {page.title}

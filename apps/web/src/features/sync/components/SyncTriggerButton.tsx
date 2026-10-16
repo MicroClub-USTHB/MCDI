@@ -1,8 +1,8 @@
 'use client';
 
-import { Loader2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import type { TriggerFullSyncPayload } from '@/features/sync/types';
 
 interface SyncTriggerButtonProps {
@@ -26,22 +26,20 @@ export function SyncTriggerButton({
   const label = target === 'all' ? 'Sync all servers' : 'Sync now';
 
   return (
-    <Button
+    <McButton
       type="button"
       variant={target === 'all' ? 'primary' : 'secondary'}
       size={size}
+      icon="leading"
+      iconDefinition={<RefreshCw aria-hidden="true" />}
+      isLoading={isPending}
       onClick={() =>
         onTrigger(target === 'all' ? { target: 'all' } : { serverIds: serverIds ?? [] })
       }
       disabled={disabled || isPending}
       aria-busy={isPending}
     >
-      {isPending ? (
-        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-      ) : (
-        <RefreshCw className="size-4" aria-hidden="true" />
-      )}
-      <span>{isPending ? 'Starting…' : label}</span>
-    </Button>
+      {isPending ? 'Starting…' : label}
+    </McButton>
   );
 }

@@ -2,7 +2,7 @@
 
 import { Component, type ReactNode } from 'react';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 
 interface Props {
   children: ReactNode;
@@ -51,13 +51,13 @@ export class ErrorBoundary extends Component<Props, State> {
               />
             </svg>
           </div>
-          <h2 className="text-hero text-text-primary">Something went wrong</h2>
-          <p className="text-body text-text-muted">
+          <h2 className="header-xs font-bold text-foreground">Something went wrong</h2>
+          <p className="paragraph-sm text-muted-foreground">
             {this.state.error?.message || 'An unexpected error occurred'}
           </p>
-          <Button size="sm" onClick={() => this.setState({ hasError: false })} className="mt-2">
+          <McButton size="sm" onClick={() => this.setState({ hasError: false })} className="mt-2">
             Try again
-          </Button>
+          </McButton>
         </div>
       );
     }

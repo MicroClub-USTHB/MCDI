@@ -180,7 +180,7 @@ describe('members flow', () => {
     await waitFor(() => expect(listRequestUrl?.searchParams.get('search')).toBe('club'));
 
     await user.click(screen.getByRole('button', { name: 'Servers' }));
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Main Server' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Main Server' }));
     await user.keyboard('{Escape}');
 
     await user.click(screen.getByRole('button', { name: 'Roles' }));

@@ -13,12 +13,12 @@ import {
   type Draft,
 } from '@/features/access/lib/grants';
 import type { AccessCatalogDto, AccessRoleDto } from '@/features/access/types';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const OPTIONS: LevelOption<Draft[keyof Draft]>[] = [
   { value: 'none', label: 'None' },
@@ -32,7 +32,6 @@ const OPTIONS: LevelOption<Draft[keyof Draft]>[] = [
  * another role is picked. The save replaces every grant of the role in one request.
  */
 export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: AccessCatalogDto }) {
-  const showToast = useToastStore((state) => state.show);
   const mutation = useSetRoleGrantsMutation();
 
   const saved = useMemo(() => draftFromGrants(role.grants), [role.grants]);
@@ -52,13 +51,13 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
 
   if (role.root) {
     return (
-      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">
         <div className="flex items-center gap-2">
-          <Lock className="size-4 text-text-muted" aria-hidden="true" />
-          <h2 className="text-heading text-text-primary">{role.name}</h2>
-          <Badge variant="secondary">Root</Badge>
+          <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
+          <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
+          <McBadge variant="outline">Root</McBadge>
         </div>
-        <p className="text-body text-text-muted">
+        <p className="paragraph-sm text-muted-foreground">
           A root role holds full access to everything. It is set by the API configuration and cannot
           be edited here.
         </p>
@@ -84,27 +83,27 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5">
+    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-heading text-text-primary">{role.name}</h2>
+        <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
         <div className="flex gap-2">
-          <Button
+          <McButton
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => setEdits(null)}
           >
             Discard
-          </Button>
-          <Button
+          </McButton>
+          <McButton
             type="button"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => (lowered.length > 0 ? setConfirming(true) : save())}
           >
             {mutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         </div>
       </header>
 

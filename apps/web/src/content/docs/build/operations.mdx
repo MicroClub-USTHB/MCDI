@@ -244,7 +244,7 @@ and the diff points at the `<html>` element, with a class such as `js-storylane-
 **Symptom.** Images from `public/` do not load before sign-in, and the dev server logs:
 
 ```text
-The requested resource isn't a valid image for /landing/admin-panel.webp received null
+The requested resource isn't a valid image for /landing/admin-panel-light.webp received null
 ```
 
 **Cause.** The login proxy redirected the request for the image to `/login`. Next.js's image optimizer fetches files without cookies, so it received an HTML page and rejected it. This was a bug in the proxy matcher, fixed by excluding image files from it.

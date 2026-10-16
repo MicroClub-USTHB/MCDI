@@ -10,7 +10,8 @@ export const LANDING = {
   docs: { label: 'Read the docs', href: DOCS_HREF },
   signIn: { label: 'Admin sign in', href: SIGN_IN_HREF },
   screenshot: {
-    src: '/landing/admin-panel.webp',
+    src: '/landing/admin-panel-light.webp',
+    srcDark: '/landing/admin-panel-dark.webp',
     width: 1960,
     height: 1360,
     alt: 'The MCID admin panel showing the submissions of a hackathon registration webhook: a table of teams with their track and email.',

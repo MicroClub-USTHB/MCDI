@@ -29,7 +29,8 @@ describe('LogoutButton', () => {
   it('renders icon-only with an accessible label when iconOnly is set', () => {
     render(<LogoutButton iconOnly />, { wrapper });
     const button = screen.getByRole('button', { name: 'Log out' });
-    expect(button).toHaveAttribute('aria-label', 'Log out');
-    expect(button).not.toHaveTextContent('Log out');
+    // The label stays in the accessible name but is visually hidden; only the icon shows.
+    expect(button.querySelector('.sr-only')).toHaveTextContent('Log out');
+    expect(button.querySelector('svg')).toBeInTheDocument();
   });
 });

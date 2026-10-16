@@ -3,13 +3,13 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '../../setup';
 import { InboundWebhooksView } from '@/app/dashboard/projects/[id]/inbound-webhooks/inbound-webhooks-view';
 import { CreateWebhookForm } from '@/features/inbound-webhooks/components/create-webhook-form';
 import { DefaultReadersSettings } from '@/features/inbound-webhooks/components/default-readers-settings';
-import { useToastStore } from '@/shared/stores/toast';
+import { toastMessages } from '../../helpers/toasts';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -119,7 +119,6 @@ function servePreview() {
 }
 
 beforeEach(() => push.mockClear());
-afterEach(() => useToastStore.setState({ toasts: [] }));
 
 describe('Inbound webhooks list', () => {
   it('lists the webhooks with their readers and counts', async () => {
@@ -339,11 +338,7 @@ describe('Create inbound webhook', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Create webhook' }));
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain(
-        'slug already taken'
-      )
-    );
+    await waitFor(() => expect(toastMessages()).toContain('slug already taken'));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

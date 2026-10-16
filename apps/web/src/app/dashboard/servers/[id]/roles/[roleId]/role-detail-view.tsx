@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, Shield } from 'lucide-react';
 
 import {
   useRoleStatsQuery,
@@ -26,10 +26,11 @@ import {
   HierarchyTree,
 } from '@/features/roles/components';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
-import { Button } from '@/shared/components/ui/button';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
 import { cn } from '@/shared/lib/utils';
-import { useToastStore } from '@/shared/stores';
+import { showToast } from '@/shared/stores';
 
 interface RoleDetailViewProps {
   roleId: string;
@@ -50,16 +51,15 @@ function Panel({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        'flex min-h-0 flex-col rounded-lg border border-border bg-surface-raised',
-        className
-      )}
-    >
+    <div className={cn('flex min-h-0 flex-col rounded-lg border border-border bg-card', className)}>
       <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-        <h2 className="text-overline text-text-subtle uppercase">{title}</h2>
+        <h2 className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h2>
         {count !== undefined && (
-          <span className="text-overline text-text-faint tabular-nums">{count}</span>
+          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums">
+            {count}
+          </span>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
@@ -69,7 +69,6 @@ function Panel({
 
 function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   const router = useRouter();
-  const toast = useToastStore((s) => s.show);
   const canWrite = useCan('roles', 'write');
   const canManage = useCan('roles', 'manage');
 
@@ -156,11 +155,11 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
       for (const id of removeIds) await removeMutation.mutateAsync(id);
       await rolePermissionsQuery.refetch();
       setStaged(new Map());
-      toast(`Applied ${total} permission change${total === 1 ? '' : 's'}.`, 'success');
+      showToast(`Applied ${total} permission change${total === 1 ? '' : 's'}.`, 'success');
     } catch {
       await rolePermissionsQuery.refetch();
       setStaged(new Map());
-      toast('Some changes could not be applied. Review and retry.', 'error');
+      showToast('Some changes could not be applied. Review and retry.', 'error');
     } finally {
       setIsApplying(false);
     }
@@ -170,30 +169,32 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Button
+      <McButton
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="sm"
+        icon="leading"
+        iconDefinition={<ArrowLeft aria-hidden="true" />}
         onClick={() => router.push(`/dashboard/servers/${serverId}/roles`)}
         className="-ml-2 w-fit"
       >
-        <ArrowLeft aria-hidden="true" />
         Roles
-      </Button>
+      </McButton>
 
       {!stats && statsQuery.isPending && <SkeletonCard lines={4} />}
 
       {statsQuery.isError && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-6">
-          <p className="text-body text-error">Failed to load roles.</p>
-          <Button
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-6">
+          <p className="paragraph-sm text-error">Failed to load roles.</p>
+          <McButton
             type="button"
             variant="secondary"
             size="sm"
+            className="self-start"
             onClick={() => void statsQuery.refetch()}
           >
             Retry
-          </Button>
+          </McButton>
         </div>
       )}
 
@@ -227,7 +228,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
           </aside>
 
           {/* ── Right: selected role's permissions ── */}
-          <section className="flex min-h-0 min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5 lg:overflow-hidden">
+          <section className="flex min-h-0 min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5 lg:overflow-hidden">
             <header className="shrink-0">
               <div className="flex min-w-0 items-center gap-2">
                 <span
@@ -237,17 +238,20 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                   }
                   aria-hidden="true"
                 />
-                <h1 className="truncate text-heading text-text-primary">
+                <h1 className="truncate header-xs font-bold text-foreground">
                   {selectedRole?.displayName ?? 'Role'}
                 </h1>
                 {isExecutiveRole && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-2 py-0.5 text-overline text-warning">
-                    <Shield className="size-3" aria-hidden="true" />
+                  <McBadge
+                    variant="outline"
+                    icon={<Shield aria-hidden="true" />}
+                    className="shrink-0 border-warning/30 bg-warning/10 text-warning"
+                  >
                     Executive
-                  </span>
+                  </McBadge>
                 )}
               </div>
-              <p className="mt-1 text-overline text-text-subtle">
+              <p className="mt-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 {permissionCount} permission{permissionCount === 1 ? '' : 's'} ·{' '}
                 {selectedRole?.memberCount ?? 0} member
                 {selectedRole?.memberCount === 1 ? '' : 's'} · Level{' '}
@@ -264,7 +268,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
             {currentRolePerms && (
               <>
                 {isExecutiveRole && (
-                  <div className="shrink-0 rounded-lg border border-warning/30 bg-warning/12 px-4 py-3 text-body text-warning">
+                  <div className="shrink-0 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 paragraph-sm text-warning">
                     Executive role — permissions are locked.
                   </div>
                 )}
@@ -279,10 +283,10 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
 
                 {staged.size > 0 && (
                   <div
-                    className="flex shrink-0 flex-col gap-3 rounded-lg border border-border bg-surface-base p-4"
+                    className="flex shrink-0 flex-col gap-3 rounded-lg border border-border bg-background p-4"
                     aria-live="polite"
                   >
-                    <p className="text-body text-text-primary">
+                    <p className="paragraph-sm text-foreground">
                       {[
                         addIds.length > 0 ? `${addIds.length} to add` : null,
                         removeIds.length > 0 ? `${removeIds.length} to remove` : null,
@@ -293,7 +297,9 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
 
                     {addIds.length > 0 &&
                       (addImpact.isPending ? (
-                        <p className="text-body text-text-muted">Checking impact of additions…</p>
+                        <p className="paragraph-sm text-muted-foreground">
+                          Checking impact of additions…
+                        </p>
                       ) : addImpact.data ? (
                         <ImpactPreview
                           affectedMembers={addImpact.data.affectedMembers}
@@ -304,7 +310,9 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
 
                     {removeIds.length > 0 &&
                       (removeImpact.isPending ? (
-                        <p className="text-body text-text-muted">Checking impact of removals…</p>
+                        <p className="paragraph-sm text-muted-foreground">
+                          Checking impact of removals…
+                        </p>
                       ) : removeImpact.data ? (
                         <ImpactPreview
                           affectedMembers={removeImpact.data.affectedMembers}
@@ -314,13 +322,15 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                       ) : null)}
 
                     <div className="flex items-center gap-2">
-                      <Button type="button" size="sm" onClick={handleApply} disabled={isApplying}>
-                        {isApplying && (
-                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                        )}
+                      <McButton
+                        type="button"
+                        size="sm"
+                        onClick={handleApply}
+                        isLoading={isApplying}
+                      >
                         Apply {staged.size} change{staged.size === 1 ? '' : 's'}
-                      </Button>
-                      <Button
+                      </McButton>
+                      <McButton
                         type="button"
                         variant="secondary"
                         size="sm"
@@ -328,7 +338,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                         disabled={isApplying}
                       >
                         Discard
-                      </Button>
+                      </McButton>
                     </div>
                   </div>
                 )}

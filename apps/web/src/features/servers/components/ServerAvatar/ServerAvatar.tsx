@@ -8,13 +8,21 @@ interface ServerAvatarProps {
 }
 
 const SIZE_CLASSES = {
-  sm: 'size-8 text-overline',
-  md: 'size-10 text-body',
-  lg: 'size-14 text-subhead',
+  sm: 'size-8 paragraph-xs font-semibold tracking-wide',
+  md: 'size-10 paragraph-sm',
+  lg: 'size-14 paragraph-sm font-semibold',
 } as const;
 
-/** One of `brand`/`success`/`accent`, chosen deterministically from the server name. */
-const COLOR_CLASSES = ['bg-brand', 'bg-success', 'bg-accent'] as const;
+/**
+ * One of the primary, success or secondary tile colours, chosen deterministically from the
+ * server name. Each pairs a background with its own foreground token, so the initials stay
+ * readable in light and dark mode.
+ */
+const COLOR_CLASSES = [
+  'bg-primary text-primary-foreground',
+  'bg-success text-success-foreground',
+  'bg-secondary text-secondary-foreground',
+] as const;
 
 function getInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -34,7 +42,7 @@ function ServerAvatar({ name, icon, size = 'md', className }: ServerAvatarProps)
       <img
         src={icon}
         alt={name}
-        className={cn('rounded-[10px] object-cover', SIZE_CLASSES[size], className)}
+        className={cn('rounded-lg object-cover', SIZE_CLASSES[size], className)}
       />
     );
   }
@@ -42,7 +50,7 @@ function ServerAvatar({ name, icon, size = 'md', className }: ServerAvatarProps)
   return (
     <div
       className={cn(
-        'flex items-center justify-center rounded-[10px] font-semibold text-on-brand',
+        'flex items-center justify-center rounded-lg font-semibold',
         SIZE_CLASSES[size],
         getColorClass(name),
         className

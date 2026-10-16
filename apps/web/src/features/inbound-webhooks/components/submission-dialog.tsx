@@ -2,8 +2,13 @@
 
 import { formatDate } from '@/features/inbound-webhooks/api/mappers';
 import { useSubmissionQuery } from '@/features/inbound-webhooks/api/queries';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import {
+  McDialog,
+  McDialogContent,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 
 interface SubmissionDialogProps {
   webhookId: string;
@@ -14,8 +19,8 @@ interface SubmissionDialogProps {
 function Detail({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-overline text-text-subtle">{label}</dt>
-      <dd className="text-body break-all text-text-normal">{value || '—'}</dd>
+      <dt className="paragraph-xs font-semibold tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="paragraph-sm break-all text-foreground">{value || '—'}</dd>
     </div>
   );
 }
@@ -26,17 +31,17 @@ export function SubmissionDialog({ webhookId, submissionId, onClose }: Submissio
   const submission = query.data;
 
   return (
-    <Dialog open={submissionId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Submission</DialogTitle>
-        </DialogHeader>
+    <McDialog open={submissionId !== null} onOpenChange={(open) => !open && onClose()}>
+      <McDialogContent className="w-[min(42rem,calc(100%-2rem))] sm:min-h-0">
+        <McDialogHeader>
+          <McDialogTitle>Submission</McDialogTitle>
+        </McDialogHeader>
         {query.isError ? (
-          <p role="alert" className="text-body text-error">
+          <p role="alert" className="paragraph-sm text-error">
             This submission could not be loaded.
           </p>
         ) : !submission ? (
-          <Skeleton className="h-48 w-full" />
+          <McSkeleton rectangle className="h-48 w-full" />
         ) : (
           <div className="flex min-h-0 flex-col gap-4">
             <dl className="grid gap-3 sm:grid-cols-2">
@@ -46,17 +51,19 @@ export function SubmissionDialog({ webhookId, submissionId, onClose }: Submissio
               <Detail label="User agent" value={submission.userAgent} />
             </dl>
             <div className="min-h-0">
-              <p className="text-overline text-text-subtle">Payload</p>
+              <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                Payload
+              </p>
               <pre
                 aria-label="Payload"
-                className="mt-2 max-h-80 overflow-auto rounded-md bg-surface-base p-3 font-mono text-code text-text-normal"
+                className="mt-2 max-h-80 overflow-auto rounded-md bg-muted p-3 font-mono text-xs text-foreground"
               >
                 {JSON.stringify(submission.payload, null, 2)}
               </pre>
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </McDialogContent>
+    </McDialog>
   );
 }

@@ -3,22 +3,32 @@
 import * as React from 'react';
 import {
   flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
+  useTable,
   type OnChangeFn,
   type PaginationState,
+  type RowData,
   type SortingState,
 } from '@tanstack/react-table';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
-import { Skeleton } from './skeleton';
+import {
+  McDataTableColumnHeader,
+  McTable,
+  McTableBody,
+  McTableCell,
+  McTableHead,
+  McTableHeader,
+  McTableRow,
+  mcDataTableFeatures,
+  type McDataTableColumnDef,
+} from '@/shared/components/ui/mc-data-table';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 
-interface DataTableProps<TData> {
-  columns: ColumnDef<TData>[];
+/** A column of `DataTable`: a TanStack Table v9 column definition with mcoli-ui column meta. */
+type DataTableColumn<TData extends RowData> = McDataTableColumnDef<TData>;
+
+interface DataTableProps<TData extends RowData> {
+  columns: DataTableColumn<TData>[];
   data: TData[];
   onRowClick?: (row: TData) => void;
   isLoading?: boolean;
@@ -28,15 +38,19 @@ interface DataTableProps<TData> {
   onSortingChange?: OnChangeFn<SortingState>;
   /**
    * `data` should be the full (filtered, unsorted-order-agnostic) dataset,
-   * not a pre-sliced page — sorting must run before pagination slices it, so
-   * this component owns both via TanStack's row model pipeline rather than
-   * accepting an already-paginated `data` array.
+   * not a pre-sliced page: sorting must run before pagination slices it, so
+   * this component owns both through TanStack's row model pipeline.
    */
   pagination?: PaginationState;
   className?: string;
+  'aria-label'?: string;
 }
 
-function DataTable<TData>({
+/**
+ * The panel's table: mcoli-ui table primitives and sortable column headers,
+ * driven by TanStack Table v9. Rows are clickable when `onRowClick` is set.
+ */
+function DataTable<TData extends RowData>({
   columns,
   data,
   onRowClick,
@@ -47,100 +61,96 @@ function DataTable<TData>({
   onSortingChange,
   pagination,
   className,
+  'aria-label': ariaLabel,
 }: DataTableProps<TData>) {
-  const table = useReactTable({
-    data,
+  const table = useTable({
+    features: mcDataTableFeatures,
     columns,
+    data,
+    // Without a controlled `pagination` every row shows on one page.
+    manualPagination: !pagination,
     state: {
       ...(sorting ? { sorting } : {}),
       ...(pagination ? { pagination } : {}),
     },
-    onSortingChange,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    ...(pagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+    ...(onSortingChange ? { onSortingChange } : {}),
   });
 
-  const columnCount = columns.length;
+  const columnCount = table.getAllLeafColumns().length;
 
   return (
-    <div className={cn('overflow-x-auto rounded-lg border border-border', className)}>
-      <table className="w-full border-collapse text-left">
-        <thead className="bg-surface-raised">
+    <div
+      data-slot="data-table"
+      className={cn(
+        'overflow-hidden rounded-lg border border-border bg-card text-card-foreground',
+        className
+      )}
+    >
+      <McTable aria-label={ariaLabel}>
+        <McTableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
+            <McTableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => {
-                const sortable = header.column.getCanSort();
-                const sortDirection = header.column.getIsSorted();
+                const sorted = header.column.getIsSorted();
                 return (
-                  <th
+                  <McTableHead
                     key={header.id}
                     scope="col"
-                    className="px-4 py-3 text-overline text-text-subtle"
+                    colSpan={header.colSpan}
+                    aria-sort={
+                      sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined
+                    }
+                    className={cn('px-4', header.column.columnDef.meta?.headerClassName)}
                   >
-                    {header.isPlaceholder ? null : sortable ? (
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {sortDirection === 'asc' ? (
-                          <ArrowUp className="size-3" />
-                        ) : sortDirection === 'desc' ? (
-                          <ArrowDown className="size-3" />
-                        ) : (
-                          <ArrowUpDown className="size-3 text-text-faint" />
-                        )}
-                      </button>
-                    ) : (
-                      flexRender(header.column.columnDef.header, header.getContext())
-                    )}
-                  </th>
+                    {header.isPlaceholder ? null : <McDataTableColumnHeader header={header} />}
+                  </McTableHead>
                 );
               })}
-            </tr>
+            </McTableRow>
           ))}
-        </thead>
-        <tbody>
+        </McTableHeader>
+        <McTableBody>
           {isLoading ? (
             Array.from({ length: skeletonRowCount }).map((_, rowIdx) => (
-              <tr key={`skeleton-${rowIdx}`} className="border-b border-border">
+              <McTableRow key={`skeleton-${rowIdx}`} className="hover:bg-transparent">
                 {Array.from({ length: columnCount }).map((_, colIdx) => (
-                  <td key={`skeleton-cell-${colIdx}`} className="px-4 py-3">
-                    <Skeleton className="h-5 w-full max-w-32" />
-                  </td>
+                  <McTableCell key={`skeleton-cell-${colIdx}`} className="h-auto px-4 py-3">
+                    <McSkeleton rectangle className="h-5 w-full max-w-32" />
+                  </McTableCell>
                 ))}
-              </tr>
+              </McTableRow>
             ))
           ) : data.length === 0 ? (
-            <tr>
-              <td colSpan={columnCount} className="p-0">
+            <McTableRow className="hover:bg-transparent">
+              <McTableCell colSpan={columnCount} className="h-auto p-0 whitespace-normal">
                 {emptyState}
-              </td>
-            </tr>
+              </McTableCell>
+            </McTableRow>
           ) : (
             table.getRowModel().rows.map((row) => (
-              <tr
+              <McTableRow
                 key={row.id}
-                className={cn(
-                  'border-b border-border transition-colors last:border-b-0 hover:bg-surface-hover',
-                  onRowClick && 'cursor-pointer'
-                )}
+                className={cn(onRowClick && 'cursor-pointer')}
                 onClick={() => onRowClick?.(row.original)}
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-body text-text-normal">
+                {row.getAllCells().map((cell) => (
+                  <McTableCell
+                    key={cell.id}
+                    className={cn(
+                      'h-auto px-4 py-3 text-foreground',
+                      cell.column.columnDef.meta?.cellClassName
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
+                  </McTableCell>
                 ))}
-              </tr>
+              </McTableRow>
             ))
           )}
-        </tbody>
-      </table>
+        </McTableBody>
+      </McTable>
     </div>
   );
 }
 
-export { DataTable, type DataTableProps };
+export { DataTable, type DataTableColumn, type DataTableProps };

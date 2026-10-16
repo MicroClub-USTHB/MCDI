@@ -20,12 +20,12 @@ import {
 } from '@/features/access/lib/grants';
 import type { EffectiveSourceDto } from '@/features/access/types';
 import { LoadingSkeleton } from '@/shared/components/common';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 
 type Choice = 'inherit' | 'none' | 'read' | 'write' | 'manage';
@@ -56,7 +56,6 @@ function sourceLabel(source: EffectiveSourceDto, roleNames: Map<string, string>)
  * for each. Inherit leaves a resource out of the save, because the API replaces the whole set.
  */
 export function MemberAccessEditor({ memberId }: { memberId: string }) {
-  const showToast = useToastStore((state) => state.show);
   const effective = useMemberEffectiveQuery(memberId);
   const overrides = useMemberOverridesQuery(memberId);
   const roles = useAccessRolesQuery();
@@ -126,9 +125,9 @@ export function MemberAccessEditor({ memberId }: { memberId: string }) {
 
   if (member.root) {
     return (
-      <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5">
+      <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
         {header}
-        <div className="flex items-center gap-2 text-body text-text-muted">
+        <div className="flex items-center gap-2 paragraph-sm text-muted-foreground">
           <Lock className="size-4" aria-hidden="true" />
           Full access through a root role. It cannot be changed here.
         </div>
@@ -151,27 +150,27 @@ export function MemberAccessEditor({ memberId }: { memberId: string }) {
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5">
+    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
         {header}
         <div className="flex gap-2">
-          <Button
+          <McButton
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => setEdits(null)}
           >
             Discard
-          </Button>
-          <Button
+          </McButton>
+          <McButton
             type="button"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => (lowered.length > 0 ? setConfirming(true) : save())}
           >
             {mutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         </div>
       </header>
 

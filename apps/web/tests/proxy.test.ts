@@ -7,7 +7,7 @@ const matcher = new RegExp(`^${config.matcher[0]}$`);
 
 describe('proxy matcher', () => {
   it.each([
-    '/landing/admin-panel.webp',
+    '/landing/admin-panel-light.webp',
     '/images/logo.svg',
     '/photo.png',
     '/photo.jpg',

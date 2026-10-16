@@ -14,7 +14,7 @@ function ServersStatCard() {
   if (isPending) return <StatCardSkeleton label="Servers" />;
   if (isError) return <StatCardError label="Servers" onRetry={() => void refetch()} />;
 
-  return <StatCard label="Servers" value={data.length} accent="brand" />;
+  return <StatCard label="Servers" value={data.length} accent="primary" />;
 }
 
 function ProjectsStatCard() {
@@ -23,7 +23,7 @@ function ProjectsStatCard() {
   if (isPending) return <StatCardSkeleton label="Projects" />;
   if (isError) return <StatCardError label="Projects" onRetry={() => void refetch()} />;
 
-  return <StatCard label="Projects" value={data.length} accent="brand" />;
+  return <StatCard label="Projects" value={data.length} accent="primary" />;
 }
 
 function MembersStatCard() {
@@ -36,7 +36,7 @@ function MembersStatCard() {
     <StatCard
       label="Members"
       value={data.totalMembers.toLocaleString()}
-      accent="brand"
+      accent="primary"
       trend={
         data.newMembersThisPeriod > 0
           ? { direction: 'up', label: `+${data.growthRate.toFixed(1)}%` }

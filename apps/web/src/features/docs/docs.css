@@ -4,8 +4,8 @@
  */
 @layer components {
   .docs-prose {
-    color: var(--color-text-normal);
-    font-size: var(--text-body);
+    color: var(--foreground);
+    font-size: 0.9375rem;
     line-height: 1.75;
   }
 
@@ -14,7 +14,7 @@
   }
 
   .docs-prose :where(strong) {
-    color: var(--color-text-primary);
+    color: var(--foreground);
     font-weight: 700;
   }
 
@@ -37,26 +37,30 @@
   }
 
   .docs-prose :where(li)::marker {
-    color: var(--color-text-subtle);
+    color: var(--muted-foreground);
   }
 
   .docs-prose :where(blockquote) {
     margin-block: 1.5rem;
-    border-left: 3px solid var(--color-border);
+    border-left: 3px solid var(--border);
     padding-left: 1rem;
-    color: var(--color-text-muted);
+    color: var(--muted-foreground);
   }
 
   .docs-prose :where(hr) {
     margin-block: 2.5rem;
     border: 0;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--border);
   }
 
-  /* The highlighter (highlight.js classes). Every colour here clears 4.5:1 on the code background (surface-base). */
+  /*
+   * The highlighter (highlight.js classes). The code background is --background. Each state colour
+   * is mixed 60/40 with --foreground, which darkens it in light mode and lightens it in dark mode,
+   * so every colour here clears 4.5:1 on that background in both themes.
+   */
   .docs-prose .hljs-comment,
   .docs-prose .hljs-quote {
-    color: var(--color-text-subtle);
+    color: var(--muted-foreground);
     font-style: italic;
   }
 
@@ -64,21 +68,21 @@
   .docs-prose .hljs-selector-tag,
   .docs-prose .hljs-doctag,
   .docs-prose .hljs-meta .hljs-keyword {
-    color: var(--color-brand-light);
+    color: var(--primary);
   }
 
   .docs-prose .hljs-string,
   .docs-prose .hljs-regexp,
   .docs-prose .hljs-addition,
   .docs-prose .hljs-meta .hljs-string {
-    color: var(--color-success);
+    color: color-mix(in srgb, var(--success) 60%, var(--foreground));
   }
 
   .docs-prose .hljs-number,
   .docs-prose .hljs-literal,
   .docs-prose .hljs-symbol,
   .docs-prose .hljs-bullet {
-    color: var(--color-warning);
+    color: color-mix(in srgb, var(--warning) 60%, var(--foreground));
   }
 
   .docs-prose .hljs-title,
@@ -87,7 +91,7 @@
   .docs-prose .hljs-built_in,
   .docs-prose .hljs-type,
   .docs-prose .hljs-class .hljs-title {
-    color: var(--color-text-primary);
+    color: var(--foreground);
     font-weight: 600;
   }
 
@@ -97,11 +101,11 @@
   .docs-prose .hljs-variable,
   .docs-prose .hljs-template-variable,
   .docs-prose .hljs-params {
-    color: var(--color-accent);
+    color: color-mix(in srgb, var(--info) 60%, var(--foreground));
   }
 
   .docs-prose .hljs-deletion {
-    color: var(--color-accent);
+    color: color-mix(in srgb, var(--error) 60%, var(--foreground));
     text-decoration: line-through;
   }
 

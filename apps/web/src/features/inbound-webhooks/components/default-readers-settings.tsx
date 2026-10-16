@@ -9,16 +9,15 @@ import {
   useInboundSettingsQuery,
 } from '@/features/inbound-webhooks/api/queries';
 import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 /** The roles every new inbound webhook starts with. Changing them leaves existing webhooks alone. */
 export function DefaultReadersSettings() {
-  const showToast = useToastStore((state) => state.show);
   const settings = useInboundSettingsQuery();
   const roles = useAllRoleOptions();
   const update = useUpdateInboundSettingsMutation();
@@ -38,7 +37,7 @@ export function DefaultReadersSettings() {
       />
     );
   }
-  if (!settings.data) return <Skeleton className="h-64 w-full" />;
+  if (!settings.data) return <McSkeleton rectangle className="h-64 w-full" />;
 
   const saved = settings.data.defaultReaderRoleIds;
   const selected = picked ?? saved;
@@ -57,7 +56,7 @@ export function DefaultReadersSettings() {
   return (
     <div className="flex flex-col gap-4">
       {settings.data.source === 'environment' ? (
-        <p className="text-body text-text-muted">
+        <p className="paragraph-sm text-muted-foreground">
           These come from the server configuration until you save a list of your own.
         </p>
       ) : null}
@@ -69,27 +68,27 @@ export function DefaultReadersSettings() {
             onChange={setPicked}
             isLoading={roles.isLoading}
           />
-          <p className="text-body text-text-muted">
+          <p className="paragraph-sm text-muted-foreground">
             An empty list is allowed: new webhooks then need their readers picked by hand.
           </p>
-          <Button
+          <McButton
             type="button"
             className="self-end"
             disabled={!changed || update.isPending}
             onClick={save}
           >
             {update.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         </>
       ) : (
         <div className="flex flex-col gap-2">
-          <Badge variant="secondary" className="self-start">
+          <McBadge variant="secondary" className="self-start">
             Read only
-          </Badge>
+          </McBadge>
           <ul className="flex flex-wrap gap-2">
             {settings.data.defaultReaderRoles.map((role) => (
               <li key={role.id}>
-                <Badge variant="outline">{role.name}</Badge>
+                <McBadge variant="outline">{role.name}</McBadge>
               </li>
             ))}
           </ul>

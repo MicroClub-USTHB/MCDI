@@ -23,14 +23,14 @@ interface ActiveBar {
 }
 
 const metrics: MetricDefinition[] = [
-  { key: 'memberCount', label: 'Members', color: 'var(--color-brand)', className: 'bg-brand' },
+  { key: 'memberCount', label: 'Members', color: 'var(--chart-3)', className: 'bg-chart-3' },
   {
     key: 'activeMembers',
     label: 'Active members',
-    color: 'var(--color-success)',
+    color: 'var(--success)',
     className: 'bg-success',
   },
-  { key: 'roleCount', label: 'Roles', color: 'var(--color-warning)', className: 'bg-warning' },
+  { key: 'roleCount', label: 'Roles', color: 'var(--chart-1)', className: 'bg-chart-1' },
 ];
 
 const CHART_WIDTH = 760;
@@ -67,15 +67,15 @@ function Tooltip({
 
   return (
     <div
-      className="pointer-events-none absolute top-2 z-10 w-48 -translate-x-1/2 rounded-md border border-border bg-surface-elevated p-3 text-left shadow-dropdown"
+      className="pointer-events-none absolute top-2 z-10 w-48 -translate-x-1/2 rounded-lg border border-border bg-card p-3 text-left shadow-md"
       style={{ left: `${left}%` }}
     >
-      <p className="truncate text-overline text-text-primary" title={server.serverName}>
+      <p className="truncate paragraph-xs font-semibold text-foreground" title={server.serverName}>
         {server.serverName}
       </p>
-      <div className="mt-2 flex items-center justify-between gap-3 text-overline text-text-muted">
+      <div className="mt-2 flex items-center justify-between gap-3 paragraph-xs font-semibold text-muted-foreground">
         <span>{metric.label}</span>
-        <span className="font-mono text-text-primary">{formatMetricValue(value)}</span>
+        <span className="font-mono text-foreground">{formatMetricValue(value)}</span>
       </div>
     </div>
   );
@@ -111,7 +111,7 @@ function ServerComparisonChart({ stats }: ServerComparisonChartProps) {
   return (
     <div className="min-w-0 space-y-3">
       <div
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 text-overline text-text-muted"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 paragraph-xs font-semibold text-muted-foreground"
         aria-label="Chart legend"
       >
         {metrics.map((metric) => (
@@ -121,10 +121,10 @@ function ServerComparisonChart({ stats }: ServerComparisonChartProps) {
           </span>
         ))}
       </div>
-      <p className="text-overline text-text-faint">
+      <p className="paragraph-xs text-muted-foreground">
         Values are shown exactly on hover; each metric uses its own scale.
       </p>
-      <div className="relative min-w-0 overflow-hidden rounded-md border border-border bg-surface-base p-2">
+      <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-background p-2">
         {activeServer && activeMetric && activeBar ? (
           <Tooltip
             server={activeServer}
@@ -145,7 +145,7 @@ function ServerComparisonChart({ stats }: ServerComparisonChartProps) {
               x2={CHART_WIDTH - PLOT_RIGHT}
               y1={y}
               y2={y}
-              stroke="var(--color-border)"
+              stroke="var(--border)"
               strokeDasharray="3 5"
               strokeOpacity="0.75"
             />
@@ -195,7 +195,7 @@ function ServerComparisonChart({ stats }: ServerComparisonChartProps) {
                 <text
                   x={groupLeft + groupWidth / 2}
                   y={LABEL_Y}
-                  fill="var(--color-text-subtle)"
+                  fill="var(--muted-foreground)"
                   fontSize="11"
                   textAnchor="middle"
                 >

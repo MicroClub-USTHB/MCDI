@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 import type { RoleOption } from '@/features/inbound-webhooks/api/mappers';
-import { Badge } from '@/shared/components/ui/badge';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { SearchInput } from '@/shared/components/ui/input';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
+import { McInput } from '@/shared/components/ui/mc-input';
 
 interface RolePickerProps {
   options: RoleOption[];
@@ -48,7 +49,7 @@ export function RolePicker({
   return (
     <div className="flex flex-col gap-3">
       {selected.length === 0 ? (
-        <p role="alert" className="text-body text-error">
+        <p role="alert" className="paragraph-sm text-error">
           Pick at least one role, or nobody will be able to read what this webhook receives.
         </p>
       ) : (
@@ -58,19 +59,22 @@ export function RolePicker({
             const name = role?.name ?? 'Unknown role';
             return (
               <li key={id}>
-                <Badge variant="brand-light" className="gap-2">
+                <McBadge variant="secondary" size="md" className="gap-2 pr-1">
                   {name}
-                  {role?.isDefault ? <span className="text-text-subtle">default</span> : null}
-                  <button
+                  {role?.isDefault ? <span className="text-muted-foreground">default</span> : null}
+                  <McButton
                     type="button"
-                    aria-label={`Remove ${name}`}
+                    variant="tertiary"
+                    size="sm"
+                    icon="only"
+                    iconDefinition={<X aria-hidden="true" className="size-3" />}
                     disabled={disabled}
                     onClick={() => toggle(id)}
-                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="rounded-full bg-transparent p-0.5 text-current focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <X aria-hidden="true" />
-                  </button>
-                </Badge>
+                    {`Remove ${name}`}
+                  </McButton>
+                </McBadge>
               </li>
             );
           })}
@@ -78,10 +82,12 @@ export function RolePicker({
       )}
 
       {unavailable !== undefined ? (
-        <p className="text-body text-text-muted">{unavailable}</p>
+        <p className="paragraph-sm text-muted-foreground">{unavailable}</p>
       ) : (
         <>
-          <SearchInput
+          <McInput
+            type="search"
+            addonStart={<Search aria-hidden="true" />}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search roles"
@@ -91,23 +97,23 @@ export function RolePicker({
 
           <ul className="relative max-h-60 overflow-y-auto rounded-md border border-border">
             {isLoading ? (
-              <li className="px-3 py-2 text-body text-text-subtle">Loading roles…</li>
+              <li className="px-3 py-2 paragraph-sm text-muted-foreground">Loading roles…</li>
             ) : shown.length === 0 ? (
-              <li className="px-3 py-2 text-body text-text-subtle">No roles found.</li>
+              <li className="px-3 py-2 paragraph-sm text-muted-foreground">No roles found.</li>
             ) : (
               shown.map((option) => (
                 <li key={option.id}>
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-hover">
-                    <Checkbox
+                  <div className="flex items-center gap-3 px-3 py-2 hover:bg-muted">
+                    <McCheckbox
                       checked={selected.includes(option.id)}
                       disabled={disabled}
                       onCheckedChange={() => toggle(option.id)}
-                      aria-label={option.name}
+                      text={option.name}
+                      supportText={option.serverName}
+                      className="min-w-0 flex-1 [&_span_span:last-child:not(:first-child)]:text-muted-foreground"
                     />
-                    <span className="text-body text-text-normal">{option.name}</span>
-                    <span className="text-body text-text-subtle">{option.serverName}</span>
-                    {option.isDefault ? <Badge variant="secondary">Default</Badge> : null}
-                  </label>
+                    {option.isDefault ? <McBadge variant="secondary">Default</McBadge> : null}
+                  </div>
                 </li>
               ))
             )}

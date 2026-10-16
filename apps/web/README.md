@@ -1,6 +1,6 @@
 # MCID-Front
 
-> The modern admin panel for **Micro Club Identity** — a Discord-inspired, dark-first web application that replaces the legacy EJS admin panel.
+> The admin panel for **Micro Club Identity**, built with [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction), the Micro Club design system, in light and dark mode. It replaces the legacy EJS admin panel.
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?logo=typescript)](https://www.typescriptlang.org/)
@@ -38,7 +38,7 @@ MCID (Micro Club Identity) is a full-stack platform that serves as the identity 
 | Styling | Tailwind CSS (CSS-based `@theme`) | 4.x |
 | Server state | TanStack React Query | 5.x |
 | Client state | Zustand (persist middleware) | 5.x |
-| UI primitives | Radix UI | latest |
+| UI components | mcoli-ui (shadcn registry on Base UI) | latest |
 | Icons | Lucide React | 1.8.x |
 | Validation | Zod | 4.x |
 | Testing | Vitest + React Testing Library + MSW | latest |
@@ -166,7 +166,7 @@ src/
 │   │   ├── env.ts                   # Zod-validated env variables
 │   │   └── utils.ts                 # cn() utility (clsx + tailwind-merge)
 │   ├── styles/
-│   │   └── globals.css              # Design system tokens (@theme)
+│   │   └── globals.css              # mcoli-ui theme tokens (light and dark)
 │   └── types/
 │       └── index.ts                 # Shared TypeScript interfaces
 │
@@ -204,141 +204,95 @@ import { useAuthStore } from '@/features/auth';
 
 ## Design system
 
-The MCID V2 design system is **Discord-inspired and dark-only**. There is no light mode, no theme toggle, and no `dark:` prefixed classes anywhere in the codebase.
+MCID uses [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction), the Micro Club design system, with its `primary` theme: a deep blue primary with purple accents, DM Sans for text and Plus Jakarta Sans for headings. mcoli-ui is a shadcn registry built on Base UI, so its components are copied into `src/shared/components/ui/mc-*.tsx` and the project owns their source.
 
-All tokens are defined in `src/shared/styles/globals.css` using Tailwind CSS v4's `@theme` directive. There is no `tailwind.config.ts` — the CSS file is the single source of truth.
+### Theme and modes
 
-### Color palette
+`npx mcoli-ui@latest init primary` writes the theme into `src/shared/styles/globals.css`: a light palette under `:root`, a dark palette under `.dark`, the Tailwind colour mapping in `@theme inline`, and the `header-*` / `paragraph-*` type utilities. Re-run the command to update the theme rather than editing those blocks.
 
-#### Brand (Discord Blurple)
+The panel follows the system's light or dark setting. The theme button in the top bar (and on the landing and docs pages) switches between system, light and dark; `src/shared/lib/theme.ts` stores the choice in localStorage and sets the `dark` class on `<html>`; an inline script in `app/layout.tsx` applies it before the first paint.
 
-| Token | Class | Hex | Use for |
-|---|---|---|---|
-| `brand` | `bg-brand` / `text-brand` | `#5865F2` | Primary buttons, links, focus rings |
-| `brand-hover` | `bg-brand-hover` | `#4752C4` | Hover states |
-| `brand-active` | `bg-brand-active` | `#3C45A5` | Active/pressed states |
-| `brand-light` | `text-brand-light` | `#8B9CFC` | Badges, light accents |
-| `brand-tint` | `bg-brand-tint` | `rgba(88,101,242,0.15)` | Subtle highlighted backgrounds |
+### Tokens
 
-#### Surfaces (layered dark)
-
-Surfaces are ordered by elevation — lower layers are darker:
-
-```
-surface-base (#1E1F22)     ← Page background (darkest)
-  └── surface-raised (#2B2D31)  ← Sidebar, cards
-       └── surface-main (#313338)   ← Main content, inputs
-            └── surface-hover (#35363C)  ← Hover backgrounds
-                 └── surface-active (#404249)  ← Selected items
-                      └── surface-elevated (#4E5058)  ← Tooltips, dropdowns (lightest)
-```
-
-Always use the correct layer for the context. A card sitting on the page uses `bg-surface-raised`. An input inside that card uses `bg-surface-main`. A dropdown above everything uses `bg-surface-elevated`.
-
-#### Text hierarchy
-
-| Token | Class | Hex | Use for |
-|---|---|---|---|
-| `text-primary` | `text-text-primary` | `#F2F3F5` | Headings, important text |
-| `text-normal` | `text-text-normal` | `#DBDEE1` | Body copy |
-| `text-muted` | `text-text-muted` | `#B5BAC1` | Secondary descriptions |
-| `text-subtle` | `text-text-subtle` | `#949BA4` | Timestamps, labels |
-| `text-faint` | `text-text-faint` | `#6D6F78` | Disabled text, placeholders |
-
-#### Semantic colors
-
-| Token | Class | Hex | Use for |
-|---|---|---|---|
-| `success` | `text-success` / `bg-success` | `#23A559` | Success states, online indicators |
-| `error` | `text-error` / `bg-error` | `#DA373C` | Errors, destructive actions |
-| `warning` | `text-warning` / `bg-warning` | `#F0B232` | Warnings, caution states |
-| `info` | `text-info` / `bg-info` | `#5865F2` | Informational (same as brand) |
-| `accent` | `text-accent` / `bg-accent` | `#EB459E` | Pink accent, highlights |
-
-#### Borders
-
-| Token | Class | Hex | Use for |
-|---|---|---|---|
-| `border` | `border-border` | `#3F4147` | Default borders |
-| `border-hover` | `border-border-hover` | `#4E5058` | Hover state borders |
-| `border-focus` | `border-border-focus` | `#5865F2` | Focus rings |
+| Group | Tokens |
+|---|---|
+| Base | `background`, `foreground` |
+| Brand and actions | `primary`, `secondary`, `accent`, each with a `-foreground` pair |
+| Surfaces | `card`, `popover`, `muted`, `surface`, each with a `-foreground` pair |
+| State | `success`, `warning`, `error`, `destructive`, `info`, each with a `-foreground` pair |
+| Form and focus | `border`, `input`, `ring` |
+| Sidebar | `sidebar`, `sidebar-primary`, `sidebar-accent`, `sidebar-border`, `sidebar-ring` and their `-foreground` pairs |
+| Charts | `chart-1` to `chart-5` |
 
 ### Typography
 
-- **Body and headings**: DM Sans (`font-sans`)
-- **Code and data tables**: JetBrains Mono (`font-mono`)
-- **Spacing grid**: 4px increments (use Tailwind's spacing scale: `p-1` = 4px, `p-2` = 8px, etc.)
-- **Border radius**: `rounded-sm` (4px), `rounded-md` (6px), `rounded` (8px), `rounded-lg` (12px)
+- **Headings**: `header-xl` to `header-xs` (Plus Jakarta Sans), with `font-bold`
+- **Text**: `paragraph-xl` to `paragraph-xs` (DM Sans)
+- **Code, ids and data**: `font-mono` (JetBrains Mono)
 
-### Component recipes
+### Components
 
-These are the standard patterns for building UI in MCID. Always use these as your starting point:
+| Need | Component |
+|---|---|
+| Buttons | `McButton` (`primary`, `secondary`, `tertiary`, `link`, `destructive`); `buttonVariants` on a `<Link>` for links that look like buttons |
+| Forms | `McInput`, `McTextarea`, `McSelect`, `McCombobox`, `McCheckbox`, `McRadioGroup`, `McSwitch` |
+| Layout | `McCard`, `McTabs`, `McSeparator`, `McSidebar`, `McBreadcrumb`, `McScrollArea` |
+| Overlays | `McDialog`, `McAlertDialog`, `McDrawer`, `McPopover`, `McTooltip`, `McDropdownMenu` |
+| Feedback | `McBadge`, `McAlert`, `McProgress`, `McSkeleton`, toasts through `showToast()` |
+| Data | `DataTable` (TanStack Table v9 on `mc-data-table`), `Pagination`, `StatCard`, `EmptyState` |
 
-**Primary button:**
+Add a component with `npx mcoli-ui@latest add <name>`; `npx mcoli-ui@latest list` shows the catalogue.
+
+### Recipes
+
+**Buttons and links:**
 ```tsx
-<button className="bg-brand hover:bg-brand-hover active:bg-brand-active text-white font-medium rounded px-4 py-2 transition focus-visible:ring-2 focus-visible:ring-border-focus">
-  Action
-</button>
-```
-
-**Ghost button:**
-```tsx
-<button className="bg-transparent hover:bg-surface-hover text-text-normal font-medium rounded px-4 py-2 transition">
-  Cancel
-</button>
+<McButton onClick={save}>Save</McButton>
+<McButton variant="secondary" icon="leading" iconDefinition={<Plus aria-hidden="true" />}>
+  Add server
+</McButton>
+<Link href="/dashboard/servers" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+  Open servers
+</Link>
 ```
 
 **Card:**
 ```tsx
-<div className="bg-surface-raised border border-border rounded-lg p-4 shadow-sm">
-  <h3 className="text-text-primary font-semibold">Title</h3>
-  <p className="text-text-muted text-sm mt-1">Description</p>
-</div>
+<McCard>
+  <McCardHeader title="Members" description="Everyone synced from Discord." />
+  <McCardContent>…</McCardContent>
+</McCard>
 ```
 
-**Text input:**
+**Field:**
 ```tsx
-<input className="w-full bg-surface-main border border-border rounded px-3 py-2 text-text-normal placeholder:text-text-faint focus:border-border-focus focus:ring-2 focus:ring-brand/20 outline-none transition" />
+<McInput label="Project name" error={errors.name} {...register('name')} />
 ```
 
-**Sidebar nav item:**
+**Select:**
 ```tsx
-<a className={cn(
-  'flex items-center gap-3 px-3 py-2 rounded text-sm transition',
-  isActive
-    ? 'bg-surface-active text-text-primary'
-    : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
-)}>
-  <Icon className="h-5 w-5" />
-  <span>Label</span>
-</a>
-```
-
-**Badge:**
-```tsx
-<span className="inline-flex items-center rounded-full bg-brand-tint text-brand-light text-xs font-medium px-2 py-0.5">
-  Active
-</span>
-```
-
-**Table row:**
-```tsx
-<tr className="border-b border-border hover:bg-surface-hover transition">
-  <td className="px-4 py-3 text-text-normal">Data</td>
-  <td className="px-4 py-3 text-text-muted">Secondary</td>
-</tr>
+<McSelect items={items} value={value} onValueChange={(next) => next && setValue(next)}>
+  <McSelectTrigger aria-label="Server type" className="w-full">
+    <McSelectValue placeholder="Pick a type" />
+  </McSelectTrigger>
+  <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+    {items.map((item) => (
+      <McSelectItem key={item.value} value={item.value}>
+        {item.label}
+      </McSelectItem>
+    ))}
+  </McSelectContent>
+</McSelect>
 ```
 
 ### Design system rules
 
-1. **Never hardcode colors** — always use token-based Tailwind classes
-2. **Never use `dark:` classes** — the app is permanently dark
-3. **Never use Tailwind default colors** — no `bg-gray-800`, `text-blue-500`, etc.
-4. **Surface hierarchy matters** — lower layers darker, higher layers lighter
-5. **Always pair backgrounds with appropriate text** — `surface-base` gets `text-primary`, `surface-raised` gets `text-normal`, etc.
-6. **Use `cn()` for conditional classes** — import from `@/shared/lib/utils`
-7. **Icons from `lucide-react` only** — consistent icon language across the app
-8. **Transitions on interactive elements** — always add `transition` to elements with hover/focus states
+1. **Never hardcode colours**: use the token classes.
+2. **Build from `Mc*` components** before writing your own markup.
+3. **Both modes count**: check light and dark. Tokens switch on their own, so components do not need `dark:` classes for colour.
+4. **Base UI uses `render`, not `asChild`**, and a link that looks like a button keeps its link role through `buttonVariants`.
+5. **Use `cn()` for conditional classes**, imported from `@/shared/lib/utils`.
+6. **Icons from `lucide-react` only**, with `aria-hidden="true"` on decorative ones.
 
 ---
 
@@ -411,8 +365,10 @@ export function useMembers(filters?: { page?: number; search?: string }) {
 // src/features/members/components/MemberCard.tsx
 'use client';
 
-import { cn } from '@/shared/lib/utils';
 import { User } from 'lucide-react';
+import { McAvatar, McAvatarFallback, McAvatarImage } from '@/shared/components/ui/mc-avatar';
+import { McCard } from '@/shared/components/ui/mc-card';
+import { cn } from '@/shared/lib/utils';
 import type { Member } from '../types';
 
 interface MemberCardProps {
@@ -422,25 +378,18 @@ interface MemberCardProps {
 
 export function MemberCard({ member, className }: MemberCardProps) {
   return (
-    <div className={cn('bg-surface-raised border border-border rounded-lg p-4', className)}>
-      <div className="flex items-center gap-3">
-        {member.avatar ? (
-          <img
-            src={member.avatar}
-            alt={member.displayName}
-            className="h-10 w-10 rounded-full"
-          />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-active">
-            <User className="h-5 w-5 text-text-muted" />
-          </div>
-        )}
-        <div>
-          <p className="text-sm font-medium text-text-primary">{member.displayName}</p>
-          <p className="text-xs text-text-subtle">@{member.username}</p>
-        </div>
+    <McCard direction="row" className={cn('items-center', className)}>
+      <McAvatar size="md">
+        {member.avatar && <McAvatarImage src={member.avatar} alt="" />}
+        <McAvatarFallback>
+          <User className="size-5" aria-hidden="true" />
+        </McAvatarFallback>
+      </McAvatar>
+      <div>
+        <p className="paragraph-sm font-medium text-foreground">{member.displayName}</p>
+        <p className="paragraph-xs text-muted-foreground">@{member.username}</p>
       </div>
-    </div>
+    </McCard>
   );
 }
 ```
@@ -455,7 +404,7 @@ export default function MembersPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text-primary">Members</h1>
+        <h1 className="header-xs font-bold text-foreground">Members</h1>
       </div>
       <MemberTable />
     </div>
@@ -637,7 +586,7 @@ Specialized AI personas that audit your code from different angles:
 
 | Agent | What it checks |
 |---|---|
-| **ui-ux-guardian** | Design token compliance, surface hierarchy, CLS prevention, hover/focus states |
+| **ui-ux-guardian** | mcoli-ui component and token compliance in light and dark mode, CLS prevention, hover/focus states |
 | **state-architect** | Correct state tool selection (React Query vs Zustand vs useState) |
 | **accessibility-auditor** | WCAG 2.1 AA compliance, ARIA labels, keyboard navigation, focus management |
 | **security-auditor** | XSS prevention, auth token handling, input validation, dependency security |
@@ -661,7 +610,7 @@ Reference guides that agents consult during implementation:
 
 | Skill | Content |
 |---|---|
-| **tailwind-design-system** | Full V2 token reference, component recipes, surface hierarchy rules |
+| **tailwind-design-system** | mcoli-ui theme tokens, component catalogue and usage rules |
 | **tailwind-css-patterns** | Responsive layouts, flexbox/grid, mobile-first patterns (adapted for MCID tokens) |
 | **vercel-react-best-practices** | 64 performance rules: waterfalls, bundle size, re-renders, SSR |
 | **tanstack-query-best-practices** | 21 rules: query keys, caching, mutations, prefetching, SSR, offline |
@@ -805,11 +754,11 @@ Refs #<issue-number>
 - **No comments** — unless explaining a non-obvious "why".
 - **`cn()` for classes** — always merge classes with `cn()` from `@/shared/lib/utils`.
 - **No hardcoded colors** — use design system tokens.
-- **No `dark:` classes** — the app is dark-only.
+- **No `dark:` classes** — tokens switch for light and dark mode on their own.
 
 ### PR checklist
 
-- [ ] All colors use V2 design tokens
+- [ ] All colours use mcoli-ui theme tokens and screens use the Mc* components
 - [ ] No hardcoded hex values
 - [ ] No `dark:` prefixed classes
 - [ ] Typography uses DM Sans / JetBrains Mono

@@ -45,8 +45,8 @@ export function SyncView({ serverId }: { serverId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-hero">Sync</h1>
-        <p className="mt-1 max-w-2xl text-body text-text-muted">
+        <h1 className="header-xs font-bold">Sync</h1>
+        <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
           Monitor Discord ⇆ MCID synchronization for this server and sync it on demand.
         </p>
       </header>
@@ -86,8 +86,10 @@ export function SyncView({ serverId }: { serverId: string }) {
 
       <section className="flex flex-col gap-4">
         <div>
-          <h2 className="text-heading text-text-primary">Sync history</h2>
-          <p className="mt-1 text-body text-text-muted">Open a run for its change details.</p>
+          <h2 className="paragraph-md font-semibold text-foreground">Sync history</h2>
+          <p className="mt-1 paragraph-sm text-muted-foreground">
+            Open a run for its change details.
+          </p>
         </div>
 
         {logsQuery.isError ? (

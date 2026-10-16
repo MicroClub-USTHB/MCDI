@@ -37,16 +37,20 @@ export function DocsOutline({ headings }: { headings: DocHeadingInfo[] }) {
 
   return (
     <nav aria-label="On this page" className="sticky top-24 flex flex-col gap-1">
-      <p className="px-2 text-overline text-text-subtle uppercase">On this page</p>
+      <p className="px-2 paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        On this page
+      </p>
       {shown.map((heading) => (
         <a
           key={heading.id}
           href={`#${heading.id}`}
           aria-current={heading.id === active ? 'location' : undefined}
           className={clsx(
-            'rounded-sm px-2 py-1 text-body outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
+            'rounded-sm px-2 py-1 paragraph-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
             heading.level === 3 && 'pl-5',
-            heading.id === active ? 'text-text-primary' : 'text-text-subtle hover:text-text-normal'
+            heading.id === active
+              ? 'text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           {heading.text}

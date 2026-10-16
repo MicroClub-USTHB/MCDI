@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { ROOT_PERMISSIONS } from '../../../helpers/auth';
+import { shownToasts } from '../../../helpers/toasts';
 
 const replace = vi.fn();
 const useCurrentAdminQueryMock = vi.fn();
@@ -38,8 +39,6 @@ describe('SessionProvider', () => {
       isAuthenticated: false,
       hasHydrated: true,
     });
-    const { useToastStore } = await import('@/shared/stores/toast');
-    useToastStore.setState({ toasts: [] });
   });
 
   it('renders children without side effects while the session is valid', async () => {
@@ -87,7 +86,6 @@ describe('SessionProvider', () => {
     });
     useCurrentAdminQueryMock.mockReturnValue({ data: undefined, isError: true });
     const { SessionProvider } = await import('@/features/auth/components/SessionProvider');
-    const { useToastStore } = await import('@/shared/stores/toast');
 
     render(
       <SessionProvider>
@@ -99,6 +97,6 @@ describe('SessionProvider', () => {
       expect(useAuthStore.getState().isAuthenticated).toBe(false);
     });
     expect(replace).toHaveBeenCalledWith('/login');
-    expect(useToastStore.getState().toasts.some((toast) => toast.variant === 'warning')).toBe(true);
+    expect(shownToasts.some((toast) => toast.variant === 'warning')).toBe(true);
   });
 });

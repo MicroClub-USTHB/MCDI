@@ -52,7 +52,7 @@ describe('monitoring components', () => {
     render(<HealthIndicator service="Redis" status={status} details="97.5% hit rate · 1.25M" />);
 
     expect(screen.getByText('Redis')).toBeInTheDocument();
-    expect(screen.getByText(label).closest(`[data-variant="${variant}"]`)).toBeInTheDocument();
+    expect(screen.getByText(label).closest(`[data-tone="${variant}"]`)).toBeInTheDocument();
     expect(screen.getByText('97.5% hit rate · 1.25M')).toBeInTheDocument();
   });
 
@@ -63,13 +63,15 @@ describe('monitoring components', () => {
 
     fireEvent.change(screen.getByLabelText('Date from'), { target: { value: '2026-04-01' } });
     fireEvent.change(screen.getByLabelText('Date to'), { target: { value: '2026-04-30' } });
-    await user.selectOptions(screen.getByLabelText('Actor'), 'admin-1');
-    await user.selectOptions(screen.getByLabelText('Severity'), 'warning');
+    await user.click(screen.getByRole('combobox', { name: 'Actor' }));
+    await user.click(await screen.findByRole('option', { name: 'Admin One' }));
+    await user.click(screen.getByRole('combobox', { name: 'Severity' }));
+    await user.click(await screen.findByRole('option', { name: 'Warning' }));
 
     expect(screen.getByLabelText('Date from')).toHaveValue('2026-04-01');
     expect(screen.getByLabelText('Date to')).toHaveValue('2026-04-30');
-    expect(screen.getByLabelText('Actor')).toHaveValue('admin-1');
-    expect(screen.getByLabelText('Severity')).toHaveValue('warning');
+    expect(screen.getByRole('combobox', { name: 'Actor' })).toHaveTextContent('Admin One');
+    expect(screen.getByRole('combobox', { name: 'Severity' })).toHaveTextContent('Warning');
     expect(onChange).toHaveBeenLastCalledWith({
       dateFrom: '2026-04-01',
       dateTo: '2026-04-30',
@@ -83,9 +85,9 @@ describe('monitoring components', () => {
     const onChange = vi.fn();
     render(<FiltersHarness onChange={onChange} />);
 
-    await user.click(screen.getByLabelText(label));
+    await user.click(screen.getByRole('radio', { name: label }));
 
-    expect(screen.getByLabelText(label)).toBeChecked();
+    expect(screen.getByRole('radio', { name: label })).toBeChecked();
     expect(onChange).toHaveBeenLastCalledWith({ actionType: value });
   });
 });

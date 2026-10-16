@@ -4,11 +4,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { syncKeys } from '@/features/sync/api/keys';
 import { triggerFullSync } from '@/features/sync/api/service';
 import type { TriggerFullSyncPayload } from '@/features/sync/types';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 export function useTriggerSyncMutation() {
   const queryClient = useQueryClient();
-  const showToast = useToastStore((state) => state.show);
 
   return useMutation({
     mutationFn: (payload: TriggerFullSyncPayload) => triggerFullSync(payload),

@@ -22,50 +22,50 @@ Names: files are `kebab-case.tsx` (older ones, such as `LogoutButton`, are Pasca
 
 ## The design system
 
-The panel is dark only. There is no light mode, no theme switch and no `dark:` class. The whole palette is a set of tokens in `src/shared/styles/globals.css`, declared in a Tailwind v4 `@theme` block, since the project has no `tailwind.config.ts`.
+The panel uses [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction), the Micro Club design system, with its `primary` theme: a deep blue primary with purple accents, DM Sans for text and Plus Jakarta Sans for headings. mcoli-ui is a shadcn registry, so its components are copied into `src/shared/components/ui` as `mc-*.tsx` files that the project owns, built on Base UI primitives.
+
+The theme lives in `src/shared/styles/globals.css`. `npx mcoli-ui@latest init primary` writes its tokens there: a light palette under `:root` and a dark one under `.dark`, mapped to Tailwind colours in an `@theme inline` block, since the project has no `tailwind.config.ts`.
 
 {/* excerpt: apps/web/src/shared/styles/globals.css */}
 
 ```css
-/* Surface Colors (Layered Dark) */
---color-surface-base: #1e1f22;
---color-surface-raised: #2b2d31;
---color-surface-main: #313338;
---color-surface-hover: #35363c;
---color-surface-active: #404249;
---color-surface-elevated: #4e5058;
+:root {
 /* ... */
-/* Text Hierarchy */
---color-text-primary: #f2f3f5;
---color-text-normal: #dbdee1;
---color-text-muted: #b5bac1;
---color-text-subtle: #949ba4;
---color-text-faint: #6d6f78;
+  --background: #ffffff;
+  --foreground: #000350;
+  --primary: #0006b1;
+  --primary-foreground: #ffffff;
 /* ... */
---text-hero: 22px;
---text-hero--font-weight: 800;
---text-hero--line-height: 1.2;
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --primary: #d9ddff;
+  --primary-foreground: #000350;
 ```
 
-Use the token as a utility class: `bg-surface-raised`, `text-text-muted`, `border-border`. The groups are:
+Use a token as a utility class: `bg-card`, `text-muted-foreground`, `border-border`. The groups are:
 
 | Group | Tokens |
 | --- | --- |
-| Brand | `brand`, `brand-hover`, `brand-active`, `brand-light`, `brand-tint`, and `on-brand` for text on a brand-filled surface |
-| Surfaces | `surface-base`, `surface-raised`, `surface-main`, `surface-hover`, `surface-active`, `surface-elevated` |
-| Text | `text-primary`, `text-normal`, `text-muted`, `text-subtle`, `text-faint` |
-| State | `success`, `error`, `warning`, `info`, `accent` |
-| Borders | `border`, `border-subtle`, `border-hover`, `border-focus` |
-| Type scale | `text-display`, `text-lead`, `text-hero`, `text-heading`, `text-subhead`, `text-body`, `text-overline`, `text-code` |
+| Base | `background`, `foreground` |
+| Brand and actions | `primary`, `secondary`, `accent`, each with a `-foreground` pair |
+| Surfaces | `card`, `popover`, `muted`, `surface`, each with a `-foreground` pair |
+| State | `success`, `warning`, `error`, `destructive`, `info`, each with a `-foreground` pair |
+| Form and focus | `border`, `input`, `ring` |
+| Sidebar | `sidebar`, `sidebar-primary`, `sidebar-accent`, `sidebar-border`, `sidebar-ring` and their `-foreground` pairs |
+| Type | `header-xl` to `header-xs` for headings, `paragraph-xl` to `paragraph-xs` for text |
+
+The panel follows the operating system's light or dark setting, and the theme button in the top bar overrides it. `src/shared/lib/theme.ts` keeps the choice in localStorage and sets the `dark` class on `<html>`, which switches every token at once; a small script in the root layout applies it before the first paint. A component never needs a `dark:` class to change colour.
 
 Rules that keep it consistent:
 
-- Do not write a hex colour in a component. Use a token. If one is missing, add it to `globals.css`.
-- Build screens from the primitives in `src/shared/components/ui` (button, input, select, dialog, data table, badge, card, tabs and the rest) before writing your own.
+- Do not write a hex colour in a component. Use a token.
+- Build screens from the mcoli-ui components in `src/shared/components/ui` (`McButton`, `McInput`, `McSelect`, `McDialog`, `McBadge`, `McCard`, `McTabs` and the rest) before writing your own. Add a missing one with `npx mcoli-ui@latest add <name>`; `npx mcoli-ui@latest list` shows them all.
+- Base UI composes with a `render` prop, not `asChild`: `<McButton render={<Link href="/x" />} nativeButton={false}>`.
 - Icons come from `lucide-react` only, and decorative ones carry `aria-hidden="true"`.
 - Accessibility is part of the work: semantic HTML, labels, visible focus, keyboard use.
 
-### `cn()` and the type scale
+### `cn()`
 
 `cn()` joins class names and resolves conflicts between them. It is `clsx` followed by `tailwind-merge`:
 
@@ -77,14 +77,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 ```
 
-`tailwind-merge` does not know the project's type-scale tokens. It reads `text-body` and `text-text-primary` as two classes of the same kind and keeps only the last, so the type size is silently dropped:
-
-```text
-cn('text-body text-text-primary')   ->  'text-text-primary'
-cn('text-hero text-text-muted')     ->  'text-text-muted'
-```
-
-When a heading or label loses its size, that is why. Join the classes with `clsx` instead, as the docs components do, or put the type-scale class on a parent element.
+The `header-*` and `paragraph-*` type utilities are plain CSS utilities that `tailwind-merge` does not group with colours, so `cn('paragraph-sm text-muted-foreground')` keeps both classes.
 
 ## Talking to the API
 
@@ -163,7 +156,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+    loading: () => <div className="h-96 rounded-lg border border-border bg-background" />,
   }
 );
 ```
@@ -308,7 +301,7 @@ export function useCreateInboundWebhookMutation() {
 
 ### Step 4: Show it with the shared primitives
 
-Build the view from `shared/components/ui` and your feature's components, using tokens for every colour. Handle the four states a list has: loading, empty, failed with a retry, and loaded.
+Build the view from the mcoli-ui components in `shared/components/ui` and your feature's components, using tokens for every colour. Handle the four states a list has: loading, empty, failed with a retry, and loaded.
 
 ### Step 5: Link it in the navigation
 

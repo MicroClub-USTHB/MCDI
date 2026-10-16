@@ -171,10 +171,14 @@ describe('DocTable', () => {
 });
 
 describe('Diagram', () => {
-  it('shows the image with its description', () => {
+  it('shows a light and a dark image with the same description', () => {
     render(<Diagram src="/docs/x.svg" alt="Projects call the API." width={400} height={200} />);
 
-    const image = screen.getByRole('img', { name: 'Projects call the API.' });
-    expect(image.getAttribute('src')).toContain('x.svg');
+    // CSS shows only the one that matches the active theme.
+    const [light, dark] = screen.getAllByRole('img', { name: 'Projects call the API.' });
+    expect(light?.getAttribute('src')).toContain('x.svg');
+    expect(light).toHaveClass('dark:hidden');
+    expect(dark?.getAttribute('src')).toContain('x-dark.svg');
+    expect(dark).toHaveClass('hidden', 'dark:block');
   });
 });

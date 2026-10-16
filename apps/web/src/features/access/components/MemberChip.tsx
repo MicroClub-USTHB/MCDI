@@ -24,8 +24,8 @@ export function MemberChip({
         avatarInitials={initials(displayName)}
       />
       <div className="min-w-0">
-        <div className="truncate text-subhead text-text-primary">{displayName}</div>
-        <div className="truncate text-overline text-text-faint">@{username}</div>
+        <div className="truncate paragraph-sm font-semibold text-foreground">{displayName}</div>
+        <div className="truncate paragraph-xs text-muted-foreground">@{username}</div>
       </div>
     </div>
   );

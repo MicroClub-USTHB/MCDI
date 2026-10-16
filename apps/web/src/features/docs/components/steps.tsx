@@ -10,8 +10,8 @@ export function Steps({ children }: { children: ReactNode }) {
         '[&>ol>li]:relative [&>ol>li]:pl-11 [&>ol>li]:[counter-increment:step]',
         '[&>ol>li]:before:absolute [&>ol>li]:before:top-0 [&>ol>li]:before:left-0',
         '[&>ol>li]:before:flex [&>ol>li]:before:size-8 [&>ol>li]:before:items-center [&>ol>li]:before:justify-center',
-        '[&>ol>li]:before:rounded-full [&>ol>li]:before:bg-surface-active [&>ol>li]:before:text-subhead',
-        '[&>ol>li]:before:text-text-primary [&>ol>li]:before:content-[counter(step)]',
+        '[&>ol>li]:before:rounded-full [&>ol>li]:before:bg-secondary [&>ol>li]:before:paragraph-sm li]:before:font-semibold',
+        '[&>ol>li]:before:text-foreground [&>ol>li]:before:content-[counter(step)]',
       ].join(' ')}
     >
       {children}

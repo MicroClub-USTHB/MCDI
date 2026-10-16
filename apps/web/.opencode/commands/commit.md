@@ -43,8 +43,8 @@ Refs #15
 
 fix(ui): correct surface color on skeleton card
 
-The SkeletonCard was using the old muted-foreground token
-instead of the V2 surface-hover token.
+The SkeletonCard used a hardcoded gray instead of the
+mcoli-ui muted token, so it vanished in dark mode.
 
 Closes #15
 

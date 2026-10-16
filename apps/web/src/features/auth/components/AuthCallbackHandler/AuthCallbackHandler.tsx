@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Loader2, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/shared/components/ui/button';
+import { buttonVariants } from '@/shared/components/ui/mc-button';
+import { cn } from '@/shared/lib/utils';
 import { useAuthStore } from '@/features/auth/stores/auth';
 import { consumePostLoginRedirect, fetchCurrentAdmin } from '@/features/auth/api/service';
 import { mapAdminProfileToUser } from '@/features/auth/api/mappers';
@@ -91,21 +92,24 @@ export function AuthCallbackHandler() {
     return (
       <div
         role="alert"
-        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-base p-8 text-center"
+        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center"
       >
         <div className="rounded-full bg-error/12 p-4">
           <ShieldAlert className="h-8 w-8 text-error" aria-hidden="true" />
         </div>
-        <h1 ref={headingRef} tabIndex={-1} className="text-hero text-text-primary">
+        <h1 ref={headingRef} tabIndex={-1} className="header-xs font-bold text-foreground">
           Access Denied
         </h1>
-        <p className="max-w-sm text-body text-text-muted">
+        <p className="max-w-sm paragraph-sm text-muted-foreground">
           Your Discord account doesn&apos;t have the role required to access the MCID admin panel.
           Contact a club admin if you believe this is a mistake.
         </p>
-        <Button asChild variant="secondary" size="sm" className="mt-2">
-          <Link href="/login">Back to login</Link>
-        </Button>
+        <Link
+          href="/login"
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'mt-2')}
+        >
+          Back to login
+        </Link>
       </div>
     );
   }
@@ -114,18 +118,21 @@ export function AuthCallbackHandler() {
     return (
       <div
         role="alert"
-        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-base p-8 text-center"
+        className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center"
       >
         <div className="rounded-full bg-error/12 p-4">
           <AlertTriangle className="h-8 w-8 text-error" aria-hidden="true" />
         </div>
-        <h1 ref={headingRef} tabIndex={-1} className="text-hero text-text-primary">
+        <h1 ref={headingRef} tabIndex={-1} className="header-xs font-bold text-foreground">
           Sign-in failed
         </h1>
-        <p className="max-w-sm text-body text-error">{errorMessage}</p>
-        <Button asChild variant="secondary" size="sm" className="mt-2">
-          <Link href="/login">Retry</Link>
-        </Button>
+        <p className="max-w-sm paragraph-sm text-error">{errorMessage}</p>
+        <Link
+          href="/login"
+          className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'mt-2')}
+        >
+          Retry
+        </Link>
       </div>
     );
   }
@@ -133,10 +140,10 @@ export function AuthCallbackHandler() {
   return (
     <div
       role="status"
-      className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-base"
+      className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background"
     >
-      <Loader2 className="h-8 w-8 animate-spin text-brand" aria-hidden="true" />
-      <p className="text-body text-text-muted">Connecting to Discord…</p>
+      <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+      <p className="paragraph-sm text-muted-foreground">Connecting to Discord…</p>
     </div>
   );
 }

@@ -40,7 +40,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
   const activePercentage = total === 0 ? 0 : (stats.activeMembers / total) * 100;
   const inactivePercentage = total === 0 ? 0 : (stats.inactiveMembers / total) * 100;
   const donutStyle = {
-    background: `conic-gradient(var(--color-success) 0 ${activePercentage}%, var(--color-surface-hover) ${activePercentage}% 100%)`,
+    background: `conic-gradient(var(--success) 0 ${activePercentage}%, var(--border) ${activePercentage}% 100%)`,
   } satisfies CSSProperties;
   const activityItems: DonutItem[] = [
     {
@@ -53,7 +53,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
       label: 'Inactive',
       value: stats.inactiveMembers,
       percentage: inactivePercentage,
-      color: 'bg-surface-hover',
+      color: 'bg-border',
     },
   ];
   const activeItem = activeIndex === null ? undefined : activityItems[activeIndex];
@@ -75,7 +75,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
         {activeItem ? (
           <div
             role="tooltip"
-            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-overline text-text-primary shadow-dropdown"
+            className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 paragraph-xs font-semibold text-foreground shadow-md"
           >
             {activeItem.label}: {activeItem.value.toLocaleString()} (
             {activeItem.percentage.toFixed(1)}%)
@@ -94,7 +94,7 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
             return item.percentage > 0 ? (
               <path
                 key={item.label}
-                className="pointer-events-auto cursor-pointer fill-transparent focus-visible:stroke-brand focus-visible:outline-none"
+                className="pointer-events-auto cursor-pointer fill-transparent focus-visible:stroke-primary focus-visible:outline-none"
                 d={getDonutPath(startPercentage, startPercentage + item.percentage, 30)}
                 tabIndex={0}
                 role="button"
@@ -107,21 +107,23 @@ function MemberActivityChart({ stats }: MemberActivityChartProps) {
             ) : null;
           })}
         </svg>
-        <div className="grid size-24 place-items-center rounded-full bg-surface-raised text-center">
-          <span className="text-heading text-text-primary">{total.toLocaleString()}</span>
-          <span className="text-overline text-text-muted">members</span>
+        <div className="grid size-24 place-items-center rounded-full bg-card text-center">
+          <span className="paragraph-md font-semibold text-foreground">
+            {total.toLocaleString()}
+          </span>
+          <span className="paragraph-xs text-muted-foreground">members</span>
         </div>
       </div>
-      <dl className="grid w-full max-w-xs gap-3 text-body">
+      <dl className="grid w-full max-w-xs gap-3 paragraph-sm">
         {activityItems.map((item) => (
           <div key={item.label} className="flex items-center justify-between gap-4">
-            <dt className="inline-flex items-center gap-2 text-text-muted">
+            <dt className="inline-flex items-center gap-2 text-muted-foreground">
               <span className={`size-2 rounded-full ${item.color}`} aria-hidden="true" />
               {item.label}
             </dt>
-            <dd className="text-right text-text-primary">
+            <dd className="text-right text-foreground">
               {item.value.toLocaleString()}{' '}
-              <span className="text-text-muted">({item.percentage.toFixed(1)}%)</span>
+              <span className="text-muted-foreground">({item.percentage.toFixed(1)}%)</span>
             </dd>
           </div>
         ))}

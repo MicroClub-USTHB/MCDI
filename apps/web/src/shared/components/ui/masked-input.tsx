@@ -18,11 +18,9 @@ interface MaskedInputProps extends Omit<React.ComponentProps<'input'>, 'value' |
 }
 
 /**
- * Read-only, copyable code-field for secrets. The value sits in a
- * `font-mono` block on `surface-base` (per the design directive for API-key
- * display); a `secret` value renders as a repeated mask character until the
- * eye toggle shows it. Copy uses the async Clipboard API and flips to a
- * temporary check.
+ * Read-only, copyable code field for secrets, styled like the mcoli-ui input.
+ * A `secret` value renders as a repeated mask character until the eye toggle
+ * shows it. Copy uses the async Clipboard API and flips to a temporary check.
  */
 function MaskedInput({
   value,
@@ -67,15 +65,15 @@ function MaskedInput({
         data-slot="masked-input"
         value={secret && !visible ? maskChar.repeat(displayed.length || 12) : displayed}
         onFocus={(event) => event.currentTarget.select()}
-        className="h-10 w-full min-w-0 rounded-md border border-border bg-surface-base pr-16 pl-3 font-mono text-code text-text-normal transition-colors outline-none focus-visible:border-border-focus focus-visible:ring-2 focus-visible:ring-brand/20"
+        className="h-11 w-full min-w-0 rounded-lg border border-border bg-input pr-20 pl-3.5 font-mono text-sm text-foreground shadow-xs transition-all outline-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring"
         {...props}
       />
-      <div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1">
+      <div className="absolute inset-y-0 right-0 flex items-center gap-0.5 pr-1.5">
         {showRevealToggle && secret && (
           <button
             type="button"
             aria-label={revealLabel ?? (visible ? 'Hide value' : 'Reveal value')}
-            className="flex size-8 items-center justify-center rounded-md text-text-faint transition-colors outline-none hover:bg-surface-hover hover:text-text-normal focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setVisible((v) => !v)}
           >
             {visible ? (
@@ -89,8 +87,8 @@ function MaskedInput({
           type="button"
           aria-label={copyLabel ?? 'Copy to clipboard'}
           className={cn(
-            'flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-border-focus',
-            copied ? 'text-success' : 'text-text-faint hover:text-text-normal'
+            'flex size-8 items-center justify-center rounded-md transition-colors outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring',
+            copied ? 'text-success' : 'text-muted-foreground hover:text-secondary-foreground'
           )}
           onClick={() => void handleCopy()}
         >

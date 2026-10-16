@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-dvh overflow-x-clip bg-surface-base text-text-primary">
+    <div className="min-h-dvh overflow-x-clip bg-background text-foreground">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-body focus:text-on-brand"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:paragraph-sm focus:text-primary-foreground"
       >
         Skip to main content
       </a>

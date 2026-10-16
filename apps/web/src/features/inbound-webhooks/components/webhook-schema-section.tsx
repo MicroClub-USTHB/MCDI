@@ -7,10 +7,10 @@ import { useUpdateInboundWebhookMutation } from '@/features/inbound-webhooks/api
 import { PreviewPane } from '@/features/inbound-webhooks/components/preview-pane';
 import { useSchemaPreview } from '@/features/inbound-webhooks/components/use-schema-preview';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const SchemaEditor = dynamic(
   () =>
@@ -19,7 +19,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+    loading: () => <div className="h-96 rounded-lg border border-border bg-background" />,
   }
 );
 
@@ -28,7 +28,6 @@ const SchemaEditor = dynamic(
  * stands, and with submissions already stored it asks first, since those are not re-checked.
  */
 export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }) {
-  const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhook.id);
   const canWrite = useCan('inbound_webhooks', 'write');
   const stored = useMemo(() => JSON.stringify(webhook.schema, null, 2), [webhook.schema]);
@@ -62,29 +61,29 @@ export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-body text-text-muted">
+        <p className="max-w-2xl paragraph-sm text-muted-foreground">
           {editing
             ? 'Changes are checked by the API as you type. New submissions must match the schema you save.'
             : 'What callers may send. Edit it to change the fields.'}
         </p>
         {editing ? (
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setDraft(null)}>
+            <McButton type="button" variant="tertiary" size="sm" onClick={() => setDraft(null)}>
               Cancel
-            </Button>
-            <Button
+            </McButton>
+            <McButton
               type="button"
               size="sm"
               disabled={!canSave}
               onClick={() => (webhook.submissionCount > 0 ? setConfirming(true) : save())}
             >
               {update.isPending ? 'Saving…' : 'Save schema'}
-            </Button>
+            </McButton>
           </div>
         ) : canWrite ? (
-          <Button type="button" variant="secondary" size="sm" onClick={() => setDraft(stored)}>
+          <McButton type="button" variant="secondary" size="sm" onClick={() => setDraft(stored)}>
             Edit
-          </Button>
+          </McButton>
         ) : null}
       </div>
 

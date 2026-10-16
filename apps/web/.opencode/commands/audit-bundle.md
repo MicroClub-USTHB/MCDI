@@ -14,7 +14,7 @@ Analyze the project's bundle for heavy imports and suggest optimizations.
    - `moment` / `moment-timezone` (use `date-fns` or `dayjs`)
    - `axios` (project uses custom `ApiClient` with `fetch`)
    - Full icon libraries imported (should use individual `lucide-react` icons)
-   - `@radix-ui/*` — check if unused primitives are installed
+   - `@base-ui/react`, `@radix-ui/*` — check if unused primitives are installed
 
 3. **Check import patterns** — find barrel imports that defeat tree-shaking:
    ```bash

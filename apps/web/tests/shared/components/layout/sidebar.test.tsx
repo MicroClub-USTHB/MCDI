@@ -23,7 +23,8 @@ vi.mock('@/features/auth/components/LogoutButton', () => ({
   ),
 }));
 
-import { Sidebar } from '@/shared/components/layout/sidebar';
+import { AppSidebar, MobileSidebar } from '@/shared/components/layout/sidebar';
+import { McSidebarProvider } from '@/shared/components/ui/mc-sidebar';
 import { useAuthStore } from '@/features/auth/stores/auth';
 import { readLastContextId, rememberContextId } from '@/shared/lib/last-context';
 
@@ -51,10 +52,22 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-function renderSidebar(props: { open?: boolean; onClose?: () => void } = {}) {
-  return render(<Sidebar open={props.open ?? true} onClose={props.onClose ?? (() => {})} />, {
-    wrapper,
-  });
+function renderSidebar() {
+  return render(
+    <McSidebarProvider>
+      <AppSidebar />
+    </McSidebarProvider>,
+    { wrapper }
+  );
+}
+
+function renderMobileSidebar(onClose: () => void = () => {}) {
+  return render(
+    <McSidebarProvider>
+      <MobileSidebar open onClose={onClose} />
+    </McSidebarProvider>,
+    { wrapper }
+  );
 }
 
 function group(label: string) {
@@ -233,35 +246,32 @@ describe('Sidebar', () => {
     );
   });
 
-  it('calls onClose when the mobile close button is clicked', async () => {
-    const onClose = vi.fn();
-    renderSidebar({ onClose });
+  describe('mobile drawer', () => {
+    it('calls onClose when its close button is clicked', async () => {
+      const onClose = vi.fn();
+      renderMobileSidebar(onClose);
 
-    await userEvent.click(screen.getByRole('button', { name: /close sidebar/i }));
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
+      await userEvent.click(await screen.findByRole('button', { name: /close sidebar/i }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
 
-  it('calls onClose when the backdrop is clicked', async () => {
-    const onClose = vi.fn();
-    const { container } = renderSidebar({ onClose });
+    it('calls onClose when Escape is pressed while open', async () => {
+      const onClose = vi.fn();
+      renderMobileSidebar(onClose);
 
-    const backdrop = container.querySelector('[aria-hidden="true"].fixed.inset-0');
-    expect(backdrop).not.toBeNull();
-    await userEvent.click(backdrop as Element);
-    expect(onClose).toHaveBeenCalledOnce();
-  });
+      await screen.findByRole('dialog', { name: 'Navigation' });
+      await userEvent.keyboard('{Escape}');
+      expect(onClose).toHaveBeenCalled();
+    });
 
-  it('calls onClose when Escape is pressed while open', async () => {
-    const onClose = vi.fn();
-    renderSidebar({ onClose });
+    it('closes after a link is followed', async () => {
+      const onClose = vi.fn();
+      renderMobileSidebar(onClose);
 
-    await userEvent.keyboard('{Escape}');
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it('moves focus to the close button when it opens', () => {
-    renderSidebar();
-    expect(screen.getByRole('button', { name: /close sidebar/i })).toHaveFocus();
+      const drawer = within(await screen.findByRole('dialog', { name: 'Navigation' }));
+      await userEvent.click(drawer.getByRole('link', { name: 'Dashboard' }));
+      expect(onClose).toHaveBeenCalled();
+    });
   });
 
   describe('account footer', () => {

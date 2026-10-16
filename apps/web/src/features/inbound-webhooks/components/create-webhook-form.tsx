@@ -16,13 +16,12 @@ import { SigningSecretDialog } from '@/features/inbound-webhooks/components/sign
 import { parseDocument } from '@/features/inbound-webhooks/schema/json-tree';
 import { findFileWarnings } from '@/features/inbound-webhooks/schema/problems';
 import type { CreateInboundWebhookResponse } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Switch } from '@/shared/components/ui/switch';
-import { Textarea } from '@/shared/components/ui/textarea';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
+import { McTextarea } from '@/shared/components/ui/mc-textarea';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const SchemaEditor = dynamic(
   () =>
@@ -31,7 +30,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+    loading: () => <div className="h-96 rounded-lg border border-border bg-background" />,
   }
 );
 
@@ -40,7 +39,6 @@ const stringify = (schema: Record<string, unknown>) => JSON.stringify(schema, nu
 
 export function CreateWebhookForm({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const showToast = useToastStore((state) => state.show);
   const create = useCreateInboundWebhookMutation();
   const roles = useProjectRoleOptions(projectId);
   // The role list comes from the statistics; without it only the default readers can be used.
@@ -96,48 +94,42 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="webhook-name">Name</Label>
-          <Input
-            id="webhook-name"
-            value={name}
-            onChange={(event) => changeName(event.target.value)}
-            maxLength={255}
-            placeholder="Recruitment 2026"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="webhook-slug">Slug</Label>
-          <Input
-            id="webhook-slug"
-            value={slug}
-            onChange={(event) => {
-              setSlugEdited(true);
-              setSlug(event.target.value);
-            }}
-            aria-invalid={slugProblem}
-            placeholder="recruitment-2026"
-          />
-          {slugProblem ? (
-            <p className="text-body text-error">
-              Use lowercase letters, digits and dashes, 2 to 64 characters, with no dash at either
-              end.
-            </p>
-          ) : null}
-        </div>
+        <McInput
+          id="webhook-name"
+          label="Name"
+          value={name}
+          onChange={(event) => changeName(event.target.value)}
+          maxLength={255}
+          placeholder="Recruitment 2026"
+        />
+        <McInput
+          id="webhook-slug"
+          label="Slug"
+          value={slug}
+          onChange={(event) => {
+            setSlugEdited(true);
+            setSlug(event.target.value);
+          }}
+          error={
+            slugProblem
+              ? 'Use lowercase letters, digits and dashes, 2 to 64 characters, with no dash at either end.'
+              : undefined
+          }
+          placeholder="recruitment-2026"
+        />
       </div>
 
       <section className="flex flex-col gap-3">
         <div>
-          <h2 className="text-subhead text-text-primary">Schema</h2>
-          <p className="text-body text-text-muted">
+          <h2 className="paragraph-sm font-semibold text-foreground">Schema</h2>
+          <p className="paragraph-sm text-muted-foreground">
             What callers send, as JSON. Use steps for a multi-step form, or list fields directly for
             an event or any other payload. Start from a template or write your own.
           </p>
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Templates">
           {INBOUND_WEBHOOK_TEMPLATES.map((template) => (
-            <Button
+            <McButton
               key={template.id}
               type="button"
               variant="secondary"
@@ -146,13 +138,13 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
               onClick={() => setText(stringify(template.schema))}
             >
               {template.label}
-            </Button>
+            </McButton>
           ))}
         </div>
         {hasFileWarning ? (
           <div role="status" className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-            <p className="text-body text-warning">
+            <p className="paragraph-sm text-warning">
               File fields can&apos;t be submitted yet. A required one will reject every submission,
               so make it optional or leave it out.
             </p>
@@ -171,8 +163,10 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="flex flex-col gap-3">
           <div>
-            <h2 className="text-subhead text-text-primary">Who can read what it receives</h2>
-            <p className="text-body text-text-muted">
+            <h2 className="paragraph-sm font-semibold text-foreground">
+              Who can read what it receives
+            </h2>
+            <p className="paragraph-sm text-muted-foreground">
               Members holding one of these Discord roles. The default roles are added for you;
               remove any you don&apos;t want here.
             </p>
@@ -191,54 +185,58 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         </section>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-subhead text-text-primary">Options</h2>
+          <h2 className="paragraph-sm font-semibold text-foreground">Options</h2>
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="require-signature" className="flex flex-col gap-1">
+            <label
+              htmlFor="require-signature"
+              className="flex flex-col gap-1 text-sm font-medium text-foreground"
+            >
               Require a signature
-              <span className="text-text-muted">Reject requests that aren&apos;t signed.</span>
-            </Label>
-            <Switch
+              <span className="font-normal text-muted-foreground">
+                Reject requests that aren&apos;t signed.
+              </span>
+            </label>
+            <McSwitch
               id="require-signature"
               checked={requireSignature}
               onCheckedChange={setRequireSignature}
             />
           </div>
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="reject-unknown" className="flex flex-col gap-1">
+            <label
+              htmlFor="reject-unknown"
+              className="flex flex-col gap-1 text-sm font-medium text-foreground"
+            >
               Reject unknown fields
-              <span className="text-text-muted">
+              <span className="font-normal text-muted-foreground">
                 Off means fields outside the schema are dropped instead.
               </span>
-            </Label>
-            <Switch
+            </label>
+            <McSwitch
               id="reject-unknown"
               checked={rejectUnknownFields}
               onCheckedChange={setRejectUnknownFields}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="accepted-origins">Accepted origins</Label>
-            <Textarea
-              id="accepted-origins"
-              value={origins}
-              onChange={(event) => setOrigins(event.target.value)}
-              placeholder="https://app.microclub.dz"
-              rows={3}
-            />
-            <p className="text-body text-text-muted">
-              One per line. Leave empty to accept requests from anywhere.
-            </p>
-          </div>
+          <McTextarea
+            id="accepted-origins"
+            label="Accepted origins"
+            description="One per line. Leave empty to accept requests from anywhere."
+            value={origins}
+            onChange={(event) => setOrigins(event.target.value)}
+            placeholder="https://app.microclub.dz"
+            rows={3}
+          />
         </section>
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="ghost" onClick={() => router.back()}>
+        <McButton type="button" variant="tertiary" onClick={() => router.back()}>
           Cancel
-        </Button>
-        <Button type="submit" disabled={!canSubmit}>
+        </McButton>
+        <McButton type="submit" disabled={!canSubmit}>
           {create.isPending ? 'Creating…' : 'Create webhook'}
-        </Button>
+        </McButton>
       </div>
 
       <SigningSecretDialog

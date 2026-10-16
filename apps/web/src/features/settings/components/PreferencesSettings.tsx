@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import {
   preferencesSettingsSchema,
@@ -62,30 +61,30 @@ function PreferencesSettings({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="memberActivityThresholdDays">Member activity threshold (days)</Label>
-            <Input
-              id="memberActivityThresholdDays"
-              type="number"
-              value={values.memberActivityThresholdDays}
-              onChange={(event) =>
-                setValues({ memberActivityThresholdDays: Number(event.target.value) })
-              }
-              aria-invalid={!!errors.memberActivityThresholdDays}
-            />
-            {errors.memberActivityThresholdDays && (
-              <p className="text-body text-error">{errors.memberActivityThresholdDays}</p>
-            )}
-          </div>
+          <McInput
+            id="memberActivityThresholdDays"
+            label="Member activity threshold (days)"
+            type="number"
+            value={values.memberActivityThresholdDays}
+            onChange={(event) =>
+              setValues({ memberActivityThresholdDays: Number(event.target.value) })
+            }
+            error={errors.memberActivityThresholdDays}
+          />
 
           {readOnly ? (
-            <Badge variant="secondary" className="self-start">
+            <McBadge variant="outline" size="md" className="self-start">
               Read only
-            </Badge>
+            </McBadge>
           ) : (
-            <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
+            <McButton
+              type="submit"
+              size="sm"
+              className="self-start"
+              disabled={isSaving || !isDirty}
+            >
               Save
-            </Button>
+            </McButton>
           )}
         </fieldset>
       </form>

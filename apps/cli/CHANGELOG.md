@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The page the browser shows after `mcid-cli login` uses the Micro Club design system (the mcoli-ui `primary` theme) and follows the system's light or dark setting.
+
 ## [0.1.0] - 2026-10-16
 
 First release. The CLI covers MCID Inbound Webhooks: logging in as an admin, writing and pre-checking FormSchema files, and managing webhooks.

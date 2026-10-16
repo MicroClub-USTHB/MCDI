@@ -12,7 +12,7 @@ export function SwaggerLink({ tag, operationId }: { tag: string; operationId: st
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-sm text-body text-brand-light underline underline-offset-4 outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-focus"
+        className="inline-flex items-center gap-1.5 rounded-sm paragraph-sm text-primary underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         Open in Swagger
         <ExternalLink className="size-3.5" aria-hidden="true" />
