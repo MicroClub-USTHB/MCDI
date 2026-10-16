@@ -4,9 +4,9 @@ import { useMemo, type ReactNode } from 'react';
 
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
-import { Badge } from '@/shared/components/ui/badge';
 import type { SyncLogEntry } from '@/features/sync/api/mappers';
 import { formatAbsoluteTime, formatDuration, formatRelativeTime } from '@/features/sync/lib/format';
+import { SyncToneBadge } from './SyncToneBadge';
 
 interface SyncLogTableProps {
   logs: SyncLogEntry[];
@@ -64,7 +64,7 @@ export function SyncLogTable({
           const { tone, label } = row.original.meta;
           return (
             <div className="flex flex-col gap-1">
-              <Badge variant={tone === 'neutral' ? 'secondary' : tone}>{label}</Badge>
+              <SyncToneBadge tone={tone}>{label}</SyncToneBadge>
               {row.original.status === 'failed' && row.original.message && (
                 <span
                   className="max-w-64 truncate paragraph-xs font-semibold tracking-wide text-error"

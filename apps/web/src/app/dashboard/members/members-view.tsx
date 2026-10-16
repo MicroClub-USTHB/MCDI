@@ -9,7 +9,7 @@ import { useMembersQuery } from '@/features/members/api/queries';
 import type { MemberFilters as MemberFiltersState, MemberListItem } from '@/features/members/types';
 import type { DataTableColumn } from '@/features/members/components/data-table';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Badge } from '@/shared/components/ui/badge';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import { LoadingSkeleton } from '@/shared/components/common';
 import { MemberAvatar } from '@/features/members/components/MemberAvatar';
 
@@ -90,10 +90,10 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
               <div className="truncate paragraph-sm font-semibold text-foreground">
                 {member.displayName}
               </div>
-              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 @{member.username}
               </div>
-              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 ID: {member.memberId}
               </div>
             </div>
@@ -106,9 +106,9 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
         header: 'Club',
         cell: (member) =>
           member.isClubMember ? (
-            <Badge variant="brand-light">Club member</Badge>
+            <McBadge variant="secondary">Club member</McBadge>
           ) : (
-            <span className="text-muted-foreground/70">-</span>
+            <span className="text-muted-foreground">-</span>
           ),
         className: 'w-[12%]',
       },
@@ -133,14 +133,14 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
           return roles.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {visibleRoles.map((role) => (
-                <Badge key={role} variant="secondary">
+                <McBadge key={role} variant="outline">
                   {role}
-                </Badge>
+                </McBadge>
               ))}
-              {extraCount > 0 ? <Badge variant="outline">+{extraCount} more</Badge> : null}
+              {extraCount > 0 ? <McBadge variant="ghost">+{extraCount} more</McBadge> : null}
             </div>
           ) : (
-            <span className="text-muted-foreground/70">No roles</span>
+            <span className="text-muted-foreground">No roles</span>
           );
         },
         className: 'w-[36%]',

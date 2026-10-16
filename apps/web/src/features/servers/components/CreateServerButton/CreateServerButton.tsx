@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 
 interface CreateServerButtonProps {
   onClick: () => void;
@@ -8,10 +8,15 @@ interface CreateServerButtonProps {
 
 function CreateServerButton({ onClick }: CreateServerButtonProps) {
   return (
-    <Button type="button" variant="primary" onClick={onClick}>
-      <Plus className="size-4" />
+    <McButton
+      type="button"
+      variant="primary"
+      icon="leading"
+      iconDefinition={<Plus aria-hidden="true" />}
+      onClick={onClick}
+    >
       Add Server
-    </Button>
+    </McButton>
   );
 }
 

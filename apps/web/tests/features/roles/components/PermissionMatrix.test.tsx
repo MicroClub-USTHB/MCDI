@@ -52,14 +52,8 @@ describe('PermissionMatrix (role permission list)', () => {
 
   it('reflects the assigned permission set', () => {
     setup({ assignedIds: new Set([12]) }); // SEND_MESSAGES
-    expect(screen.getByRole('checkbox', { name: 'Remove SEND_MESSAGES' })).toHaveAttribute(
-      'data-state',
-      'checked'
-    );
-    expect(screen.getByRole('checkbox', { name: 'Add KICK_MEMBERS' })).toHaveAttribute(
-      'data-state',
-      'unchecked'
-    );
+    expect(screen.getByRole('checkbox', { name: 'Remove SEND_MESSAGES' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Add KICK_MEMBERS' })).not.toBeChecked();
   });
 
   it('calls onToggle with the permission id and next checked state', () => {
@@ -70,6 +64,9 @@ describe('PermissionMatrix (role permission list)', () => {
 
   it('locks every checkbox when locked', () => {
     setup({ locked: true });
-    screen.getAllByRole('checkbox').forEach((cb) => expect(cb).toBeDisabled());
+    // Base UI checkboxes are spans: the disabled state lives in aria-disabled.
+    screen
+      .getAllByRole('checkbox')
+      .forEach((cb) => expect(cb).toHaveAttribute('aria-disabled', 'true'));
   });
 });

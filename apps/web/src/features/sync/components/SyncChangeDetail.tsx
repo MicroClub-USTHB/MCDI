@@ -1,19 +1,10 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { LoadingSkeleton } from '@/shared/components/common';
-import type { SyncChangeEntry, SyncTone } from '@/features/sync/api/mappers';
-
-const toneVariant: Record<SyncTone, ComponentProps<typeof Badge>['variant']> = {
-  success: 'success',
-  warning: 'warning',
-  error: 'error',
-  neutral: 'secondary',
-};
+import type { SyncChangeEntry } from '@/features/sync/api/mappers';
+import { SyncToneBadge } from './SyncToneBadge';
 
 interface SyncChangeDetailProps {
   changes: SyncChangeEntry[];
@@ -57,9 +48,9 @@ export function SyncChangeDetail({
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="paragraph-sm text-error">Couldn’t load the change details.</span>
             {onRetry && (
-              <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
+              <McButton type="button" variant="secondary" size="sm" onClick={onRetry}>
                 Retry
-              </Button>
+              </McButton>
             )}
           </div>
         ) : changes.length === 0 ? (
@@ -70,7 +61,7 @@ export function SyncChangeDetail({
           <ul className="mt-3 flex flex-col divide-y divide-border">
             {changes.map((change) => (
               <li key={change.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                <Badge variant={toneVariant[change.tone]}>{change.action.replace(/_/g, ' ')}</Badge>
+                <SyncToneBadge tone={change.tone}>{change.action.replace(/_/g, ' ')}</SyncToneBadge>
                 <div className="min-w-0 flex-1">
                   <p className="paragraph-sm text-foreground">
                     {change.description ?? (
@@ -81,7 +72,7 @@ export function SyncChangeDetail({
                     )}
                   </p>
                   {change.details && (
-                    <pre className="mt-1 overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground/70">
+                    <pre className="mt-1 overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground">
                       {change.details}
                     </pre>
                   )}

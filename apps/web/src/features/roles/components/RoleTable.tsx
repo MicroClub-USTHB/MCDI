@@ -2,6 +2,7 @@
 
 import { Shield } from 'lucide-react';
 
+import { McButton } from '@/shared/components/ui/mc-button';
 import { cn } from '@/shared/lib/utils';
 import { getExecutiveRoleId, type RoleStatsView } from '@/features/roles/api/mappers';
 
@@ -31,13 +32,16 @@ function RoleTable({
 
         return (
           <li key={role.roleId} className="border-b border-border last:border-b-0">
-            <button
+            <McButton
               type="button"
+              variant="tertiary"
               onClick={() => onSelectRole(role.roleId)}
               aria-current={isSelected ? 'true' : undefined}
               className={cn(
-                'flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
-                isSelected ? 'bg-primary/12 text-foreground' : 'text-foreground hover:bg-muted'
+                'w-full justify-start gap-2.5 rounded-none px-3 py-2.5 text-left font-normal',
+                isSelected
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'bg-transparent text-foreground hover:bg-muted hover:text-foreground'
               )}
             >
               <span
@@ -50,12 +54,12 @@ function RoleTable({
                 <Shield className="size-3.5 shrink-0 text-warning" aria-label="Executive role" />
               )}
               <span
-                className="shrink-0 rounded bg-muted px-1.5 py-0.5 paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums"
+                className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums"
                 title={`${permCount ?? 0} permission${permCount === 1 ? '' : 's'}`}
               >
                 {isLoadingPermissions && permCount === undefined ? '…' : (permCount ?? 0)}
               </span>
-            </button>
+            </McButton>
           </li>
         );
       })}

@@ -54,7 +54,7 @@ function HierarchyTree({ roles, activeRoleId = null }: HierarchyTreeProps) {
               {isExecutive && (
                 <Shield className="size-3 shrink-0 text-warning" aria-label="Executive role" />
               )}
-              <span className="shrink-0 paragraph-xs font-semibold tracking-wide text-muted-foreground/70 tabular-nums">
+              <span className="shrink-0 paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums">
                 {role.memberCount}
               </span>
             </div>

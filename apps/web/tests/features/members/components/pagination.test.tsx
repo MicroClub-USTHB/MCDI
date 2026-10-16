@@ -29,7 +29,8 @@ describe('Pagination', () => {
     await user.click(screen.getByRole('button', { name: 'Next page' }));
     expect(onPageChange).toHaveBeenCalledWith(3);
 
-    await user.selectOptions(screen.getByRole('combobox'), '100');
+    await user.click(screen.getByRole('combobox', { name: 'Per page' }));
+    await user.click(await screen.findByRole('option', { name: '100' }));
     expect(onPageSizeChange).toHaveBeenCalledWith(100);
   });
 });

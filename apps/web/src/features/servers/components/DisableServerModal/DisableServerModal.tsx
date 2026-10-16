@@ -3,8 +3,7 @@
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
-import { Label } from '@/shared/components/ui/label';
-import { Textarea } from '@/shared/components/ui/textarea';
+import { McTextarea } from '@/shared/components/ui/mc-textarea';
 
 interface DisableServerModalProps {
   open: boolean;
@@ -37,15 +36,13 @@ function DisableServerModal({
       isConfirming={isSubmitting}
       onConfirm={() => onConfirm(reason.trim() || undefined)}
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="disable-reason">Reason (optional)</Label>
-        <Textarea
-          id="disable-reason"
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder="Why is this server being disabled?"
-        />
-      </div>
+      <McTextarea
+        id="disable-reason"
+        label="Reason (optional)"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        placeholder="Why is this server being disabled?"
+      />
     </ConfirmDialog>
   );
 }

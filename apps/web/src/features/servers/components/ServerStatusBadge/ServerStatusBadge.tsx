@@ -1,3 +1,4 @@
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import { cn } from '@/shared/lib/utils';
 
 interface ServerStatusBadgeProps {
@@ -9,22 +10,21 @@ interface ServerStatusBadgeProps {
 /** Main overrides Active/Inactive — a main server is always shown as "Main". */
 function ServerStatusBadge({ isActive, isMain, className }: ServerStatusBadgeProps) {
   const label = isMain ? 'Main' : isActive ? 'Active' : 'Inactive';
-  const toneClasses = isMain
-    ? 'bg-primary text-primary-foreground'
-    : isActive
-      ? 'bg-success/12 text-success'
-      : 'bg-error/12 text-error';
+  if (isMain) {
+    return (
+      <McBadge variant="primary" className={cn('w-fit', className)}>
+        {label}
+      </McBadge>
+    );
+  }
 
   return (
-    <span
-      className={cn(
-        'inline-flex w-fit items-center rounded-full px-2 py-0.5 paragraph-xs font-semibold tracking-wide whitespace-nowrap',
-        toneClasses,
-        className
-      )}
+    <McBadge
+      variant={isActive ? 'outline' : 'destructive'}
+      className={cn('w-fit', isActive && 'border-success/30 bg-success/10 text-success', className)}
     >
       {label}
-    </span>
+    </McBadge>
   );
 }
 

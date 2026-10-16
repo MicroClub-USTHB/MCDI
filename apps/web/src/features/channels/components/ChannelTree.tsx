@@ -3,6 +3,7 @@
 import { CircleHelp, Hash, Lock, Megaphone, Volume2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
+import { McButton } from '@/shared/components/ui/mc-button';
 import { cn } from '@/shared/lib/utils';
 import type { ChannelGroup, ChannelNode } from '@/features/channels/api/mappers';
 
@@ -29,34 +30,36 @@ export function ChannelTree({ groups, selectedId, onSelect }: ChannelTreeProps) 
     >
       {groups.map((group) => (
         <div key={group.id ?? '__uncategorized'} className="flex flex-col gap-1">
-          <p className="px-2 paragraph-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+          <p className="px-2 paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {group.name}
           </p>
           {group.channels.map((channel) => {
             const Icon = TYPE_ICON[channel.type];
             const active = channel.id === selectedId;
             return (
-              <button
+              <McButton
                 key={channel.id}
                 type="button"
+                variant="tertiary"
+                size="sm"
                 onClick={() => onSelect(channel.id)}
                 aria-current={active ? 'true' : undefined}
                 className={cn(
-                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-left paragraph-sm transition-colors',
+                  'w-full justify-start gap-2 rounded-md bg-transparent px-2 py-1.5 text-left font-normal',
                   active
-                    ? 'bg-secondary text-foreground'
+                    ? 'bg-secondary text-secondary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
-                <Icon className="size-4 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+                <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="truncate">{channel.name}</span>
                 {channel.hasOverwrites && (
                   <Lock
-                    className="ml-auto size-3 shrink-0 text-muted-foreground/70"
+                    className="ml-auto size-3 shrink-0 text-muted-foreground"
                     aria-label="Restricted"
                   />
                 )}
-              </button>
+              </McButton>
             );
           })}
         </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { Download, Loader2 } from 'lucide-react';
+import { Download } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useExportMembersMutation } from '@/features/members/api/mutations';
 import type { MemberFilters } from '@/features/members/types';
 
@@ -15,24 +15,18 @@ export function ExportButton({ format, filters }: ExportButtonProps) {
   const exportMutation = useExportMembersMutation();
 
   return (
-    <Button
+    <McButton
       type="button"
       variant="secondary"
+      icon="leading"
+      iconDefinition={<Download aria-hidden="true" />}
+      isLoading={exportMutation.isPending}
       onClick={() => exportMutation.mutate({ filters, format })}
-      disabled={exportMutation.isPending}
       aria-busy={exportMutation.isPending}
-      className="bg-muted"
     >
-      {exportMutation.isPending ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : (
-        <Download className="size-4" />
-      )}
-      <span>
-        {exportMutation.isPending
-          ? `Exporting ${format.toUpperCase()}…`
-          : `Export ${format.toUpperCase()}`}
-      </span>
-    </Button>
+      {exportMutation.isPending
+        ? `Exporting ${format.toUpperCase()}…`
+        : `Export ${format.toUpperCase()}`}
+    </McButton>
   );
 }

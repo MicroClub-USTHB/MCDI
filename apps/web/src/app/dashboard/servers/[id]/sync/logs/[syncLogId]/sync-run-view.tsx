@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 
 import { SYNC_CHANGES_PAGE_SIZE, useSyncChangesQuery } from '@/features/sync/api/queries';
 import { SyncChangeDetail } from '@/features/sync/components';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 
 /** Entity-level changes of one sync run. `backHref` is where "Back to sync" leads. */
@@ -25,10 +25,14 @@ export function SyncRunView({ syncLogId: raw, backHref }: { syncLogId: string; b
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Button variant="secondary" onClick={() => router.push(backHref)}>
-          <ArrowLeft className="size-4" aria-hidden="true" />
+        <McButton
+          variant="secondary"
+          icon="leading"
+          iconDefinition={<ArrowLeft aria-hidden="true" />}
+          onClick={() => router.push(backHref)}
+        >
           Back to sync
-        </Button>
+        </McButton>
       </div>
 
       {!isValidId ? (
@@ -43,7 +47,7 @@ export function SyncRunView({ syncLogId: raw, backHref }: { syncLogId: string; b
           </header>
 
           {error && (
-            <p className="flex items-start gap-2 rounded-md bg-error/12 p-3 paragraph-sm text-error">
+            <p className="flex items-start gap-2 rounded-md bg-error/10 p-3 paragraph-sm text-error">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </p>

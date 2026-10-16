@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, Shield } from 'lucide-react';
 
 import {
   useRoleStatsQuery,
@@ -26,7 +26,8 @@ import {
   HierarchyTree,
 } from '@/features/roles/components';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
-import { Button } from '@/shared/components/ui/button';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
 import { cn } from '@/shared/lib/utils';
 import { showToast } from '@/shared/stores';
@@ -56,7 +57,7 @@ function Panel({
           {title}
         </h2>
         {count !== undefined && (
-          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70 tabular-nums">
+          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums">
             {count}
           </span>
         )}
@@ -168,30 +169,32 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Button
+      <McButton
         type="button"
-        variant="ghost"
+        variant="tertiary"
         size="sm"
+        icon="leading"
+        iconDefinition={<ArrowLeft aria-hidden="true" />}
         onClick={() => router.push(`/dashboard/servers/${serverId}/roles`)}
         className="-ml-2 w-fit"
       >
-        <ArrowLeft aria-hidden="true" />
         Roles
-      </Button>
+      </McButton>
 
       {!stats && statsQuery.isPending && <SkeletonCard lines={4} />}
 
       {statsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-6">
           <p className="paragraph-sm text-error">Failed to load roles.</p>
-          <Button
+          <McButton
             type="button"
             variant="secondary"
             size="sm"
+            className="self-start"
             onClick={() => void statsQuery.refetch()}
           >
             Retry
-          </Button>
+          </McButton>
         </div>
       )}
 
@@ -235,14 +238,17 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                   }
                   aria-hidden="true"
                 />
-                <h1 className="truncate paragraph-md font-semibold text-foreground">
+                <h1 className="truncate header-xs font-bold text-foreground">
                   {selectedRole?.displayName ?? 'Role'}
                 </h1>
                 {isExecutiveRole && (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warning/12 px-2 py-0.5 paragraph-xs font-semibold tracking-wide text-warning">
-                    <Shield className="size-3" aria-hidden="true" />
+                  <McBadge
+                    variant="outline"
+                    icon={<Shield aria-hidden="true" />}
+                    className="shrink-0 border-warning/30 bg-warning/10 text-warning"
+                  >
                     Executive
-                  </span>
+                  </McBadge>
                 )}
               </div>
               <p className="mt-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
@@ -262,7 +268,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
             {currentRolePerms && (
               <>
                 {isExecutiveRole && (
-                  <div className="shrink-0 rounded-lg border border-warning/30 bg-warning/12 px-4 py-3 paragraph-sm text-warning">
+                  <div className="shrink-0 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 paragraph-sm text-warning">
                     Executive role — permissions are locked.
                   </div>
                 )}
@@ -316,13 +322,15 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                       ) : null)}
 
                     <div className="flex items-center gap-2">
-                      <Button type="button" size="sm" onClick={handleApply} disabled={isApplying}>
-                        {isApplying && (
-                          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                        )}
+                      <McButton
+                        type="button"
+                        size="sm"
+                        onClick={handleApply}
+                        isLoading={isApplying}
+                      >
                         Apply {staged.size} change{staged.size === 1 ? '' : 's'}
-                      </Button>
-                      <Button
+                      </McButton>
+                      <McButton
                         type="button"
                         variant="secondary"
                         size="sm"
@@ -330,7 +338,7 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
                         disabled={isApplying}
                       >
                         Discard
-                      </Button>
+                      </McButton>
                     </div>
                   </div>
                 )}

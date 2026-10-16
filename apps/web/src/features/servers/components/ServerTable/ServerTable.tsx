@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { SortingState } from '@tanstack/react-table';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { useCan } from '@/shared/lib/use-access';
@@ -100,25 +100,25 @@ function buildDefaultColumns(
             onClick={(event) => event.stopPropagation()}
           >
             {access.canWrite ? (
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="sm"
                 onClick={() => onAction(server.isActive ? 'disable' : 'enable', server)}
               >
                 {server.isActive ? 'Disable' : 'Enable'}
-              </Button>
+              </McButton>
             ) : null}
             {access.canManage ? (
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
+                destructive
                 size="sm"
-                className="text-error hover:bg-error/12"
                 onClick={() => onAction('delete', server)}
               >
                 Delete
-              </Button>
+              </McButton>
             ) : null}
           </div>
         );

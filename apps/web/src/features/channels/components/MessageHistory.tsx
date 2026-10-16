@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { LoadingSkeleton } from '@/shared/components/common';
 import { MESSAGE_HISTORY_LIMIT } from '@/features/channels/types';
 import type { MessageView } from '@/features/channels/api/mappers';
@@ -40,16 +40,16 @@ export function MessageHistory({
           Message history
         </h3>
         {loaded && !isLoading && !isError && (
-          <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
+          <McButton type="button" variant="tertiary" size="sm" onClick={onRetry}>
             Refresh
-          </Button>
+          </McButton>
         )}
       </div>
 
       {!loaded ? (
-        <Button type="button" variant="secondary" size="sm" onClick={onLoad} className="w-fit">
+        <McButton type="button" variant="secondary" size="sm" onClick={onLoad} className="w-fit">
           Load recent messages
-        </Button>
+        </McButton>
       ) : isLoading ? (
         <div className="flex flex-col gap-2">
           <LoadingSkeleton className="h-12 rounded-md" />
@@ -59,9 +59,9 @@ export function MessageHistory({
       ) : isError ? (
         <div className="flex items-center justify-between gap-3">
           <span className="paragraph-sm text-error">Couldn’t load the message history.</span>
-          <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
+          <McButton type="button" variant="secondary" size="sm" onClick={onRetry}>
             Retry
-          </Button>
+          </McButton>
         </div>
       ) : messages.length === 0 ? (
         <p className="paragraph-sm text-muted-foreground">No messages in this channel yet.</p>
@@ -74,7 +74,7 @@ export function MessageHistory({
                   <span className="paragraph-sm font-semibold text-foreground">
                     {message.authorName}
                   </span>
-                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                     {formatTimestamp(message.timestamp)}
                   </span>
                 </div>
@@ -92,7 +92,7 @@ export function MessageHistory({
                   </p>
                 ))}
                 {message.attachmentCount > 0 && (
-                  <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                  <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                     {message.attachmentCount} attachment
                     {message.attachmentCount === 1 ? '' : 's'}
                   </p>
@@ -101,7 +101,7 @@ export function MessageHistory({
             ))}
           </ul>
           {hasMore && (
-            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
               Showing the {MESSAGE_HISTORY_LIMIT} most recent — older messages aren’t shown.
             </p>
           )}

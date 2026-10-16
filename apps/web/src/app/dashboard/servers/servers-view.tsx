@@ -5,8 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Server as ServerIcon } from 'lucide-react';
 
 import { Can } from '@/shared/components/common';
-import { Button } from '@/shared/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
+import {
+  McDialog,
+  McDialogContent,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
@@ -125,11 +130,11 @@ function ServersView() {
       <SyncProgressIndicator inProgress={anySyncActive} />
 
       {isError ? (
-        <div className="flex flex-col items-start gap-3 rounded-lg bg-error/12 p-4 text-error">
+        <div className="flex flex-col items-start gap-3 rounded-lg bg-error/10 p-4 text-error">
           <p className="paragraph-sm">{error.message || 'Failed to load servers.'}</p>
-          <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
+          <McButton type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
             Retry
-          </Button>
+          </McButton>
         </div>
       ) : !isPending && filtered.length === 0 ? (
         <EmptyState
@@ -142,9 +147,9 @@ function ServersView() {
           }
           action={
             hasActiveFilters ? (
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="sm"
                 onClick={() => {
                   setSearch('');
@@ -153,7 +158,7 @@ function ServersView() {
                 }}
               >
                 Clear filters
-              </Button>
+              </McButton>
             ) : canWrite ? (
               <CreateServerButton onClick={() => setCreateOpen(true)} />
             ) : undefined
@@ -171,11 +176,11 @@ function ServersView() {
         />
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Server</DialogTitle>
-          </DialogHeader>
+      <McDialog open={createOpen} onOpenChange={setCreateOpen}>
+        <McDialogContent className="sm:min-h-0">
+          <McDialogHeader>
+            <McDialogTitle>Add Server</McDialogTitle>
+          </McDialogHeader>
           <ServerForm
             mode="create"
             isSubmitting={createMutation.isPending}
@@ -190,8 +195,8 @@ function ServersView() {
               })
             }
           />
-        </DialogContent>
-      </Dialog>
+        </McDialogContent>
+      </McDialog>
 
       {disablingServer && (
         <DisableServerModal

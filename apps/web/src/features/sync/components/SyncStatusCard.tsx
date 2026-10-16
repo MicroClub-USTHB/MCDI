@@ -1,24 +1,17 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { cn } from '@/shared/lib/utils';
-import { Badge } from '@/shared/components/ui/badge';
 import type { SyncServerStatus, SyncTone } from '@/features/sync/api/mappers';
 import { formatAbsoluteTime, formatRelativeTime } from '@/features/sync/lib/format';
+import { SyncToneBadge } from './SyncToneBadge';
 
 const dotClass: Record<SyncTone, string> = {
   success: 'bg-success',
   warning: 'bg-warning',
   error: 'bg-error',
-  neutral: 'bg-muted-foreground/70',
-};
-
-const badgeVariant: Record<SyncTone, ComponentProps<typeof Badge>['variant']> = {
-  success: 'success',
-  warning: 'warning',
-  error: 'error',
-  neutral: 'secondary',
+  neutral: 'bg-muted-foreground',
 };
 
 interface SyncStatusCardProps {
@@ -47,7 +40,7 @@ export function SyncStatusCard({ serverName, status, action }: SyncStatusCardPro
           />
           <h3 className="paragraph-sm font-semibold text-foreground">{serverName}</h3>
         </div>
-        <Badge variant={badgeVariant[tone]}>{label}</Badge>
+        <SyncToneBadge tone={tone}>{label}</SyncToneBadge>
       </div>
 
       <div className="flex flex-col gap-0.5">
@@ -69,7 +62,7 @@ export function SyncStatusCard({ serverName, status, action }: SyncStatusCardPro
       )}
 
       {status.status === 'failed' && (
-        <p className="rounded-md bg-error/12 p-3 paragraph-sm text-error">
+        <p className="rounded-md bg-error/10 p-3 paragraph-sm text-error">
           {status.message ?? 'Last sync failed.'}
         </p>
       )}

@@ -3,8 +3,7 @@
 import { useState } from 'react';
 
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McInput } from '@/shared/components/ui/mc-input';
 
 interface DeleteServerModalProps {
   open: boolean;
@@ -38,17 +37,17 @@ function DeleteServerModal({
       confirmDisabled={typedName !== serverName}
       onConfirm={onConfirm}
     >
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="delete-confirm-name">
-          Type <span className="font-semibold text-foreground">{serverName}</span> to confirm
-        </Label>
-        <Input
-          id="delete-confirm-name"
-          value={typedName}
-          onChange={(event) => setTypedName(event.target.value)}
-          autoComplete="off"
-        />
-      </div>
+      <McInput
+        id="delete-confirm-name"
+        label={
+          <>
+            Type <span className="font-semibold text-foreground">{serverName}</span> to confirm
+          </>
+        }
+        value={typedName}
+        onChange={(event) => setTypedName(event.target.value)}
+        autoComplete="off"
+      />
     </ConfirmDialog>
   );
 }

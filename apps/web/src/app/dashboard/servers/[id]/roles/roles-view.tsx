@@ -13,7 +13,7 @@ import { mapRoleStatsResponse, mapInheritanceRule } from '@/features/roles/api/m
 import { RoleTable, InheritanceRuleForm } from '@/features/roles/components';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
 import { Shield, Plus } from 'lucide-react';
 import type { CreateInheritanceRulePayload } from '@/features/roles/types';
@@ -65,28 +65,31 @@ export function RolesView({ serverId }: { serverId: string }) {
           </p>
         </div>
         {canWrite && stats && stats.roles.length > 0 && (
-          <Button
+          <McButton
             type="button"
             variant="secondary"
             size="sm"
+            icon="leading"
+            iconDefinition={<Plus aria-hidden="true" />}
             onClick={() => setRuleDialogOpen(true)}
           >
-            <Plus aria-hidden="true" />
             Add Inheritance Rule
-          </Button>
+          </McButton>
         )}
       </div>
 
       {statsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
           <p className="paragraph-sm text-error">Failed to load roles.</p>
-          <button
+          <McButton
             type="button"
-            className="text-sm text-primary underline"
+            variant="link"
+            size="sm"
+            className="self-start"
             onClick={() => void statsQuery.refetch()}
           >
             Retry
-          </button>
+          </McButton>
         </div>
       )}
 
@@ -107,7 +110,7 @@ export function RolesView({ serverId }: { serverId: string }) {
               <h2 className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 Roles
               </h2>
-              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70 tabular-nums">
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums">
                 {stats.roles.length}
               </span>
             </div>
@@ -141,7 +144,7 @@ export function RolesView({ serverId }: { serverId: string }) {
                         {rule.enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground/70">{rule.updatedAtLabel}</span>
+                    <span className="text-xs text-muted-foreground">{rule.updatedAtLabel}</span>
                   </div>
                 ))}
               </div>

@@ -189,7 +189,7 @@ describe('Role detail — bulk permission editing', () => {
 
     const checkboxes = screen.getAllByRole('checkbox');
     expect(checkboxes.length).toBeGreaterThan(0);
-    checkboxes.forEach((cb) => expect(cb).toBeDisabled());
+    checkboxes.forEach((cb) => expect(cb).toHaveAttribute('aria-disabled', 'true'));
     expect(screen.queryByText(/to add/)).not.toBeInTheDocument();
   }, 15000);
 });

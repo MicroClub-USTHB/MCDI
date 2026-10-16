@@ -18,7 +18,7 @@ export function SyncProgressIndicator({
       <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </span>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-background">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div className="h-full w-1/4 rounded-full bg-primary animate-sync-indeterminate" />
       </div>
     </div>

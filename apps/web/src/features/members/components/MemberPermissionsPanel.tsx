@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McCard, McCardContent } from '@/shared/components/ui/mc-card';
 import type { MemberPermissionsDto } from '@/features/members/types';
 
 interface MemberPermissionsPanelProps {
@@ -56,7 +56,13 @@ function PermissionTree({ value }: { value: unknown }) {
   }
 
   if (typeof value === 'boolean') {
-    return <Badge variant={value ? 'success' : 'error'}>{value ? 'Allowed' : 'Denied'}</Badge>;
+    return value ? (
+      <McBadge variant="outline" className="border-success/30 bg-success/10 text-success">
+        Allowed
+      </McBadge>
+    ) : (
+      <McBadge variant="destructive">Denied</McBadge>
+    );
   }
 
   const formattedValue = formatValue(value);
@@ -71,22 +77,20 @@ function PermissionTree({ value }: { value: unknown }) {
 export function MemberPermissionsPanel({ permissionsByServer }: MemberPermissionsPanelProps) {
   return (
     <section className="space-y-4" aria-label="Member permissions">
-      <h2 className="paragraph-md font-semibold text-foreground">Resolved permissions</h2>
+      <h2 className="header-xs font-bold text-foreground">Resolved permissions</h2>
       <div className="space-y-4">
         {permissionsByServer.map((server) => (
-          <Card key={server.serverId}>
-            <CardHeader className="pb-0">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <CardTitle>{server.serverName}</CardTitle>
-                {server.permissions ? (
-                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
-                    {server.permissions.permissions.length} permission
-                    {server.permissions.permissions.length === 1 ? '' : 's'}
-                  </span>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <McCard key={server.serverId}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="header-xs font-bold text-card-foreground">{server.serverName}</h3>
+              {server.permissions ? (
+                <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                  {server.permissions.permissions.length} permission
+                  {server.permissions.permissions.length === 1 ? '' : 's'}
+                </span>
+              ) : null}
+            </div>
+            <McCardContent className="space-y-4">
               {server.permissions ? (
                 <div className="space-y-4">
                   <div className="space-y-1">
@@ -106,8 +110,8 @@ export function MemberPermissionsPanel({ permissionsByServer }: MemberPermission
               ) : (
                 <p className="paragraph-sm text-muted-foreground">No permissions data returned.</p>
               )}
-            </CardContent>
-          </Card>
+            </McCardContent>
+          </McCard>
         ))}
       </div>
     </section>
