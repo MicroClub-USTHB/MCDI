@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 import { useRotateSecretMutation } from '@/features/inbound-webhooks/api/mutations';
 import { SigningSecretDialog } from '@/features/inbound-webhooks/components/signing-secret-dialog';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
 
@@ -39,14 +39,14 @@ export function WebhookSecretSection({ webhookId }: { webhookId: string }) {
           Callers sign every request with it. It is shown only when it is created or rotated.
         </p>
       </div>
-      <Button
+      <McButton
         type="button"
         variant="secondary"
         className="self-start"
         onClick={() => setConfirming(true)}
       >
         Rotate secret
-      </Button>
+      </McButton>
 
       <ConfirmDialog
         open={confirming}

@@ -5,8 +5,8 @@ import Link from 'next/link';
 
 import type { InboundWebhookView } from '@/features/inbound-webhooks/api/mappers';
 import { useAllowedRolesQuery } from '@/features/inbound-webhooks/api/queries';
-import { Badge } from '@/shared/components/ui/badge';
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 
 function Readers({ webhookId }: { webhookId: string }) {
   const roles = useAllowedRolesQuery(webhookId);
@@ -16,6 +16,9 @@ function Readers({ webhookId }: { webhookId: string }) {
     </span>
   );
 }
+
+const SUCCESS_BADGE = 'border-success/30 bg-success/10 text-success';
+const WARNING_BADGE = 'border-warning/30 bg-warning/10 text-warning';
 
 // Defined once: the table treats a new cell function as a new component and would remount every cell.
 const columns: DataTableColumn<InboundWebhookView>[] = [
@@ -38,9 +41,12 @@ const columns: DataTableColumn<InboundWebhookView>[] = [
     accessorKey: 'signatureLabel',
     header: 'Signature',
     cell: ({ row }) => (
-      <Badge variant={row.original.signatureLabel === 'Signed' ? 'success' : 'warning'}>
+      <McBadge
+        variant="outline"
+        className={row.original.signatureLabel === 'Signed' ? SUCCESS_BADGE : WARNING_BADGE}
+      >
         {row.original.signatureLabel}
-      </Badge>
+      </McBadge>
     ),
   },
   {
@@ -68,9 +74,9 @@ const columns: DataTableColumn<InboundWebhookView>[] = [
     accessorKey: 'isActive',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+      <McBadge variant="outline" className={row.original.isActive ? SUCCESS_BADGE : undefined}>
         {row.original.isActive ? 'Active' : 'Disabled'}
-      </Badge>
+      </McBadge>
     ),
   },
 ];

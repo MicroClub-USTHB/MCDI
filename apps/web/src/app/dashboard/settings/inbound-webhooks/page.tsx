@@ -4,7 +4,7 @@ export default function InboundWebhookSettingsPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <header>
-        <h1 className="header-xs font-bold">Inbound webhook settings</h1>
+        <h1 className="header-xs font-bold text-foreground">Inbound webhook settings</h1>
         <p className="mt-1 paragraph-sm text-muted-foreground">
           The roles that can read the data of every new inbound webhook by default. They are granted
           when a webhook is created and can be removed there or later.

@@ -2,7 +2,7 @@
 
 import { DocsMarkdown } from '@/features/inbound-webhooks/components/docs-markdown';
 import type { SchemaPreviewDto } from '@/features/inbound-webhooks/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { McTabs, McTabsList, McTabsPanel, McTabsTrigger } from '@/shared/components/ui/mc-tabs';
 import { cn } from '@/shared/lib/utils';
 
 interface PreviewPaneProps {
@@ -45,27 +45,27 @@ export function PreviewPane({ preview, waitingForJson, isFetching, className }: 
           {preview.errors.length === 1 ? 'it' : 'them'} to see the docs and an example payload.
         </Message>
       ) : (
-        <Tabs defaultValue="example" className="flex min-h-0 flex-1 flex-col gap-3">
+        <McTabs defaultValue="example" className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <TabsList aria-label="Preview">
-              <TabsTrigger value="example">Example payload</TabsTrigger>
-              <TabsTrigger value="docs">Docs</TabsTrigger>
-            </TabsList>
+            <McTabsList aria-label="Preview">
+              <McTabsTrigger value="example">Example payload</McTabsTrigger>
+              <McTabsTrigger value="docs">Docs</McTabsTrigger>
+            </McTabsList>
             {stale ? (
               <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 Last valid version
               </span>
             ) : null}
           </div>
-          <TabsContent value="example" className="min-h-0 flex-1 overflow-auto">
-            <pre className="rounded-md bg-background p-3 font-mono text-xs text-foreground">
+          <McTabsPanel value="example" className="min-h-0 flex-1 overflow-auto">
+            <pre className="rounded-md bg-muted p-3 font-mono text-xs text-foreground">
               {JSON.stringify(preview.examplePayload, null, 2)}
             </pre>
-          </TabsContent>
-          <TabsContent value="docs" className="min-h-0 flex-1 overflow-auto">
+          </McTabsPanel>
+          <McTabsPanel value="docs" className="min-h-0 flex-1 overflow-auto">
             <DocsMarkdown markdown={preview.markdown} />
-          </TabsContent>
-        </Tabs>
+          </McTabsPanel>
+        </McTabs>
       )}
     </section>
   );

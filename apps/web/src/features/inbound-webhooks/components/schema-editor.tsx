@@ -15,53 +15,61 @@ import { schemaCompletions } from '@/features/inbound-webhooks/schema/completion
 import { parseDocument } from '@/features/inbound-webhooks/schema/json-tree';
 import { collectProblems } from '@/features/inbound-webhooks/schema/problems';
 import type { SchemaProblemDto } from '@/features/inbound-webhooks/types';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { cn } from '@/shared/lib/utils';
 
-const theme = EditorView.theme(
-  {
-    '&': {
-      backgroundColor: 'var(--background)',
-      color: 'var(--foreground)',
-      fontFamily: 'var(--font-mono)',
-      fontSize: '13px',
-      height: '100%',
-    },
-    '&.cm-focused': { outline: 'none' },
-    '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.6' },
-    '.cm-gutters': {
-      backgroundColor: 'var(--background)',
-      color: 'var(--muted-foreground)',
-      border: 'none',
-    },
-    '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'transparent' },
-    '.cm-cursor': { borderLeftColor: 'var(--foreground)' },
-    '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-      backgroundColor: 'var(--secondary)',
-    },
-    '.cm-tooltip': {
-      backgroundColor: 'var(--muted)',
-      border: '1px solid var(--border)',
-      borderRadius: '6px',
-      color: 'var(--foreground)',
-    },
-    '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: 'var(--secondary)',
-      color: 'var(--foreground)',
-    },
-    '.cm-completionDetail': { color: 'var(--muted-foreground)', fontStyle: 'normal' },
-    '.cm-diagnostic-error': { borderLeftColor: 'var(--color-error)' },
-    '.cm-diagnostic-warning': { borderLeftColor: 'var(--color-warning)' },
-    '.cm-lintRange-error': {
-      backgroundImage: 'none',
-      textDecoration: 'underline wavy var(--color-error)',
-    },
-    '.cm-lintRange-warning': {
-      backgroundImage: 'none',
-      textDecoration: 'underline wavy var(--color-warning)',
-    },
+/**
+ * Colours come from the mcoli-ui tokens, so the editor follows the light and dark themes without
+ * a second CodeMirror theme.
+ */
+const theme = EditorView.theme({
+  '&': {
+    backgroundColor: 'var(--background)',
+    color: 'var(--foreground)',
+    fontFamily: 'var(--font-mono)',
+    fontSize: '13px',
+    height: '100%',
   },
-  { dark: true }
-);
+  '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.6' },
+  '.cm-content': { caretColor: 'var(--foreground)' },
+  '.cm-gutters': {
+    backgroundColor: 'var(--background)',
+    color: 'var(--muted-foreground)',
+    border: 'none',
+    borderRight: '1px solid var(--border)',
+  },
+  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'transparent' },
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--foreground)' },
+  '.cm-selectionBackground, &.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, ::selection':
+    { backgroundColor: 'var(--secondary)' },
+  '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
+    backgroundColor: 'var(--secondary)',
+    color: 'var(--secondary-foreground)',
+    outline: 'none',
+  },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--popover)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    color: 'var(--popover-foreground)',
+  },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'var(--secondary)',
+    color: 'var(--secondary-foreground)',
+  },
+  '.cm-completionDetail': { color: 'var(--muted-foreground)', fontStyle: 'normal' },
+  '.cm-diagnostic-error': { borderLeftColor: 'var(--error)' },
+  '.cm-diagnostic-warning': { borderLeftColor: 'var(--warning)' },
+  '.cm-lintRange-error': {
+    backgroundImage: 'none',
+    textDecoration: 'underline wavy var(--error)',
+  },
+  '.cm-lintRange-warning': {
+    backgroundImage: 'none',
+    textDecoration: 'underline wavy var(--warning)',
+  },
+});
 
 interface SchemaEditorProps {
   value: string;
@@ -166,7 +174,7 @@ export function SchemaEditor({
       <div
         ref={host}
         data-testid="schema-editor"
-        className="h-96 overflow-hidden rounded-md border border-border bg-background focus-within:border-ring"
+        className="h-96 overflow-hidden rounded-lg border border-border bg-background focus-within:ring-4 focus-within:ring-ring"
       />
       <div aria-live="polite">
         {problems.length === 0 ? (
@@ -180,10 +188,12 @@ export function SchemaEditor({
             <ul className="mt-2 flex flex-col gap-1">
               {problems.map((problem, index) => (
                 <li key={`${problem.from}-${index}`}>
-                  <button
+                  <McButton
                     type="button"
+                    variant="tertiary"
+                    size="sm"
                     onClick={() => jumpTo(problem.from)}
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-1 text-left paragraph-sm text-foreground hover:bg-muted"
+                    className="flex h-auto w-full items-start justify-start gap-2 bg-transparent px-2 py-1 text-left paragraph-sm font-normal whitespace-normal text-foreground hover:bg-muted"
                   >
                     {problem.severity === 'error' ? (
                       <CircleAlert
@@ -198,7 +208,7 @@ export function SchemaEditor({
                     )}
                     <span className="text-muted-foreground">Line {problem.line}</span>
                     <span>{problem.message}</span>
-                  </button>
+                  </McButton>
                 </li>
               ))}
             </ul>

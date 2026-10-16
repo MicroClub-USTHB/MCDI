@@ -10,8 +10,8 @@ import {
 import type { RoleOption } from '@/features/inbound-webhooks/api/mappers';
 import { RolePicker } from '@/features/inbound-webhooks/components/role-picker';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
 
@@ -33,7 +33,7 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
   if (granted.isError) {
     return <p className="paragraph-sm text-error">The reader roles could not be loaded.</p>;
   }
-  if (!granted.data) return <Skeleton className="h-48 w-full" />;
+  if (!granted.data) return <McSkeleton rectangle className="h-48 w-full" />;
 
   const current = granted.data.map((role) => role.roleId);
   const selected = picked ?? current;
@@ -73,14 +73,14 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
         unavailable={canListRoles ? undefined : ROLES_NEED_STATISTICS}
       />
       {canEdit && (
-        <Button
+        <McButton
           type="button"
           className="self-end"
           disabled={!changed || selected.length === 0 || replace.isPending}
           onClick={save}
         >
           {replace.isPending ? 'Saving…' : 'Save readers'}
-        </Button>
+        </McButton>
       )}
     </div>
   );

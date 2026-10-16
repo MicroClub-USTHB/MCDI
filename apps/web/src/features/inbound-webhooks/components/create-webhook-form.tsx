@@ -16,11 +16,10 @@ import { SigningSecretDialog } from '@/features/inbound-webhooks/components/sign
 import { parseDocument } from '@/features/inbound-webhooks/schema/json-tree';
 import { findFileWarnings } from '@/features/inbound-webhooks/schema/problems';
 import type { CreateInboundWebhookResponse } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Switch } from '@/shared/components/ui/switch';
-import { Textarea } from '@/shared/components/ui/textarea';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
+import { McTextarea } from '@/shared/components/ui/mc-textarea';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
 
@@ -31,7 +30,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-background" />,
+    loading: () => <div className="h-96 rounded-lg border border-border bg-background" />,
   }
 );
 
@@ -95,35 +94,29 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="webhook-name">Name</Label>
-          <Input
-            id="webhook-name"
-            value={name}
-            onChange={(event) => changeName(event.target.value)}
-            maxLength={255}
-            placeholder="Recruitment 2026"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="webhook-slug">Slug</Label>
-          <Input
-            id="webhook-slug"
-            value={slug}
-            onChange={(event) => {
-              setSlugEdited(true);
-              setSlug(event.target.value);
-            }}
-            aria-invalid={slugProblem}
-            placeholder="recruitment-2026"
-          />
-          {slugProblem ? (
-            <p className="paragraph-sm text-error">
-              Use lowercase letters, digits and dashes, 2 to 64 characters, with no dash at either
-              end.
-            </p>
-          ) : null}
-        </div>
+        <McInput
+          id="webhook-name"
+          label="Name"
+          value={name}
+          onChange={(event) => changeName(event.target.value)}
+          maxLength={255}
+          placeholder="Recruitment 2026"
+        />
+        <McInput
+          id="webhook-slug"
+          label="Slug"
+          value={slug}
+          onChange={(event) => {
+            setSlugEdited(true);
+            setSlug(event.target.value);
+          }}
+          error={
+            slugProblem
+              ? 'Use lowercase letters, digits and dashes, 2 to 64 characters, with no dash at either end.'
+              : undefined
+          }
+          placeholder="recruitment-2026"
+        />
       </div>
 
       <section className="flex flex-col gap-3">
@@ -136,7 +129,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Templates">
           {INBOUND_WEBHOOK_TEMPLATES.map((template) => (
-            <Button
+            <McButton
               key={template.id}
               type="button"
               variant="secondary"
@@ -145,7 +138,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
               onClick={() => setText(stringify(template.schema))}
             >
               {template.label}
-            </Button>
+            </McButton>
           ))}
         </div>
         {hasFileWarning ? (
@@ -194,54 +187,56 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         <section className="flex flex-col gap-4">
           <h2 className="paragraph-sm font-semibold text-foreground">Options</h2>
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="require-signature" className="flex flex-col gap-1">
+            <label
+              htmlFor="require-signature"
+              className="flex flex-col gap-1 text-sm font-medium text-foreground"
+            >
               Require a signature
-              <span className="text-muted-foreground">
+              <span className="font-normal text-muted-foreground">
                 Reject requests that aren&apos;t signed.
               </span>
-            </Label>
-            <Switch
+            </label>
+            <McSwitch
               id="require-signature"
               checked={requireSignature}
               onCheckedChange={setRequireSignature}
             />
           </div>
           <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="reject-unknown" className="flex flex-col gap-1">
+            <label
+              htmlFor="reject-unknown"
+              className="flex flex-col gap-1 text-sm font-medium text-foreground"
+            >
               Reject unknown fields
-              <span className="text-muted-foreground">
+              <span className="font-normal text-muted-foreground">
                 Off means fields outside the schema are dropped instead.
               </span>
-            </Label>
-            <Switch
+            </label>
+            <McSwitch
               id="reject-unknown"
               checked={rejectUnknownFields}
               onCheckedChange={setRejectUnknownFields}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="accepted-origins">Accepted origins</Label>
-            <Textarea
-              id="accepted-origins"
-              value={origins}
-              onChange={(event) => setOrigins(event.target.value)}
-              placeholder="https://app.microclub.dz"
-              rows={3}
-            />
-            <p className="paragraph-sm text-muted-foreground">
-              One per line. Leave empty to accept requests from anywhere.
-            </p>
-          </div>
+          <McTextarea
+            id="accepted-origins"
+            label="Accepted origins"
+            description="One per line. Leave empty to accept requests from anywhere."
+            value={origins}
+            onChange={(event) => setOrigins(event.target.value)}
+            placeholder="https://app.microclub.dz"
+            rows={3}
+          />
         </section>
       </div>
 
       <div className="flex justify-end gap-3">
-        <Button type="button" variant="ghost" onClick={() => router.back()}>
+        <McButton type="button" variant="tertiary" onClick={() => router.back()}>
           Cancel
-        </Button>
-        <Button type="submit" disabled={!canSubmit}>
+        </McButton>
+        <McButton type="submit" disabled={!canSubmit}>
           {create.isPending ? 'Creating…' : 'Create webhook'}
-        </Button>
+        </McButton>
       </div>
 
       <SigningSecretDialog

@@ -7,8 +7,8 @@ import { useUpdateInboundWebhookMutation } from '@/features/inbound-webhooks/api
 import { PreviewPane } from '@/features/inbound-webhooks/components/preview-pane';
 import { useSchemaPreview } from '@/features/inbound-webhooks/components/use-schema-preview';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
 
@@ -19,7 +19,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-background" />,
+    loading: () => <div className="h-96 rounded-lg border border-border bg-background" />,
   }
 );
 
@@ -68,22 +68,22 @@ export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }
         </p>
         {editing ? (
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setDraft(null)}>
+            <McButton type="button" variant="tertiary" size="sm" onClick={() => setDraft(null)}>
               Cancel
-            </Button>
-            <Button
+            </McButton>
+            <McButton
               type="button"
               size="sm"
               disabled={!canSave}
               onClick={() => (webhook.submissionCount > 0 ? setConfirming(true) : save())}
             >
               {update.isPending ? 'Saving…' : 'Save schema'}
-            </Button>
+            </McButton>
           </div>
         ) : canWrite ? (
-          <Button type="button" variant="secondary" size="sm" onClick={() => setDraft(stored)}>
+          <McButton type="button" variant="secondary" size="sm" onClick={() => setDraft(stored)}>
             Edit
-          </Button>
+          </McButton>
         ) : null}
       </div>
 

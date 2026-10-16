@@ -18,11 +18,10 @@ import {
 import { ColumnsMenu } from '@/features/inbound-webhooks/components/columns-menu';
 import { SubmissionDialog } from '@/features/inbound-webhooks/components/submission-dialog';
 import type { SubmissionDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { downloadTextFile } from '@/shared/lib/download';
 import { showToast } from '@/shared/stores';
@@ -98,13 +97,15 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
         header: 'Received',
         enableSorting: false,
         cell: ({ row }) => (
-          <button
+          <McButton
             type="button"
+            variant="link"
+            size="sm"
             onClick={() => setOpenId(row.original.id)}
-            className="rounded-sm text-left text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-sm text-left font-normal no-underline hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             {formatDate(row.original.receivedAt) ?? row.original.receivedAt}
-          </button>
+          </McButton>
         ),
       },
       ...selected.map<DataTableColumn<SubmissionDto>>((path) => ({
@@ -164,38 +165,35 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="submissions-from">From (UTC)</Label>
-            <Input
-              id="submissions-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => changeDate(setDateFrom, event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="submissions-to">To (UTC)</Label>
-            <Input
-              id="submissions-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => changeDate(setDateTo, event.target.value)}
-            />
-          </div>
+          <McInput
+            id="submissions-from"
+            label="From (UTC)"
+            type="date"
+            value={dateFrom}
+            onChange={(event) => changeDate(setDateFrom, event.target.value)}
+          />
+          <McInput
+            id="submissions-to"
+            label="To (UTC)"
+            type="date"
+            value={dateTo}
+            onChange={(event) => changeDate(setDateTo, event.target.value)}
+          />
           {filtered ? (
-            <Button
+            <McButton
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="sm"
+              icon="leading"
+              iconDefinition={<X aria-hidden="true" />}
               onClick={() => {
                 setDateFrom('');
                 setDateTo('');
                 setPageIndex(0);
               }}
             >
-              <X aria-hidden="true" />
               Clear dates
-            </Button>
+            </McButton>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -205,26 +203,27 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
                 Exporting {exportProgress.done.toLocaleString()} of{' '}
                 {exportProgress.total.toLocaleString()}
               </span>
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="sm"
                 onClick={() => exportController.current?.abort()}
               >
                 Cancel
-              </Button>
+              </McButton>
             </>
           ) : (
-            <Button
+            <McButton
               type="button"
               variant="secondary"
               size="sm"
+              icon="leading"
+              iconDefinition={<Download aria-hidden="true" />}
               disabled={total === 0}
               onClick={() => void exportCsv()}
             >
-              <Download aria-hidden="true" />
               Export CSV
-            </Button>
+            </McButton>
           )}
           <ColumnsMenu
             available={available}

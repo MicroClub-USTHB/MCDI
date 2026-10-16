@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 
 import { useDeleteInboundWebhookMutation } from '@/features/inbound-webhooks/api/mutations';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
-import { Input } from '@/shared/components/ui/input';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { useCan } from '@/shared/lib/use-access';
 import { showToast } from '@/shared/stores';
 
@@ -47,9 +47,10 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
           404 from then on. This cannot be undone.
         </p>
       </div>
-      <Button
+      <McButton
         type="button"
-        variant="danger"
+        variant="primary"
+        destructive
         className="self-start"
         onClick={() => {
           setTyped('');
@@ -57,7 +58,7 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
         }}
       >
         Delete webhook
-      </Button>
+      </McButton>
 
       <ConfirmDialog
         open={open}
@@ -70,16 +71,16 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
         confirmDisabled={typed !== webhook.slug}
         onConfirm={confirm}
       >
-        <div className="flex flex-col gap-2">
-          <label htmlFor="delete-confirm" className="paragraph-sm text-foreground">
-            Type <span className="font-mono text-xs">{webhook.slug}</span> to confirm
-          </label>
-          <Input
-            id="delete-confirm"
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-          />
-        </div>
+        <McInput
+          id="delete-confirm"
+          label={
+            <>
+              Type <span className="font-mono text-xs">{webhook.slug}</span> to confirm
+            </>
+          }
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
       </ConfirmDialog>
     </section>
   );
