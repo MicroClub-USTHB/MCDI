@@ -2,8 +2,7 @@
 
 import { Eye, RefreshCw } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
-import { Label } from '@/shared/components/ui/label';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { MaskedInput } from '@/shared/components/ui/masked-input';
 
 interface ApiKeyDisplayProps {
@@ -29,28 +28,35 @@ function ApiKeyDisplay({
 }: ApiKeyDisplayProps) {
   return (
     <div className="flex flex-col gap-3">
-      <Label>API key</Label>
+      <span className="text-sm font-medium text-muted-foreground">API key</span>
       <MaskedInput
         value={prefix ?? 'Not generated yet'}
         aria-label="API key prefix"
         showRevealToggle={false}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="secondary" size="sm" onClick={onReveal}>
-          <Eye aria-hidden="true" />
+        <McButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          icon="leading"
+          iconDefinition={<Eye aria-hidden="true" />}
+          onClick={onReveal}
+        >
           Reveal
-        </Button>
+        </McButton>
         {canRegenerate && (
-          <Button
+          <McButton
             type="button"
             variant="secondary"
             size="sm"
+            icon="leading"
+            iconDefinition={<RefreshCw aria-hidden="true" />}
             onClick={onRegenerate}
             disabled={!isActive}
           >
-            <RefreshCw aria-hidden="true" />
             Regenerate key
-          </Button>
+          </McButton>
         )}
         {!isActive && (
           <p className="paragraph-xs font-semibold tracking-wide text-warning">

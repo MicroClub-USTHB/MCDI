@@ -1,8 +1,7 @@
 'use client';
 
 import { PROJECT_SCOPES, type ProjectScope } from '@/features/projects/types';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Label } from '@/shared/components/ui/label';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
 
 interface ScopeSelectorProps {
   selected: ProjectScope[];
@@ -32,23 +31,15 @@ function ScopeSelector({ selected, onChange, disabled = false }: ScopeSelectorPr
       {PROJECT_SCOPES.map((scope) => {
         const checked = selected.includes(scope);
         return (
-          <Label
+          <McCheckbox
             key={scope}
-            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors select-none hover:bg-muted"
-          >
-            <Checkbox
-              checked={checked}
-              onCheckedChange={() => toggle(scope)}
-              className="mt-0.5"
-              aria-label={SCOPE_LABELS[scope]}
-            />
-            <span className="flex flex-col gap-0.5">
-              <span className="paragraph-sm text-foreground">{SCOPE_LABELS[scope]}</span>
-              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
-                {SCOPE_HINTS[scope]}
-              </span>
-            </span>
-          </Label>
+            checked={checked}
+            disabled={disabled}
+            onCheckedChange={() => toggle(scope)}
+            text={SCOPE_LABELS[scope]}
+            supportText={SCOPE_HINTS[scope]}
+            className="w-full rounded-lg border border-border bg-card p-3 transition-colors select-none hover:bg-muted"
+          />
         );
       })}
     </fieldset>

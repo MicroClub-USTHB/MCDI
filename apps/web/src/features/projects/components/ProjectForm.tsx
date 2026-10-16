@@ -8,12 +8,11 @@ import { useServersQuery } from '@/features/servers';
 import { ScopeSelector } from '@/features/projects/components/ScopeSelector';
 import type { ProjectView } from '@/features/projects/api/mappers';
 import type { ProjectFormValues, ProjectScope } from '@/features/projects/types';
-import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Switch } from '@/shared/components/ui/switch';
-import { Textarea } from '@/shared/components/ui/textarea';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
+import { McInput } from '@/shared/components/ui/mc-input';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
+import { McTextarea } from '@/shared/components/ui/mc-textarea';
 import { useCan } from '@/shared/lib/use-access';
 
 interface ProjectFormProps {
@@ -145,51 +144,44 @@ function ProjectForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`project-name-${mode}`}>Project name</Label>
-        <Input
-          id={`project-name-${mode}`}
-          value={name}
-          onChange={(event) => handleNameChange(event.target.value)}
-          aria-invalid={errors.name ? true : undefined}
-          placeholder="e.g. Micro Club Website"
-          maxLength={50}
-        />
-        {errors.name && (
-          <p className="paragraph-xs font-semibold tracking-wide text-error">{errors.name}</p>
-        )}
-      </div>
+      <McInput
+        id={`project-name-${mode}`}
+        label="Project name"
+        value={name}
+        onChange={(event) => handleNameChange(event.target.value)}
+        error={errors.name}
+        placeholder="e.g. Micro Club Website"
+        maxLength={50}
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`project-description-${mode}`}>Description</Label>
-        <Textarea
-          id={`project-description-${mode}`}
-          value={description}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setDescription(event.target.value)}
-          aria-invalid={errors.description ? true : undefined}
-          placeholder="What does this application do? (optional)"
-          maxLength={500}
-        />
-        {errors.description && (
-          <p className="paragraph-xs font-semibold tracking-wide text-error">
-            {errors.description}
-          </p>
-        )}
-      </div>
+      <McTextarea
+        id={`project-description-${mode}`}
+        label="Description"
+        value={description}
+        onChange={(event: ChangeEvent<HTMLTextAreaElement>) => setDescription(event.target.value)}
+        error={errors.description}
+        placeholder="What does this application do? (optional)"
+        maxLength={500}
+      />
 
-      <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-background p-3">
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-3">
         <div className="flex flex-col gap-0.5">
-          <Label htmlFor={`internal-${mode}`} className="paragraph-sm text-foreground">
+          <label
+            htmlFor={`internal-${mode}`}
+            id={`internal-${mode}-label`}
+            className="paragraph-sm font-medium text-foreground"
+          >
             Internal project
-          </Label>
-          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+          </label>
+          <span className="paragraph-xs text-muted-foreground">
             Internal projects automatically get access to the main server.
           </span>
         </div>
-        <Switch
+        <McSwitch
           id={`internal-${mode}`}
+          aria-labelledby={`internal-${mode}-label`}
           checked={isInternal}
-          onCheckedChange={setIsInternal}
+          onCheckedChange={(checked) => setIsInternal(checked)}
           disabled={isSubmitting}
         />
       </div>
@@ -200,7 +192,9 @@ function ProjectForm({
             <span className="paragraph-sm font-medium text-foreground">Scopes</span>
             <ScopeSelector selected={scopes} onChange={setScopes} disabled={isSubmitting} />
             {errors.scopes && (
-              <p className="paragraph-xs font-semibold tracking-wide text-error">{errors.scopes}</p>
+              <p role="alert" className="text-sm text-destructive">
+                {errors.scopes}
+              </p>
             )}
           </div>
 
@@ -208,16 +202,16 @@ function ProjectForm({
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <span className="paragraph-sm font-medium text-foreground">Server access</span>
-                <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                <span className="paragraph-xs text-muted-foreground">
                   {serverIds.length} selected
                 </span>
               </div>
               {serversLoading ? (
-                <div className="rounded-md border border-border p-4 paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                <div className="rounded-lg border border-border p-4 paragraph-xs text-muted-foreground">
                   Loading servers…
                 </div>
               ) : servers.length === 0 ? (
-                <div className="rounded-md border border-border p-4 paragraph-sm text-muted-foreground">
+                <div className="rounded-lg border border-border p-4 paragraph-sm text-muted-foreground">
                   No servers available.
                 </div>
               ) : (
@@ -225,25 +219,29 @@ function ProjectForm({
                   {servers.map((server) => {
                     const checked = serverIds.includes(server.id);
                     return (
-                      <Label
+                      <div
                         key={server.id}
-                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors select-none hover:bg-muted"
+                        className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 transition-colors select-none hover:bg-muted"
                       >
-                        <Checkbox
+                        <McCheckbox
+                          id={`project-server-${mode}-${server.id}`}
                           checked={checked}
                           onCheckedChange={() => toggleServer(server.id)}
                           disabled={!server.isActive || isSubmitting}
                           aria-label={`Grant access to ${server.name}`}
                         />
-                        <span className="flex flex-col gap-0.5">
+                        <label
+                          htmlFor={`project-server-${mode}-${server.id}`}
+                          className="flex flex-1 cursor-pointer flex-col gap-0.5"
+                        >
                           <span className="paragraph-sm text-foreground">{server.name}</span>
                           {!server.isActive && (
-                            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                            <span className="paragraph-xs text-muted-foreground">
                               Inactive server
                             </span>
                           )}
-                        </span>
-                      </Label>
+                        </label>
+                      </div>
                     );
                   })}
                 </div>
@@ -254,67 +252,58 @@ function ProjectForm({
       )}
 
       {mode === 'create' && (
-        <div className="flex flex-col gap-3 rounded-md border border-border bg-background p-3">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
-              <Label htmlFor={`webhook-enable-${mode}`} className="paragraph-sm text-foreground">
+              <label
+                htmlFor={`webhook-enable-${mode}`}
+                id={`webhook-enable-${mode}-label`}
+                className="paragraph-sm font-medium text-foreground"
+              >
                 Inbound webhook
-              </Label>
-              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              </label>
+              <span className="paragraph-xs text-muted-foreground">
                 Provision a form webhook and signing secret alongside this project.
               </span>
             </div>
-            <Switch
+            <McSwitch
               id={`webhook-enable-${mode}`}
+              aria-labelledby={`webhook-enable-${mode}-label`}
               checked={enableWebhook}
-              onCheckedChange={toggleWebhook}
+              onCheckedChange={(checked) => toggleWebhook(checked)}
               disabled={isSubmitting}
             />
           </div>
 
           {enableWebhook && (
             <div className="mt-2 flex flex-col gap-4 border-t border-border pt-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="webhook-name">Webhook name</Label>
-                <Input
-                  id="webhook-name"
-                  value={webhookName}
-                  onChange={(event) => handleWebhookNameChange(event.target.value)}
-                  aria-invalid={errors.webhookName ? true : undefined}
-                  placeholder="e.g. Submissions Webhook"
-                  maxLength={100}
-                />
-                {errors.webhookName && (
-                  <p className="paragraph-xs font-semibold tracking-wide text-error">
-                    {errors.webhookName}
-                  </p>
-                )}
-              </div>
+              <McInput
+                id="webhook-name"
+                label="Webhook name"
+                value={webhookName}
+                onChange={(event) => handleWebhookNameChange(event.target.value)}
+                error={errors.webhookName}
+                placeholder="e.g. Submissions Webhook"
+                maxLength={100}
+              />
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="webhook-slug">Webhook slug (optional)</Label>
-                <Input
-                  id="webhook-slug"
-                  value={webhookSlug}
-                  onChange={(event) => {
-                    setWebhookSlugEdited(true);
-                    setWebhookSlug(event.target.value);
-                  }}
-                  aria-invalid={errors.webhookSlug ? true : undefined}
-                  placeholder="e.g. submissions"
-                  maxLength={64}
-                />
-                {errors.webhookSlug && (
-                  <p className="paragraph-xs font-semibold tracking-wide text-error">
-                    {errors.webhookSlug}
-                  </p>
-                )}
-              </div>
+              <McInput
+                id="webhook-slug"
+                label="Webhook slug (optional)"
+                value={webhookSlug}
+                onChange={(event) => {
+                  setWebhookSlugEdited(true);
+                  setWebhookSlug(event.target.value);
+                }}
+                error={errors.webhookSlug}
+                placeholder="e.g. submissions"
+                maxLength={64}
+              />
 
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-0.5">
                   <span className="paragraph-sm font-medium text-foreground">Schema template</span>
-                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                  <span className="paragraph-xs text-muted-foreground">
                     Choose a starter form schema for this webhook.
                   </span>
                 </div>
@@ -322,7 +311,7 @@ function ProjectForm({
                   {INBOUND_WEBHOOK_TEMPLATES.map((template) => {
                     const isSelected = selectedTemplateId === template.id;
                     return (
-                      <Button
+                      <McButton
                         key={template.id}
                         type="button"
                         variant={isSelected ? 'primary' : 'secondary'}
@@ -331,34 +320,32 @@ function ProjectForm({
                         onClick={() => setSelectedTemplateId(template.id)}
                       >
                         {template.label}
-                      </Button>
+                      </McButton>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="webhook-origins">Accepted origins (optional)</Label>
-                <Textarea
-                  id="webhook-origins"
-                  value={webhookOrigins}
-                  onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                    setWebhookOrigins(event.target.value)
-                  }
-                  placeholder="https://app.microclub.dz (one per line, leave empty for any)"
-                  rows={2}
-                />
-              </div>
+              <McTextarea
+                id="webhook-origins"
+                label="Accepted origins (optional)"
+                value={webhookOrigins}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                  setWebhookOrigins(event.target.value)
+                }
+                placeholder="https://app.microclub.dz (one per line, leave empty for any)"
+                rows={2}
+              />
             </div>
           )}
         </div>
       )}
 
-      <Button type="submit" size="md" disabled={isSubmitting} className="self-end">
+      <McButton type="submit" size="md" disabled={isSubmitting} className="self-end">
         {isSubmitting
           ? 'Saving…'
           : (submitLabel ?? (mode === 'create' ? 'Create project' : 'Save changes'))}
-      </Button>
+      </McButton>
     </form>
   );
 }

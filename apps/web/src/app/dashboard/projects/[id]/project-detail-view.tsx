@@ -23,18 +23,18 @@ import {
 } from '@/features/projects/components';
 import type { ProjectFormValues } from '@/features/projects/types';
 import { Can } from '@/shared/components/common';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { Switch } from '@/shared/components/ui/switch';
+  McDialog,
+  McDialogContent,
+  McDialogDescription,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
 import { useCan } from '@/shared/lib/use-access';
 
 interface ProjectDetailViewProps {
@@ -70,9 +70,9 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   if (projectQuery.isPending) {
     return (
       <div className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-40 w-full" />
+        <McSkeleton rectangle className="h-8 w-64" />
+        <McSkeleton rectangle className="h-24 w-full" />
+        <McSkeleton rectangle className="h-40 w-full" />
       </div>
     );
   }
@@ -81,17 +81,18 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
     return (
       <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
         <p className="paragraph-sm text-error">Failed to load this project.</p>
-        <Button
+        <McButton
           type="button"
           variant="secondary"
           size="sm"
+          className="self-start"
           onClick={() => {
             void projectQuery.refetch();
             void apiKeyQuery.refetch();
           }}
         >
           Retry
-        </Button>
+        </McButton>
       </div>
     );
   }
@@ -141,8 +142,8 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <h1 className="header-xs font-bold">{project.name}</h1>
-              {project.isInternal && <Badge variant="brand-light">Internal</Badge>}
+              <h1 className="header-xs font-bold text-foreground">{project.name}</h1>
+              {project.isInternal && <McBadge variant="secondary">Internal</McBadge>}
             </div>
             {project.description && (
               <p className="paragraph-sm text-muted-foreground">{project.description}</p>
@@ -151,7 +152,7 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               {(project.isActive ? canRevokeKey : canRotateKey) ? (
-                <Switch
+                <McSwitch
                   checked={project.isActive}
                   aria-label={project.isActive ? 'Deactivate project' : 'Reactivate project'}
                   disabled={deactivateMutation.isPending || reactivateMutation.isPending}
@@ -164,14 +165,19 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
                   }}
                 />
               ) : null}
-              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              <span className="paragraph-xs font-medium text-muted-foreground">
                 {project.isActive ? 'Active' : 'Deactivated'}
               </span>
             </div>
             <Can resource="projects" level="write">
-              <Button type="button" variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              <McButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setEditOpen(true)}
+              >
                 Edit
-              </Button>
+              </McButton>
             </Can>
           </div>
         </div>
@@ -184,12 +190,12 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         >
           <div className="flex items-center gap-2">
             <KeyRound className="size-4 text-muted-foreground" aria-hidden="true" />
-            <h2 id="api-key-heading" className="paragraph-md font-semibold">
+            <h2 id="api-key-heading" className="paragraph-md font-semibold text-foreground">
               API key
             </h2>
           </div>
           {apiKeyQuery.isPending ? (
-            <Skeleton className="h-16 w-full" />
+            <McSkeleton rectangle className="h-16 w-full" />
           ) : (
             <ApiKeyDisplay
               prefix={apiKeyInfo?.prefix ?? project.apiKeyPrefix}
@@ -207,10 +213,10 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5"
       >
         <div className="flex flex-col gap-1">
-          <h2 id="redirect-heading" className="paragraph-md font-semibold">
+          <h2 id="redirect-heading" className="paragraph-md font-semibold text-foreground">
             Redirect URIs
           </h2>
-          <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+          <p className="paragraph-xs text-muted-foreground">
             Comma-separated callback URLs used for OAuth. Currently shows what you&apos;ve saved
             this session.
           </p>
@@ -226,23 +232,30 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
 
       {canDelete ? (
         <div className="flex justify-end border-t border-border pt-4">
-          <Button type="button" variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 aria-hidden="true" />
+          <McButton
+            type="button"
+            variant="primary"
+            destructive
+            size="sm"
+            icon="leading"
+            iconDefinition={<Trash2 aria-hidden="true" />}
+            onClick={() => setDeleteOpen(true)}
+          >
             Delete project
-          </Button>
+          </McButton>
         </div>
       ) : null}
 
-      <Dialog open={revealOpen} onOpenChange={setRevealOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>API key details</DialogTitle>
-            <DialogDescription>
+      <McDialog open={revealOpen} onOpenChange={setRevealOpen}>
+        <McDialogContent className="sm:min-h-0">
+          <McDialogHeader>
+            <McDialogTitle>API key details</McDialogTitle>
+            <McDialogDescription>
               Only the prefix is stored — the full key was shown once when created.
-            </DialogDescription>
-          </DialogHeader>
+            </McDialogDescription>
+          </McDialogHeader>
           {apiKeyQuery.isPending ? (
-            <Skeleton className="h-32 w-full" />
+            <McSkeleton rectangle className="h-32 w-full" />
           ) : apiKeyInfo ? (
             <dl className="flex flex-col gap-3 paragraph-sm">
               <div className="flex items-center justify-between gap-4">
@@ -260,17 +273,24 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-muted-foreground">Status</dt>
                 <dd>
-                  <Badge variant={apiKeyInfo.isActive ? 'success' : 'error'}>
-                    {apiKeyInfo.isActive ? 'Active' : 'Deactivated'}
-                  </Badge>
+                  {apiKeyInfo.isActive ? (
+                    <McBadge
+                      variant="outline"
+                      className="border-success/30 bg-success/10 text-success"
+                    >
+                      Active
+                    </McBadge>
+                  ) : (
+                    <McBadge variant="destructive">Deactivated</McBadge>
+                  )}
                 </dd>
               </div>
             </dl>
           ) : (
             <p className="paragraph-sm text-muted-foreground">Failed to load key details.</p>
           )}
-        </DialogContent>
-      </Dialog>
+        </McDialogContent>
+      </McDialog>
 
       <ApiKeyRotationModal
         open={rotationOpen}
@@ -290,22 +310,22 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         onConfirm={() => setNewKey(null)}
       />
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit project</DialogTitle>
-            <DialogDescription>
+      <McDialog open={editOpen} onOpenChange={setEditOpen}>
+        <McDialogContent className="max-h-[90vh] overflow-y-auto sm:w-[min(32rem,calc(100%-2rem))]">
+          <McDialogHeader>
+            <McDialogTitle>Edit project</McDialogTitle>
+            <McDialogDescription>
               Update the project&apos;s name, description, or visibility.
-            </DialogDescription>
-          </DialogHeader>
+            </McDialogDescription>
+          </McDialogHeader>
           <ProjectForm
             mode="edit"
             project={project}
             isSubmitting={updateProjectMutation.isPending}
             onSubmit={handleSaveEdit}
           />
-        </DialogContent>
-      </Dialog>
+        </McDialogContent>
+      </McDialog>
 
       <ConfirmDialog
         open={deactivateOpen}

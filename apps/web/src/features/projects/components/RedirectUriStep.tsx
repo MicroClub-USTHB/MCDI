@@ -2,9 +2,8 @@
 
 import { useState, type FormEvent } from 'react';
 
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 
 interface RedirectUriStepProps {
   projectId: string;
@@ -62,25 +61,25 @@ function RedirectUriStep({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`redirect-uri-${projectId}`}>Redirect URI(s)</Label>
-        <Input
-          id={`redirect-uri-${projectId}`}
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          aria-invalid={error ? true : undefined}
-          placeholder="https://app.example.com/auth/callback, https://app.example.com/oauth2/callback"
-          disabled={isSubmitting}
-        />
-        <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          Comma-separated for multiple values. The value used in{' '}
-          <code className="font-mono text-foreground">/auth/authorize</code> must match one exactly.
-        </p>
-        {error && <p className="paragraph-xs font-semibold tracking-wide text-error">{error}</p>}
-      </div>
-      <Button type="submit" size="md" disabled={isSubmitting} className="self-end">
+      <McInput
+        id={`redirect-uri-${projectId}`}
+        label="Redirect URI(s)"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        error={error}
+        description={
+          <>
+            Comma-separated for multiple values. The value used in{' '}
+            <code className="font-mono text-foreground">/auth/authorize</code> must match one
+            exactly.
+          </>
+        }
+        placeholder="https://app.example.com/auth/callback, https://app.example.com/oauth2/callback"
+        disabled={isSubmitting}
+      />
+      <McButton type="submit" size="md" disabled={isSubmitting} className="self-end">
         {isSubmitting ? 'Saving…' : submitLabel}
-      </Button>
+      </McButton>
     </form>
   );
 }

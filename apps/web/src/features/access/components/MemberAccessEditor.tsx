@@ -20,8 +20,8 @@ import {
 } from '@/features/access/lib/grants';
 import type { EffectiveSourceDto } from '@/features/access/types';
 import { LoadingSkeleton } from '@/shared/components/common';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
@@ -154,23 +154,23 @@ export function MemberAccessEditor({ memberId }: { memberId: string }) {
       <header className="flex flex-wrap items-center justify-between gap-3">
         {header}
         <div className="flex gap-2">
-          <Button
+          <McButton
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => setEdits(null)}
           >
             Discard
-          </Button>
-          <Button
+          </McButton>
+          <McButton
             type="button"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => (lowered.length > 0 ? setConfirming(true) : save())}
           >
             {mutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         </div>
       </header>
 

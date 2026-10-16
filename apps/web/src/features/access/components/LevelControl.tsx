@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@/shared/lib/utils';
+import { McRadioGroup, McRadioGroupItem } from '@/shared/components/ui/mc-radio-group';
 
 export interface LevelOption<V extends string> {
   value: V;
@@ -20,7 +20,7 @@ interface LevelControlProps<V extends string> {
   disabled?: boolean;
 }
 
-/** A segmented control built on native radios: labelled group, arrow keys and focus come for free. */
+/** One level per resource, as a labelled radio group (arrow keys and focus come from Base UI). */
 export function LevelControl<V extends string>({
   name,
   label,
@@ -36,42 +36,35 @@ export function LevelControl<V extends string>({
       disabled={disabled}
       className="flex min-w-0 flex-col gap-2 border-0 p-0 py-3 first:pt-0 last:pb-0"
     >
-      <legend className="float-left w-full paragraph-sm text-foreground">{label}</legend>
+      <legend className="float-left w-full paragraph-sm font-medium text-foreground">
+        {label}
+      </legend>
       {description ? (
-        <p className="clear-both paragraph-xs font-semibold tracking-wide text-muted-foreground">
-          {description}
-        </p>
+        <p className="clear-both paragraph-xs text-muted-foreground">{description}</p>
       ) : (
         <span className="clear-both" />
       )}
-      <div className="inline-flex w-fit max-w-full flex-wrap rounded-md border border-border bg-background p-0.5">
+      <McRadioGroup
+        name={name}
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        onValueChange={(next) => {
+          const option = options.find((item) => item.value === next);
+          if (option) onChange(option.value);
+        }}
+        className="flex w-fit max-w-full flex-wrap gap-x-5 gap-y-2"
+      >
         {options.map((option) => (
-          <label
+          <McRadioGroupItem
             key={option.value}
-            className={cn(
-              'cursor-pointer rounded-sm px-3 py-1.5 paragraph-sm transition-colors',
-              'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
-              'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60',
-              value === option.value
-                ? 'bg-secondary text-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            <input
-              type="radio"
-              className="sr-only"
-              name={name}
-              value={option.value}
-              checked={value === option.value}
-              onChange={() => onChange(option.value)}
-            />
-            {option.label}
-          </label>
+            value={option.value}
+            text={option.label}
+            disabled={disabled}
+          />
         ))}
-      </div>
-      {hint ? (
-        <p className="paragraph-xs font-semibold tracking-wide text-warning">{hint}</p>
-      ) : null}
+      </McRadioGroup>
+      {hint ? <p className="paragraph-xs font-medium text-warning">{hint}</p> : null}
     </fieldset>
   );
 }

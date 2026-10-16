@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Search } from 'lucide-react';
 
 import { useOverridesListQuery } from '@/features/access/api/queries';
 import { MemberChip } from '@/features/access/components/MemberChip';
 import { useMembersQuery } from '@/features/members/api/queries';
 import { LoadingSkeleton } from '@/shared/components/common';
-import { Badge } from '@/shared/components/ui/badge';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { SearchInput } from '@/shared/components/ui/input';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { useDebouncedValue } from '@/shared/hooks/use-debounced-value';
 import { cn } from '@/shared/lib/utils';
@@ -50,8 +51,9 @@ export function MemberPicker({ selectedId, onSelect }: MemberPickerProps) {
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <SearchInput
+      <McInput
         type="search"
+        addonStart={<Search aria-hidden="true" />}
         aria-label="Search members"
         placeholder="Search members…"
         value={search}
@@ -76,15 +78,16 @@ export function MemberPicker({ selectedId, onSelect }: MemberPickerProps) {
         >
           {query.data.data.map((member) => (
             <li key={member.memberId} className="border-b border-border last:border-b-0">
-              <button
+              <McButton
                 type="button"
+                variant="tertiary"
                 aria-current={selectedId === member.memberId ? 'true' : undefined}
                 onClick={() => onSelect(member.memberId)}
                 className={cn(
-                  'flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors',
+                  'flex w-full items-center justify-between gap-2 rounded-none px-3 py-2 text-left font-normal whitespace-normal active:ring-0',
                   selectedId === member.memberId
-                    ? 'bg-secondary'
-                    : 'hover:bg-muted hover:text-foreground'
+                    ? 'bg-secondary text-secondary-foreground'
+                    : 'bg-transparent text-foreground hover:bg-muted'
                 )}
               >
                 <MemberChip
@@ -93,11 +96,11 @@ export function MemberPicker({ selectedId, onSelect }: MemberPickerProps) {
                   avatar={member.avatarUrl}
                 />
                 {overrideIds.has(member.memberId) ? (
-                  <Badge variant="outline" className="shrink-0">
+                  <McBadge variant="outline" className="shrink-0">
                     Override
-                  </Badge>
+                  </McBadge>
                 ) : null}
-              </button>
+              </McButton>
             </li>
           ))}
         </ul>

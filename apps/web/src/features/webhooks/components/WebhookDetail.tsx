@@ -7,7 +7,7 @@ import type { WebhookView } from '@/features/webhooks/api/mappers';
 import { useDeleteWebhookMutation } from '@/features/webhooks/api/mutations';
 import { WebhookStatsCard } from '@/features/webhooks/components/WebhookStatsCard';
 import { Can } from '@/shared/components/common';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { showToast } from '@/shared/stores';
 
@@ -52,15 +52,19 @@ export function WebhookDetail({ webhook, onDeleted }: WebhookDetailProps) {
           >
             {webhook.name}
           </h2>
-          <p className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
-            ID: {webhook.id}
-          </p>
+          <p className="font-mono text-xs text-muted-foreground">ID: {webhook.id}</p>
         </div>
         <Can resource="webhooks" level="manage">
-          <Button variant="danger" size="sm" onClick={() => setConfirmOpen(true)}>
-            <Trash2 className="size-4" aria-hidden="true" />
+          <McButton
+            variant="primary"
+            destructive
+            size="sm"
+            icon="leading"
+            iconDefinition={<Trash2 aria-hidden="true" />}
+            onClick={() => setConfirmOpen(true)}
+          >
             Delete webhook
-          </Button>
+          </McButton>
         </Can>
       </div>
 

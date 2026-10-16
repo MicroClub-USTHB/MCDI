@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import type { WebhookView } from '@/features/webhooks/api/mappers';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { cn } from '@/shared/lib/utils';
 
@@ -28,11 +29,12 @@ export function WebhookTable({
       cell: ({ row }) => {
         const selected = row.original.id === selectedId;
         return (
-          <button
+          <McButton
             type="button"
+            variant="link"
             aria-current={selected ? 'true' : undefined}
             className={cn(
-              'rounded-sm text-left font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring',
+              'text-left font-medium no-underline hover:underline focus-visible:ring-2 focus-visible:ring-ring',
               selected && 'text-primary'
             )}
             onClick={(event) => {
@@ -41,7 +43,7 @@ export function WebhookTable({
             }}
           >
             {row.original.name}
-          </button>
+          </McButton>
         );
       },
     },

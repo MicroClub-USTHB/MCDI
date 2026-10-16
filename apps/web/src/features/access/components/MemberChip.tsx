@@ -25,9 +25,7 @@ export function MemberChip({
       />
       <div className="min-w-0">
         <div className="truncate paragraph-sm font-semibold text-foreground">{displayName}</div>
-        <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
-          @{username}
-        </div>
+        <div className="truncate paragraph-xs text-muted-foreground">@{username}</div>
       </div>
     </div>
   );

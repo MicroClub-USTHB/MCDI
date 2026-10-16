@@ -68,7 +68,10 @@ describe('ServerAccessMatrix', () => {
 
     expect(screen.getByText('Main')).toBeInTheDocument();
     expect(screen.getAllByText('No access').length).toBe(2);
-    expect(screen.getByRole('checkbox', { name: 'Read on Main' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Read on Main' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   it('grants a server with default READ + all scopes when toggled on', async () => {
@@ -131,6 +134,27 @@ describe('ServerAccessMatrix', () => {
     });
   });
 
+  it('toggles a scope when its visible label text is clicked', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const onChange = vi.fn();
+
+    render(
+      <ServerAccessMatrix
+        projectId="proj_1"
+        servers={servers}
+        accessMap={accessMap(grantedEntry)}
+        onChange={onChange}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Check permissions', { selector: 'label' }));
+
+    expect(onChange).toHaveBeenCalledWith('srv_1', {
+      operations: grantedOps,
+      scopes: ['read_members', 'check_permissions'],
+    });
+  });
+
   it('toggles a single operation and keeps the scopes', async () => {
     const { default: userEvent } = await import('@testing-library/user-event');
     const onChange = vi.fn();
@@ -169,8 +193,14 @@ describe('ServerAccessMatrix', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Revoke access for Main' }));
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByRole('switch', { name: 'Revoke access for Main' })).toBeDisabled();
-    expect(screen.getByRole('checkbox', { name: 'Read on Main' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Revoke access for Main' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('checkbox', { name: 'Read on Main' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   it('disables the grant switch for inactive servers', () => {
@@ -183,7 +213,13 @@ describe('ServerAccessMatrix', () => {
       />
     );
 
-    expect(screen.getByRole('switch', { name: 'Grant access to Dead' })).toBeDisabled();
-    expect(screen.getByRole('switch', { name: 'Grant access to Main' })).toBeEnabled();
+    expect(screen.getByRole('switch', { name: 'Grant access to Dead' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByRole('switch', { name: 'Grant access to Main' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 });

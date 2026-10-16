@@ -7,8 +7,8 @@ import type {
   ProjectOperation,
   ProjectScope,
 } from '@/features/projects/types';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Switch } from '@/shared/components/ui/switch';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
 import { useCan } from '@/shared/lib/use-access';
 
 const PROJECT_SCOPES: readonly ProjectScope[] = ['read_members', 'check_permissions'];
@@ -146,28 +146,30 @@ function ServerAccessMatrix({
                   {granted ? (
                     <div className="flex flex-col gap-1.5">
                       {PROJECT_SCOPES.map((scope) => (
-                        <label key={scope} className="flex cursor-pointer items-center gap-2">
-                          <Checkbox
+                        <div key={scope} className="flex items-center gap-2">
+                          <McCheckbox
+                            id={`access-${server.id}-${scope}`}
                             checked={scopes.includes(scope)}
                             disabled={isMutating || !canWrite}
                             onCheckedChange={() => toggleScope(scope)}
                             aria-label={`${SCOPE_LABELS[scope]} on ${server.name}`}
                           />
-                          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                          <label
+                            htmlFor={`access-${server.id}-${scope}`}
+                            className="cursor-pointer paragraph-xs text-muted-foreground"
+                          >
                             {SCOPE_LABELS[scope]}
-                          </span>
-                        </label>
+                          </label>
+                        </div>
                       ))}
                     </div>
                   ) : (
-                    <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
-                      No access
-                    </span>
+                    <span className="paragraph-xs text-muted-foreground">No access</span>
                   )}
                 </td>
                 {PROJECT_OPERATIONS.map((operation) => (
                   <td key={operation} className="px-4 py-3">
-                    <Checkbox
+                    <McCheckbox
                       checked={granted ? (operations?.[operation] ?? false) : false}
                       disabled={isMutating || !canWrite || !granted}
                       onCheckedChange={() => toggleOperation(operation)}
@@ -177,7 +179,7 @@ function ServerAccessMatrix({
                 ))}
                 <td className="px-4 py-3 text-right">
                   {(granted ? canManage : canWrite) && (
-                    <Switch
+                    <McSwitch
                       checked={granted}
                       disabled={isMutating || !server.isActive}
                       onCheckedChange={toggleGrant}

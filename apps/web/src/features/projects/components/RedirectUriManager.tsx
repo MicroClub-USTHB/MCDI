@@ -3,9 +3,8 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 
 interface RedirectUriManagerProps {
   uris: string[];
@@ -56,53 +55,58 @@ function RedirectUriManager({
 
   return (
     <div className="flex flex-col gap-3">
-      <Label>Redirect URIs</Label>
+      <span className="text-sm font-medium text-muted-foreground">Redirect URIs</span>
       {!readOnly && (
-        <form onSubmit={handleAdd} className="flex gap-2">
-          <Input
+        <form onSubmit={handleAdd} className="flex items-start gap-2">
+          <McInput
+            className="flex-1"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            aria-invalid={error ? true : undefined}
+            error={error}
             aria-label="New redirect URI"
             placeholder="https://app.example.com/auth/callback"
             disabled={isSubmitting}
           />
-          <Button type="submit" variant="secondary" size="sm" disabled={isSubmitting}>
-            <Plus aria-hidden="true" />
+          <McButton
+            type="submit"
+            variant="secondary"
+            size="md"
+            icon="leading"
+            iconDefinition={<Plus aria-hidden="true" />}
+            disabled={isSubmitting}
+          >
             Add
-          </Button>
+          </McButton>
         </form>
       )}
-      {error && <p className="paragraph-xs font-semibold tracking-wide text-error">{error}</p>}
       {uris.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {uris.map((uri) => (
             <li
               key={uri}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2"
             >
               <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
                 {uri}
               </code>
               {!readOnly && (
-                <Button
+                <McButton
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Remove ${uri}`}
+                  variant="tertiary"
+                  size="sm"
+                  icon="only"
+                  iconDefinition={<X aria-hidden="true" />}
                   disabled={isSubmitting}
                   onClick={() => onRemove(uri)}
                 >
-                  <X aria-hidden="true" />
-                </Button>
+                  {`Remove ${uri}`}
+                </McButton>
               )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
-          No redirect URIs set.
-        </p>
+        <p className="paragraph-xs text-muted-foreground">No redirect URIs set.</p>
       )}
     </div>
   );

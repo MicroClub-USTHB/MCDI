@@ -13,9 +13,9 @@ import {
   type Draft,
 } from '@/features/access/lib/grants';
 import type { AccessCatalogDto, AccessRoleDto } from '@/features/access/types';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
 import { showToast } from '@/shared/stores';
@@ -55,7 +55,7 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
         <div className="flex items-center gap-2">
           <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
-          <Badge variant="secondary">Root</Badge>
+          <McBadge variant="outline">Root</McBadge>
         </div>
         <p className="paragraph-sm text-muted-foreground">
           A root role holds full access to everything. It is set by the API configuration and cannot
@@ -87,23 +87,23 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
         <div className="flex gap-2">
-          <Button
+          <McButton
             type="button"
-            variant="ghost"
+            variant="tertiary"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => setEdits(null)}
           >
             Discard
-          </Button>
-          <Button
+          </McButton>
+          <McButton
             type="button"
             size="sm"
             disabled={!dirty || mutation.isPending}
             onClick={() => (lowered.length > 0 ? setConfirming(true) : save())}
           >
             {mutation.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         </div>
       </header>
 
