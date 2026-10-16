@@ -21,7 +21,7 @@ There are two, and everything after the redirect is identical.
 
 | If you want                                                         | Use                           | Behaviour                                                                           |
 | ------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------- |
-| The standard "Login with Micro Club" button                          | `GET /api/auth/sso/authorize` | Members who already signed in on any MCID project skip the Discord screen.          |
+| The standard "Login with Micro Club" button                         | `GET /api/auth/sso/authorize` | Members who already signed in on any MCID project skip the Discord screen.          |
 | To make the member prove who they are again, for a sensitive action | `GET /api/auth/authorize`     | Always goes through Discord, even when the browser holds a valid `mcid_sso` cookie. |
 
 Both take the same query parameters:
