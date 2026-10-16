@@ -1,26 +1,47 @@
+/*
+ * Legacy login page (views/login.ejs), styled with the mcoli-ui "primary"
+ * theme: the Micro Club design system the admin panel uses. Light by default,
+ * dark when the system asks for it.
+ */
 :root {
-    --bg-color: #e0e5ec;
-    --text-color: #4a4a4a;
-    --primary-color: #5865F2; /* Discord Blurple */
-    --accent-color: #3b82f6;
-    --success-color: #22c55e;
-    --error-color: #ef4444;
-    
-    --shadow-light: #ffffff;
-    --shadow-dark: #a3b1c6;
-    
-    --neumorphic-shadow: 9px 9px 16px var(--shadow-dark), 
-                       -9px -9px 16px var(--shadow-light);
-    --neumorphic-inset: inset 6px 6px 10px var(--shadow-dark), 
-                      inset -6px -6px 10px var(--shadow-light);
+    color-scheme: light dark;
+    --background: #ffffff;
+    --foreground: #000350;
+    --card: #ffffff;
+    --border: #e6e9ff;
+    --muted-foreground: #54588b;
+    --primary: #0006b1;
+    --primary-foreground: #ffffff;
+    --secondary: #e6e9ff;
+    --secondary-foreground: #000585;
+    --success: #22c55e;
+    --error: #e7000b;
+    --ring: #d9ddff;
+    --shadow: 0 4px 12px -4px hsl(0 0% 0% / 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #0a0a0a;
+        --foreground: #fafafa;
+        --card: #171717;
+        --border: #262626;
+        --muted-foreground: #a1a1a1;
+        --primary: #d9ddff;
+        --primary-foreground: #000350;
+        --secondary: #262626;
+        --secondary-foreground: #fafafa;
+        --ring: #d9ddff;
+        --shadow: 0 4px 12px -4px hsl(0 0% 0% / 0.4);
+    }
 }
 
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: var(--bg-color);
-    color: var(--text-color);
+    font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background-color: var(--background);
+    color: var(--foreground);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -31,43 +52,60 @@ body {
     width: 100%;
     max-width: 400px;
     padding: 20px;
+    box-sizing: border-box;
 }
 
 .login-card {
-    background-color: var(--bg-color);
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: var(--neumorphic-shadow);
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 2rem;
+    box-shadow: var(--shadow);
     text-align: center;
 }
 
 .logo-section {
-    margin-bottom: 30px;
+    margin-bottom: 1.5rem;
 }
 
-.logo-placeholder {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background-color: var(--bg-color);
-    box-shadow: var(--neumorphic-shadow);
+.logo-mark {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
     display: flex;
     justify-content: center;
     align-items: center;
-    margin: 0 auto 20px;
-    font-size: 40px;
-    color: var(--primary-color);
+    margin: 0 auto 1rem;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+h1,
+h2 {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 700;
+    color: var(--foreground);
 }
 
 h1 {
-    font-size: 24px;
-    margin: 0 0 10px;
-    color: #333;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    margin: 0 0 0.25rem;
+}
+
+h2 {
+    font-size: 1.125rem;
+    margin: 0 0 0.5rem;
 }
 
 p {
     margin: 0;
-    color: #666;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .content-section {
@@ -81,46 +119,44 @@ p {
 .btn-discord {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    background-color: var(--bg-color);
-    color: var(--primary-color);
-    font-weight: 600;
-    padding: 15px 30px;
-    border-radius: 50px;
+    gap: 0.5rem;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
     text-decoration: none;
-    box-shadow: var(--neumorphic-shadow);
-    transition: all 0.3s ease;
-    margin-top: 20px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    margin-top: 1.25rem;
 }
 
 .btn-discord:hover {
-    color: var(--primary-color);
-    box-shadow: 6px 6px 10px var(--shadow-dark), 
-              -6px -6px 10px var(--shadow-light);
-    transform: translateY(-2px);
+    background-color: var(--secondary-foreground);
+    color: var(--secondary);
 }
 
-.btn-discord:active {
-    box-shadow: var(--neumorphic-inset);
-    transform: translateY(0);
+.btn-discord:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
 }
 
 .status-message i {
-    font-size: 48px;
-    margin-bottom: 15px;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
     display: block;
 }
 
 .status-message.success i {
-    color: var(--success-color);
+    color: var(--success);
 }
 
 .status-message.error i {
-    color: var(--error-color);
+    color: var(--error);
 }
 
 footer {
-    margin-top: 40px;
-    font-size: 12px;
-    opacity: 0.7;
+    margin-top: 2rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
 }
