@@ -23,6 +23,7 @@
     "docs:api": "tsx scripts/generate-api-docs.ts"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-json": "^6.0.2",
@@ -56,6 +57,7 @@
     "rehype-highlight": "^7.0.2",
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"
