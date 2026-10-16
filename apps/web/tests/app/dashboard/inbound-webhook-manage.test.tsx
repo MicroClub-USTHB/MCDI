@@ -189,7 +189,7 @@ describe('Delete', () => {
     render(<WebhookView webhookId={WEBHOOK_ID} />, { wrapper });
     await userEvent.click(await screen.findByRole('tab', { name: 'Settings' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    return screen.findByRole('dialog');
+    return screen.findByRole('alertdialog');
   }
 
   it('asks for the slug, then deletes and goes back to the list', async () => {
@@ -255,7 +255,7 @@ describe('Rotate the signing secret', () => {
     await userEvent.click(await screen.findByRole('tab', { name: 'Settings' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Rotate secret' }));
-    const confirm = await screen.findByRole('dialog');
+    const confirm = await screen.findByRole('alertdialog');
     expect(confirm).toHaveTextContent(/old one are refused/);
     expect(rotated).toBe(0);
     await userEvent.click(within(confirm).getByRole('button', { name: 'Rotate secret' }));
@@ -447,7 +447,7 @@ describe('Schema', () => {
     await waitFor(() => expect(save).toBeEnabled());
     await userEvent.click(save);
 
-    const confirm = await screen.findByRole('dialog');
+    const confirm = await screen.findByRole('alertdialog');
     expect(confirm).toHaveTextContent(
       'Existing submissions are not re-checked; new submissions must match the new schema.'
     );
@@ -473,7 +473,7 @@ describe('Schema', () => {
     await userEvent.click(save);
 
     await waitFor(() => expect(patched).toEqual({ schema: NEXT_SCHEMA }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('will not save while the API reports problems, or the JSON is broken', async () => {

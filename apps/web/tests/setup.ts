@@ -76,6 +76,7 @@ class ResizeObserverMock {
 window.ResizeObserver = ResizeObserverMock;
 
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
+// jsdom has no pointer capture. Base UI and the vaul drawer behind mc-drawer call these.
+window.HTMLElement.prototype.setPointerCapture = vi.fn();
 window.HTMLElement.prototype.releasePointerCapture = vi.fn();
-// Radix primitives (Select, etc.) probe this; jsdom doesn't implement it.
 window.HTMLElement.prototype.hasPointerCapture = vi.fn();

@@ -141,7 +141,7 @@ describe('Webhooks page', () => {
     await screen.findByRole('heading', { name: 'Deploys' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    await screen.findByRole('dialog');
+    await screen.findByRole('alertdialog');
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() =>

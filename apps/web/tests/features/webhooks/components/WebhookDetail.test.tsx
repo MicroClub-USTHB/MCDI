@@ -59,11 +59,11 @@ describe('WebhookDetail', () => {
     render(<WebhookDetail webhook={webhook} onDeleted={vi.fn()} />, { wrapper });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    const dialog = await screen.findByRole('dialog');
+    const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent('Deploy notifications');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
     expect(deleted).not.toHaveBeenCalled();
   });
 
@@ -75,7 +75,7 @@ describe('WebhookDetail', () => {
     render(<WebhookDetail webhook={webhook} onDeleted={onDeleted} />, { wrapper });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    await screen.findByRole('dialog');
+    await screen.findByRole('alertdialog');
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(onDeleted).toHaveBeenCalled());
@@ -97,7 +97,7 @@ describe('WebhookDetail', () => {
     render(<WebhookDetail webhook={webhook} onDeleted={onDeleted} />, { wrapper });
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    await screen.findByRole('dialog');
+    await screen.findByRole('alertdialog');
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() =>
