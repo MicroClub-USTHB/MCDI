@@ -36,5 +36,5 @@ First release. The CLI covers MCID Inbound Webhooks: logging in as an admin, wri
 - The login callback is checked against the OAuth state, and control characters are stripped from printed errors.
 - Config writes are locked so parallel commands cannot lose secrets, and a profile that holds signing secrets cannot be pointed at another MCID.
 
-[Unreleased]: https://github.com/MicroClub-USTHB/MCID/compare/mcid-cli-v0.1.0...HEAD
-[0.1.0]: https://github.com/MicroClub-USTHB/MCID/releases/tag/mcid-cli-v0.1.0
+[Unreleased]: https://github.com/MicroClub-USTHB/MCID/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/MicroClub-USTHB/MCID/releases/tag/v0.1.0
