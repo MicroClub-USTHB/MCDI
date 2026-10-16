@@ -18,7 +18,7 @@ function ErrorRateChart({ data }: ErrorRateChartProps) {
     <Card>
       <CardHeader>
         <CardTitle>Error rate</CardTitle>
-        <p className="text-body text-text-muted">
+        <p className="paragraph-sm text-muted-foreground">
           {errorRate.toFixed(2)}% ({data.errors.total.toLocaleString()} errors) in the selected
           period.
         </p>
@@ -26,11 +26,11 @@ function ErrorRateChart({ data }: ErrorRateChartProps) {
       <CardContent className="space-y-4">
         {errorTypes.map((item) => (
           <div key={item.label} className="space-y-1">
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">{item.label}</span>
-              <span className="font-mono text-text-primary">{item.value.toLocaleString()}</span>
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">{item.label}</span>
+              <span className="font-mono text-foreground">{item.value.toLocaleString()}</span>
             </div>
-            <div className="h-2 rounded-full bg-surface-hover">
+            <div className="h-2 rounded-full bg-muted">
               <div
                 className={`h-2 rounded-full ${item.color}`}
                 style={{ width: `${(item.value / maxValue) * 100}%` }}

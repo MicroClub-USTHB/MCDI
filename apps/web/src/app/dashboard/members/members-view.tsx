@@ -87,9 +87,15 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
               avatarInitials={member.avatarInitials}
             />
             <div className="min-w-0">
-              <div className="truncate text-subhead text-text-primary">{member.displayName}</div>
-              <div className="truncate text-overline text-text-faint">@{member.username}</div>
-              <div className="truncate text-overline text-text-faint">ID: {member.memberId}</div>
+              <div className="truncate paragraph-sm font-semibold text-foreground">
+                {member.displayName}
+              </div>
+              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                @{member.username}
+              </div>
+              <div className="truncate paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                ID: {member.memberId}
+              </div>
             </div>
           </div>
         ),
@@ -102,7 +108,7 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
           member.isClubMember ? (
             <Badge variant="brand-light">Club member</Badge>
           ) : (
-            <span className="text-text-faint">-</span>
+            <span className="text-muted-foreground/70">-</span>
           ),
         className: 'w-[12%]',
       },
@@ -110,7 +116,7 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
         id: 'servers',
         header: 'Servers',
         cell: (member) => (
-          <span className="text-body text-text-normal">
+          <span className="paragraph-sm text-foreground">
             {member.serverCount} server{member.serverCount === 1 ? '' : 's'}
           </span>
         ),
@@ -134,7 +140,7 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
               {extraCount > 0 ? <Badge variant="outline">+{extraCount} more</Badge> : null}
             </div>
           ) : (
-            <span className="text-text-faint">No roles</span>
+            <span className="text-muted-foreground/70">No roles</span>
           );
         },
         className: 'w-[36%]',
@@ -179,8 +185,8 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-hero">Members</h1>
-            <p className="mt-1 max-w-2xl text-body text-text-muted">
+            <h1 className="header-xs font-bold">Members</h1>
+            <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
               {serverId
                 ? 'Search this server’s members, narrow by role, and export the filtered dataset.'
                 : 'Search club members, narrow by server or role, and export the filtered dataset.'}
@@ -201,7 +207,7 @@ export function MembersView({ serverId }: { serverId?: string } = {}) {
       />
 
       {query.isPending ? (
-        <div className="space-y-4 rounded-lg border border-border bg-surface-raised p-4">
+        <div className="space-y-4 rounded-lg border border-border bg-card p-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <LoadingSkeleton key={index} className="h-12 rounded-lg" />

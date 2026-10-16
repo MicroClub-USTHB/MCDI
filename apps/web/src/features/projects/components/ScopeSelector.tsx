@@ -34,7 +34,7 @@ function ScopeSelector({ selected, onChange, disabled = false }: ScopeSelectorPr
         return (
           <Label
             key={scope}
-            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-surface-main p-3 transition-colors select-none hover:bg-surface-hover"
+            className="flex cursor-pointer items-start gap-3 rounded-md border border-border bg-background p-3 transition-colors select-none hover:bg-muted"
           >
             <Checkbox
               checked={checked}
@@ -43,8 +43,10 @@ function ScopeSelector({ selected, onChange, disabled = false }: ScopeSelectorPr
               aria-label={SCOPE_LABELS[scope]}
             />
             <span className="flex flex-col gap-0.5">
-              <span className="text-body text-text-normal">{SCOPE_LABELS[scope]}</span>
-              <span className="text-overline text-text-subtle">{SCOPE_HINTS[scope]}</span>
+              <span className="paragraph-sm text-foreground">{SCOPE_LABELS[scope]}</span>
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                {SCOPE_HINTS[scope]}
+              </span>
             </span>
           </Label>
         );

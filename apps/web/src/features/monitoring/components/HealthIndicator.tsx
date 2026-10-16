@@ -36,7 +36,7 @@ function HealthIndicator({ service, status, details, isLoading = false }: Health
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="px-4 text-body text-text-muted">{details}</CardContent>
+      <CardContent className="px-4 paragraph-sm text-muted-foreground">{details}</CardContent>
     </Card>
   );
 }

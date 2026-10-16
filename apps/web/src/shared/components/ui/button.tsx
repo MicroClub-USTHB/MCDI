@@ -13,27 +13,27 @@ import { cn } from '@/shared/lib/utils';
  * resolves to a real token in `globals.css`.
  *
  * Radius is `rounded-md` (6px) per the directive's "Buttons 6px", and label
- * type is `text-body` (14px/500) — the only role in the scale sized for a
+ * type is `paragraph-sm` (14px/500) — the only role in the scale sized for a
  * control.
  */
 const buttonVariants = cva(
   cn(
-    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-body whitespace-nowrap',
+    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md paragraph-sm whitespace-nowrap',
     'transition-colors outline-none',
-    'focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base',
+    'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
     'disabled:pointer-events-none disabled:opacity-60',
     "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
   ),
   {
     variants: {
       variant: {
-        primary: 'bg-brand text-on-brand hover:bg-brand-hover active:bg-brand-active',
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80',
         secondary:
-          'border border-border bg-surface-elevated text-text-normal hover:bg-surface-hover active:bg-surface-active',
-        danger: 'bg-error text-on-brand hover:bg-error/90 active:bg-error/80',
-        success: 'bg-success text-on-brand hover:bg-success/90 active:bg-success/80',
-        ghost: 'bg-transparent text-text-normal hover:bg-surface-hover active:bg-surface-active',
-        link: 'bg-transparent text-brand-light underline-offset-4 hover:underline',
+          'border border-border bg-muted text-foreground hover:bg-muted active:bg-secondary',
+        danger: 'bg-error text-primary-foreground hover:bg-error/90 active:bg-error/80',
+        success: 'bg-success text-primary-foreground hover:bg-success/90 active:bg-success/80',
+        ghost: 'bg-transparent text-foreground hover:bg-muted active:bg-secondary',
+        link: 'bg-transparent text-primary underline-offset-4 hover:underline',
       },
       size: {
         sm: 'h-9 gap-2 px-4',

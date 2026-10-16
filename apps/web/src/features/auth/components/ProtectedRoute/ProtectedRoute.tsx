@@ -35,7 +35,7 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
         <div
           role="status"
           aria-label="Checking session"
-          className="flex min-h-screen items-center justify-center bg-surface-base"
+          className="flex min-h-screen items-center justify-center bg-background"
         >
           <LoadingSkeleton variant="circular" className="h-8 w-8" />
         </div>

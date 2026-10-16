@@ -13,7 +13,9 @@ function ExportAuditButton({ filters }: ExportAuditButtonProps) {
 
   return (
     <div className="flex items-center gap-3">
-      {mutation.isError ? <span className="text-overline text-error">Export failed.</span> : null}
+      {mutation.isError ? (
+        <span className="paragraph-xs font-semibold tracking-wide text-error">Export failed.</span>
+      ) : null}
       <Button
         type="button"
         variant="secondary"

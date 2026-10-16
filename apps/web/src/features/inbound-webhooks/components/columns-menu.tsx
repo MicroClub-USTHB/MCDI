@@ -35,24 +35,24 @@ export function ColumnsMenu({ available, selected, onChange, onReset }: ColumnsM
         <Popover.Content
           align="end"
           sideOffset={6}
-          className="z-50 flex max-h-80 w-72 flex-col gap-1 overflow-y-auto rounded-md border border-border bg-surface-elevated p-2 shadow-divider"
+          className="z-50 flex max-h-80 w-72 flex-col gap-1 overflow-y-auto rounded-md border border-border bg-muted p-2 shadow-xs"
         >
           {available.length === 0 ? (
-            <p className="px-2 py-1 text-body text-text-subtle">This schema has no fields.</p>
+            <p className="px-2 py-1 paragraph-sm text-muted-foreground">
+              This schema has no fields.
+            </p>
           ) : (
             available.map((column) => (
               <label
                 key={column.path}
-                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-surface-hover"
+                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted"
               >
                 <Checkbox
                   checked={selected.includes(column.path)}
                   onCheckedChange={() => toggle(column.path)}
                   aria-label={column.path}
                 />
-                <span className="font-mono text-code break-all text-text-normal">
-                  {column.path}
-                </span>
+                <span className="font-mono text-xs break-all text-foreground">{column.path}</span>
               </label>
             ))
           )}

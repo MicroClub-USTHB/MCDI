@@ -31,7 +31,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+    loading: () => <div className="h-96 rounded-md border border-border bg-background" />,
   }
 );
 
@@ -118,7 +118,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
             placeholder="recruitment-2026"
           />
           {slugProblem ? (
-            <p className="text-body text-error">
+            <p className="paragraph-sm text-error">
               Use lowercase letters, digits and dashes, 2 to 64 characters, with no dash at either
               end.
             </p>
@@ -128,8 +128,8 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
 
       <section className="flex flex-col gap-3">
         <div>
-          <h2 className="text-subhead text-text-primary">Schema</h2>
-          <p className="text-body text-text-muted">
+          <h2 className="paragraph-sm font-semibold text-foreground">Schema</h2>
+          <p className="paragraph-sm text-muted-foreground">
             What callers send, as JSON. Use steps for a multi-step form, or list fields directly for
             an event or any other payload. Start from a template or write your own.
           </p>
@@ -151,7 +151,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         {hasFileWarning ? (
           <div role="status" className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-            <p className="text-body text-warning">
+            <p className="paragraph-sm text-warning">
               File fields can&apos;t be submitted yet. A required one will reject every submission,
               so make it optional or leave it out.
             </p>
@@ -170,8 +170,10 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="flex flex-col gap-3">
           <div>
-            <h2 className="text-subhead text-text-primary">Who can read what it receives</h2>
-            <p className="text-body text-text-muted">
+            <h2 className="paragraph-sm font-semibold text-foreground">
+              Who can read what it receives
+            </h2>
+            <p className="paragraph-sm text-muted-foreground">
               Members holding one of these Discord roles. The default roles are added for you;
               remove any you don&apos;t want here.
             </p>
@@ -190,11 +192,13 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
         </section>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-subhead text-text-primary">Options</h2>
+          <h2 className="paragraph-sm font-semibold text-foreground">Options</h2>
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="require-signature" className="flex flex-col gap-1">
               Require a signature
-              <span className="text-text-muted">Reject requests that aren&apos;t signed.</span>
+              <span className="text-muted-foreground">
+                Reject requests that aren&apos;t signed.
+              </span>
             </Label>
             <Switch
               id="require-signature"
@@ -205,7 +209,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="reject-unknown" className="flex flex-col gap-1">
               Reject unknown fields
-              <span className="text-text-muted">
+              <span className="text-muted-foreground">
                 Off means fields outside the schema are dropped instead.
               </span>
             </Label>
@@ -224,7 +228,7 @@ export function CreateWebhookForm({ projectId }: { projectId: string }) {
               placeholder="https://app.microclub.dz"
               rows={3}
             />
-            <p className="text-body text-text-muted">
+            <p className="paragraph-sm text-muted-foreground">
               One per line. Leave empty to accept requests from anywhere.
             </p>
           </div>

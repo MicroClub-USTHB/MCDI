@@ -18,7 +18,7 @@ export function Diagram({ src, alt, width, height }: DiagramProps) {
         width={width}
         height={height}
         unoptimized
-        className="h-auto w-full rounded-lg border border-border bg-surface-raised"
+        className="h-auto w-full rounded-lg border border-border bg-card"
       />
     </figure>
   );

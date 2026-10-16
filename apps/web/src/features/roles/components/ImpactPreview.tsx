@@ -18,14 +18,14 @@ function ImpactPreview({ affectedMembers, roleHolders, action }: ImpactPreviewPr
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border border-brand/20 bg-brand/15 px-4 py-3',
-        'text-sm text-brand-light'
+        'flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/15 px-4 py-3',
+        'text-sm text-primary'
       )}
       role="status"
     >
       <Info className="size-4 shrink-0" aria-hidden="true" />
       <span>{label}</span>
-      <span className="ml-auto text-xs text-brand/70">
+      <span className="ml-auto text-xs text-primary/70">
         {roleHolders} total role holder{roleHolders !== 1 ? 's' : ''}
       </span>
     </div>

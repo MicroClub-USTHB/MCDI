@@ -31,22 +31,22 @@ export function Pagination({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 rounded-lg border border-border bg-surface-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
         className
       )}
     >
-      <div className="flex items-center gap-3 text-body text-text-muted">
+      <div className="flex items-center gap-3 paragraph-sm text-muted-foreground">
         <span>
           Showing {start}-{end} of {total.toLocaleString()}
         </span>
         <label className="flex items-center gap-2">
-          <span className="text-text-subtle">Per page</span>
+          <span className="text-muted-foreground">Per page</span>
           <select
             value={pageSize}
             onChange={(event) => onPageSizeChange(Number(event.target.value))}
             className={cn(
-              'h-9 rounded-md border border-border bg-surface-main px-3 text-body text-text-normal outline-none',
-              'focus-visible:border-border-focus focus-visible:ring-2 focus-visible:ring-brand/20'
+              'h-9 rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none',
+              'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20'
             )}
           >
             {pageSizeOptions.map((option) => (
@@ -69,7 +69,7 @@ export function Pagination({
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
         </Button>
-        <span className="min-w-24 text-center text-body text-text-muted">
+        <span className="min-w-24 text-center paragraph-sm text-muted-foreground">
           Page {page} of {safeTotalPages}
         </span>
         <Button

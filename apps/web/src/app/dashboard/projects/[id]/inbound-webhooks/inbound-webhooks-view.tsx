@@ -27,8 +27,8 @@ export function InboundWebhooksView({ projectId }: { projectId: string }) {
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-hero">Inbound webhooks</h1>
-          <p className="mt-1 max-w-2xl text-body text-text-muted">
+          <h1 className="header-xs font-bold">Inbound webhooks</h1>
+          <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
             Structured data this project sends to MCID: forms, events, anything a schema can
             describe. Each webhook has a schema, a signing secret and the roles allowed to read what
             it receives.

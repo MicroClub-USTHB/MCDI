@@ -14,7 +14,7 @@ interface PreviewPaneProps {
 }
 
 function Message({ children }: { children: React.ReactNode }) {
-  return <p className="text-body text-text-subtle">{children}</p>;
+  return <p className="paragraph-sm text-muted-foreground">{children}</p>;
 }
 
 /**
@@ -30,7 +30,7 @@ export function PreviewPane({ preview, waitingForJson, isFetching, className }: 
       aria-label="Preview"
       aria-busy={isFetching}
       className={cn(
-        'flex h-80 min-h-0 flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4 xl:h-96',
+        'flex h-80 min-h-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 xl:h-96',
         className
       )}
     >
@@ -52,11 +52,13 @@ export function PreviewPane({ preview, waitingForJson, isFetching, className }: 
               <TabsTrigger value="docs">Docs</TabsTrigger>
             </TabsList>
             {stale ? (
-              <span className="text-overline text-text-subtle">Last valid version</span>
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                Last valid version
+              </span>
             ) : null}
           </div>
           <TabsContent value="example" className="min-h-0 flex-1 overflow-auto">
-            <pre className="rounded-md bg-surface-base p-3 font-mono text-code text-text-normal">
+            <pre className="rounded-md bg-background p-3 font-mono text-xs text-foreground">
               {JSON.stringify(preview.examplePayload, null, 2)}
             </pre>
           </TabsContent>

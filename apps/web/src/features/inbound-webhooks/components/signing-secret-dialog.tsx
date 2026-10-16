@@ -43,7 +43,7 @@ export function SigningSecretDialog({
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-            <p className="text-body text-warning">
+            <p className="paragraph-sm text-warning">
               This is the only time the secret is shown. Copy it now; if it is lost, rotate it.
             </p>
           </div>
@@ -52,7 +52,9 @@ export function SigningSecretDialog({
           ) : null}
           {submitUrl ? (
             <div>
-              <p className="text-overline text-text-subtle">Submit URL</p>
+              <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                Submit URL
+              </p>
               <MaskedInput value={submitUrl} aria-label="Submit URL" />
             </div>
           ) : null}

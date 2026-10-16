@@ -87,15 +87,17 @@ function MonitoringPage() {
     <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-overline text-brand-light uppercase">Operations</p>
-          <h1 className="mt-1 text-hero text-text-primary">System Monitoring</h1>
-          <p className="mt-1 max-w-2xl text-body text-text-muted">
+          <p className="paragraph-xs font-semibold tracking-wide text-primary uppercase">
+            Operations
+          </p>
+          <h1 className="mt-1 header-xs font-bold text-foreground">System Monitoring</h1>
+          <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
             Track API usage, service health, authentication failures, and audit activity.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div
-            className="inline-flex rounded-md border border-border bg-surface-base p-0.5"
+            className="inline-flex rounded-md border border-border bg-background p-0.5"
             role="group"
             aria-label="Usage period"
           >
@@ -106,10 +108,10 @@ function MonitoringPage() {
                 aria-pressed={period === option.value}
                 onClick={() => setPeriod(option.value)}
                 className={cn(
-                  'rounded-sm px-3 py-1.5 text-body text-text-muted transition-colors',
+                  'rounded-sm px-3 py-1.5 paragraph-sm text-muted-foreground transition-colors',
                   period === option.value
-                    ? 'bg-surface-active text-text-primary'
-                    : 'hover:bg-surface-hover hover:text-text-normal'
+                    ? 'bg-secondary text-foreground'
+                    : 'hover:bg-muted hover:text-foreground'
                 )}
               >
                 {option.label}
@@ -126,7 +128,7 @@ function MonitoringPage() {
 
       {serviceDown ? (
         <div
-          className="flex items-center gap-3 rounded-lg border border-error bg-error/12 px-4 py-3 text-body text-error"
+          className="flex items-center gap-3 rounded-lg border border-error bg-error/12 px-4 py-3 paragraph-sm text-error"
           role="alert"
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
@@ -137,7 +139,7 @@ function MonitoringPage() {
       {canMonitoring ? (
         <section aria-labelledby="health-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="health-heading" className="text-heading text-text-primary">
+            <h2 id="health-heading" className="paragraph-md font-semibold text-foreground">
               System health
             </h2>
             {healthQuery.isError ? (
@@ -154,7 +156,7 @@ function MonitoringPage() {
             </div>
           ) : healthQuery.isError ? (
             <Card>
-              <CardContent className="py-6 text-body text-error">
+              <CardContent className="py-6 paragraph-sm text-error">
                 System health could not be loaded.
               </CardContent>
             </Card>
@@ -207,7 +209,7 @@ function MonitoringPage() {
       {canMonitoring ? (
         <section aria-labelledby="usage-heading" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="usage-heading" className="text-heading text-text-primary">
+            <h2 id="usage-heading" className="paragraph-md font-semibold text-foreground">
               API usage
             </h2>
             {usageQuery.isError ? (
@@ -216,12 +218,12 @@ function MonitoringPage() {
               </Button>
             ) : null}
             {canProjects ? (
-              <label className="flex items-center gap-2 text-overline text-text-muted">
+              <label className="flex items-center gap-2 paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 Project
                 <select
                   value={projectId ?? ''}
                   onChange={(event) => setProjectId(event.target.value || undefined)}
-                  className="h-9 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+                  className="h-9 rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
                 >
                   <option value="">All projects</option>
                   {projectsQuery.data?.map((project) => (
@@ -236,7 +238,7 @@ function MonitoringPage() {
           {usageQuery.isPending ? <LoadingSkeleton className="h-64 rounded-lg" /> : null}
           {usageQuery.isError ? (
             <Card>
-              <CardContent className="py-6 text-body text-error">
+              <CardContent className="py-6 paragraph-sm text-error">
                 API usage could not be loaded.
               </CardContent>
             </Card>
@@ -252,12 +254,12 @@ function MonitoringPage() {
 
       {canMonitoring ? (
         <section aria-labelledby="failures-heading" className="space-y-3">
-          <h2 id="failures-heading" className="text-heading text-text-primary">
+          <h2 id="failures-heading" className="paragraph-md font-semibold text-foreground">
             Recent authentication failures
           </h2>
           {failuresQuery.isError ? (
             <Card>
-              <CardContent className="py-6 text-body text-error">
+              <CardContent className="py-6 paragraph-sm text-error">
                 Authentication failures could not be loaded.
               </CardContent>
             </Card>
@@ -272,7 +274,7 @@ function MonitoringPage() {
       {canAudit ? (
         <section aria-labelledby="audit-heading" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="audit-heading" className="text-heading text-text-primary">
+            <h2 id="audit-heading" className="paragraph-md font-semibold text-foreground">
               Audit logs
             </h2>
             <div className="flex items-center gap-3">
@@ -292,7 +294,7 @@ function MonitoringPage() {
           />
           {auditQuery.isError ? (
             <Card>
-              <CardContent className="py-6 text-body text-error">
+              <CardContent className="py-6 paragraph-sm text-error">
                 Audit logs could not be loaded.
               </CardContent>
             </Card>

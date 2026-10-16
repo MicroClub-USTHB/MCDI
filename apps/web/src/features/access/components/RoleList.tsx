@@ -19,7 +19,7 @@ export function RoleList({ roles, selectedId, onSelect }: RoleListProps) {
   return (
     <ul
       aria-label="Roles"
-      className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface-raised"
+      className="flex flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
       {ordered.map((role) => (
         <li key={role.id} className="border-b border-border last:border-b-0">
@@ -28,10 +28,10 @@ export function RoleList({ roles, selectedId, onSelect }: RoleListProps) {
             aria-current={selectedId === role.id ? 'true' : undefined}
             onClick={() => onSelect(role.id)}
             className={cn(
-              'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-body transition-colors',
+              'flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left paragraph-sm transition-colors',
               selectedId === role.id
-                ? 'bg-surface-active text-text-primary'
-                : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
             <span className="truncate">{role.name}</span>

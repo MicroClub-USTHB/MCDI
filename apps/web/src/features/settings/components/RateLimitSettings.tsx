@@ -71,21 +71,23 @@ function RateLimitSettings({
               aria-invalid={!!errors.maxWebhooksPerProject}
             />
             {errors.maxWebhooksPerProject && (
-              <p className="text-body text-error">{errors.maxWebhooksPerProject}</p>
+              <p className="paragraph-sm text-error">{errors.maxWebhooksPerProject}</p>
             )}
           </div>
 
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <p className="text-overline text-text-faint uppercase">Environment-only</p>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Global rate limit window</span>
-              <span className="font-mono text-code text-text-normal">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+              Environment-only
+            </p>
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Global rate limit window</span>
+              <span className="font-mono text-xs text-foreground">
                 {limits.globalTtlMs.value.toLocaleString()} ms
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Global rate limit</span>
-              <span className="font-mono text-code text-text-normal">
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Global rate limit</span>
+              <span className="font-mono text-xs text-foreground">
                 {limits.globalLimit.value.toLocaleString()} req/window
               </span>
             </div>

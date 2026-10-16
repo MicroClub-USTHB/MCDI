@@ -68,11 +68,11 @@ export function MemberPicker({ selectedId, onSelect }: MemberPickerProps) {
       ) : !query.data ? (
         <LoadingSkeleton className="h-48 rounded-lg" />
       ) : query.data.data.length === 0 ? (
-        <p className="text-body text-text-muted">No members found.</p>
+        <p className="paragraph-sm text-muted-foreground">No members found.</p>
       ) : (
         <ul
           aria-label="Members"
-          className="flex flex-col overflow-hidden rounded-lg border border-border bg-surface-raised"
+          className="flex flex-col overflow-hidden rounded-lg border border-border bg-card"
         >
           {query.data.data.map((member) => (
             <li key={member.memberId} className="border-b border-border last:border-b-0">
@@ -83,8 +83,8 @@ export function MemberPicker({ selectedId, onSelect }: MemberPickerProps) {
                 className={cn(
                   'flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors',
                   selectedId === member.memberId
-                    ? 'bg-surface-active'
-                    : 'hover:bg-surface-hover hover:text-text-normal'
+                    ? 'bg-secondary'
+                    : 'hover:bg-muted hover:text-foreground'
                 )}
               >
                 <MemberChip

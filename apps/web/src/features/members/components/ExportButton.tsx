@@ -21,7 +21,7 @@ export function ExportButton({ format, filters }: ExportButtonProps) {
       onClick={() => exportMutation.mutate({ filters, format })}
       disabled={exportMutation.isPending}
       aria-busy={exportMutation.isPending}
-      className="bg-surface-elevated"
+      className="bg-muted"
     >
       {exportMutation.isPending ? (
         <Loader2 className="size-4 animate-spin" />

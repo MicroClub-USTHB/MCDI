@@ -71,20 +71,33 @@ function ServerAccessMatrix({
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full min-w-[680px] border-collapse text-left">
-        <thead className="bg-surface-raised">
+        <thead className="bg-card">
           <tr>
-            <th scope="col" className="px-4 py-3 text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Server
             </th>
-            <th scope="col" className="px-4 py-3 text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Scopes
             </th>
             {PROJECT_OPERATIONS.map((operation) => (
-              <th key={operation} scope="col" className="px-4 py-3 text-overline text-text-subtle">
+              <th
+                key={operation}
+                scope="col"
+                className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+              >
                 {OPERATION_LABELS[operation]}
               </th>
             ))}
-            <th scope="col" className="px-4 py-3 text-right text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 text-right paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Access
             </th>
           </tr>
@@ -126,9 +139,9 @@ function ServerAccessMatrix({
             return (
               <tr
                 key={server.id}
-                className="border-b border-border transition-colors last:border-b-0 hover:bg-surface-hover"
+                className="border-b border-border transition-colors last:border-b-0 hover:bg-muted"
               >
-                <td className="px-4 py-3 text-body text-text-normal">{server.name}</td>
+                <td className="px-4 py-3 paragraph-sm text-foreground">{server.name}</td>
                 <td className="px-4 py-3">
                   {granted ? (
                     <div className="flex flex-col gap-1.5">
@@ -140,14 +153,16 @@ function ServerAccessMatrix({
                             onCheckedChange={() => toggleScope(scope)}
                             aria-label={`${SCOPE_LABELS[scope]} on ${server.name}`}
                           />
-                          <span className="text-overline text-text-subtle">
+                          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                             {SCOPE_LABELS[scope]}
                           </span>
                         </label>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-overline text-text-faint">No access</span>
+                    <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                      No access
+                    </span>
                   )}
                 </td>
                 {PROJECT_OPERATIONS.map((operation) => (

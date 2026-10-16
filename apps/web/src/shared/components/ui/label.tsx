@@ -8,7 +8,7 @@ function Label({ className, ...props }: React.ComponentProps<typeof RadixLabel.R
     <RadixLabel.Root
       data-slot="label"
       className={cn(
-        'text-body font-medium text-text-normal select-none',
+        'paragraph-sm font-medium text-foreground select-none',
         'peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
         className
       )}

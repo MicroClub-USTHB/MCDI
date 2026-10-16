@@ -78,18 +78,18 @@ function InheritanceRuleForm({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-surface-raised sm:max-w-md">
+      <DialogContent className="bg-card sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-text-primary">Create Inheritance Rule</DialogTitle>
+          <DialogTitle className="text-foreground">Create Inheritance Rule</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-text-subtle">
+            <label className="text-xs font-medium text-muted-foreground">
               Source Role (Main Server)
             </label>
             <Select value={sourceRoleId} onValueChange={setSourceRoleId}>
-              <SelectTrigger className="bg-surface-base">
+              <SelectTrigger className="bg-background">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -103,17 +103,17 @@ function InheritanceRuleForm({
           </div>
 
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-xs font-medium text-text-subtle">Target Scope</legend>
+            <legend className="text-xs font-medium text-muted-foreground">Target Scope</legend>
             <div className="flex gap-4">
               {(['all', 'selected'] as const).map((scope) => (
-                <label key={scope} className="flex items-center gap-2 text-sm text-text-normal">
+                <label key={scope} className="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="radio"
                     name="targetScope"
                     value={scope}
                     checked={targetScope === scope}
                     onChange={() => setTargetScope(scope)}
-                    className="size-4 accent-brand"
+                    className="size-4 accent-primary"
                   />
                   {scope === 'all' ? 'All Servers' : 'Selected Servers'}
                 </label>
@@ -123,14 +123,14 @@ function InheritanceRuleForm({
 
           {targetScope === 'selected' && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-text-subtle">Target Servers</label>
+              <label className="text-xs font-medium text-muted-foreground">Target Servers</label>
               <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 {servers
                   .filter((s) => s.isActive)
                   .map((server) => (
                     <label
                       key={server.id}
-                      className="flex items-center gap-2 text-sm text-text-normal"
+                      className="flex items-center gap-2 text-sm text-foreground"
                     >
                       <Checkbox
                         checked={selectedServerIds.has(server.id)}
@@ -143,7 +143,7 @@ function InheritanceRuleForm({
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-text-normal">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
             Enabled
           </label>

@@ -42,7 +42,7 @@ function buildDefaultColumns(
       header: 'Name',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <span className="font-medium text-text-primary">{row.original.name}</span>
+          <span className="font-medium text-foreground">{row.original.name}</span>
           {row.original.isInternal && <Badge variant="brand-light">Internal</Badge>}
         </div>
       ),
@@ -62,7 +62,7 @@ function buildDefaultColumns(
       accessorKey: 'apiKeyPrefix',
       header: 'API key',
       cell: ({ row }) => (
-        <code className="font-mono text-code text-text-muted">
+        <code className="font-mono text-xs text-muted-foreground">
           {row.original.apiKeyPrefix ?? '—'}
         </code>
       ),

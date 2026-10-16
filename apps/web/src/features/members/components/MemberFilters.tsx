@@ -75,7 +75,7 @@ function SearchFilterField({
       value={searchDraft}
       onChange={(event) => setSearchDraft(event.target.value)}
       placeholder="Search username or global name"
-      className="rounded-sm bg-surface-base"
+      className="rounded-sm bg-background"
     />
   );
 }
@@ -104,10 +104,10 @@ function SelectedFilterChips({
           type="button"
           onClick={() => onRemove(option.id)}
           aria-label={`Remove ${type} ${option.label}`}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-surface-active px-2 py-1 text-overline text-text-primary transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 paragraph-xs font-semibold tracking-wide text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <span>{option.label}</span>
-          <X className="size-3 text-text-muted" aria-hidden="true" />
+          <X className="size-3 text-muted-foreground" aria-hidden="true" />
         </button>
       ))}
     </div>
@@ -172,22 +172,22 @@ function MultiSelectPicker({
             type="button"
             disabled={disabled}
             className={cn(
-              'inline-flex h-9 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface-hover px-3 text-body text-text-normal transition-colors',
-              'hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none',
+              'inline-flex h-9 w-full items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 paragraph-sm text-foreground transition-colors',
+              'hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
               'disabled:pointer-events-none disabled:opacity-60'
             )}
           >
             <span>
               {selectedIds.length > 0 ? `${label} (${selectedIds.length} selected)` : label}
             </span>
-            <ChevronDown className="size-4 text-text-muted" aria-hidden="true" />
+            <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content
             align="start"
             sideOffset={8}
-            className="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface-raised p-2 text-text-normal shadow-xl outline-none"
+            className="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-border bg-card p-2 text-foreground shadow-xl outline-none"
           >
             <div className="border-b border-border pb-2">
               <label className="sr-only" htmlFor={`${label.toLowerCase()}-filter-search`}>
@@ -202,22 +202,22 @@ function MultiSelectPicker({
                   if (event.key !== 'Escape') event.stopPropagation();
                 }}
                 placeholder={searchPlaceholder}
-                className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none placeholder:text-text-faint focus-visible:border-border-focus focus-visible:ring-2 focus-visible:ring-brand/20"
+                className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
               />
             </div>
 
             <div className="max-h-72 overflow-y-auto pt-2">
               {loading ? (
-                <p className="px-2 py-4 text-body text-text-muted">
+                <p className="px-2 py-4 paragraph-sm text-muted-foreground">
                   Loading {label.toLowerCase()}...
                 </p>
               ) : filteredGroups.length === 0 ? (
-                <p className="px-2 py-4 text-body text-text-muted">{emptyMessage}</p>
+                <p className="px-2 py-4 paragraph-sm text-muted-foreground">{emptyMessage}</p>
               ) : (
                 filteredGroups.map((group) => (
                   <div key={group.id} className="space-y-1">
                     {groups ? (
-                      <DropdownMenu.Label className="px-2 py-1 text-overline text-text-faint">
+                      <DropdownMenu.Label className="px-2 py-1 paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
                         {group.label}
                       </DropdownMenu.Label>
                     ) : null}
@@ -227,10 +227,10 @@ function MultiSelectPicker({
                         checked={selectedIds.includes(option.id)}
                         onCheckedChange={() => onToggle(option.id)}
                         onSelect={(event) => event.preventDefault()}
-                        className="relative flex cursor-pointer select-none items-center rounded-md py-2 pr-2 pl-9 text-body text-text-normal outline-none data-[highlighted]:bg-surface-hover"
+                        className="relative flex cursor-pointer select-none items-center rounded-md py-2 pr-2 pl-9 paragraph-sm text-foreground outline-none data-[highlighted]:bg-muted"
                       >
                         <DropdownMenu.ItemIndicator className="absolute left-2 inline-flex items-center">
-                          <Check className="size-4 text-brand-light" aria-hidden="true" />
+                          <Check className="size-4 text-primary" aria-hidden="true" />
                         </DropdownMenu.ItemIndicator>
                         <span>{option.label}</span>
                       </DropdownMenu.CheckboxItem>
@@ -333,13 +333,13 @@ export function MemberFilters({
     filters.page !== 1;
 
   return (
-    <section
-      className="rounded-lg border border-border bg-surface-raised p-3"
-      aria-label="Member filters"
-    >
+    <section className="rounded-lg border border-border bg-card p-3" aria-label="Member filters">
       <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_minmax(13rem,0.8fr)_minmax(13rem,0.8fr)_auto_auto]">
         <div className="min-w-0 space-y-1">
-          <label className="text-overline text-text-subtle" htmlFor="member-search">
+          <label
+            className="paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            htmlFor="member-search"
+          >
             Search
           </label>
           <SearchFilterField
@@ -351,7 +351,9 @@ export function MemberFilters({
 
         {!lockServer && canServers && (
           <div className="min-w-0 space-y-1">
-            <span className="text-overline text-text-subtle">Servers</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              Servers
+            </span>
             <MultiSelectPicker
               label="Servers"
               selectionType="server"
@@ -372,7 +374,9 @@ export function MemberFilters({
 
         {canServers && canRoleStats ? (
           <div className="min-w-0 space-y-1">
-            <span className="text-overline text-text-subtle">Roles</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              Roles
+            </span>
             <MultiSelectPicker
               label="Roles"
               selectionType="role"
@@ -397,9 +401,11 @@ export function MemberFilters({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-2 xl:pt-5">
-          <span className="text-overline text-text-subtle">Club</span>
+          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+            Club
+          </span>
           <div
-            className="inline-flex rounded-md border border-border bg-surface-base p-0.5"
+            className="inline-flex rounded-md border border-border bg-background p-0.5"
             role="group"
             aria-label="Club member filter"
           >
@@ -408,10 +414,10 @@ export function MemberFilters({
               aria-pressed={filters.filter === 'all'}
               onClick={() => onFilterChange({ filter: 'all', page: 1 })}
               className={cn(
-                'rounded-sm px-2.5 py-1.5 text-body transition-colors',
+                'rounded-sm px-2.5 py-1.5 paragraph-sm transition-colors',
                 filters.filter === 'all'
-                  ? 'bg-surface-active text-text-primary'
-                  : 'bg-surface-hover text-text-muted hover:text-text-normal'
+                  ? 'bg-secondary text-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
               All
@@ -421,10 +427,10 @@ export function MemberFilters({
               aria-pressed={filters.filter === 'club'}
               onClick={() => onFilterChange({ filter: 'club', page: 1 })}
               className={cn(
-                'rounded-sm px-2.5 py-1.5 text-body transition-colors',
+                'rounded-sm px-2.5 py-1.5 paragraph-sm transition-colors',
                 filters.filter === 'club'
-                  ? 'bg-surface-active text-text-primary'
-                  : 'bg-surface-hover text-text-muted hover:text-text-normal'
+                  ? 'bg-secondary text-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
             >
               Club members
@@ -436,9 +442,9 @@ export function MemberFilters({
         </div>
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-text-muted">
+      <div className="mt-2 flex items-center gap-2 text-muted-foreground">
         <Sparkles className="size-3.5" aria-hidden="true" />
-        <span className="text-overline">
+        <span className="paragraph-xs font-semibold tracking-wide">
           {hasActiveFilters
             ? 'Filters are active.'
             : 'Use the selectors to narrow the member list.'}

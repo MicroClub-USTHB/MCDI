@@ -10,7 +10,7 @@ interface ServerStatusBadgeProps {
 function ServerStatusBadge({ isActive, isMain, className }: ServerStatusBadgeProps) {
   const label = isMain ? 'Main' : isActive ? 'Active' : 'Inactive';
   const toneClasses = isMain
-    ? 'bg-brand text-on-brand'
+    ? 'bg-primary text-primary-foreground'
     : isActive
       ? 'bg-success/12 text-success'
       : 'bg-error/12 text-error';
@@ -18,7 +18,7 @@ function ServerStatusBadge({ isActive, isMain, className }: ServerStatusBadgePro
   return (
     <span
       className={cn(
-        'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-overline whitespace-nowrap',
+        'inline-flex w-fit items-center rounded-full px-2 py-0.5 paragraph-xs font-semibold tracking-wide whitespace-nowrap',
         toneClasses,
         className
       )}

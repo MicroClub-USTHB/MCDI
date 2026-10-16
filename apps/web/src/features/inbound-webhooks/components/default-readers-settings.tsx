@@ -56,7 +56,7 @@ export function DefaultReadersSettings() {
   return (
     <div className="flex flex-col gap-4">
       {settings.data.source === 'environment' ? (
-        <p className="text-body text-text-muted">
+        <p className="paragraph-sm text-muted-foreground">
           These come from the server configuration until you save a list of your own.
         </p>
       ) : null}
@@ -68,7 +68,7 @@ export function DefaultReadersSettings() {
             onChange={setPicked}
             isLoading={roles.isLoading}
           />
-          <p className="text-body text-text-muted">
+          <p className="paragraph-sm text-muted-foreground">
             An empty list is allowed: new webhooks then need their readers picked by hand.
           </p>
           <Button

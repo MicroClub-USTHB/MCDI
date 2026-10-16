@@ -8,13 +8,13 @@ interface ServerAvatarProps {
 }
 
 const SIZE_CLASSES = {
-  sm: 'size-8 text-overline',
-  md: 'size-10 text-body',
-  lg: 'size-14 text-subhead',
+  sm: 'size-8 paragraph-xs font-semibold tracking-wide',
+  md: 'size-10 paragraph-sm',
+  lg: 'size-14 paragraph-sm font-semibold',
 } as const;
 
 /** One of `brand`/`success`/`accent`, chosen deterministically from the server name. */
-const COLOR_CLASSES = ['bg-brand', 'bg-success', 'bg-accent'] as const;
+const COLOR_CLASSES = ['bg-primary', 'bg-success', 'bg-accent'] as const;
 
 function getInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
@@ -42,7 +42,7 @@ function ServerAvatar({ name, icon, size = 'md', className }: ServerAvatarProps)
   return (
     <div
       className={cn(
-        'flex items-center justify-center rounded-[10px] font-semibold text-on-brand',
+        'flex items-center justify-center rounded-[10px] font-semibold text-primary-foreground',
         SIZE_CLASSES[size],
         getColorClass(name),
         className

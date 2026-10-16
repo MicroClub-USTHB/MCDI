@@ -25,18 +25,18 @@ export default async function LoginPage({
   const redirectPath = getSafeRedirectPath(typeof redirect === 'string' ? redirect : undefined);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-base p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm gap-0 p-8 py-8">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-lg font-bold text-on-brand"
+            className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground"
           >
             MC
           </span>
           <div>
-            <h1 className="text-hero text-text-primary">Welcome to MCID</h1>
-            <p className="mt-1 text-body text-text-muted">
+            <h1 className="header-xs font-bold text-foreground">Welcome to MCID</h1>
+            <p className="mt-1 paragraph-sm text-muted-foreground">
               Sign in with your Discord account to continue
             </p>
           </div>

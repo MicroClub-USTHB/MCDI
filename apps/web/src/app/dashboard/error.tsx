@@ -26,8 +26,8 @@ export default function DashboardError({
       className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-6 py-16 text-center"
     >
       <AlertCircle className="size-6 text-error" aria-hidden="true" />
-      <h1 className="text-subhead text-text-primary">This page ran into a problem</h1>
-      <p className="max-w-md text-body text-text-muted">
+      <h1 className="paragraph-sm font-semibold text-foreground">This page ran into a problem</h1>
+      <p className="max-w-md paragraph-sm text-muted-foreground">
         Something on this page failed to display. Try again, or open another section from the
         sidebar.
       </p>

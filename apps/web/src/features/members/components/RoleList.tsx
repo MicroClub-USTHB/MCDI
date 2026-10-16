@@ -22,7 +22,7 @@ export function RoleList({ roles, serverName }: RoleListProps) {
               <Badge
                 key={role.id}
                 variant="outline"
-                className="border-transparent text-body"
+                className="border-transparent paragraph-sm"
                 style={{
                   color: role.color,
                   backgroundColor: `${role.color}1A`,
@@ -37,7 +37,7 @@ export function RoleList({ roles, serverName }: RoleListProps) {
             )
           )
         ) : (
-          <p className="text-body text-text-muted">No roles on this server.</p>
+          <p className="paragraph-sm text-muted-foreground">No roles on this server.</p>
         )}
       </CardContent>
     </Card>

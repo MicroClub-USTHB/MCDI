@@ -18,9 +18,9 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof RadixT
     <RadixTabs.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        'rounded-md px-3 py-1.5 text-body text-text-muted transition-colors outline-none',
-        'hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-border-focus',
-        'data-[state=active]:bg-surface-active data-[state=active]:text-text-primary',
+        'rounded-md px-3 py-1.5 paragraph-sm text-muted-foreground transition-colors outline-none',
+        'hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring',
+        'data-[state=active]:bg-secondary data-[state=active]:text-foreground',
         className
       )}
       {...props}

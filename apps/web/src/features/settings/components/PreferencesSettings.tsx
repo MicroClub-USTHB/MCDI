@@ -74,7 +74,7 @@ function PreferencesSettings({
               aria-invalid={!!errors.memberActivityThresholdDays}
             />
             {errors.memberActivityThresholdDays && (
-              <p className="text-body text-error">{errors.memberActivityThresholdDays}</p>
+              <p className="paragraph-sm text-error">{errors.memberActivityThresholdDays}</p>
             )}
           </div>
 

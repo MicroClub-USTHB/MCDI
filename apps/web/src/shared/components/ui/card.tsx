@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
  * Upstream uses `bg-card` / `text-card-foreground` / `rounded-xl` /
  * `shadow-sm`. Here the surface is `surface-raised`, the radius is
  * `rounded-lg` (8px, the directive's "Cards 8px" — upstream's `xl` would be
- * 12px). No shadow: on this dark background `shadow-card` reads as a muddy
+ * 12px). No shadow: on this dark background `shadow-sm` reads as a muddy
  * smudge rather than depth, so the border plus the surface-raised/base
  * contrast carries the card's definition instead.
  */
@@ -17,7 +17,7 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card"
       className={cn(
-        'flex flex-col gap-6 rounded-lg border border-border bg-surface-raised py-6 text-text-normal',
+        'flex flex-col gap-6 rounded-lg border border-border bg-card py-6 text-foreground',
         className
       )}
       {...props}
@@ -42,7 +42,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-title"
-      className={cn('text-subhead text-text-primary', className)}
+      className={cn('paragraph-sm font-semibold text-foreground', className)}
       {...props}
     />
   );
@@ -52,7 +52,7 @@ function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
-      className={cn('text-body text-text-muted', className)}
+      className={cn('paragraph-sm text-muted-foreground', className)}
       {...props}
     />
   );

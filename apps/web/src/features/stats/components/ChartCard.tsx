@@ -29,9 +29,13 @@ export function ChartCard({
     <Card className={cn('min-w-0 gap-0 py-0', className)}>
       <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <h3 className="text-subhead text-text-primary">{title}</h3>
-          <p className="mt-1 text-overline text-text-muted">{description}</p>
-          {hint ? <p className="mt-1 text-overline text-warning">{hint}</p> : null}
+          <h3 className="paragraph-sm font-semibold text-foreground">{title}</h3>
+          <p className="mt-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
+            {description}
+          </p>
+          {hint ? (
+            <p className="mt-1 paragraph-xs font-semibold tracking-wide text-warning">{hint}</p>
+          ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </CardHeader>
@@ -59,9 +63,9 @@ export function ChartLoading({ label }: { label: string }) {
 
 export function ChartEmpty({ description }: { description: string }) {
   return (
-    <div className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-surface-base px-4 text-center">
-      <BarChart3 className="size-7 text-text-faint" aria-hidden="true" />
-      <p className="max-w-sm text-body text-text-muted">{description}</p>
+    <div className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-background px-4 text-center">
+      <BarChart3 className="size-7 text-muted-foreground/70" aria-hidden="true" />
+      <p className="max-w-sm paragraph-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
@@ -69,7 +73,7 @@ export function ChartEmpty({ description }: { description: string }) {
 export function ChartError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex min-h-56 w-full flex-col items-center justify-center gap-3 rounded-md border border-error/40 bg-error/10 px-4 text-center">
-      <p className="text-body text-error">This statistic could not be loaded.</p>
+      <p className="paragraph-sm text-error">This statistic could not be loaded.</p>
       <Button variant="secondary" size="sm" onClick={onRetry}>
         <RotateCw aria-hidden="true" />
         Retry

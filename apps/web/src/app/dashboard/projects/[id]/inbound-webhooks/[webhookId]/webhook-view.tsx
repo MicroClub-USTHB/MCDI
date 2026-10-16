@@ -72,14 +72,14 @@ export function WebhookView({ webhookId }: { webhookId: string }) {
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-hero break-words">{webhook.name}</h1>
-          <p className="mt-1 font-mono text-code text-text-subtle">{webhook.slug}</p>
+          <h1 className="header-xs font-bold break-words">{webhook.name}</h1>
+          <p className="mt-1 font-mono text-xs text-muted-foreground">{webhook.slug}</p>
         </div>
         <ActiveSwitch webhookId={webhook.id} isActive={webhook.isActive} />
       </header>
 
       {webhook.isActive ? null : (
-        <p role="status" className="text-body text-text-muted">
+        <p role="status" className="paragraph-sm text-muted-foreground">
           While it is disabled, every submission is refused with 410 Gone.
         </p>
       )}

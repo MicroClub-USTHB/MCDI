@@ -25,8 +25,8 @@ export function CrossServerView({ memberId, servers }: CrossServerViewProps) {
   return (
     <section className="space-y-4" aria-labelledby={`cross-server-${memberId}`}>
       <div className="flex items-center gap-2">
-        <Server className="size-4 text-text-muted" aria-hidden="true" />
-        <h2 id={`cross-server-${memberId}`} className="text-heading text-text-primary">
+        <Server className="size-4 text-muted-foreground" aria-hidden="true" />
+        <h2 id={`cross-server-${memberId}`} className="paragraph-md font-semibold text-foreground">
           Cross-server view
         </h2>
       </div>
@@ -40,7 +40,7 @@ export function CrossServerView({ memberId, servers }: CrossServerViewProps) {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="flex items-center gap-2 text-body text-text-muted">
+              <p className="flex items-center gap-2 paragraph-sm text-muted-foreground">
                 <CalendarDays className="size-4" aria-hidden="true" />
                 Joined {formatJoinedAt(server.joinedAt)}
               </p>
@@ -50,7 +50,7 @@ export function CrossServerView({ memberId, servers }: CrossServerViewProps) {
         ))}
         {servers.length === 0 ? (
           <Card>
-            <CardContent className="py-8 text-body text-text-muted">
+            <CardContent className="py-8 paragraph-sm text-muted-foreground">
               No server memberships found.
             </CardContent>
           </Card>

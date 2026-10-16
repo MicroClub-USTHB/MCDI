@@ -31,7 +31,7 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
   const canEdit = canWrite && canListRoles;
 
   if (granted.isError) {
-    return <p className="text-body text-error">The reader roles could not be loaded.</p>;
+    return <p className="paragraph-sm text-error">The reader roles could not be loaded.</p>;
   }
   if (!granted.data) return <Skeleton className="h-48 w-full" />;
 
@@ -61,7 +61,7 @@ export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto 
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-      <p className="text-body text-text-muted">
+      <p className="paragraph-sm text-muted-foreground">
         Members holding one of these Discord roles can read this webhook&apos;s submissions.
       </p>
       <RolePicker

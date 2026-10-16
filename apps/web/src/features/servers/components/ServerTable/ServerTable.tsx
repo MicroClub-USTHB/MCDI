@@ -46,7 +46,7 @@ function buildDefaultColumns(
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <ServerAvatar name={row.original.name} icon={row.original.icon} size="sm" />
-          <span className="font-medium text-text-primary">{row.original.name}</span>
+          <span className="font-medium text-foreground">{row.original.name}</span>
         </div>
       ),
     },

@@ -35,36 +35,33 @@ function AuditLogFilters({
   const update = (next: Partial<AuditLogFilterState>) => onChange({ ...filters, ...next });
 
   return (
-    <section
-      className="rounded-lg border border-border bg-surface-raised p-4"
-      aria-label="Audit log filters"
-    >
+    <section className="rounded-lg border border-border bg-card p-4" aria-label="Audit log filters">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1 text-overline text-text-subtle">
+        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
           <span>Date from</span>
           <input
             type="date"
             value={filters.dateFrom ?? ''}
             onChange={(event) => update({ dateFrom: event.target.value || undefined })}
-            className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
           />
         </label>
-        <label className="space-y-1 text-overline text-text-subtle">
+        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
           <span>Date to</span>
           <input
             type="date"
             value={filters.dateTo ?? ''}
             onChange={(event) => update({ dateTo: event.target.value || undefined })}
-            className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
           />
         </label>
         {showActorFilter ? (
-          <label className="space-y-1 text-overline text-text-subtle">
+          <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
             <span>Actor</span>
             <select
               value={filters.actorId ?? ''}
               onChange={(event) => update({ actorId: event.target.value || undefined })}
-              className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+              className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
             >
               <option value="">All actors</option>
               {actors.map((actor) => (
@@ -75,14 +72,14 @@ function AuditLogFilters({
             </select>
           </label>
         ) : null}
-        <label className="space-y-1 text-overline text-text-subtle">
+        <label className="space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
           <span>Severity</span>
           <select
             value={filters.severity ?? ''}
             onChange={(event) =>
               update({ severity: (event.target.value || undefined) as AuditSeverity | undefined })
             }
-            className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+            className="h-9 w-full rounded-md border border-border bg-background px-3 paragraph-sm text-foreground outline-none focus-visible:border-ring"
           >
             <option value="">All severities</option>
             <option value="info">Info</option>
@@ -92,12 +89,14 @@ function AuditLogFilters({
         </label>
       </div>
       <fieldset className="mt-4">
-        <legend className="text-overline text-text-subtle">Action type</legend>
+        <legend className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+          Action type
+        </legend>
         <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="Action type">
           <label
             className={cn(
-              'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-body text-text-muted transition-colors',
-              !filters.actionType && 'border-brand bg-brand-tint text-text-primary'
+              'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 paragraph-sm text-muted-foreground transition-colors',
+              !filters.actionType && 'border-primary bg-secondary text-foreground'
             )}
           >
             <input
@@ -105,7 +104,7 @@ function AuditLogFilters({
               name="actionType"
               checked={!filters.actionType}
               onChange={() => update({ actionType: undefined })}
-              className="accent-brand"
+              className="accent-primary"
             />
             All
           </label>
@@ -113,9 +112,8 @@ function AuditLogFilters({
             <label
               key={action.value}
               className={cn(
-                'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-body text-text-muted transition-colors',
-                filters.actionType === action.value &&
-                  'border-brand bg-brand-tint text-text-primary'
+                'inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 paragraph-sm text-muted-foreground transition-colors',
+                filters.actionType === action.value && 'border-primary bg-secondary text-foreground'
               )}
             >
               <input
@@ -123,7 +121,7 @@ function AuditLogFilters({
                 name="actionType"
                 checked={filters.actionType === action.value}
                 onChange={() => update({ actionType: action.value })}
-                className="accent-brand"
+                className="accent-primary"
               />
               {action.label}
             </label>

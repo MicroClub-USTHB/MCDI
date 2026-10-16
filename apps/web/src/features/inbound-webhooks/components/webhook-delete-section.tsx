@@ -41,8 +41,8 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
   return (
     <section className="flex max-w-2xl flex-col gap-3 rounded-lg border border-error/40 p-4">
       <div>
-        <h2 className="text-subhead text-error">Delete this webhook</h2>
-        <p className="text-body text-text-muted">
+        <h2 className="paragraph-sm font-semibold text-error">Delete this webhook</h2>
+        <p className="paragraph-sm text-muted-foreground">
           Removes it with {count.toLocaleString()} submission{count === 1 ? '' : 's'}. Callers get a
           404 from then on. This cannot be undone.
         </p>
@@ -71,8 +71,8 @@ export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }
         onConfirm={confirm}
       >
         <div className="flex flex-col gap-2">
-          <label htmlFor="delete-confirm" className="text-body text-text-normal">
-            Type <span className="font-mono text-code">{webhook.slug}</span> to confirm
+          <label htmlFor="delete-confirm" className="paragraph-sm text-foreground">
+            Type <span className="font-mono text-xs">{webhook.slug}</span> to confirm
           </label>
           <Input
             id="delete-confirm"

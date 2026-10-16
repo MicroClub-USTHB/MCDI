@@ -51,13 +51,13 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
 
   if (role.root) {
     return (
-      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5">
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-5">
         <div className="flex items-center gap-2">
-          <Lock className="size-4 text-text-muted" aria-hidden="true" />
-          <h2 className="text-heading text-text-primary">{role.name}</h2>
+          <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
+          <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
           <Badge variant="secondary">Root</Badge>
         </div>
-        <p className="text-body text-text-muted">
+        <p className="paragraph-sm text-muted-foreground">
           A root role holds full access to everything. It is set by the API configuration and cannot
           be edited here.
         </p>
@@ -83,9 +83,9 @@ export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: Ac
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5">
+    <section className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-card p-5">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-heading text-text-primary">{role.name}</h2>
+        <h2 className="paragraph-md font-semibold text-foreground">{role.name}</h2>
         <div className="flex gap-2">
           <Button
             type="button"

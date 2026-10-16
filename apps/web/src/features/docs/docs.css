@@ -4,7 +4,7 @@
  */
 @layer components {
   .docs-prose {
-    color: var(--color-text-normal);
+    color: var(--foreground);
     font-size: var(--text-body);
     line-height: 1.75;
   }
@@ -14,7 +14,7 @@
   }
 
   .docs-prose :where(strong) {
-    color: var(--color-text-primary);
+    color: var(--foreground);
     font-weight: 700;
   }
 
@@ -37,26 +37,26 @@
   }
 
   .docs-prose :where(li)::marker {
-    color: var(--color-text-subtle);
+    color: var(--muted-foreground);
   }
 
   .docs-prose :where(blockquote) {
     margin-block: 1.5rem;
-    border-left: 3px solid var(--color-border);
+    border-left: 3px solid var(--border);
     padding-left: 1rem;
-    color: var(--color-text-muted);
+    color: var(--muted-foreground);
   }
 
   .docs-prose :where(hr) {
     margin-block: 2.5rem;
     border: 0;
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--border);
   }
 
   /* The highlighter (highlight.js classes). Every colour here clears 4.5:1 on the code background (surface-base). */
   .docs-prose .hljs-comment,
   .docs-prose .hljs-quote {
-    color: var(--color-text-subtle);
+    color: var(--muted-foreground);
     font-style: italic;
   }
 
@@ -64,7 +64,7 @@
   .docs-prose .hljs-selector-tag,
   .docs-prose .hljs-doctag,
   .docs-prose .hljs-meta .hljs-keyword {
-    color: var(--color-brand-light);
+    color: var(--primary);
   }
 
   .docs-prose .hljs-string,
@@ -87,7 +87,7 @@
   .docs-prose .hljs-built_in,
   .docs-prose .hljs-type,
   .docs-prose .hljs-class .hljs-title {
-    color: var(--color-text-primary);
+    color: var(--foreground);
     font-weight: 600;
   }
 

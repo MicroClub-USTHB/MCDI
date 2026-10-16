@@ -11,7 +11,7 @@ const dotClass: Record<SyncTone, string> = {
   success: 'bg-success',
   warning: 'bg-warning',
   error: 'bg-error',
-  neutral: 'bg-text-faint',
+  neutral: 'bg-muted-foreground/70',
 };
 
 const badgeVariant: Record<SyncTone, ComponentProps<typeof Badge>['variant']> = {
@@ -34,7 +34,7 @@ export function SyncStatusCard({ serverName, status, action }: SyncStatusCardPro
   const absolute = formatAbsoluteTime(status.lastSyncAt);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
@@ -45,27 +45,31 @@ export function SyncStatusCard({ serverName, status, action }: SyncStatusCardPro
             )}
             aria-hidden="true"
           />
-          <h3 className="text-subhead text-text-primary">{serverName}</h3>
+          <h3 className="paragraph-sm font-semibold text-foreground">{serverName}</h3>
         </div>
         <Badge variant={badgeVariant[tone]}>{label}</Badge>
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-body text-text-muted">
+        <span className="paragraph-sm text-muted-foreground">
           {relative ? `Last sync: ${relative}` : 'Last sync: never'}
         </span>
-        {absolute && <span className="font-mono text-overline text-text-subtle">{absolute}</span>}
+        {absolute && (
+          <span className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
+            {absolute}
+          </span>
+        )}
       </div>
 
       {status.status === 'success' && (
-        <span className="text-body text-text-normal">
+        <span className="paragraph-sm text-foreground">
           {status.membersSynced.toLocaleString()} members · {status.rolesSynced.toLocaleString()}{' '}
           roles synced
         </span>
       )}
 
       {status.status === 'failed' && (
-        <p className="rounded-md bg-error/12 p-3 text-body text-error">
+        <p className="rounded-md bg-error/12 p-3 paragraph-sm text-error">
           {status.message ?? 'Last sync failed.'}
         </p>
       )}

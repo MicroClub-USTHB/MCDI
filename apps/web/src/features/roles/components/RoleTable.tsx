@@ -37,9 +37,7 @@ function RoleTable({
               aria-current={isSelected ? 'true' : undefined}
               className={cn(
                 'flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors',
-                isSelected
-                  ? 'bg-brand/12 text-text-primary'
-                  : 'text-text-normal hover:bg-surface-hover'
+                isSelected ? 'bg-primary/12 text-foreground' : 'text-foreground hover:bg-muted'
               )}
             >
               <span
@@ -47,12 +45,12 @@ function RoleTable({
                 style={role.colorHex ? { backgroundColor: role.colorHex } : undefined}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1 truncate text-body">{role.displayName}</span>
+              <span className="min-w-0 flex-1 truncate paragraph-sm">{role.displayName}</span>
               {isExecutive && (
                 <Shield className="size-3.5 shrink-0 text-warning" aria-label="Executive role" />
               )}
               <span
-                className="shrink-0 rounded bg-surface-elevated px-1.5 py-0.5 text-overline text-text-subtle tabular-nums"
+                className="shrink-0 rounded bg-muted px-1.5 py-0.5 paragraph-xs font-semibold tracking-wide text-muted-foreground tabular-nums"
                 title={`${permCount ?? 0} permission${permCount === 1 ? '' : 's'}`}
               >
                 {isLoadingPermissions && permCount === undefined ? '…' : (permCount ?? 0)}

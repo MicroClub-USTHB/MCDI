@@ -26,7 +26,10 @@ function PermissionCheckbox({
   return (
     <span className="relative inline-flex items-center">
       {isSaving && (
-        <Loader2 className="absolute -left-5 size-3.5 animate-spin text-brand" aria-hidden="true" />
+        <Loader2
+          className="absolute -left-5 size-3.5 animate-spin text-primary"
+          aria-hidden="true"
+        />
       )}
       <Checkbox
         id={id}

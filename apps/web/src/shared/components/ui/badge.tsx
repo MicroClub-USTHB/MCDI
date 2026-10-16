@@ -15,14 +15,14 @@ import { cn } from '@/shared/lib/utils';
  * color.
  */
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-1 text-overline whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3',
+  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-1 paragraph-xs font-semibold tracking-wide whitespace-nowrap transition-colors [&>svg]:pointer-events-none [&>svg]:size-3',
   {
     variants: {
       variant: {
-        brand: 'bg-brand text-on-brand',
-        'brand-light': 'bg-brand-tint text-brand-light',
-        secondary: 'bg-surface-elevated text-text-normal',
-        outline: 'border-border bg-transparent text-text-normal',
+        brand: 'bg-primary text-primary-foreground',
+        'brand-light': 'bg-secondary text-primary',
+        secondary: 'bg-muted text-foreground',
+        outline: 'border-border bg-transparent text-foreground',
         success: 'bg-success/15 text-success',
         error: 'bg-error/15 text-error',
         warning: 'bg-warning/15 text-warning',

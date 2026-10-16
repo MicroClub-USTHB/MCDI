@@ -34,9 +34,11 @@ export function MessageHistory({
   onRetry,
 }: MessageHistoryProps) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-overline text-text-subtle uppercase">Message history</h3>
+        <h3 className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Message history
+        </h3>
         {loaded && !isLoading && !isError && (
           <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
             Refresh
@@ -56,39 +58,41 @@ export function MessageHistory({
         </div>
       ) : isError ? (
         <div className="flex items-center justify-between gap-3">
-          <span className="text-body text-error">Couldn’t load the message history.</span>
+          <span className="paragraph-sm text-error">Couldn’t load the message history.</span>
           <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
             Retry
           </Button>
         </div>
       ) : messages.length === 0 ? (
-        <p className="text-body text-text-muted">No messages in this channel yet.</p>
+        <p className="paragraph-sm text-muted-foreground">No messages in this channel yet.</p>
       ) : (
         <>
           <ul className="flex flex-col divide-y divide-border">
             {messages.map((message) => (
               <li key={message.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-subhead text-text-primary">{message.authorName}</span>
-                  <span className="text-overline text-text-faint">
+                  <span className="paragraph-sm font-semibold text-foreground">
+                    {message.authorName}
+                  </span>
+                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
                     {formatTimestamp(message.timestamp)}
                   </span>
                 </div>
                 {message.content && (
-                  <p className="whitespace-pre-wrap text-body text-text-normal">
+                  <p className="whitespace-pre-wrap paragraph-sm text-foreground">
                     {message.content}
                   </p>
                 )}
                 {message.embeds.map((embed, index) => (
                   <p
                     key={index}
-                    className="border-l-2 border-border pl-2 text-body text-text-muted"
+                    className="border-l-2 border-border pl-2 paragraph-sm text-muted-foreground"
                   >
                     {embed.title ?? embed.description ?? 'Embed'}
                   </p>
                 ))}
                 {message.attachmentCount > 0 && (
-                  <p className="text-overline text-text-faint">
+                  <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
                     {message.attachmentCount} attachment
                     {message.attachmentCount === 1 ? '' : 's'}
                   </p>
@@ -97,7 +101,7 @@ export function MessageHistory({
             ))}
           </ul>
           {hasMore && (
-            <p className="text-overline text-text-faint">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
               Showing the {MESSAGE_HISTORY_LIMIT} most recent — older messages aren’t shown.
             </p>
           )}

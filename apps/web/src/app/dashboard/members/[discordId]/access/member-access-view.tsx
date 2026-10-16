@@ -17,8 +17,8 @@ export function MemberAccessView({ memberId }: { memberId: string }) {
             Access
           </Link>
         </Button>
-        <h1 className="mt-2 text-hero text-text-primary">Member access</h1>
-        <p className="mt-1 max-w-2xl text-body text-text-muted">
+        <h1 className="mt-2 header-xs font-bold text-foreground">Member access</h1>
+        <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
           What this person can do, and where it comes from. An override replaces what their roles
           grant for that area, for this person only.
         </p>

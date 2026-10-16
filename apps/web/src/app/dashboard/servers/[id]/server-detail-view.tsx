@@ -84,7 +84,7 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
 
     return (
       <div className="flex flex-col items-start gap-3 rounded-lg bg-error/12 p-4 text-error">
-        <p className="text-body">{apiError.message || 'Failed to load server.'}</p>
+        <p className="paragraph-sm">{apiError.message || 'Failed to load server.'}</p>
         <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
           Retry
         </Button>
@@ -98,7 +98,7 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
         <div className="flex items-center gap-3">
           <ServerAvatar name={server.name} icon={server.icon} size="lg" />
           <div className="flex flex-col gap-1">
-            <h1 className="text-hero text-text-primary">{server.name}</h1>
+            <h1 className="header-xs font-bold text-foreground">{server.name}</h1>
             <div className="flex items-center gap-2">
               <ServerStatusBadge isActive={server.isActive} isMain={server.isMain} />
               <ServerTypeBadge type={server.type} />

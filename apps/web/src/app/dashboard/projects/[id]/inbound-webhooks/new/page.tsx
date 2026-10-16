@@ -9,8 +9,8 @@ export default async function NewInboundWebhookPage({
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-hero">New inbound webhook</h1>
-        <p className="mt-1 max-w-2xl text-body text-text-muted">
+        <h1 className="header-xs font-bold">New inbound webhook</h1>
+        <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
           Describe what the caller sends, choose who can read it, and you get a signing secret to
           give to the caller. One webhook describes one form or one kind of event.
         </p>

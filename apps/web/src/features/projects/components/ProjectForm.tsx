@@ -155,7 +155,9 @@ function ProjectForm({
           placeholder="e.g. Micro Club Website"
           maxLength={50}
         />
-        {errors.name && <p className="text-overline text-error">{errors.name}</p>}
+        {errors.name && (
+          <p className="paragraph-xs font-semibold tracking-wide text-error">{errors.name}</p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -168,15 +170,19 @@ function ProjectForm({
           placeholder="What does this application do? (optional)"
           maxLength={500}
         />
-        {errors.description && <p className="text-overline text-error">{errors.description}</p>}
+        {errors.description && (
+          <p className="paragraph-xs font-semibold tracking-wide text-error">
+            {errors.description}
+          </p>
+        )}
       </div>
 
-      <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-surface-main p-3">
+      <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-background p-3">
         <div className="flex flex-col gap-0.5">
-          <Label htmlFor={`internal-${mode}`} className="text-body text-text-normal">
+          <Label htmlFor={`internal-${mode}`} className="paragraph-sm text-foreground">
             Internal project
           </Label>
-          <span className="text-overline text-text-subtle">
+          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
             Internal projects automatically get access to the main server.
           </span>
         </div>
@@ -191,23 +197,27 @@ function ProjectForm({
       {mode === 'create' && (
         <>
           <div className="flex flex-col gap-2">
-            <span className="text-body font-medium text-text-normal">Scopes</span>
+            <span className="paragraph-sm font-medium text-foreground">Scopes</span>
             <ScopeSelector selected={scopes} onChange={setScopes} disabled={isSubmitting} />
-            {errors.scopes && <p className="text-overline text-error">{errors.scopes}</p>}
+            {errors.scopes && (
+              <p className="paragraph-xs font-semibold tracking-wide text-error">{errors.scopes}</p>
+            )}
           </div>
 
           {canServers ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-body font-medium text-text-normal">Server access</span>
-                <span className="text-overline text-text-subtle">{serverIds.length} selected</span>
+                <span className="paragraph-sm font-medium text-foreground">Server access</span>
+                <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                  {serverIds.length} selected
+                </span>
               </div>
               {serversLoading ? (
-                <div className="rounded-md border border-border p-4 text-overline text-text-faint">
+                <div className="rounded-md border border-border p-4 paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
                   Loading servers…
                 </div>
               ) : servers.length === 0 ? (
-                <div className="rounded-md border border-border p-4 text-body text-text-muted">
+                <div className="rounded-md border border-border p-4 paragraph-sm text-muted-foreground">
                   No servers available.
                 </div>
               ) : (
@@ -217,7 +227,7 @@ function ProjectForm({
                     return (
                       <Label
                         key={server.id}
-                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-surface-main p-3 transition-colors select-none hover:bg-surface-hover"
+                        className="flex cursor-pointer items-center gap-3 rounded-md border border-border bg-background p-3 transition-colors select-none hover:bg-muted"
                       >
                         <Checkbox
                           checked={checked}
@@ -226,9 +236,11 @@ function ProjectForm({
                           aria-label={`Grant access to ${server.name}`}
                         />
                         <span className="flex flex-col gap-0.5">
-                          <span className="text-body text-text-normal">{server.name}</span>
+                          <span className="paragraph-sm text-foreground">{server.name}</span>
                           {!server.isActive && (
-                            <span className="text-overline text-text-faint">Inactive server</span>
+                            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+                              Inactive server
+                            </span>
                           )}
                         </span>
                       </Label>
@@ -242,13 +254,13 @@ function ProjectForm({
       )}
 
       {mode === 'create' && (
-        <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-main p-3">
+        <div className="flex flex-col gap-3 rounded-md border border-border bg-background p-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
-              <Label htmlFor={`webhook-enable-${mode}`} className="text-body text-text-normal">
+              <Label htmlFor={`webhook-enable-${mode}`} className="paragraph-sm text-foreground">
                 Inbound webhook
               </Label>
-              <span className="text-overline text-text-subtle">
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 Provision a form webhook and signing secret alongside this project.
               </span>
             </div>
@@ -273,7 +285,9 @@ function ProjectForm({
                   maxLength={100}
                 />
                 {errors.webhookName && (
-                  <p className="text-overline text-error">{errors.webhookName}</p>
+                  <p className="paragraph-xs font-semibold tracking-wide text-error">
+                    {errors.webhookName}
+                  </p>
                 )}
               </div>
 
@@ -291,14 +305,16 @@ function ProjectForm({
                   maxLength={64}
                 />
                 {errors.webhookSlug && (
-                  <p className="text-overline text-error">{errors.webhookSlug}</p>
+                  <p className="paragraph-xs font-semibold tracking-wide text-error">
+                    {errors.webhookSlug}
+                  </p>
                 )}
               </div>
 
               <div className="flex flex-col gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-body font-medium text-text-normal">Schema template</span>
-                  <span className="text-overline text-text-subtle">
+                  <span className="paragraph-sm font-medium text-foreground">Schema template</span>
+                  <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                     Choose a starter form schema for this webhook.
                   </span>
                 </div>

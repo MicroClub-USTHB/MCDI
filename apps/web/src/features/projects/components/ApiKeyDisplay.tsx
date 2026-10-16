@@ -53,7 +53,7 @@ function ApiKeyDisplay({
           </Button>
         )}
         {!isActive && (
-          <p className="text-overline text-warning">
+          <p className="paragraph-xs font-semibold tracking-wide text-warning">
             Reactivate the project before rotating its key.
           </p>
         )}

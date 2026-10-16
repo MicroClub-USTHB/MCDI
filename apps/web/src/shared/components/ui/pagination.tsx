@@ -47,7 +47,7 @@ function Pagination({
       aria-label="Pagination"
       className={cn('flex items-center justify-between gap-4', className)}
     >
-      <p className="text-overline text-text-faint">
+      <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
         {start}–{end} of {totalItems.toLocaleString()}
       </p>
       <div className="flex items-center gap-1">
@@ -63,7 +63,7 @@ function Pagination({
         </Button>
         {getPageWindow(pageIndex, pageCount).map((page, idx) =>
           page === 'ellipsis' ? (
-            <span key={`ellipsis-${idx}`} className="px-1 text-text-faint">
+            <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground/70">
               …
             </span>
           ) : (

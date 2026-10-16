@@ -126,7 +126,7 @@ function ServersView() {
 
       {isError ? (
         <div className="flex flex-col items-start gap-3 rounded-lg bg-error/12 p-4 text-error">
-          <p className="text-body">{error.message || 'Failed to load servers.'}</p>
+          <p className="paragraph-sm">{error.message || 'Failed to load servers.'}</p>
           <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
             Retry
           </Button>

@@ -57,14 +57,16 @@ function Tooltip({ point, x }: { point: GrowthPoint; x: number }) {
 
   return (
     <div
-      className="pointer-events-none absolute top-1 z-10 w-44 -translate-x-1/2 rounded-md border border-border bg-surface-elevated p-3 text-left shadow-dropdown"
+      className="pointer-events-none absolute top-1 z-10 w-44 -translate-x-1/2 rounded-md border border-border bg-muted p-3 text-left shadow-md"
       style={{ left: `${left}%` }}
     >
-      <p className="text-overline text-text-primary">{formatDate(point.date)}</p>
-      <dl className="mt-2 space-y-1 text-overline text-text-muted">
+      <p className="paragraph-xs font-semibold tracking-wide text-foreground">
+        {formatDate(point.date)}
+      </p>
+      <dl className="mt-2 space-y-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
         <div className="flex items-center justify-between gap-3">
           <dt>Cumulative</dt>
-          <dd className="font-mono text-text-primary">{point.count.toLocaleString()}</dd>
+          <dd className="font-mono text-foreground">{point.count.toLocaleString()}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt>New members</dt>
@@ -77,7 +79,7 @@ function Tooltip({ point, x }: { point: GrowthPoint; x: number }) {
             {point.leftMembers.toLocaleString()}
           </dd>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-1 text-text-normal">
+        <div className="flex items-center justify-between gap-3 border-t border-border pt-1 text-foreground">
           <dt>Net</dt>
           <dd className={cn('font-mono', point.netMembers >= 0 ? 'text-success' : 'text-error')}>
             {point.netMembers > 0 ? '+' : ''}
@@ -124,11 +126,11 @@ function GrowthChart({ stats }: GrowthChartProps) {
   return (
     <div className="min-w-0 space-y-3">
       <div
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 text-overline text-text-muted"
+        className="flex flex-wrap items-center gap-x-4 gap-y-2 paragraph-xs font-semibold tracking-wide text-muted-foreground"
         aria-label="Chart legend"
       >
         <span className="inline-flex items-center gap-2">
-          <span className="size-2 rounded-full bg-brand" aria-hidden="true" />
+          <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
           Cumulative members
         </span>
         <span className="inline-flex items-center gap-2">
@@ -141,7 +143,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
         </span>
       </div>
 
-      <div className="relative min-w-0 overflow-hidden rounded-md border border-border bg-surface-base p-2">
+      <div className="relative min-w-0 overflow-hidden rounded-md border border-border bg-background p-2">
         {activePoint ? <Tooltip point={activePoint.point} x={activePoint.x} /> : null}
         <svg
           className="h-56 w-full"
@@ -151,8 +153,8 @@ function GrowthChart({ stats }: GrowthChartProps) {
         >
           <defs>
             <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--color-brand)" stopOpacity="0.24" />
-              <stop offset="100%" stopColor="var(--color-brand)" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.24" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -164,7 +166,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
               x2={CHART_WIDTH - PLOT_RIGHT}
               y1={y}
               y2={y}
-              stroke="var(--color-border)"
+              stroke="var(--border)"
               strokeDasharray="3 5"
               strokeOpacity="0.6"
             />
@@ -174,7 +176,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
             x2={CHART_WIDTH - PLOT_RIGHT}
             y1={PLOT_BOTTOM}
             y2={PLOT_BOTTOM}
-            stroke="var(--color-border)"
+            stroke="var(--border)"
           />
 
           {chartPoints.length > 1 ? (
@@ -222,7 +224,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
                   <text
                     x={x}
                     y={LABEL_Y}
-                    fill="var(--color-text-subtle)"
+                    fill="var(--muted-foreground)"
                     fontSize="11"
                     textAnchor="middle"
                   >
@@ -236,7 +238,7 @@ function GrowthChart({ stats }: GrowthChartProps) {
           <path
             d={linePath}
             fill="none"
-            stroke="var(--color-brand)"
+            stroke="var(--primary)"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -247,8 +249,8 @@ function GrowthChart({ stats }: GrowthChartProps) {
               cx={x}
               cy={y}
               r={activeIndex === index ? 5 : 3.5}
-              fill="var(--color-surface-raised)"
-              stroke="var(--color-brand)"
+              fill="var(--card)"
+              stroke="var(--primary)"
               strokeWidth="2.5"
               tabIndex={0}
               role="button"

@@ -14,8 +14,8 @@ interface SubmissionDialogProps {
 function Detail({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-col">
-      <dt className="text-overline text-text-subtle">{label}</dt>
-      <dd className="text-body break-all text-text-normal">{value || '—'}</dd>
+      <dt className="paragraph-xs font-semibold tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="paragraph-sm break-all text-foreground">{value || '—'}</dd>
     </div>
   );
 }
@@ -32,7 +32,7 @@ export function SubmissionDialog({ webhookId, submissionId, onClose }: Submissio
           <DialogTitle>Submission</DialogTitle>
         </DialogHeader>
         {query.isError ? (
-          <p role="alert" className="text-body text-error">
+          <p role="alert" className="paragraph-sm text-error">
             This submission could not be loaded.
           </p>
         ) : !submission ? (
@@ -46,10 +46,12 @@ export function SubmissionDialog({ webhookId, submissionId, onClose }: Submissio
               <Detail label="User agent" value={submission.userAgent} />
             </dl>
             <div className="min-h-0">
-              <p className="text-overline text-text-subtle">Payload</p>
+              <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                Payload
+              </p>
               <pre
                 aria-label="Payload"
-                className="mt-2 max-h-80 overflow-auto rounded-md bg-surface-base p-3 font-mono text-code text-text-normal"
+                className="mt-2 max-h-80 overflow-auto rounded-md bg-background p-3 font-mono text-xs text-foreground"
               >
                 {JSON.stringify(submission.payload, null, 2)}
               </pre>

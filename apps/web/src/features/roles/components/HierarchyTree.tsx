@@ -27,10 +27,10 @@ function HierarchyTree({ roles, activeRoleId = null }: HierarchyTreeProps) {
             <div className="flex flex-col items-center">
               <span
                 className={cn(
-                  'flex size-6 shrink-0 items-center justify-center rounded-full border text-overline tabular-nums',
+                  'flex size-6 shrink-0 items-center justify-center rounded-full border paragraph-xs font-semibold tracking-wide tabular-nums',
                   isExecutive
-                    ? 'border-brand bg-brand/15 text-brand-light'
-                    : 'border-border bg-surface-base text-text-subtle'
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'border-border bg-background text-muted-foreground'
                 )}
               >
                 {index + 1}
@@ -40,7 +40,7 @@ function HierarchyTree({ roles, activeRoleId = null }: HierarchyTreeProps) {
             <div
               className={cn(
                 'mb-2 flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1',
-                isActive && 'bg-brand/10'
+                isActive && 'bg-primary/10'
               )}
             >
               <span
@@ -48,13 +48,13 @@ function HierarchyTree({ roles, activeRoleId = null }: HierarchyTreeProps) {
                 style={role.colorHex ? { backgroundColor: role.colorHex } : undefined}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1 truncate text-body text-text-normal">
+              <span className="min-w-0 flex-1 truncate paragraph-sm text-foreground">
                 {role.displayName}
               </span>
               {isExecutive && (
                 <Shield className="size-3 shrink-0 text-warning" aria-label="Executive role" />
               )}
-              <span className="shrink-0 text-overline text-text-faint tabular-nums">
+              <span className="shrink-0 paragraph-xs font-semibold tracking-wide text-muted-foreground/70 tabular-nums">
                 {role.memberCount}
               </span>
             </div>

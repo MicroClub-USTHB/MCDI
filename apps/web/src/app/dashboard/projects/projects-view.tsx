@@ -101,8 +101,8 @@ function ProjectsView() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-hero">Projects</h1>
-          <p className="mt-1 text-body text-text-muted">
+          <h1 className="header-xs font-bold">Projects</h1>
+          <p className="mt-1 paragraph-sm text-muted-foreground">
             Applications that integrate with MCID and what they can access.
           </p>
         </div>
@@ -140,7 +140,7 @@ function ProjectsView() {
 
       {projectsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
-          <p className="text-body text-error">Failed to load projects.</p>
+          <p className="paragraph-sm text-error">Failed to load projects.</p>
           <Button
             type="button"
             variant="secondary"

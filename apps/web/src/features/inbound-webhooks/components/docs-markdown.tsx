@@ -6,9 +6,9 @@ import remarkGfm from 'remark-gfm';
 import { cn } from '@/shared/lib/utils';
 
 const DOCS_CLASS = cn(
-  'flex flex-col gap-3 text-body text-text-normal',
-  '[&_code]:font-mono [&_code]:text-code [&_h1]:text-heading [&_h2]:text-subhead [&_h3]:text-subhead',
-  '[&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-surface-base [&_pre]:p-3',
+  'flex flex-col gap-3 paragraph-sm text-foreground',
+  '[&_code]:font-mono [&_code]:text-xs [&_h1]:paragraph-md [&_h1]:font-semibold [&_h2]:paragraph-sm [&_h2]:font-semibold [&_h3]:paragraph-sm [&_h3]:font-semibold',
+  '[&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-background [&_pre]:p-3',
   '[&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1',
   '[&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:list-disc [&_ul]:pl-5'
 );

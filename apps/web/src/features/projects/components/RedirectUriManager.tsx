@@ -73,15 +73,15 @@ function RedirectUriManager({
           </Button>
         </form>
       )}
-      {error && <p className="text-overline text-error">{error}</p>}
+      {error && <p className="paragraph-xs font-semibold tracking-wide text-error">{error}</p>}
       {uris.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
           {uris.map((uri) => (
             <li
               key={uri}
-              className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface-base px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
             >
-              <code className="min-w-0 flex-1 truncate font-mono text-code text-text-normal">
+              <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
                 {uri}
               </code>
               {!readOnly && (
@@ -100,7 +100,9 @@ function RedirectUriManager({
           ))}
         </ul>
       ) : (
-        <p className="text-overline text-text-faint">No redirect URIs set.</p>
+        <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+          No redirect URIs set.
+        </p>
       )}
     </div>
   );

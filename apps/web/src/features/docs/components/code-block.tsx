@@ -37,14 +37,16 @@ export function CodeBlock({ children, ...props }: ComponentProps<'pre'>) {
   }
 
   return (
-    <div className="my-5 overflow-hidden rounded-lg border border-border bg-surface-base">
-      <div className="flex h-9 items-center justify-between border-b border-border bg-surface-raised px-3">
-        <span className="font-mono text-overline text-text-subtle">{language ?? ''}</span>
+    <div className="my-5 overflow-hidden rounded-lg border border-border bg-background">
+      <div className="flex h-9 items-center justify-between border-b border-border bg-card px-3">
+        <span className="font-mono paragraph-xs font-semibold tracking-wide text-muted-foreground">
+          {language ?? ''}
+        </span>
         <button
           type="button"
           onClick={() => void copy()}
           aria-label={copied ? 'Copied' : 'Copy code'}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-overline text-text-muted outline-none hover:bg-surface-hover hover:text-text-normal focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 paragraph-xs font-semibold tracking-wide text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
           {copied ? (
             <Check className="size-3.5 text-success" aria-hidden="true" />
@@ -61,7 +63,7 @@ export function CodeBlock({ children, ...props }: ComponentProps<'pre'>) {
         ref={preRef}
         tabIndex={0}
         aria-label={`${language ?? 'Code'} example`}
-        className="overflow-x-auto p-4 font-mono text-code text-text-normal [font-variant-ligatures:none] outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-inset"
+        className="overflow-x-auto p-4 font-mono text-xs text-foreground [font-variant-ligatures:none] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
         {...props}
       >
         {children}

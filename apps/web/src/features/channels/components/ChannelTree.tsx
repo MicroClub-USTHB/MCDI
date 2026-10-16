@@ -24,12 +24,14 @@ interface ChannelTreeProps {
 export function ChannelTree({ groups, selectedId, onSelect }: ChannelTreeProps) {
   return (
     <nav
-      className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-lg bg-surface-raised p-3"
+      className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto rounded-lg bg-card p-3"
       aria-label="Channels"
     >
       {groups.map((group) => (
         <div key={group.id ?? '__uncategorized'} className="flex flex-col gap-1">
-          <p className="px-2 text-overline text-text-faint uppercase">{group.name}</p>
+          <p className="px-2 paragraph-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+            {group.name}
+          </p>
           {group.channels.map((channel) => {
             const Icon = TYPE_ICON[channel.type];
             const active = channel.id === selectedId;
@@ -40,17 +42,17 @@ export function ChannelTree({ groups, selectedId, onSelect }: ChannelTreeProps) 
                 onClick={() => onSelect(channel.id)}
                 aria-current={active ? 'true' : undefined}
                 className={cn(
-                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-body transition-colors',
+                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-left paragraph-sm transition-colors',
                   active
-                    ? 'bg-surface-active text-text-primary'
-                    : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
+                    ? 'bg-secondary text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )}
               >
-                <Icon className="size-4 shrink-0 text-text-faint" aria-hidden="true" />
+                <Icon className="size-4 shrink-0 text-muted-foreground/70" aria-hidden="true" />
                 <span className="truncate">{channel.name}</span>
                 {channel.hasOverwrites && (
                   <Lock
-                    className="ml-auto size-3 shrink-0 text-text-faint"
+                    className="ml-auto size-3 shrink-0 text-muted-foreground/70"
                     aria-label="Restricted"
                   />
                 )}

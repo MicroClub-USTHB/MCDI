@@ -36,23 +36,25 @@ export function LevelControl<V extends string>({
       disabled={disabled}
       className="flex min-w-0 flex-col gap-2 border-0 p-0 py-3 first:pt-0 last:pb-0"
     >
-      <legend className="float-left w-full text-body text-text-primary">{label}</legend>
+      <legend className="float-left w-full paragraph-sm text-foreground">{label}</legend>
       {description ? (
-        <p className="clear-both text-overline text-text-subtle">{description}</p>
+        <p className="clear-both paragraph-xs font-semibold tracking-wide text-muted-foreground">
+          {description}
+        </p>
       ) : (
         <span className="clear-both" />
       )}
-      <div className="inline-flex w-fit max-w-full flex-wrap rounded-md border border-border bg-surface-base p-0.5">
+      <div className="inline-flex w-fit max-w-full flex-wrap rounded-md border border-border bg-background p-0.5">
         {options.map((option) => (
           <label
             key={option.value}
             className={cn(
-              'cursor-pointer rounded-sm px-3 py-1.5 text-body transition-colors',
-              'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-border-focus',
+              'cursor-pointer rounded-sm px-3 py-1.5 paragraph-sm transition-colors',
+              'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
               'has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60',
               value === option.value
-                ? 'bg-surface-active text-text-primary'
-                : 'text-text-muted hover:bg-surface-hover hover:text-text-normal'
+                ? 'bg-secondary text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
             <input
@@ -67,7 +69,9 @@ export function LevelControl<V extends string>({
           </label>
         ))}
       </div>
-      {hint ? <p className="text-overline text-warning">{hint}</p> : null}
+      {hint ? (
+        <p className="paragraph-xs font-semibold tracking-wide text-warning">{hint}</p>
+      ) : null}
     </fieldset>
   );
 }

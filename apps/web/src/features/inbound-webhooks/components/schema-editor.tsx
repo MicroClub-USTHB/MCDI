@@ -20,8 +20,8 @@ import { cn } from '@/shared/lib/utils';
 const theme = EditorView.theme(
   {
     '&': {
-      backgroundColor: 'var(--color-surface-base)',
-      color: 'var(--color-text-normal)',
+      backgroundColor: 'var(--background)',
+      color: 'var(--foreground)',
       fontFamily: 'var(--font-mono)',
       fontSize: '13px',
       height: '100%',
@@ -29,26 +29,26 @@ const theme = EditorView.theme(
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.6' },
     '.cm-gutters': {
-      backgroundColor: 'var(--color-surface-base)',
-      color: 'var(--color-text-faint)',
+      backgroundColor: 'var(--background)',
+      color: 'var(--muted-foreground)',
       border: 'none',
     },
     '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'transparent' },
-    '.cm-cursor': { borderLeftColor: 'var(--color-text-primary)' },
+    '.cm-cursor': { borderLeftColor: 'var(--foreground)' },
     '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-      backgroundColor: 'var(--color-brand-tint)',
+      backgroundColor: 'var(--secondary)',
     },
     '.cm-tooltip': {
-      backgroundColor: 'var(--color-surface-elevated)',
-      border: '1px solid var(--color-border)',
+      backgroundColor: 'var(--muted)',
+      border: '1px solid var(--border)',
       borderRadius: '6px',
-      color: 'var(--color-text-normal)',
+      color: 'var(--foreground)',
     },
     '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: 'var(--color-brand-tint)',
-      color: 'var(--color-text-primary)',
+      backgroundColor: 'var(--secondary)',
+      color: 'var(--foreground)',
     },
-    '.cm-completionDetail': { color: 'var(--color-text-subtle)', fontStyle: 'normal' },
+    '.cm-completionDetail': { color: 'var(--muted-foreground)', fontStyle: 'normal' },
     '.cm-diagnostic-error': { borderLeftColor: 'var(--color-error)' },
     '.cm-diagnostic-warning': { borderLeftColor: 'var(--color-warning)' },
     '.cm-lintRange-error': {
@@ -166,14 +166,14 @@ export function SchemaEditor({
       <div
         ref={host}
         data-testid="schema-editor"
-        className="h-96 overflow-hidden rounded-md border border-border bg-surface-base focus-within:border-border-focus"
+        className="h-96 overflow-hidden rounded-md border border-border bg-background focus-within:border-ring"
       />
       <div aria-live="polite">
         {problems.length === 0 ? (
-          <p className="text-body text-text-subtle">No problems found.</p>
+          <p className="paragraph-sm text-muted-foreground">No problems found.</p>
         ) : (
           <>
-            <p className="text-overline text-text-subtle">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
               {errors} {errors === 1 ? 'error' : 'errors'}, {problems.length - errors}{' '}
               {problems.length - errors === 1 ? 'warning' : 'warnings'}
             </p>
@@ -183,7 +183,7 @@ export function SchemaEditor({
                   <button
                     type="button"
                     onClick={() => jumpTo(problem.from)}
-                    className="flex w-full items-start gap-2 rounded-md px-2 py-1 text-left text-body text-text-normal hover:bg-surface-hover"
+                    className="flex w-full items-start gap-2 rounded-md px-2 py-1 text-left paragraph-sm text-foreground hover:bg-muted"
                   >
                     {problem.severity === 'error' ? (
                       <CircleAlert
@@ -196,7 +196,7 @@ export function SchemaEditor({
                         aria-hidden="true"
                       />
                     )}
-                    <span className="text-text-subtle">Line {problem.line}</span>
+                    <span className="text-muted-foreground">Line {problem.line}</span>
                     <span>{problem.message}</span>
                   </button>
                 </li>

@@ -36,14 +36,14 @@ export function SyncRunView({ syncLogId: raw, backHref }: { syncLogId: string; b
       ) : (
         <>
           <header>
-            <h1 className="text-hero">Sync run #{syncLogId}</h1>
-            <p className="mt-1 text-body text-text-muted">
+            <h1 className="header-xs font-bold">Sync run #{syncLogId}</h1>
+            <p className="mt-1 paragraph-sm text-muted-foreground">
               Every entity-level change recorded during this sync operation.
             </p>
           </header>
 
           {error && (
-            <p className="flex items-start gap-2 rounded-md bg-error/12 p-3 text-body text-error">
+            <p className="flex items-start gap-2 rounded-md bg-error/12 p-3 paragraph-sm text-error">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>
             </p>

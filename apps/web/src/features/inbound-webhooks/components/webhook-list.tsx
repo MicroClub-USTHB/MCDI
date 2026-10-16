@@ -12,7 +12,7 @@ import { DataTable } from '@/shared/components/ui/data-table';
 function Readers({ webhookId }: { webhookId: string }) {
   const roles = useAllowedRolesQuery(webhookId);
   return (
-    <span className="text-text-muted">
+    <span className="text-muted-foreground">
       {roles.data ? roles.data.map((role) => role.roleName).join(', ') || 'None' : '…'}
     </span>
   );
@@ -27,11 +27,11 @@ const columns: ColumnDef<InboundWebhookView>[] = [
       <div className="flex flex-col">
         <Link
           href={`/dashboard/projects/${encodeURIComponent(row.original.projectId)}/inbound-webhooks/${encodeURIComponent(row.original.id)}`}
-          className="rounded-sm font-medium text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="rounded-sm font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           {row.original.name}
         </Link>
-        <span className="font-mono text-code text-text-subtle">{row.original.slug}</span>
+        <span className="font-mono text-xs text-muted-foreground">{row.original.slug}</span>
       </div>
     ),
   },
@@ -54,14 +54,16 @@ const columns: ColumnDef<InboundWebhookView>[] = [
     accessorKey: 'submissionCount',
     header: 'Submissions',
     cell: ({ row }) => (
-      <span className="font-mono text-code">{row.original.submissionCount.toLocaleString()}</span>
+      <span className="font-mono text-xs">{row.original.submissionCount.toLocaleString()}</span>
     ),
   },
   {
     accessorKey: 'lastSubmissionLabel',
     header: 'Last submission',
     enableSorting: false,
-    cell: ({ row }) => <span className="text-text-muted">{row.original.lastSubmissionLabel}</span>,
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{row.original.lastSubmissionLabel}</span>
+    ),
   },
   {
     accessorKey: 'isActive',

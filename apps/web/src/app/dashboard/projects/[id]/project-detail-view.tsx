@@ -80,7 +80,7 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
   if (projectQuery.isError || !projectQuery.data) {
     return (
       <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
-        <p className="text-body text-error">Failed to load this project.</p>
+        <p className="paragraph-sm text-error">Failed to load this project.</p>
         <Button
           type="button"
           variant="secondary"
@@ -141,11 +141,11 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <h1 className="text-hero">{project.name}</h1>
+              <h1 className="header-xs font-bold">{project.name}</h1>
               {project.isInternal && <Badge variant="brand-light">Internal</Badge>}
             </div>
             {project.description && (
-              <p className="text-body text-text-muted">{project.description}</p>
+              <p className="paragraph-sm text-muted-foreground">{project.description}</p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -164,7 +164,7 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
                   }}
                 />
               ) : null}
-              <span className="text-overline text-text-subtle">
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
                 {project.isActive ? 'Active' : 'Deactivated'}
               </span>
             </div>
@@ -180,11 +180,11 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
       {canViewKey ? (
         <section
           aria-labelledby="api-key-heading"
-          className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
+          className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5"
         >
           <div className="flex items-center gap-2">
-            <KeyRound className="size-4 text-text-muted" aria-hidden="true" />
-            <h2 id="api-key-heading" className="text-heading">
+            <KeyRound className="size-4 text-muted-foreground" aria-hidden="true" />
+            <h2 id="api-key-heading" className="paragraph-md font-semibold">
               API key
             </h2>
           </div>
@@ -204,13 +204,13 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
 
       <section
         aria-labelledby="redirect-heading"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
+        className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5"
       >
         <div className="flex flex-col gap-1">
-          <h2 id="redirect-heading" className="text-heading">
+          <h2 id="redirect-heading" className="paragraph-md font-semibold">
             Redirect URIs
           </h2>
-          <p className="text-overline text-text-subtle">
+          <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
             Comma-separated callback URLs used for OAuth. Currently shows what you&apos;ve saved
             this session.
           </p>
@@ -244,21 +244,21 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
           {apiKeyQuery.isPending ? (
             <Skeleton className="h-32 w-full" />
           ) : apiKeyInfo ? (
-            <dl className="flex flex-col gap-3 text-body">
+            <dl className="flex flex-col gap-3 paragraph-sm">
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-text-subtle">Prefix</dt>
-                <dd className="font-mono text-code text-text-normal">{apiKeyInfo.prefix ?? '—'}</dd>
+                <dt className="text-muted-foreground">Prefix</dt>
+                <dd className="font-mono text-xs text-foreground">{apiKeyInfo.prefix ?? '—'}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-text-subtle">Created</dt>
+                <dt className="text-muted-foreground">Created</dt>
                 <dd>{apiKeyInfo.createdAtLabel}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-text-subtle">Last used</dt>
+                <dt className="text-muted-foreground">Last used</dt>
                 <dd>{apiKeyInfo.lastUsedLabel ?? 'Never'}</dd>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-text-subtle">Status</dt>
+                <dt className="text-muted-foreground">Status</dt>
                 <dd>
                   <Badge variant={apiKeyInfo.isActive ? 'success' : 'error'}>
                     {apiKeyInfo.isActive ? 'Active' : 'Deactivated'}
@@ -267,7 +267,7 @@ function ProjectDetailView({ id }: ProjectDetailViewProps) {
               </div>
             </dl>
           ) : (
-            <p className="text-body text-text-muted">Failed to load key details.</p>
+            <p className="paragraph-sm text-muted-foreground">Failed to load key details.</p>
           )}
         </DialogContent>
       </Dialog>

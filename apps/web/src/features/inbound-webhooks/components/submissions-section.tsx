@@ -102,7 +102,7 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
           <button
             type="button"
             onClick={() => setOpenId(row.original.id)}
-            className="rounded-sm text-left text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="rounded-sm text-left text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             {formatDate(row.original.receivedAt) ?? row.original.receivedAt}
           </button>
@@ -113,7 +113,7 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
         header: path,
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-mono text-code">
+          <span className="font-mono text-xs">
             {cellText(valueAtPath(row.original.payload, path))}
           </span>
         ),
@@ -202,7 +202,7 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
         <div className="flex flex-wrap items-center gap-2">
           {exportProgress ? (
             <>
-              <span role="status" className="text-body text-text-muted">
+              <span role="status" className="paragraph-sm text-muted-foreground">
                 Exporting {exportProgress.done.toLocaleString()} of{' '}
                 {exportProgress.total.toLocaleString()}
               </span>

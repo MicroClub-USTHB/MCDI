@@ -8,8 +8,8 @@ import { cn } from '@/shared/lib/utils';
  * shadcn/ui Breadcrumb, restyled onto the MCID V2 tokens.
  *
  * Upstream uses `text-muted-foreground`/`text-foreground`, neither of which
- * exist here. Styled as an "eyebrow" — `text-overline` (the same uppercase,
- * tracked scale `StatCard` labels use) rather than `text-body` — so it reads
+ * exist here. Styled as an "eyebrow" — `paragraph-xs font-semibold tracking-wide` (the same uppercase,
+ * tracked scale `StatCard` labels use) rather than `paragraph-sm` — so it reads
  * as wayfinding chrome instead of competing with the page's own heading.
  */
 function Breadcrumb({ ...props }: React.ComponentProps<'nav'>) {
@@ -20,7 +20,10 @@ function BreadcrumbList({ className, ...props }: React.ComponentProps<'ol'>) {
   return (
     <ol
       data-slot="breadcrumb-list"
-      className={cn('flex flex-wrap items-center gap-1 text-overline break-words', className)}
+      className={cn(
+        'flex flex-wrap items-center gap-1 paragraph-xs font-semibold tracking-wide break-words',
+        className
+      )}
       {...props}
     />
   );
@@ -49,8 +52,8 @@ function BreadcrumbLink({
     <Comp
       data-slot="breadcrumb-link"
       className={cn(
-        'rounded-sm text-text-faint uppercase transition-colors hover:text-text-subtle',
-        'focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base focus-visible:outline-none',
+        'rounded-sm text-muted-foreground/70 uppercase transition-colors hover:text-muted-foreground',
+        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
         className
       )}
       {...props}
@@ -65,7 +68,7 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<'span'>) {
       role="link"
       aria-disabled="true"
       aria-current="page"
-      className={cn('text-text-subtle uppercase', className)}
+      className={cn('text-muted-foreground uppercase', className)}
       {...props}
     />
   );
@@ -77,7 +80,7 @@ function BreadcrumbSeparator({ children, className, ...props }: React.ComponentP
       data-slot="breadcrumb-separator"
       role="presentation"
       aria-hidden="true"
-      className={cn('text-text-faint [&>svg]:size-3', className)}
+      className={cn('text-muted-foreground/70 [&>svg]:size-3', className)}
       {...props}
     >
       {children ?? <ChevronRight />}

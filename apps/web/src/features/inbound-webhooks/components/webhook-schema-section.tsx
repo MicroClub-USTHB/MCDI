@@ -19,7 +19,7 @@ const SchemaEditor = dynamic(
     ),
   {
     ssr: false,
-    loading: () => <div className="h-96 rounded-md border border-border bg-surface-base" />,
+    loading: () => <div className="h-96 rounded-md border border-border bg-background" />,
   }
 );
 
@@ -61,7 +61,7 @@ export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="max-w-2xl text-body text-text-muted">
+        <p className="max-w-2xl paragraph-sm text-muted-foreground">
           {editing
             ? 'Changes are checked by the API as you type. New submissions must match the schema you save.'
             : 'What callers may send. Edit it to change the fields.'}

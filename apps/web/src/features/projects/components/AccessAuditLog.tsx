@@ -71,17 +71,19 @@ function AccessAuditLog({ projectId, entries, isLoading }: AccessAuditLogProps) 
       {rows.map((entry) => (
         <li
           key={entry.id}
-          className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-main p-3"
+          className="flex flex-col gap-1.5 rounded-md border border-border bg-background p-3"
         >
           <div className="flex items-center justify-between gap-3">
             <Badge variant={ACTION_VARIANT[entry.action]}>{entry.action}</Badge>
-            <span className="text-overline text-text-faint">{formatTime(entry.changedAt)}</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+              {formatTime(entry.changedAt)}
+            </span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-body text-text-normal">
-              Server <code className="font-mono text-code">{entry.serverId}</code>
+            <p className="paragraph-sm text-foreground">
+              Server <code className="font-mono text-xs">{entry.serverId}</code>
             </p>
-            <p className="text-overline text-text-subtle">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
               by {entry.changedBy} · {describeOperations(entry.operationsBefore)} →{' '}
               {describeOperations(entry.operationsAfter)}
             </p>

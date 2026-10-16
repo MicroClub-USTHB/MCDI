@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 export default function CallbackPage() {
   return (
     <Suspense
-      fallback={<div role="status" aria-label="Loading" className="min-h-screen bg-surface-base" />}
+      fallback={<div role="status" aria-label="Loading" className="min-h-screen bg-background" />}
     >
       <AuthCallbackHandler />
     </Suspense>

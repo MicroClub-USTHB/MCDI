@@ -48,7 +48,7 @@ export function RolePicker({
   return (
     <div className="flex flex-col gap-3">
       {selected.length === 0 ? (
-        <p role="alert" className="text-body text-error">
+        <p role="alert" className="paragraph-sm text-error">
           Pick at least one role, or nobody will be able to read what this webhook receives.
         </p>
       ) : (
@@ -60,13 +60,13 @@ export function RolePicker({
               <li key={id}>
                 <Badge variant="brand-light" className="gap-2">
                   {name}
-                  {role?.isDefault ? <span className="text-text-subtle">default</span> : null}
+                  {role?.isDefault ? <span className="text-muted-foreground">default</span> : null}
                   <button
                     type="button"
                     aria-label={`Remove ${name}`}
                     disabled={disabled}
                     onClick={() => toggle(id)}
-                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <X aria-hidden="true" />
                   </button>
@@ -78,7 +78,7 @@ export function RolePicker({
       )}
 
       {unavailable !== undefined ? (
-        <p className="text-body text-text-muted">{unavailable}</p>
+        <p className="paragraph-sm text-muted-foreground">{unavailable}</p>
       ) : (
         <>
           <SearchInput
@@ -91,21 +91,21 @@ export function RolePicker({
 
           <ul className="relative max-h-60 overflow-y-auto rounded-md border border-border">
             {isLoading ? (
-              <li className="px-3 py-2 text-body text-text-subtle">Loading roles…</li>
+              <li className="px-3 py-2 paragraph-sm text-muted-foreground">Loading roles…</li>
             ) : shown.length === 0 ? (
-              <li className="px-3 py-2 text-body text-text-subtle">No roles found.</li>
+              <li className="px-3 py-2 paragraph-sm text-muted-foreground">No roles found.</li>
             ) : (
               shown.map((option) => (
                 <li key={option.id}>
-                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-hover">
+                  <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted">
                     <Checkbox
                       checked={selected.includes(option.id)}
                       disabled={disabled}
                       onCheckedChange={() => toggle(option.id)}
                       aria-label={option.name}
                     />
-                    <span className="text-body text-text-normal">{option.name}</span>
-                    <span className="text-body text-text-subtle">{option.serverName}</span>
+                    <span className="paragraph-sm text-foreground">{option.name}</span>
+                    <span className="paragraph-sm text-muted-foreground">{option.serverName}</span>
                     {option.isDefault ? <Badge variant="secondary">Default</Badge> : null}
                   </label>
                 </li>

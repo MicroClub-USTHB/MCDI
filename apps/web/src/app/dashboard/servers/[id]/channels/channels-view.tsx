@@ -41,8 +41,8 @@ export function ChannelsView({ serverId }: { serverId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-hero">Channels</h1>
-        <p className="mt-1 max-w-2xl text-body text-text-muted">
+        <h1 className="header-xs font-bold">Channels</h1>
+        <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
           Browse this server’s channels by category and read recent message history — without
           leaving MCID.
         </p>
@@ -101,7 +101,7 @@ export function ChannelsView({ serverId }: { serverId: string }) {
                   onRetry={() => void historyQuery.refetch()}
                 />
               ) : (
-                <p className="rounded-lg border border-border bg-surface-raised p-4 text-body text-text-muted">
+                <p className="rounded-lg border border-border bg-card p-4 paragraph-sm text-muted-foreground">
                   This channel type has no readable message history.
                 </p>
               )}

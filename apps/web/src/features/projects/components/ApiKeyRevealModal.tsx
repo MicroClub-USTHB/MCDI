@@ -41,7 +41,7 @@ function ApiKeyRevealPanel({
     <div className="flex flex-col gap-4">
       <div className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-        <p className="text-body text-warning">
+        <p className="paragraph-sm text-warning">
           {hasWebhook ? (
             <>
               This is the only time <strong>{projectName ? `${projectName}'s` : 'these'}</strong>{' '}
@@ -59,7 +59,7 @@ function ApiKeyRevealPanel({
 
       <div className="flex flex-col gap-1.5">
         {hasWebhook && (
-          <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+          <span className="paragraph-xs font-semibold tracking-wide font-medium uppercase tracking-wider text-muted-foreground">
             API key
           </span>
         )}
@@ -69,7 +69,7 @@ function ApiKeyRevealPanel({
       {hasWebhook && inboundWebhook && (
         <>
           <div className="flex flex-col gap-1.5">
-            <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+            <span className="paragraph-xs font-semibold tracking-wide font-medium uppercase tracking-wider text-muted-foreground">
               Webhook signing secret{' '}
               {inboundWebhook.webhookName ? `(${inboundWebhook.webhookName})` : ''}
             </span>
@@ -77,7 +77,7 @@ function ApiKeyRevealPanel({
           </div>
           {inboundWebhook.submitUrl && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+              <span className="paragraph-xs font-semibold tracking-wide font-medium uppercase tracking-wider text-muted-foreground">
                 Webhook submit URL
               </span>
               <MaskedInput value={inboundWebhook.submitUrl} aria-label="Submit URL" />
@@ -132,7 +132,7 @@ function ApiKeyRevealModal({
             }}
           />
         ) : (
-          <p className="text-body text-text-muted">Waiting for the new key…</p>
+          <p className="paragraph-sm text-muted-foreground">Waiting for the new key…</p>
         )}
       </DialogContent>
     </Dialog>

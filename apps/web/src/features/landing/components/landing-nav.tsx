@@ -13,11 +13,11 @@ export function LandingNav() {
       >
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-md text-heading text-text-primary outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="flex items-center gap-2 rounded-md paragraph-md font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span
             aria-hidden="true"
-            className="flex size-8 items-center justify-center rounded-lg bg-brand-tint text-brand-light"
+            className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary"
           >
             <Fingerprint className="size-4" />
           </span>

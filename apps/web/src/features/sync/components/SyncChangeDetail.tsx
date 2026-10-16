@@ -42,8 +42,10 @@ export function SyncChangeDetail({
 }: SyncChangeDetailProps) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg border border-border bg-surface-raised p-4">
-        <h3 className="text-overline text-text-subtle uppercase">Change details</h3>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <h3 className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Change details
+        </h3>
 
         {isLoading ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -53,7 +55,7 @@ export function SyncChangeDetail({
           </div>
         ) : isError ? (
           <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="text-body text-error">Couldn’t load the change details.</span>
+            <span className="paragraph-sm text-error">Couldn’t load the change details.</span>
             {onRetry && (
               <Button type="button" variant="secondary" size="sm" onClick={onRetry}>
                 Retry
@@ -61,23 +63,25 @@ export function SyncChangeDetail({
             )}
           </div>
         ) : changes.length === 0 ? (
-          <p className="mt-3 text-body text-text-muted">No changes were recorded for this sync.</p>
+          <p className="mt-3 paragraph-sm text-muted-foreground">
+            No changes were recorded for this sync.
+          </p>
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-border">
             {changes.map((change) => (
               <li key={change.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                 <Badge variant={toneVariant[change.tone]}>{change.action.replace(/_/g, ' ')}</Badge>
                 <div className="min-w-0 flex-1">
-                  <p className="text-body text-text-normal">
+                  <p className="paragraph-sm text-foreground">
                     {change.description ?? (
                       <>
-                        <span className="text-text-subtle">{change.entityType}</span>{' '}
+                        <span className="text-muted-foreground">{change.entityType}</span>{' '}
                         <span className="font-mono">{change.entityId}</span>
                       </>
                     )}
                   </p>
                   {change.details && (
-                    <pre className="mt-1 overflow-x-auto text-code whitespace-pre-wrap text-text-faint">
+                    <pre className="mt-1 overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground/70">
                       {change.details}
                     </pre>
                   )}

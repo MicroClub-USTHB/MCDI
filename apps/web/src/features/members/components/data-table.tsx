@@ -38,19 +38,17 @@ export function DataTable<T>({
   const handleRowClick = onRowClick;
 
   return (
-    <div
-      className={cn('overflow-hidden rounded-lg border border-border bg-surface-raised', className)}
-    >
+    <div className={cn('overflow-hidden rounded-lg border border-border bg-card', className)}>
       <div className="overflow-x-auto">
         <table className="min-w-full border-collapse" aria-label={ariaLabel}>
-          <thead className="bg-surface-raised">
+          <thead className="bg-card">
             <tr className="border-b border-border">
               {columns.map((column) => (
                 <th
                   key={column.id}
                   scope="col"
                   className={cn(
-                    'px-4 py-3 text-left text-overline uppercase tracking-[0.08em] text-text-subtle',
+                    'px-4 py-3 text-left paragraph-xs font-semibold tracking-wide uppercase tracking-[0.08em] text-muted-foreground',
                     column.headerClassName
                   )}
                 >
@@ -62,7 +60,7 @@ export function DataTable<T>({
           <tbody className="divide-y divide-border">
             {isLoading ? (
               Array.from({ length: loadingRows }).map((_, rowIndex) => (
-                <tr key={`loading-${rowIndex}`} className="bg-surface-raised">
+                <tr key={`loading-${rowIndex}`} className="bg-card">
                   {columns.map((column) => (
                     <td key={column.id} className={cn('px-4 py-4', column.className)}>
                       <LoadingSkeleton className="h-4 w-full max-w-[12rem]" />
@@ -75,8 +73,8 @@ export function DataTable<T>({
                 <tr
                   key={getRowId(row)}
                   className={cn(
-                    'bg-surface-raised transition-colors',
-                    interactive && 'cursor-pointer hover:bg-surface-hover'
+                    'bg-card transition-colors',
+                    interactive && 'cursor-pointer hover:bg-muted'
                   )}
                   onClick={interactive && handleRowClick ? () => handleRowClick(row) : undefined}
                   onKeyDown={
@@ -94,7 +92,7 @@ export function DataTable<T>({
                   {columns.map((column) => (
                     <td
                       key={column.id}
-                      className={cn('px-4 py-4 text-body text-text-normal', column.className)}
+                      className={cn('px-4 py-4 paragraph-sm text-foreground', column.className)}
                     >
                       {column.cell(row)}
                     </td>

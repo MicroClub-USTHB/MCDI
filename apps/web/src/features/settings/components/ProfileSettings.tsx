@@ -72,8 +72,8 @@ function ProfileSettings({ profile, onSave, isSaving = false }: ProfileSettingsP
             textSizeClassName="text-base"
           />
           <div>
-            <p className="text-body font-medium text-text-primary">{displayName}</p>
-            <div className="mt-0.5 flex items-center gap-2 text-overline text-text-muted">
+            <p className="paragraph-sm font-medium text-foreground">{displayName}</p>
+            <div className="mt-0.5 flex items-center gap-2 paragraph-xs font-semibold tracking-wide text-muted-foreground">
               <span>@{profile.username}</span>
               {profile.isSystemAdmin ? <Badge variant="brand-light">System Admin</Badge> : null}
             </div>
@@ -97,7 +97,7 @@ function ProfileSettings({ profile, onSave, isSaving = false }: ProfileSettingsP
             aria-invalid={!!error}
             autoFocus
           />
-          {error && <p className="text-body text-error">{error}</p>}
+          {error && <p className="paragraph-sm text-error">{error}</p>}
           <div className="mt-2 flex gap-2">
             <Button type="button" size="sm" disabled={isSaving || !isDirty} onClick={handleSave}>
               Save

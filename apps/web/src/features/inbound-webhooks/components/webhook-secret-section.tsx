@@ -34,8 +34,8 @@ export function WebhookSecretSection({ webhookId }: { webhookId: string }) {
   return (
     <section className="flex max-w-2xl flex-col gap-3">
       <div>
-        <h2 className="text-subhead text-text-primary">Signing secret</h2>
-        <p className="text-body text-text-muted">
+        <h2 className="paragraph-sm font-semibold text-foreground">Signing secret</h2>
+        <p className="paragraph-sm text-muted-foreground">
           Callers sign every request with it. It is shown only when it is created or rotated.
         </p>
       </div>

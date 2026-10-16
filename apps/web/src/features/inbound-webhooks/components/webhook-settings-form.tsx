@@ -65,7 +65,7 @@ export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto })
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="settings-signature" className="flex flex-col gap-1">
             Require a signature
-            <span className="text-text-muted">
+            <span className="text-muted-foreground">
               Turning it on rejects callers that don&apos;t sign their requests, from the moment you
               save.
             </span>
@@ -79,7 +79,7 @@ export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto })
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="settings-unknown" className="flex flex-col gap-1">
             Reject unknown fields
-            <span className="text-text-muted">
+            <span className="text-muted-foreground">
               Off means fields outside the schema are dropped instead.
             </span>
           </Label>
@@ -98,7 +98,7 @@ export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto })
             placeholder="https://app.microclub.dz"
             rows={3}
           />
-          <p className="text-body text-text-muted">
+          <p className="paragraph-sm text-muted-foreground">
             One per line. Leave empty to accept requests from anywhere.
           </p>
         </div>

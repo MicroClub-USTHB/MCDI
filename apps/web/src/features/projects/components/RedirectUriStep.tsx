@@ -72,12 +72,11 @@ function RedirectUriStep({
           placeholder="https://app.example.com/auth/callback, https://app.example.com/oauth2/callback"
           disabled={isSubmitting}
         />
-        <p className="text-overline text-text-subtle">
+        <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
           Comma-separated for multiple values. The value used in{' '}
-          <code className="font-mono text-text-normal">/auth/authorize</code> must match one
-          exactly.
+          <code className="font-mono text-foreground">/auth/authorize</code> must match one exactly.
         </p>
-        {error && <p className="text-overline text-error">{error}</p>}
+        {error && <p className="paragraph-xs font-semibold tracking-wide text-error">{error}</p>}
       </div>
       <Button type="submit" size="md" disabled={isSubmitting} className="self-end">
         {isSubmitting ? 'Saving…' : submitLabel}

@@ -132,7 +132,7 @@ function ServerForm(props: ServerFormProps) {
             disabled={props.mode === 'edit'}
             aria-invalid={!!errors.guildId}
           />
-          {errors.guildId && <p className="text-body text-error">{errors.guildId}</p>}
+          {errors.guildId && <p className="paragraph-sm text-error">{errors.guildId}</p>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -144,7 +144,7 @@ function ServerForm(props: ServerFormProps) {
             placeholder="Auto-filled from Discord"
             aria-invalid={!!errors.name}
           />
-          {errors.name && <p className="text-body text-error">{errors.name}</p>}
+          {errors.name && <p className="paragraph-sm text-error">{errors.name}</p>}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -176,7 +176,7 @@ function ServerForm(props: ServerFormProps) {
             />
           </div>
           {isMainLocked && (
-            <p className="text-body text-text-muted">
+            <p className="paragraph-sm text-muted-foreground">
               To change the main server, set a different server as main from its own edit page.
             </p>
           )}
@@ -194,7 +194,7 @@ function ServerForm(props: ServerFormProps) {
             aria-invalid={!!errors.syncFrequencyHours}
           />
           {errors.syncFrequencyHours && (
-            <p className="text-body text-error">{errors.syncFrequencyHours}</p>
+            <p className="paragraph-sm text-error">{errors.syncFrequencyHours}</p>
           )}
         </div>
 

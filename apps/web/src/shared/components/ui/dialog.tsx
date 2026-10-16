@@ -11,7 +11,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Radi
   return (
     <RadixDialog.Overlay
       data-slot="dialog-overlay"
-      className={cn('fixed inset-0 z-50 bg-overlay', className)}
+      className={cn('fixed inset-0 z-50 bg-foreground/20', className)}
       {...props}
     />
   );
@@ -29,7 +29,7 @@ function DialogContent({
       <RadixDialog.Content
         data-slot="dialog-content"
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-surface-raised p-6 text-text-normal shadow-modal',
+          'fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-6 text-foreground shadow-xl',
           className
         )}
         {...props}
@@ -38,7 +38,7 @@ function DialogContent({
         {showCloseButton && (
           <RadixDialog.Close
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-md text-text-faint transition-colors outline-none hover:text-text-normal focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="absolute top-4 right-4 rounded-md text-muted-foreground/70 transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="size-4" />
             <span className="sr-only">Close</span>
@@ -69,7 +69,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof RadixD
   return (
     <RadixDialog.Title
       data-slot="dialog-title"
-      className={cn('text-subhead text-text-primary', className)}
+      className={cn('paragraph-sm font-semibold text-foreground', className)}
       {...props}
     />
   );
@@ -82,7 +82,7 @@ function DialogDescription({
   return (
     <RadixDialog.Description
       data-slot="dialog-description"
-      className={cn('text-body text-text-muted', className)}
+      className={cn('paragraph-sm text-muted-foreground', className)}
       {...props}
     />
   );

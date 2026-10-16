@@ -9,8 +9,8 @@ interface RoleDistributionChartProps {
 }
 
 const roleColors = [
-  'var(--color-brand)',
-  'var(--color-brand-light)',
+  'var(--primary)',
+  'var(--primary)',
   'var(--color-accent)',
   'var(--color-warning)',
   'var(--color-success)',
@@ -51,10 +51,7 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
     return `${color} ${start}% ${end}%`;
   });
   const donutStyle = {
-    background:
-      roleTotal === 0
-        ? 'var(--color-surface-hover)'
-        : `conic-gradient(${gradientStops.join(', ')})`,
+    background: roleTotal === 0 ? 'var(--muted)' : `conic-gradient(${gradientStops.join(', ')})`,
   } satisfies CSSProperties;
   const activeRole = activeIndex === null ? undefined : stats.roles[activeIndex];
   const handleRoleLeave = (event: MouseEvent<SVGPathElement>) => {
@@ -76,7 +73,7 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
           {activeRole ? (
             <div
               role="tooltip"
-              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-overline text-text-primary shadow-dropdown"
+              className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-max -translate-x-1/2 rounded-md border border-border bg-muted px-3 py-2 paragraph-xs font-semibold tracking-wide text-foreground shadow-md"
             >
               {activeRole.roleName}: {activeRole.memberCount.toLocaleString()} (
               {activeRole.percentage.toFixed(1)}%)
@@ -100,7 +97,7 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
               return percentage > 0 ? (
                 <path
                   key={`${role.roleId ?? 'global'}-${role.roleName}-${index}`}
-                  className="pointer-events-auto cursor-pointer fill-transparent focus-visible:stroke-brand focus-visible:outline-none"
+                  className="pointer-events-auto cursor-pointer fill-transparent focus-visible:stroke-primary focus-visible:outline-none"
                   d={getDonutPath(startPercentage, startPercentage + percentage, 33)}
                   tabIndex={0}
                   role="button"
@@ -113,16 +110,18 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
               ) : null;
             })}
           </svg>
-          <div className="grid size-24 place-items-center rounded-full bg-surface-raised px-2 text-center">
-            <span className="text-heading text-text-primary">
+          <div className="grid size-24 place-items-center rounded-full bg-card px-2 text-center">
+            <span className="paragraph-md font-semibold text-foreground">
               {stats.totalMembers.toLocaleString()}
             </span>
-            <span className="text-overline text-text-muted">members</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              members
+            </span>
           </div>
         </div>
-        <div className="min-w-0 flex-1 text-overline text-text-muted">
+        <div className="min-w-0 flex-1 paragraph-xs font-semibold tracking-wide text-muted-foreground">
           <p>{description}</p>
-          <p className="mt-1 text-text-faint">Role membership distribution</p>
+          <p className="mt-1 text-muted-foreground/70">Role membership distribution</p>
         </div>
       </div>
       <div className="max-h-48 space-y-2 overflow-y-auto pr-2">
@@ -132,17 +131,17 @@ function RoleDistributionChart({ stats }: RoleDistributionChartProps) {
           return (
             <div
               key={`${role.roleId ?? 'global'}-${role.roleName}-${index}`}
-              className="flex items-center gap-2 text-body"
+              className="flex items-center gap-2 paragraph-sm"
             >
               <span
                 className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: color }}
                 aria-hidden="true"
               />
-              <span className="min-w-0 flex-1 truncate text-text-normal" title={role.roleName}>
+              <span className="min-w-0 flex-1 truncate text-foreground" title={role.roleName}>
                 {role.roleName}
               </span>
-              <span className="shrink-0 font-mono text-code text-text-muted">
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">
                 {role.memberCount.toLocaleString()} ({role.percentage.toFixed(1)}%)
               </span>
             </div>

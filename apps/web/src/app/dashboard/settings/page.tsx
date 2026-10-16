@@ -60,16 +60,18 @@ function SettingsPage() {
     <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-overline text-brand-light uppercase">Operations</p>
-          <h1 className="mt-1 text-hero text-text-primary">Settings</h1>
-          <p className="mt-1 max-w-2xl text-body text-text-muted">
+          <p className="paragraph-xs font-semibold tracking-wide text-primary uppercase">
+            Operations
+          </p>
+          <h1 className="mt-1 header-xs font-bold text-foreground">Settings</h1>
+          <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
             {canRead
               ? 'Configure MCID behavior and manage your admin profile.'
               : 'Manage your admin profile.'}
           </p>
           {canRead && settings?.meta.updatedAt ? (
             <p
-              className="mt-1 text-overline text-text-faint"
+              className="mt-1 paragraph-xs font-semibold tracking-wide text-muted-foreground/70"
               title={formatAbsoluteTime(settings.meta.updatedAt) ?? undefined}
             >
               Last changed {formatRelativeTime(settings.meta.updatedAt)}
@@ -92,7 +94,7 @@ function SettingsPage() {
       <div className="columns-1 gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
         {profileQuery.isError ? (
           <Card>
-            <CardContent className="flex flex-col items-start gap-3 py-6 text-body text-error">
+            <CardContent className="flex flex-col items-start gap-3 py-6 paragraph-sm text-error">
               <p>Your profile could not be loaded.</p>
               <Button
                 type="button"
@@ -122,7 +124,7 @@ function SettingsPage() {
         {canRead ? (
           settingsQuery.isError ? (
             <Card>
-              <CardContent className="flex flex-col items-start gap-3 py-6 text-body text-error">
+              <CardContent className="flex flex-col items-start gap-3 py-6 paragraph-sm text-error">
                 <p>Settings could not be loaded.</p>
                 <Button
                   type="button"

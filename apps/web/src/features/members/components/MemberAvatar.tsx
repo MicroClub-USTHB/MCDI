@@ -28,7 +28,7 @@ export function MemberAvatar({
   return (
     <div
       className={cn(
-        'flex items-center justify-center overflow-hidden rounded-full bg-brand text-center text-on-brand',
+        'flex items-center justify-center overflow-hidden rounded-full bg-primary text-center text-primary-foreground',
         sizeClassName,
         className
       )}

@@ -39,7 +39,7 @@ export function WebhookDocs({ webhookId }: { webhookId: string }) {
       ) : docs.data === undefined ? (
         <Skeleton className="h-64 w-full" />
       ) : (
-        <div className="rounded-lg border border-border bg-surface-raised p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           <DocsMarkdown markdown={docs.data} />
         </div>
       )}

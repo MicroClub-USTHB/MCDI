@@ -59,8 +59,8 @@ export function RolesView({ serverId }: { serverId: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-hero">Roles &amp; Permissions</h1>
-          <p className="mt-1 text-body text-text-muted">
+          <h1 className="header-xs font-bold">Roles &amp; Permissions</h1>
+          <p className="mt-1 paragraph-sm text-muted-foreground">
             Manage this server&apos;s role-permission mappings and inheritance rules.
           </p>
         </div>
@@ -79,10 +79,10 @@ export function RolesView({ serverId }: { serverId: string }) {
 
       {statsQuery.isError && (
         <div className="flex flex-col gap-3 rounded-lg border border-border p-6">
-          <p className="text-body text-error">Failed to load roles.</p>
+          <p className="paragraph-sm text-error">Failed to load roles.</p>
           <button
             type="button"
-            className="text-sm text-brand underline"
+            className="text-sm text-primary underline"
             onClick={() => void statsQuery.refetch()}
           >
             Retry
@@ -102,10 +102,12 @@ export function RolesView({ serverId }: { serverId: string }) {
 
       {stats && stats.roles.length > 0 && (
         <>
-          <div className="overflow-hidden rounded-lg border border-border bg-surface-raised">
+          <div className="overflow-hidden rounded-lg border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-              <h2 className="text-overline text-text-subtle uppercase">Roles</h2>
-              <span className="text-overline text-text-faint tabular-nums">
+              <h2 className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Roles
+              </h2>
+              <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70 tabular-nums">
                 {stats.roles.length}
               </span>
             </div>
@@ -122,24 +124,24 @@ export function RolesView({ serverId }: { serverId: string }) {
 
           {inheritanceRules.length > 0 && (
             <section className="flex flex-col gap-3">
-              <h2 className="text-subhead text-text-primary">Inheritance Rules</h2>
-              <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised p-4">
+              <h2 className="paragraph-sm font-semibold text-foreground">Inheritance Rules</h2>
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
                 {inheritanceRules.map((rule) => (
                   <div
                     key={rule.id}
-                    className="flex items-center justify-between rounded-md border border-border bg-surface-base px-4 py-2.5"
+                    className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-2.5"
                   >
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-text-primary">
+                      <span className="text-sm font-medium text-foreground">
                         {stats.roles.find((r) => r.roleId === rule.sourceRoleId)?.displayName ??
                           `Role ${rule.sourceRoleId}`}
                       </span>
-                      <span className="text-xs text-text-subtle">
+                      <span className="text-xs text-muted-foreground">
                         {rule.targetScope === 'all' ? 'All servers' : 'Selected servers'} ·{' '}
                         {rule.enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
-                    <span className="text-xs text-text-faint">{rule.updatedAtLabel}</span>
+                    <span className="text-xs text-muted-foreground/70">{rule.updatedAtLabel}</span>
                   </div>
                 ))}
               </div>

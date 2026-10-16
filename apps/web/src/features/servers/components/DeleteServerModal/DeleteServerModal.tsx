@@ -40,7 +40,7 @@ function DeleteServerModal({
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="delete-confirm-name">
-          Type <span className="font-semibold text-text-primary">{serverName}</span> to confirm
+          Type <span className="font-semibold text-foreground">{serverName}</span> to confirm
         </Label>
         <Input
           id="delete-confirm-name"

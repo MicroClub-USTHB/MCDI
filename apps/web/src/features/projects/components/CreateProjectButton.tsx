@@ -129,7 +129,7 @@ function CreateProjectDialog({
         </DialogHeader>
 
         {createError && step === 'form' && (
-          <p className="rounded-md bg-error/12 p-3 text-body text-error">{createError}</p>
+          <p className="rounded-md bg-error/12 p-3 paragraph-sm text-error">{createError}</p>
         )}
 
         {step === 'form' && (
@@ -152,7 +152,7 @@ function CreateProjectDialog({
         {step === 'redirect-uri' && projectId && (
           <>
             {redirectError && (
-              <p className="rounded-md bg-error/12 p-3 text-body text-error">{redirectError}</p>
+              <p className="rounded-md bg-error/12 p-3 paragraph-sm text-error">{redirectError}</p>
             )}
             <RedirectUriStep
               projectId={projectId}

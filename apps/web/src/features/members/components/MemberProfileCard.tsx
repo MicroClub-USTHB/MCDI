@@ -25,14 +25,16 @@ export function MemberProfileCard({ member }: MemberProfileCardProps) {
           />
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-heading text-text-primary">{displayName}</h1>
+              <h1 className="paragraph-md font-semibold text-foreground">{displayName}</h1>
               {member.isClubMember ? <Badge variant="brand-light">Club member</Badge> : null}
             </div>
-            <p className="text-body text-text-muted">
+            <p className="paragraph-sm text-muted-foreground">
               @{member.username}
               {member.globalName ? ` · ${member.globalName}` : ''}
             </p>
-            <p className="text-overline text-text-faint">Discord ID: {member.memberId}</p>
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70">
+              Discord ID: {member.memberId}
+            </p>
           </div>
         </div>
       </CardContent>

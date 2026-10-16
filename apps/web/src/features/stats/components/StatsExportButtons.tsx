@@ -150,12 +150,12 @@ function readCanvasColors(): CanvasColors {
   const read = (token: string) => styles.getPropertyValue(token).trim() || 'transparent';
 
   return {
-    base: read('--color-surface-base'),
-    raised: read('--color-surface-raised'),
-    elevated: read('--color-surface-elevated'),
-    primary: read('--color-text-primary'),
-    muted: read('--color-text-muted'),
-    brand: read('--color-brand'),
+    base: read('--background'),
+    raised: read('--card'),
+    elevated: read('--muted'),
+    primary: read('--foreground'),
+    muted: read('--muted-foreground'),
+    brand: read('--primary'),
     success: read('--color-success'),
     error: read('--color-error'),
     warning: read('--color-warning'),
@@ -456,7 +456,7 @@ function StatsExportButtons({ data }: StatsExportButtonsProps) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       {error ? (
-        <span className="text-overline text-error" role="alert">
+        <span className="paragraph-xs font-semibold tracking-wide text-error" role="alert">
           Export failed. Try again.
         </span>
       ) : null}

@@ -82,7 +82,7 @@ function CacheSettings({
               aria-invalid={!!errors.permissionTtlMs}
             />
             {errors.permissionTtlMs && (
-              <p className="text-body text-error">{errors.permissionTtlMs}</p>
+              <p className="paragraph-sm text-error">{errors.permissionTtlMs}</p>
             )}
           </div>
 
@@ -95,20 +95,22 @@ function CacheSettings({
               onChange={(event) => setField('statsTtlMs', event.target.value)}
               aria-invalid={!!errors.statsTtlMs}
             />
-            {errors.statsTtlMs && <p className="text-body text-error">{errors.statsTtlMs}</p>}
+            {errors.statsTtlMs && <p className="paragraph-sm text-error">{errors.statsTtlMs}</p>}
           </div>
 
           <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <p className="text-overline text-text-faint uppercase">Environment-only</p>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Project auth cache TTL</span>
-              <span className="font-mono text-code text-text-normal">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+              Environment-only
+            </p>
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Project auth cache TTL</span>
+              <span className="font-mono text-xs text-foreground">
                 {settings.projectAuthTtlMs.value.toLocaleString()} ms
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Project access cache TTL</span>
-              <span className="font-mono text-code text-text-normal">
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Project access cache TTL</span>
+              <span className="font-mono text-xs text-foreground">
                 {settings.projectAccessTtlMs.value.toLocaleString()} ms
               </span>
             </div>

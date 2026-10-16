@@ -33,8 +33,8 @@ export function WebhookTable({
             type="button"
             aria-current={selected ? 'true' : undefined}
             className={cn(
-              'rounded-sm text-left font-medium text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus',
-              selected && 'text-brand-light'
+              'rounded-sm text-left font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring',
+              selected && 'text-primary'
             )}
             onClick={(event) => {
               event.stopPropagation();
@@ -52,14 +52,16 @@ export function WebhookTable({
       accessorKey: 'usageCount',
       header: 'Messages',
       cell: ({ row }) => (
-        <span className="font-mono text-code">{row.original.usageCount.toLocaleString()}</span>
+        <span className="font-mono text-xs">{row.original.usageCount.toLocaleString()}</span>
       ),
     },
     {
       accessorKey: 'lastUsedLabel',
       header: 'Last used',
       enableSorting: false,
-      cell: ({ row }) => <span className="text-text-muted">{row.original.lastUsedLabel}</span>,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{row.original.lastUsedLabel}</span>
+      ),
     },
   ];
 
