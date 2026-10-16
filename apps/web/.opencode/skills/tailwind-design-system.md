@@ -11,7 +11,7 @@ MCID uses [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction), the Mic
 - the Tailwind colour mapping in an `@theme inline` block,
 - the type utilities `header-xl`…`header-xs` and `paragraph-xl`…`paragraph-xs`.
 
-Re-run the command to update the theme rather than editing those blocks. `next-themes` sets the `dark` class on `<html>` from the system setting or the ThemeToggle, and every token switches with it.
+Re-run the command to update the theme rather than editing those blocks. `src/shared/lib/theme.ts` sets the `dark` class on `<html>` from the system setting or the ThemeToggle (stored in localStorage), and every token switches with it.
 
 | Token | Light | Dark | Use |
 |---|---|---|---|

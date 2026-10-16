@@ -1,6 +1,5 @@
 'use client';
 
-import { ThemeProvider } from 'next-themes';
 import { QueryProvider } from '@/providers';
 import { SessionProvider } from '@/features/auth/components/SessionProvider';
 import { McSonner } from '@/shared/components/ui/mc-sonner';
@@ -12,13 +11,11 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <QueryProvider>
-        <McTooltipProvider>
-          <SessionProvider>{children}</SessionProvider>
-        </McTooltipProvider>
-        <McSonner />
-      </QueryProvider>
-    </ThemeProvider>
+    <QueryProvider>
+      <McTooltipProvider>
+        <SessionProvider>{children}</SessionProvider>
+      </McTooltipProvider>
+      <McSonner />
+    </QueryProvider>
   );
 }

@@ -1,13 +1,11 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
 import { McButton } from '@/shared/components/ui/mc-button';
+import { useThemeChoice, type ThemeChoice } from '@/shared/lib/theme';
 import { McTooltip, McTooltipContent, McTooltipTrigger } from '@/shared/components/ui/mc-tooltip';
 
-const ORDER = ['system', 'light', 'dark'] as const;
-type ThemeChoice = (typeof ORDER)[number];
+const ORDER: readonly ThemeChoice[] = ['system', 'light', 'dark'];
 
 const LABELS: Record<ThemeChoice, string> = {
   system: 'Theme: system',
@@ -21,19 +19,9 @@ const ICONS: Record<ThemeChoice, typeof Sun> = {
   dark: Moon,
 };
 
-const subscribe = () => () => {};
-
-/** Cycles system → light → dark. The choice is stored by next-themes in localStorage. */
+/** Cycles system → light → dark; the choice is kept in localStorage (see `shared/lib/theme`). */
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
-  // The stored theme is only known on the client; render the neutral icon until then.
-  const mounted = useSyncExternalStore(
-    subscribe,
-    () => true,
-    () => false
-  );
-  const current: ThemeChoice =
-    mounted && (theme === 'light' || theme === 'dark') ? theme : 'system';
+  const [current, setTheme] = useThemeChoice();
   const next = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length] ?? 'system';
   const Icon = ICONS[current];
 

@@ -210,7 +210,7 @@ MCID uses [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction), the Mic
 
 `npx mcoli-ui@latest init primary` writes the theme into `src/shared/styles/globals.css`: a light palette under `:root`, a dark palette under `.dark`, the Tailwind colour mapping in `@theme inline`, and the `header-*` / `paragraph-*` type utilities. Re-run the command to update the theme rather than editing those blocks.
 
-The panel follows the system's light or dark setting. The theme button in the top bar (and on the landing and docs pages) switches between system, light and dark; `next-themes` stores the choice and sets the `dark` class on `<html>`.
+The panel follows the system's light or dark setting. The theme button in the top bar (and on the landing and docs pages) switches between system, light and dark; `src/shared/lib/theme.ts` stores the choice in localStorage and sets the `dark` class on `<html>`; an inline script in `app/layout.tsx` applies it before the first paint.
 
 ### Tokens
 

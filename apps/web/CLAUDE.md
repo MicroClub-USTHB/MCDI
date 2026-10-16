@@ -104,7 +104,7 @@ src/
 The panel is built on [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction) with its `primary` theme: a deep blue primary (`#0006B1` light, `#D9DDFF` dark) with purple accents, DM Sans for text and Plus Jakarta Sans for headings. mcoli-ui is a shadcn registry built on Base UI: its components are copied into `src/shared/components/ui/mc-*.tsx`, and the project owns them.
 
 - **Theme**: `npx mcoli-ui@latest init primary` writes the tokens into `src/shared/styles/globals.css`: a light palette under `:root`, a dark one under `.dark`, mapped to Tailwind colours in `@theme inline`, plus the `header-*` / `paragraph-*` type utilities. Re-run it to update the theme instead of editing those blocks by hand.
-- **Light and dark**: the panel follows the system setting; the ThemeToggle (`shared/components/common/ThemeToggle.tsx`) in the top bar overrides it. `next-themes` sets the `dark` class on `<html>`, which switches every token. Components do not need `dark:` classes to change colour.
+- **Light and dark**: the panel follows the system setting; the ThemeToggle (`shared/components/common/ThemeToggle.tsx`) in the top bar overrides it. `src/shared/lib/theme.ts` stores the choice in localStorage and sets the `dark` class on `<html>` (an inline script in `app/layout.tsx` applies it before the first paint), which switches every token. Components do not need `dark:` classes to change colour.
 - **Components**: add one with `npx mcoli-ui@latest add <name>` (`npx mcoli-ui@latest list` shows them all). App-level composites built on them live next to them: `empty-state`, `confirm-dialog` (an alert dialog), `masked-input`, `stat-card`, `data-table` (TanStack Table v9 through `mc-data-table`) and `pagination`.
 
 **Tokens**:

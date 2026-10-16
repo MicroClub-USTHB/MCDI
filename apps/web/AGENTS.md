@@ -68,7 +68,7 @@ src/
 
 1. **Next.js 16**: Check `node_modules/next/dist/docs/` before using any Next.js API.
 2. **No `tailwind.config.ts`**: Tailwind v4 uses `@theme` in CSS. Don't recreate a JS config.
-3. **Light and dark**: `next-themes` (`ThemeProvider` in `app/providers.tsx`) sets the `dark` class; the ThemeToggle lives in the top bar.
+3. **Light and dark**: `src/shared/lib/theme.ts` sets the `dark` class on `<html>` (an inline script in `app/layout.tsx` applies the stored choice before paint); the ThemeToggle lives in the top bar.
 4. **Auth singleton**: `apiClient` reads Zustand state via `getState()` — no React context needed. Never create a second instance.
 5. **Token refresh dedup**: Concurrent 401s share a single refresh promise. Don't bypass this.
 6. **Env validation**: `env.ts` throws at import time if vars are missing. Intentional.
@@ -88,7 +88,7 @@ Built on [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction) with the 
 
 - Build from the `Mc*` components; add one with `npx mcoli-ui@latest add <name>`.
 - Use token classes (`bg-card`, `text-muted-foreground`, `border-border`); never hardcode hex colours.
-- Light and dark mode both apply; tokens switch with the `dark` class set by `next-themes`, so components do not need `dark:` classes for colour.
+- Light and dark mode both apply; tokens switch with the `dark` class set by `src/shared/lib/theme.ts`, so components do not need `dark:` classes for colour.
 - Base UI uses `render`, not `asChild`; style links as buttons with `buttonVariants` on `<Link>`.
 - Use `lucide-react` for all icons
 

@@ -55,7 +55,7 @@ Use a token as a utility class: `bg-card`, `text-muted-foreground`, `border-bord
 | Sidebar | `sidebar`, `sidebar-primary`, `sidebar-accent`, `sidebar-border`, `sidebar-ring` and their `-foreground` pairs |
 | Type | `header-xl` to `header-xs` for headings, `paragraph-xl` to `paragraph-xs` for text |
 
-The panel follows the operating system's light or dark setting, and the theme button in the top bar overrides it. `next-themes` stores the choice and sets the `dark` class on `<html>`, which switches every token at once. A component never needs a `dark:` class to change colour.
+The panel follows the operating system's light or dark setting, and the theme button in the top bar overrides it. `src/shared/lib/theme.ts` keeps the choice in localStorage and sets the `dark` class on `<html>`, which switches every token at once; a small script in the root layout applies it before the first paint. A component never needs a `dark:` class to change colour.
 
 Rules that keep it consistent:
 

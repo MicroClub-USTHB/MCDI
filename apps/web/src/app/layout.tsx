@@ -3,6 +3,7 @@ import { DM_Sans, JetBrains_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 import '@/shared/styles/globals.css';
 import { Providers } from '@/app/providers';
 import { env } from '@/shared/lib/env';
+import { THEME_INIT_SCRIPT } from '@/shared/lib/theme';
 import { cn } from '@/shared/lib/utils';
 
 const dmSans = DM_Sans({
@@ -38,12 +39,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // next-themes sets the `dark` class on <html> before React hydrates.
+    // The init script sets the `dark` class before the first paint, so <html> may differ from the server's.
     <html
       lang="en"
       suppressHydrationWarning
       className={cn(dmSans.variable, plusJakartaSans.variable, jetbrainsMono.variable)}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
       </body>
