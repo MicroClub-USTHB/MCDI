@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 
 import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { useCan } from '@/shared/lib/use-access';
 import type { ServerListItemDto } from '@/features/servers/types';
@@ -17,7 +17,7 @@ type ServerAction = 'disable' | 'enable' | 'delete';
 interface ServerTableProps {
   /** The full filtered dataset — NOT pre-sliced to a page (see DataTable's `pagination` prop). */
   servers: ServerListItemDto[];
-  columns?: ColumnDef<ServerListItemDto>[];
+  columns?: DataTableColumn<ServerListItemDto>[];
   isLoading?: boolean;
   onAction: (action: ServerAction, server: ServerListItemDto) => void;
   onRowClick?: (server: ServerListItemDto) => void;
@@ -38,8 +38,8 @@ function formatLastSync(value: string | null): string {
 function buildDefaultColumns(
   onAction: (action: ServerAction, server: ServerListItemDto) => void,
   access: { canWrite: boolean; canManage: boolean }
-): ColumnDef<ServerListItemDto>[] {
-  const columns: ColumnDef<ServerListItemDto>[] = [
+): DataTableColumn<ServerListItemDto>[] {
+  const columns: DataTableColumn<ServerListItemDto>[] = [
     {
       accessorKey: 'name',
       header: 'Server',

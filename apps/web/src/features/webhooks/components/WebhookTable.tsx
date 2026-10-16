@@ -1,10 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 
 import type { WebhookView } from '@/features/webhooks/api/mappers';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { cn } from '@/shared/lib/utils';
 
 interface WebhookTableProps {
@@ -22,7 +21,7 @@ export function WebhookTable({
   isLoading,
   emptyState,
 }: WebhookTableProps) {
-  const columns: ColumnDef<WebhookView>[] = [
+  const columns: DataTableColumn<WebhookView>[] = [
     {
       accessorKey: 'name',
       header: 'Name',

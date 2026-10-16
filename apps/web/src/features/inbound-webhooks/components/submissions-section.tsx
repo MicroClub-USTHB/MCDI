@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { AlertCircle, Download, Inbox, X } from 'lucide-react';
 
 import {
@@ -20,7 +19,7 @@ import { ColumnsMenu } from '@/features/inbound-webhooks/components/columns-menu
 import { SubmissionDialog } from '@/features/inbound-webhooks/components/submission-dialog';
 import type { SubmissionDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
@@ -92,7 +91,7 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
     offset: pageIndex * PAGE_SIZE,
   });
 
-  const columns = useMemo<ColumnDef<SubmissionDto>[]>(
+  const columns = useMemo<DataTableColumn<SubmissionDto>[]>(
     () => [
       {
         id: 'receivedAt',
@@ -108,7 +107,7 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
           </button>
         ),
       },
-      ...selected.map<ColumnDef<SubmissionDto>>((path) => ({
+      ...selected.map<DataTableColumn<SubmissionDto>>((path) => ({
         id: path,
         header: path,
         enableSorting: false,

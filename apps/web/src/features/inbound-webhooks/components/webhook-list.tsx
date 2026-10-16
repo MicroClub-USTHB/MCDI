@@ -2,12 +2,11 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import type { ColumnDef } from '@tanstack/react-table';
 
 import type { InboundWebhookView } from '@/features/inbound-webhooks/api/mappers';
 import { useAllowedRolesQuery } from '@/features/inbound-webhooks/api/queries';
 import { Badge } from '@/shared/components/ui/badge';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 
 function Readers({ webhookId }: { webhookId: string }) {
   const roles = useAllowedRolesQuery(webhookId);
@@ -19,7 +18,7 @@ function Readers({ webhookId }: { webhookId: string }) {
 }
 
 // Defined once: the table treats a new cell function as a new component and would remount every cell.
-const columns: ColumnDef<InboundWebhookView>[] = [
+const columns: DataTableColumn<InboundWebhookView>[] = [
   {
     accessorKey: 'name',
     header: 'Name',

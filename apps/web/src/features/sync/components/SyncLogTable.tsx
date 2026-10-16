@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo, type ReactNode } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { Badge } from '@/shared/components/ui/badge';
 import type { SyncLogEntry } from '@/features/sync/api/mappers';
@@ -33,7 +32,7 @@ export function SyncLogTable({
   onPageChange,
   emptyState,
 }: SyncLogTableProps) {
-  const columns = useMemo<ColumnDef<SyncLogEntry>[]>(
+  const columns = useMemo<DataTableColumn<SyncLogEntry>[]>(
     () => [
       {
         id: 'startedAt',

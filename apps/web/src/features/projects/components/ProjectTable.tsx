@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 
 import type { ProjectView } from '@/features/projects/api/mappers';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { Switch } from '@/shared/components/ui/switch';
 import { useCan } from '@/shared/lib/use-access';
@@ -16,7 +16,7 @@ type ProjectAction = 'deactivate' | 'reactivate' | 'delete';
 interface ProjectTableProps {
   /** The full filtered dataset — NOT pre-sliced to a page (see DataTable's `pagination` prop). */
   projects: ProjectView[];
-  columns?: ColumnDef<ProjectView>[];
+  columns?: DataTableColumn<ProjectView>[];
   isLoading?: boolean;
   onAction: (action: ProjectAction, project: ProjectView) => void;
   onRowClick?: (project: ProjectView) => void;
@@ -35,8 +35,8 @@ interface ColumnAccess {
 function buildDefaultColumns(
   onAction: (action: ProjectAction, project: ProjectView) => void,
   access: ColumnAccess
-): ColumnDef<ProjectView>[] {
-  const columns: ColumnDef<ProjectView>[] = [
+): DataTableColumn<ProjectView>[] {
+  const columns: DataTableColumn<ProjectView>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
