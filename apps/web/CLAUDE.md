@@ -123,7 +123,7 @@ The panel is built on [mcoli-ui](https://mcoli-ui.microclub.info/docs/introducti
 
 - Build screens from the `Mc*` components in `src/shared/components/ui` before writing your own markup.
 - Use token utilities (`bg-card`, `text-muted-foreground`, `border-border`); never hardcode hex colours.
-- Base UI composes with a `render` prop, not `asChild`. A link styled as a button is `<Link className={buttonVariants({ variant, size })}>`, not `McButton render={<Link />}` (that would give the link `role="button"`).
+- Base UI composes with a `render` prop, not `asChild`. A link styled as a button is `<Link className={buttonVariants({ variant, size })}>`, not `McButton render={<Link />}` (that would give the link `role="button"`). Import `buttonVariants` from `mc-button-variants`: `mc-button` is a client module, so a server component cannot call it from there.
 - `McSelect` needs an `items` list (`{ value, label }`) so the trigger shows the label; `McInput`/`McTextarea` put `className` on their wrapper and take `label`, `description` and `error` props.
 - Use `cn()` for conditional/merged classes.
 - Icons: use `lucide-react` exclusively.

@@ -3,7 +3,7 @@ import { Fingerprint } from 'lucide-react';
 
 import { LANDING } from '@/features/landing/content';
 import { ThemeToggle } from '@/shared/components/common/ThemeToggle';
-import { buttonVariants } from '@/shared/components/ui/mc-button';
+import { buttonVariants } from '@/shared/components/ui/mc-button-variants';
 
 export function LandingNav() {
   return (

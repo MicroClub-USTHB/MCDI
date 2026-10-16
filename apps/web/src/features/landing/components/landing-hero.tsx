@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
 import { LANDING } from '@/features/landing/content';
-import { buttonVariants } from '@/shared/components/ui/mc-button';
+import { buttonVariants } from '@/shared/components/ui/mc-button-variants';
 import { cn } from '@/shared/lib/utils';
 
 export function LandingHero() {
