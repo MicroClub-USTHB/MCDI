@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -42,4 +43,30 @@ describe('ProjectForm server access', () => {
     expect(await screen.findByText('Server access')).toBeInTheDocument();
     expect(await screen.findByLabelText('Grant access to Micro Club')).toBeInTheDocument();
   });
+
+  it('toggles a server checkbox when its name is clicked', async () => {
+    serveServers();
+    signInAs({ permissions: { projects: 'write', servers: 'read' } });
+    render(<ProjectForm mode="create" onSubmit={vi.fn()} />, { wrapper });
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Grant access to Micro Club' });
+    expect(checkbox).not.toBeChecked();
+    await userEvent.click(screen.getByText('Micro Club'));
+    expect(checkbox).toBeChecked();
+  });
+});
+
+describe('ProjectForm switch labels', () => {
+  it.each(['Internal project', 'Inbound webhook'])(
+    'toggles the "%s" switch when its label text is clicked',
+    async (label) => {
+      signInAs({ permissions: { projects: 'write' } });
+      render(<ProjectForm mode="create" onSubmit={vi.fn()} />, { wrapper });
+
+      const toggle = screen.getByRole('switch', { name: label });
+      expect(toggle).not.toBeChecked();
+      await userEvent.click(screen.getByText(label));
+      expect(toggle).toBeChecked();
+    }
+  );
 });

@@ -2,15 +2,15 @@
 
 import { AlertTriangle } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
 import { MaskedInput } from '@/shared/components/ui/masked-input';
+import { McButton } from '@/shared/components/ui/mc-button';
+import {
+  McDialog,
+  McDialogContent,
+  McDialogDescription,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
 
 interface SigningSecretDialogProps {
   secret: string | null;
@@ -29,21 +29,17 @@ export function SigningSecretDialog({
   onDone,
 }: SigningSecretDialogProps) {
   return (
-    <Dialog open={secret !== null}>
-      <DialogContent
-        className="sm:max-w-md"
-        showCloseButton={false}
-        onEscapeKeyDown={(event) => event.preventDefault()}
-        onInteractOutside={(event) => event.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle>Signing secret</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+    // Controlled with no onOpenChange: Escape and outside clicks cannot close it, only the button.
+    <McDialog open={secret !== null} disablePointerDismissal>
+      <McDialogContent className="sm:min-h-0 sm:max-w-md" showCloseButton={false}>
+        <McDialogHeader>
+          <McDialogTitle>Signing secret</McDialogTitle>
+          <McDialogDescription>{description}</McDialogDescription>
+        </McDialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-            <p className="text-body text-warning">
+            <p className="paragraph-sm text-warning">
               This is the only time the secret is shown. Copy it now; if it is lost, rotate it.
             </p>
           </div>
@@ -52,15 +48,17 @@ export function SigningSecretDialog({
           ) : null}
           {submitUrl ? (
             <div>
-              <p className="text-overline text-text-subtle">Submit URL</p>
+              <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+                Submit URL
+              </p>
               <MaskedInput value={submitUrl} aria-label="Submit URL" />
             </div>
           ) : null}
-          <Button type="button" onClick={onDone} className="self-end">
+          <McButton type="button" onClick={onDone} className="self-end">
             I&apos;ve saved the secret
-          </Button>
+          </McButton>
         </div>
-      </DialogContent>
-    </Dialog>
+      </McDialogContent>
+    </McDialog>
   );
 }

@@ -7,8 +7,8 @@ import type {
   ProjectOperation,
   ProjectScope,
 } from '@/features/projects/types';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Switch } from '@/shared/components/ui/switch';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
 import { useCan } from '@/shared/lib/use-access';
 
 const PROJECT_SCOPES: readonly ProjectScope[] = ['read_members', 'check_permissions'];
@@ -71,20 +71,33 @@ function ServerAccessMatrix({
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full min-w-[680px] border-collapse text-left">
-        <thead className="bg-surface-raised">
+        <thead className="bg-card">
           <tr>
-            <th scope="col" className="px-4 py-3 text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Server
             </th>
-            <th scope="col" className="px-4 py-3 text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Scopes
             </th>
             {PROJECT_OPERATIONS.map((operation) => (
-              <th key={operation} scope="col" className="px-4 py-3 text-overline text-text-subtle">
+              <th
+                key={operation}
+                scope="col"
+                className="px-4 py-3 paragraph-xs font-semibold tracking-wide text-muted-foreground"
+              >
                 {OPERATION_LABELS[operation]}
               </th>
             ))}
-            <th scope="col" className="px-4 py-3 text-right text-overline text-text-subtle">
+            <th
+              scope="col"
+              className="px-4 py-3 text-right paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            >
               Access
             </th>
           </tr>
@@ -126,33 +139,37 @@ function ServerAccessMatrix({
             return (
               <tr
                 key={server.id}
-                className="border-b border-border transition-colors last:border-b-0 hover:bg-surface-hover"
+                className="border-b border-border transition-colors last:border-b-0 hover:bg-muted"
               >
-                <td className="px-4 py-3 text-body text-text-normal">{server.name}</td>
+                <td className="px-4 py-3 paragraph-sm text-foreground">{server.name}</td>
                 <td className="px-4 py-3">
                   {granted ? (
                     <div className="flex flex-col gap-1.5">
                       {PROJECT_SCOPES.map((scope) => (
-                        <label key={scope} className="flex cursor-pointer items-center gap-2">
-                          <Checkbox
+                        <div key={scope} className="flex items-center gap-2">
+                          <McCheckbox
+                            id={`access-${server.id}-${scope}`}
                             checked={scopes.includes(scope)}
                             disabled={isMutating || !canWrite}
                             onCheckedChange={() => toggleScope(scope)}
                             aria-label={`${SCOPE_LABELS[scope]} on ${server.name}`}
                           />
-                          <span className="text-overline text-text-subtle">
+                          <label
+                            htmlFor={`access-${server.id}-${scope}`}
+                            className="cursor-pointer paragraph-xs text-muted-foreground"
+                          >
                             {SCOPE_LABELS[scope]}
-                          </span>
-                        </label>
+                          </label>
+                        </div>
                       ))}
                     </div>
                   ) : (
-                    <span className="text-overline text-text-faint">No access</span>
+                    <span className="paragraph-xs text-muted-foreground">No access</span>
                   )}
                 </td>
                 {PROJECT_OPERATIONS.map((operation) => (
                   <td key={operation} className="px-4 py-3">
-                    <Checkbox
+                    <McCheckbox
                       checked={granted ? (operations?.[operation] ?? false) : false}
                       disabled={isMutating || !canWrite || !granted}
                       onCheckedChange={() => toggleOperation(operation)}
@@ -162,7 +179,7 @@ function ServerAccessMatrix({
                 ))}
                 <td className="px-4 py-3 text-right">
                   {(granted ? canManage : canWrite) && (
-                    <Switch
+                    <McSwitch
                       checked={granted}
                       disabled={isMutating || !server.isActive}
                       onCheckedChange={toggleGrant}

@@ -101,55 +101,123 @@ export function extractState(discordUrl: string): string {
   return state;
 }
 
+/**
+ * The page the browser shows after the Discord login. It uses the colours and
+ * type of the mcoli-ui "primary" theme (the Micro Club design system the admin
+ * panel uses), light or dark to match the system setting. Fonts are not
+ * fetched: the page names DM Sans and Plus Jakarta Sans and falls back to the
+ * system font, so nothing leaves this machine.
+ */
 const page = (title: string, body: string, variant: 'success' | 'error' = 'success') => {
-  const accent = variant === 'success' ? '#22c55e' : '#f87171';
   const icon =
     variant === 'success'
-      ? '<path d="M5 13l4 4L19 7" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
-      : '<path d="M6 6l12 12M18 6L6 18" stroke="#f87171" stroke-width="2" stroke-linecap="round" fill="none"/>';
+      ? '<path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+      : '<path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>';
   return `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mcid-cli</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --background: #ffffff;
+    --foreground: #000350;
+    --card: #ffffff;
+    --border: #e6e9ff;
+    --muted-foreground: #54588b;
+    --primary: #0006b1;
+    --primary-foreground: #ffffff;
+    --secondary: #e6e9ff;
+    --success: #22c55e;
+    --error: #e7000b;
+    --shadow: 0 4px 12px -4px hsl(0 0% 0% / 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #0a0a0a;
+      --foreground: #fafafa;
+      --card: #171717;
+      --border: #262626;
+      --muted-foreground: #a1a1a1;
+      --primary: #d9ddff;
+      --primary-foreground: #000350;
+      --secondary: #262626;
+      --shadow: 0 4px 12px -4px hsl(0 0% 0% / 0.4);
+    }
+  }
   body {
     margin: 0;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0b0f14;
-    color: #e5e7eb;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   .card {
+    width: 100%;
+    max-width: 24rem;
+    box-sizing: border-box;
     text-align: center;
-    padding: 2.5rem 3rem;
-    border-radius: 12px;
-    background: #111823;
-    border: 1px solid #1f2a37;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    padding: 2rem;
+    border-radius: 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+  .mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
   }
   .icon {
-    width: 48px;
-    height: 48px;
+    width: 3rem;
+    height: 3rem;
     margin: 0 auto 1rem;
-    border-radius: 50%;
+    border-radius: 9999px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: ${accent}1a;
-    border: 1px solid ${accent}55;
+    color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
   }
-  h1 { margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600; }
-  p { margin: 0; color: #9ca3af; font-size: 0.95rem; }
+  .icon.success { --accent: var(--success); }
+  .icon.error { --accent: var(--error); }
+  h1 {
+    margin: 0 0 0.5rem;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+  }
+  p { margin: 0; color: var(--muted-foreground); font-size: 0.875rem; line-height: 1.25rem; }
 </style>
-<div class="card">
-  <div class="icon"><svg width="24" height="24" viewBox="0 0 24 24">${icon}</svg></div>
+<main class="card">
+  <div class="brand"><span class="mark" aria-hidden="true">MC</span>mcid-cli</div>
+  <div class="icon ${variant}"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></div>
   <h1>${title}</h1>
   <p>${body}</p>
-</div>`;
+</main>`;
 };
 
 interface CallbackListener {

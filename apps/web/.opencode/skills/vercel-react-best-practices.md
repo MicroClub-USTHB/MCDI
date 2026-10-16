@@ -131,4 +131,4 @@ function Parent() {
 2. **React Query for all API data** — never use raw `fetch` in client components; use the `apiClient` singleton
 3. **Zustand for client-only state** — auth, sidebar, UI preferences
 4. **Dynamic imports for feature pages** — lazy load heavy dashboard features
-5. **No barrel imports from large packages** — import specific Radix components directly
+5. **No barrel imports from large packages** — import specific Base UI components directly (`@base-ui/react/dialog`)

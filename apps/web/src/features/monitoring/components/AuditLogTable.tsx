@@ -1,7 +1,7 @@
 import { AlertCircle } from 'lucide-react';
 
 import type { AuditLog } from '@/features/monitoring/types';
-import { Badge } from '@/shared/components/ui/badge';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import { DataTable } from '@/shared/components/ui/data-table';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Pagination } from '@/shared/components/ui/pagination';
@@ -65,11 +65,16 @@ function AuditLogTable({
             id: 'severity',
             header: 'Severity',
             cell: ({ row }) => (
-              <Badge
-                variant={row.original.severity === 'info' ? 'secondary' : row.original.severity}
+              <McBadge
+                variant={row.original.severity === 'error' ? 'destructive' : 'outline'}
+                className={
+                  row.original.severity === 'warning'
+                    ? 'border-warning/30 bg-warning/10 text-warning'
+                    : undefined
+                }
               >
                 {row.original.severity}
-              </Badge>
+              </McBadge>
             ),
           },
         ]}

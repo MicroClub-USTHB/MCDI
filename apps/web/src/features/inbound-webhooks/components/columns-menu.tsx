@@ -1,11 +1,11 @@
 'use client';
 
-import { Popover } from 'radix-ui';
 import { Columns3 } from 'lucide-react';
 
 import type { SubmissionColumn } from '@/features/inbound-webhooks/api/submission-columns';
-import { Button } from '@/shared/components/ui/button';
-import { Checkbox } from '@/shared/components/ui/checkbox';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
+import { McPopover, McPopoverContent, McPopoverTrigger } from '@/shared/components/ui/mc-popover';
 
 interface ColumnsMenuProps {
   available: SubmissionColumn[];
@@ -24,43 +24,42 @@ export function ColumnsMenu({ available, selected, onChange, onReset }: ColumnsM
   }
 
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <Button type="button" variant="secondary" size="sm">
-          <Columns3 aria-hidden="true" />
-          Columns
-        </Button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="end"
-          sideOffset={6}
-          className="z-50 flex max-h-80 w-72 flex-col gap-1 overflow-y-auto rounded-md border border-border bg-surface-elevated p-2 shadow-divider"
-        >
-          {available.length === 0 ? (
-            <p className="px-2 py-1 text-body text-text-subtle">This schema has no fields.</p>
-          ) : (
-            available.map((column) => (
-              <label
-                key={column.path}
-                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-surface-hover"
-              >
-                <Checkbox
-                  checked={selected.includes(column.path)}
-                  onCheckedChange={() => toggle(column.path)}
-                  aria-label={column.path}
-                />
-                <span className="font-mono text-code break-all text-text-normal">
-                  {column.path}
-                </span>
-              </label>
-            ))
-          )}
-          <Button type="button" variant="ghost" size="sm" className="mt-1" onClick={onReset}>
-            Show the first three
-          </Button>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <McPopover>
+      <McPopoverTrigger
+        render={
+          <McButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            icon="leading"
+            iconDefinition={<Columns3 aria-hidden="true" />}
+          />
+        }
+      >
+        Columns
+      </McPopoverTrigger>
+      <McPopoverContent
+        align="end"
+        sideOffset={6}
+        className="max-h-80 w-72 gap-1 border border-border p-2"
+      >
+        {available.length === 0 ? (
+          <p className="px-2 py-1 paragraph-sm text-muted-foreground">This schema has no fields.</p>
+        ) : (
+          available.map((column) => (
+            <McCheckbox
+              key={column.path}
+              checked={selected.includes(column.path)}
+              onCheckedChange={() => toggle(column.path)}
+              text={column.path}
+              className="w-full gap-3 rounded-md px-2 py-1.5 hover:bg-muted [&>span]:min-w-0 [&_span_span]:font-mono [&_span_span]:text-xs [&_span_span]:break-all"
+            />
+          ))
+        )}
+        <McButton type="button" variant="tertiary" size="sm" className="mt-1" onClick={onReset}>
+          Show the first three
+        </McButton>
+      </McPopoverContent>
+    </McPopover>
   );
 }

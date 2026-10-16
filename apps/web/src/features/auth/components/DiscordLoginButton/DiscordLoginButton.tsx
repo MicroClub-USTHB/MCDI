@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/components/ui/button';
+import { buttonVariants } from '@/shared/components/ui/mc-button';
 import { getDiscordOAuthUrl, rememberPostLoginRedirect } from '@/features/auth/api/service';
 
 type DiscordLoginButtonSize = 'sm' | 'md' | 'lg';
@@ -37,39 +37,39 @@ export function DiscordLoginButton({
   className,
 }: DiscordLoginButtonProps) {
   return (
-    <Button
-      asChild
-      variant={VARIANT_MAP[variant]}
-      size={size}
-      className={cn(isLoading && 'pointer-events-none opacity-70', className)}
+    // A real link styled as an McButton: the OAuth redirect is a navigation, not an action.
+    <a
+      className={cn(
+        buttonVariants({ variant: VARIANT_MAP[variant], size }),
+        'gap-2',
+        isLoading && 'pointer-events-none opacity-70',
+        className
+      )}
+      href={getDiscordOAuthUrl()}
+      aria-disabled={isLoading}
+      aria-busy={isLoading}
+      // `aria-disabled` on an <a> only advertises the state to assistive
+      // tech and `pointer-events-none` only blocks the mouse — neither
+      // stops a keyboard Enter/Space activation, so guard the navigation
+      // itself while loading.
+      //
+      // The destination is stashed here rather than put on the href: the
+      // backend accepts no `redirect` parameter, so it has to survive the
+      // OAuth round trip client-side.
+      onClick={(event) => {
+        if (isLoading) {
+          event.preventDefault();
+          return;
+        }
+        rememberPostLoginRedirect(redirectPath);
+      }}
     >
-      <a
-        href={getDiscordOAuthUrl()}
-        aria-disabled={isLoading}
-        aria-busy={isLoading}
-        // `aria-disabled` on an <a> only advertises the state to assistive
-        // tech and `pointer-events-none` only blocks the mouse — neither
-        // stops a keyboard Enter/Space activation, so guard the navigation
-        // itself while loading.
-        //
-        // The destination is stashed here rather than put on the href: the
-        // backend accepts no `redirect` parameter, so it has to survive the
-        // OAuth round trip client-side.
-        onClick={(event) => {
-          if (isLoading) {
-            event.preventDefault();
-            return;
-          }
-          rememberPostLoginRedirect(redirectPath);
-        }}
-      >
-        {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        ) : (
-          <DiscordMark className="h-4 w-4" />
-        )}
-        <span>{isLoading ? 'Connecting to Discord…' : 'Login with Discord'}</span>
-      </a>
-    </Button>
+      {isLoading ? (
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+      ) : (
+        <DiscordMark className="h-4 w-4" />
+      )}
+      <span>{isLoading ? 'Connecting to Discord…' : 'Login with Discord'}</span>
+    </a>
   );
 }

@@ -19,7 +19,7 @@ interface Table {
   rows: string[][];
 }
 
-const CODE = 'rounded-sm bg-surface-active px-1.5 py-0.5 font-mono text-code text-text-primary';
+const CODE = 'rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground';
 
 const properties = (list: InboundSchemaProperty[]): Table => ({
   head: ['Property', 'Meaning'],

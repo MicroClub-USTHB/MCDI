@@ -2,23 +2,22 @@ import * as React from 'react';
 import { RotateCw, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 
 /**
- * MCID V2 stat tile — overline label, value, and a trend/status line under a
- * colored top accent bar. Not a shadcn primitive; composed directly from
- * tokens rather than `Card` since the accent bar needs to sit flush against
- * the card's top edge, outside `Card`'s padded layout.
+ * KPI tile: label, value, and a trend/status line under a coloured top accent
+ * bar, on the mcoli-ui card surface. Composed from tokens rather than McCard
+ * because the accent bar sits flush against the card's top edge, outside the
+ * card's padding.
  *
- * `size="compact"` drops the value to `text-heading` and puts trend + status
- * on one wrapping row, so a 4-up KPI grid stays dense instead of leaving each
- * tile mostly whitespace.
+ * `size="compact"` uses a smaller value and puts trend + status on one
+ * wrapping row, so a 4-up KPI grid stays dense.
  */
-type StatCardAccent = 'brand' | 'success' | 'error' | 'warning';
+type StatCardAccent = 'primary' | 'success' | 'error' | 'warning';
 type StatCardSize = 'default' | 'compact';
 
 const accentBarClass: Record<StatCardAccent, string> = {
-  brand: 'bg-brand',
+  primary: 'bg-primary',
   success: 'bg-success',
   error: 'bg-error',
   warning: 'bg-warning',
@@ -68,7 +67,7 @@ function Sparkline({ points }: { points: number[] }) {
 
   return (
     <svg
-      className="h-full w-full text-brand"
+      className="h-full w-full text-primary"
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
       aria-hidden="true"
@@ -89,7 +88,7 @@ function Sparkline({ points }: { points: number[] }) {
 function StatCard({
   label,
   value,
-  accent = 'brand',
+  accent = 'primary',
   size = 'default',
   trend,
   status,
@@ -103,13 +102,23 @@ function StatCard({
   return (
     <div
       data-slot="stat-card"
-      className={cn('overflow-hidden rounded-lg border border-border bg-surface-raised', className)}
+      className={cn(
+        'overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xs',
+        className
+      )}
       {...props}
     >
       <div className={cn('h-1', accentBarClass[accent])} aria-hidden="true" />
       <div className={cn('flex flex-col p-4', compact ? 'gap-0.5' : 'gap-1')}>
-        <span className="text-overline text-text-subtle uppercase">{label}</span>
-        <span className={cn('text-text-primary', compact ? 'text-heading' : 'text-hero')}>
+        <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
+        <span
+          className={cn(
+            'text-foreground',
+            compact ? 'paragraph-md font-semibold' : 'header-xs font-bold'
+          )}
+        >
           {value}
         </span>
         {sparkline !== undefined ? (
@@ -120,7 +129,7 @@ function StatCard({
         {(trend || status) && (
           <div
             className={cn(
-              'text-body',
+              'paragraph-sm',
               compact
                 ? 'mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5'
                 : 'flex flex-col gap-1'
@@ -136,7 +145,7 @@ function StatCard({
               </span>
             )}
             {status && (
-              <span className="inline-flex items-center gap-1 text-text-muted">
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
                 <span
                   className={cn('size-2 rounded-full', accentBarClass[status.tone])}
                   aria-hidden="true"
@@ -171,16 +180,19 @@ function StatCardSkeleton({
     <div
       role="status"
       aria-busy="true"
-      className={cn('overflow-hidden rounded-lg border border-border bg-surface-raised', className)}
+      className={cn(
+        'overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xs',
+        className
+      )}
       {...props}
     >
       <span className="sr-only">Loading {label}…</span>
-      <Skeleton className="h-1 rounded-none" />
+      <McSkeleton rectangle className="h-1 rounded-none" />
       <div className="flex flex-col gap-1 p-4" aria-hidden="true">
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-7 w-20" />
-        {sparkline && <Skeleton className="h-5 w-full" />}
-        {rows === 3 && <Skeleton className="h-4 w-24" />}
+        <McSkeleton rectangle className="h-3 w-16" />
+        <McSkeleton rectangle className="h-7 w-20" />
+        {sparkline && <McSkeleton rectangle className="h-5 w-full" />}
+        {rows === 3 && <McSkeleton rectangle className="h-4 w-24" />}
       </div>
     </div>
   );
@@ -194,17 +206,22 @@ interface StatCardErrorProps extends React.ComponentProps<'div'> {
 function StatCardError({ label, onRetry, className, ...props }: StatCardErrorProps) {
   return (
     <div
-      className={cn('overflow-hidden rounded-lg border border-border bg-surface-raised', className)}
+      className={cn(
+        'overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xs',
+        className
+      )}
       {...props}
     >
       <div className="h-1 bg-error" aria-hidden="true" />
       <div className="flex flex-col gap-1 p-4">
-        <span className="text-overline text-text-subtle uppercase">{label}</span>
-        <span className="text-body text-error">Failed to load</span>
+        <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}
+        </span>
+        <span className="paragraph-sm text-error">Failed to load</span>
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex w-fit items-center gap-1 text-body text-error hover:underline focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-raised focus-visible:outline-none"
+          className="inline-flex w-fit items-center gap-1 paragraph-sm text-error hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card focus-visible:outline-none"
         >
           <RotateCw className="size-4" aria-hidden="true" />
           Retry

@@ -58,9 +58,9 @@ A valid key proves who you are. It grants nothing on its own. An admin gives a p
 
 - **Scopes**, which kinds of member data it may read:
 
-| Scope               | Used by                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------- |
-| `read_members`      | The member endpoints under `/api/servers/{serverId}/members`.                             |
+| Scope               | Used by                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `read_members`      | The member endpoints under `/api/servers/{serverId}/members`.                                                            |
 | `check_permissions` | The permission endpoints under `/api/permissions`: `POST /check`, `POST /check-batch` and `GET /{serverId}/{discordId}`. |
 
 When an admin grants access without choosing scopes, the project gets all of them.

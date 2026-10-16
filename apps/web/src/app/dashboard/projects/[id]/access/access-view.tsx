@@ -45,17 +45,17 @@ export function ProjectAccessView({ projectId }: { projectId: string }) {
   return (
     <div className="flex flex-col gap-6">
       <header>
-        <h1 className="text-hero">Server access</h1>
+        <h1 className="header-xs font-bold text-foreground">Server access</h1>
         {projectQuery.data && (
-          <p className="mt-1 text-body text-text-muted">{projectQuery.data.name}</p>
+          <p className="mt-1 paragraph-sm text-muted-foreground">{projectQuery.data.name}</p>
         )}
       </header>
 
       <section
         aria-label="Server access by server"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
+        className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5"
       >
-        <p className="text-overline text-text-subtle">
+        <p className="paragraph-xs text-muted-foreground">
           Grant or revoke access per server and tune which operations and scopes are allowed.
         </p>
         <ServerAccessMatrix
@@ -69,13 +69,13 @@ export function ProjectAccessView({ projectId }: { projectId: string }) {
 
       <section
         aria-labelledby="audit-heading"
-        className="flex flex-col gap-4 rounded-lg border border-border bg-surface-raised p-5"
+        className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5"
       >
         <div className="flex flex-col gap-1">
-          <h2 id="audit-heading" className="text-heading">
+          <h2 id="audit-heading" className="paragraph-md font-semibold text-foreground">
             Access audit log
           </h2>
-          <p className="text-overline text-text-subtle">
+          <p className="paragraph-xs text-muted-foreground">
             Every grant, update, and revocation for this project.
           </p>
         </div>

@@ -1,3 +1,4 @@
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import { cn } from '@/shared/lib/utils';
 import type { ServerType } from '@/features/servers/types';
 
@@ -6,26 +7,27 @@ interface ServerTypeBadgeProps {
   className?: string;
 }
 
-const TYPE_CONFIG: Record<ServerType, { label: string; classes: string }> = {
-  main: { label: 'Main', classes: 'bg-brand/15 text-brand-light' },
-  competition: { label: 'Competition', classes: 'bg-success/12 text-success' },
-  event: { label: 'Event', classes: 'bg-accent/12 text-accent' },
-  other: { label: 'Other', classes: 'bg-surface-elevated text-text-muted' },
+const TYPE_CONFIG: Record<
+  ServerType,
+  { label: string; variant: 'default' | 'secondary' | 'outline'; classes?: string }
+> = {
+  main: { label: 'Main', variant: 'default' },
+  competition: {
+    label: 'Competition',
+    variant: 'outline',
+    classes: 'border-success/30 bg-success/10 text-success',
+  },
+  event: { label: 'Event', variant: 'secondary' },
+  other: { label: 'Other', variant: 'outline', classes: 'bg-muted text-muted-foreground' },
 };
 
 function ServerTypeBadge({ type, className }: ServerTypeBadgeProps) {
   const config = TYPE_CONFIG[type];
 
   return (
-    <span
-      className={cn(
-        'inline-flex w-fit items-center rounded-full px-2 py-0.5 text-overline whitespace-nowrap',
-        config.classes,
-        className
-      )}
-    >
+    <McBadge variant={config.variant} className={cn('w-fit', config.classes, className)}>
       {config.label}
-    </span>
+    </McBadge>
   );
 }
 

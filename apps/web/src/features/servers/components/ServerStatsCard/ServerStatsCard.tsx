@@ -49,7 +49,7 @@ function ServerStatsCard({ stats, isLoading }: ServerStatsCardProps) {
 
   if (!stats) {
     return (
-      <div className="rounded-lg border border-dashed border-border p-4 text-body text-text-muted">
+      <div className="rounded-lg border border-dashed border-border p-4 paragraph-sm text-muted-foreground">
         No stats available for this server yet.
       </div>
     );
@@ -57,13 +57,13 @@ function ServerStatsCard({ stats, isLoading }: ServerStatsCardProps) {
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Members" value={stats.memberCount.toLocaleString()} accent="brand" />
+      <StatCard label="Members" value={stats.memberCount.toLocaleString()} accent="primary" />
       <StatCard
         label="Active Members"
         value={stats.activeMembers.toLocaleString()}
-        accent="brand"
+        accent="primary"
       />
-      <StatCard label="Roles" value={stats.roleCount.toLocaleString()} accent="brand" />
+      <StatCard label="Roles" value={stats.roleCount.toLocaleString()} accent="primary" />
       <StatCard
         label="Sync Status"
         value={syncLabel(stats.syncStatus)}

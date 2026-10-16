@@ -1,4 +1,3 @@
-export { SearchInput } from '@/shared/components/ui/input';
 export { MemberAvatar } from './MemberAvatar';
 export { MemberFilters } from './MemberFilters';
 export { MemberTable } from './MemberTable';

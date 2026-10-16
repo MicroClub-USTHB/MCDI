@@ -136,7 +136,7 @@ describe('Roles access', () => {
     signInAs({ permissions: { servers: 'read', roles: 'read', stats: 'read' } });
     renderRoleDetail();
     const boxes = await screen.findAllByRole('checkbox');
-    expect(boxes.every((box) => box.hasAttribute('disabled'))).toBe(true);
+    expect(boxes.every((box) => box.getAttribute('aria-disabled') === 'true')).toBe(true);
   });
 
   it('lets a writer add permissions but not remove the ones already granted', async () => {
@@ -144,12 +144,12 @@ describe('Roles access', () => {
     signInAs({ permissions: { servers: 'read', roles: 'write', stats: 'read' } });
     renderRoleDetail();
     const boxes = await screen.findAllByRole('checkbox');
-    // Radix checkboxes are buttons: the state lives in aria-checked, not input.checked.
+    // Base UI checkboxes are spans: state lives in aria-checked and aria-disabled.
     const granted = boxes.filter((box) => box.getAttribute('aria-checked') === 'true');
     const free = boxes.filter((box) => box.getAttribute('aria-checked') !== 'true');
     expect(granted.length).toBeGreaterThan(0);
-    expect(granted.every((box) => box.hasAttribute('disabled'))).toBe(true);
-    expect(free.every((box) => !box.hasAttribute('disabled'))).toBe(true);
+    expect(granted.every((box) => box.getAttribute('aria-disabled') === 'true')).toBe(true);
+    expect(free.every((box) => box.getAttribute('aria-disabled') !== 'true')).toBe(true);
   });
 
   it('lets a manager toggle everything', async () => {
@@ -157,6 +157,6 @@ describe('Roles access', () => {
     signInAs({ permissions: { servers: 'read', roles: 'manage', stats: 'read' } });
     renderRoleDetail();
     const boxes = await screen.findAllByRole('checkbox');
-    expect(boxes.every((box) => !box.hasAttribute('disabled'))).toBe(true);
+    expect(boxes.every((box) => box.getAttribute('aria-disabled') !== 'true')).toBe(true);
   });
 });

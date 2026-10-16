@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 
-import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { useCan } from '@/shared/lib/use-access';
 import type { ServerListItemDto } from '@/features/servers/types';
@@ -17,7 +17,7 @@ type ServerAction = 'disable' | 'enable' | 'delete';
 interface ServerTableProps {
   /** The full filtered dataset — NOT pre-sliced to a page (see DataTable's `pagination` prop). */
   servers: ServerListItemDto[];
-  columns?: ColumnDef<ServerListItemDto>[];
+  columns?: DataTableColumn<ServerListItemDto>[];
   isLoading?: boolean;
   onAction: (action: ServerAction, server: ServerListItemDto) => void;
   onRowClick?: (server: ServerListItemDto) => void;
@@ -38,15 +38,15 @@ function formatLastSync(value: string | null): string {
 function buildDefaultColumns(
   onAction: (action: ServerAction, server: ServerListItemDto) => void,
   access: { canWrite: boolean; canManage: boolean }
-): ColumnDef<ServerListItemDto>[] {
-  const columns: ColumnDef<ServerListItemDto>[] = [
+): DataTableColumn<ServerListItemDto>[] {
+  const columns: DataTableColumn<ServerListItemDto>[] = [
     {
       accessorKey: 'name',
       header: 'Server',
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <ServerAvatar name={row.original.name} icon={row.original.icon} size="sm" />
-          <span className="font-medium text-text-primary">{row.original.name}</span>
+          <span className="font-medium text-foreground">{row.original.name}</span>
         </div>
       ),
     },
@@ -100,25 +100,25 @@ function buildDefaultColumns(
             onClick={(event) => event.stopPropagation()}
           >
             {access.canWrite ? (
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="sm"
                 onClick={() => onAction(server.isActive ? 'disable' : 'enable', server)}
               >
                 {server.isActive ? 'Disable' : 'Enable'}
-              </Button>
+              </McButton>
             ) : null}
             {access.canManage ? (
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
+                destructive
                 size="sm"
-                className="text-error hover:bg-error/12"
                 onClick={() => onAction('delete', server)}
               >
                 Delete
-              </Button>
+              </McButton>
             ) : null}
           </div>
         );

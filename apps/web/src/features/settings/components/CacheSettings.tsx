@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { Database } from 'lucide-react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import {
   cacheSettingsSchema,
@@ -72,56 +71,55 @@ function CacheSettings({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="permissionTtlMs">Permission cache TTL (ms)</Label>
-            <Input
-              id="permissionTtlMs"
-              type="number"
-              value={values.permissionTtlMs}
-              onChange={(event) => setField('permissionTtlMs', event.target.value)}
-              aria-invalid={!!errors.permissionTtlMs}
-            />
-            {errors.permissionTtlMs && (
-              <p className="text-body text-error">{errors.permissionTtlMs}</p>
-            )}
-          </div>
+          <McInput
+            id="permissionTtlMs"
+            label="Permission cache TTL (ms)"
+            type="number"
+            value={values.permissionTtlMs}
+            onChange={(event) => setField('permissionTtlMs', event.target.value)}
+            error={errors.permissionTtlMs}
+          />
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="statsTtlMs">Stats cache TTL (ms)</Label>
-            <Input
-              id="statsTtlMs"
-              type="number"
-              value={values.statsTtlMs}
-              onChange={(event) => setField('statsTtlMs', event.target.value)}
-              aria-invalid={!!errors.statsTtlMs}
-            />
-            {errors.statsTtlMs && <p className="text-body text-error">{errors.statsTtlMs}</p>}
-          </div>
+          <McInput
+            id="statsTtlMs"
+            label="Stats cache TTL (ms)"
+            type="number"
+            value={values.statsTtlMs}
+            onChange={(event) => setField('statsTtlMs', event.target.value)}
+            error={errors.statsTtlMs}
+          />
 
-          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <p className="text-overline text-text-faint uppercase">Environment-only</p>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Project auth cache TTL</span>
-              <span className="font-mono text-code text-text-normal">
+          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-3">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Environment-only
+            </p>
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Project auth cache TTL</span>
+              <span className="font-mono text-xs text-foreground">
                 {settings.projectAuthTtlMs.value.toLocaleString()} ms
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Project access cache TTL</span>
-              <span className="font-mono text-code text-text-normal">
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Project access cache TTL</span>
+              <span className="font-mono text-xs text-foreground">
                 {settings.projectAccessTtlMs.value.toLocaleString()} ms
               </span>
             </div>
           </div>
 
           {readOnly ? (
-            <Badge variant="secondary" className="self-start">
+            <McBadge variant="outline" size="md" className="self-start">
               Read only
-            </Badge>
+            </McBadge>
           ) : (
-            <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
+            <McButton
+              type="submit"
+              size="sm"
+              className="self-start"
+              disabled={isSaving || !isDirty}
+            >
               Save
-            </Button>
+            </McButton>
           )}
         </fieldset>
       </form>

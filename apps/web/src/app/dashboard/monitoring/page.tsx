@@ -26,17 +26,25 @@ import type {
   AuditLogFilters as AuditLogFilterState,
   MonitoringPeriod,
 } from '@/features/monitoring/types';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent } from '@/shared/components/ui/card';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McCard } from '@/shared/components/ui/mc-card';
+import {
+  McSelect,
+  McSelectContent,
+  McSelectItem,
+  McSelectTrigger,
+  McSelectValue,
+} from '@/shared/components/ui/mc-select';
 import { LoadingSkeleton } from '@/shared/components/common';
-import { cn } from '@/shared/lib/utils';
 
 const PERIODS: Array<{ value: MonitoringPeriod; label: string }> = [
   { value: '7d', label: '7 days' },
   { value: '30d', label: '30 days' },
   { value: '90d', label: '90 days' },
 ];
+
+const ALL_PROJECTS = 'all';
 
 const ACTOR_FILTERS: MemberFilters = {
   filter: 'all',
@@ -72,6 +80,10 @@ function MonitoringPage() {
   const canProjects = useCan('projects', 'read');
   const canMembers = useCan('members', 'read');
   const health = healthQuery.data;
+  const projectItems = [
+    { value: ALL_PROJECTS, label: 'All projects' },
+    ...(projectsQuery.data ?? []).map((project) => ({ value: project.id, label: project.name })),
+  ];
   const serviceDown = health
     ? health.discord.status === 'disconnected' ||
       health.database.status === 'disconnected' ||
@@ -87,46 +99,44 @@ function MonitoringPage() {
     <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-overline text-brand-light uppercase">Operations</p>
-          <h1 className="mt-1 text-hero text-text-primary">System Monitoring</h1>
-          <p className="mt-1 max-w-2xl text-body text-text-muted">
+          <p className="paragraph-xs font-semibold tracking-wide text-primary uppercase">
+            Operations
+          </p>
+          <h1 className="mt-1 header-xs font-bold text-foreground">System Monitoring</h1>
+          <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
             Track API usage, service health, authentication failures, and audit activity.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div
-            className="inline-flex rounded-md border border-border bg-surface-base p-0.5"
+            className="inline-flex gap-1 rounded-lg border border-border bg-background p-0.5"
             role="group"
             aria-label="Usage period"
           >
             {PERIODS.map((option) => (
-              <button
+              <McButton
                 key={option.value}
                 type="button"
+                size="sm"
+                variant={period === option.value ? 'secondary' : 'tertiary'}
                 aria-pressed={period === option.value}
                 onClick={() => setPeriod(option.value)}
-                className={cn(
-                  'rounded-sm px-3 py-1.5 text-body text-text-muted transition-colors',
-                  period === option.value
-                    ? 'bg-surface-active text-text-primary'
-                    : 'hover:bg-surface-hover hover:text-text-normal'
-                )}
               >
                 {option.label}
-              </button>
+              </McButton>
             ))}
           </div>
           {usageQuery.data ? (
-            <Badge variant="secondary">
+            <McBadge variant="secondary" size="md">
               {usageQuery.data.totalRequests.toLocaleString()} requests
-            </Badge>
+            </McBadge>
           ) : null}
         </div>
       </header>
 
       {serviceDown ? (
         <div
-          className="flex items-center gap-3 rounded-lg border border-error bg-error/12 px-4 py-3 text-body text-error"
+          className="flex items-center gap-3 rounded-lg border border-error bg-error/10 px-4 py-3 paragraph-sm text-error"
           role="alert"
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
@@ -137,13 +147,19 @@ function MonitoringPage() {
       {canMonitoring ? (
         <section aria-labelledby="health-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 id="health-heading" className="text-heading text-text-primary">
+            <h2 id="health-heading" className="paragraph-md font-semibold text-foreground">
               System health
             </h2>
             {healthQuery.isError ? (
-              <Button variant="link" size="sm" onClick={() => void healthQuery.refetch()}>
-                <RefreshCw aria-hidden="true" /> Retry
-              </Button>
+              <McButton
+                variant="link"
+                size="sm"
+                icon="leading"
+                iconDefinition={<RefreshCw aria-hidden="true" />}
+                onClick={() => void healthQuery.refetch()}
+              >
+                Retry
+              </McButton>
             ) : null}
           </div>
           {healthQuery.isPending ? (
@@ -153,11 +169,9 @@ function MonitoringPage() {
               ))}
             </div>
           ) : healthQuery.isError ? (
-            <Card>
-              <CardContent className="py-6 text-body text-error">
-                System health could not be loaded.
-              </CardContent>
-            </Card>
+            <McCard>
+              <p className="paragraph-sm text-error">System health could not be loaded.</p>
+            </McCard>
           ) : health ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <HealthIndicator
@@ -207,39 +221,49 @@ function MonitoringPage() {
       {canMonitoring ? (
         <section aria-labelledby="usage-heading" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="usage-heading" className="text-heading text-text-primary">
+            <h2 id="usage-heading" className="paragraph-md font-semibold text-foreground">
               API usage
             </h2>
             {usageQuery.isError ? (
-              <Button variant="link" size="sm" onClick={() => void usageQuery.refetch()}>
-                <RefreshCw aria-hidden="true" /> Retry
-              </Button>
+              <McButton
+                variant="link"
+                size="sm"
+                icon="leading"
+                iconDefinition={<RefreshCw aria-hidden="true" />}
+                onClick={() => void usageQuery.refetch()}
+              >
+                Retry
+              </McButton>
             ) : null}
             {canProjects ? (
-              <label className="flex items-center gap-2 text-overline text-text-muted">
-                Project
-                <select
-                  value={projectId ?? ''}
-                  onChange={(event) => setProjectId(event.target.value || undefined)}
-                  className="h-9 rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none focus-visible:border-border-focus"
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Project</span>
+                <McSelect
+                  items={projectItems}
+                  value={projectId ?? ALL_PROJECTS}
+                  onValueChange={(value) =>
+                    setProjectId(value && value !== ALL_PROJECTS ? String(value) : undefined)
+                  }
                 >
-                  <option value="">All projects</option>
-                  {projectsQuery.data?.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <McSelectTrigger aria-label="Project" size="sm" className="w-56">
+                    <McSelectValue />
+                  </McSelectTrigger>
+                  <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+                    {projectItems.map((item) => (
+                      <McSelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </McSelectItem>
+                    ))}
+                  </McSelectContent>
+                </McSelect>
+              </div>
             ) : null}
           </div>
           {usageQuery.isPending ? <LoadingSkeleton className="h-64 rounded-lg" /> : null}
           {usageQuery.isError ? (
-            <Card>
-              <CardContent className="py-6 text-body text-error">
-                API usage could not be loaded.
-              </CardContent>
-            </Card>
+            <McCard>
+              <p className="paragraph-sm text-error">API usage could not be loaded.</p>
+            </McCard>
           ) : null}
           {usageQuery.data ? (
             <div className="grid gap-3 xl:grid-cols-[1.35fr_0.85fr]">
@@ -252,15 +276,15 @@ function MonitoringPage() {
 
       {canMonitoring ? (
         <section aria-labelledby="failures-heading" className="space-y-3">
-          <h2 id="failures-heading" className="text-heading text-text-primary">
+          <h2 id="failures-heading" className="paragraph-md font-semibold text-foreground">
             Recent authentication failures
           </h2>
           {failuresQuery.isError ? (
-            <Card>
-              <CardContent className="py-6 text-body text-error">
+            <McCard>
+              <p className="paragraph-sm text-error">
                 Authentication failures could not be loaded.
-              </CardContent>
-            </Card>
+              </p>
+            </McCard>
           ) : null}
           <AuthFailureTable
             failures={failuresQuery.data?.failures ?? []}
@@ -272,14 +296,20 @@ function MonitoringPage() {
       {canAudit ? (
         <section aria-labelledby="audit-heading" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="audit-heading" className="text-heading text-text-primary">
+            <h2 id="audit-heading" className="paragraph-md font-semibold text-foreground">
               Audit logs
             </h2>
             <div className="flex items-center gap-3">
               {auditQuery.isError ? (
-                <Button variant="link" size="sm" onClick={() => void auditQuery.refetch()}>
-                  <RefreshCw aria-hidden="true" /> Retry
-                </Button>
+                <McButton
+                  variant="link"
+                  size="sm"
+                  icon="leading"
+                  iconDefinition={<RefreshCw aria-hidden="true" />}
+                  onClick={() => void auditQuery.refetch()}
+                >
+                  Retry
+                </McButton>
               ) : null}
               <ExportAuditButton filters={auditFilters} />
             </div>
@@ -291,11 +321,9 @@ function MonitoringPage() {
             showActorFilter={canMembers}
           />
           {auditQuery.isError ? (
-            <Card>
-              <CardContent className="py-6 text-body text-error">
-                Audit logs could not be loaded.
-              </CardContent>
-            </Card>
+            <McCard>
+              <p className="paragraph-sm text-error">Audit logs could not be loaded.</p>
+            </McCard>
           ) : (
             <AuditLogTable
               logs={auditQuery.data?.logs ?? []}

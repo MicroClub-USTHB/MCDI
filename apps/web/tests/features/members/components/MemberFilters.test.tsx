@@ -148,7 +148,7 @@ describe('MemberFilters', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Servers' }));
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Main Server' }));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Main Server' }));
 
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Event Server' }));
     await user.keyboard('{Escape}');

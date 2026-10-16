@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import type { ColumnDef } from '@tanstack/react-table';
 import { AlertCircle, Download, Inbox, X } from 'lucide-react';
 
 import {
@@ -19,14 +18,13 @@ import {
 import { ColumnsMenu } from '@/features/inbound-webhooks/components/columns-menu';
 import { SubmissionDialog } from '@/features/inbound-webhooks/components/submission-dialog';
 import type { SubmissionDto } from '@/features/inbound-webhooks/types';
-import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { downloadTextFile } from '@/shared/lib/download';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 
 const PAGE_SIZE = 50;
@@ -67,7 +65,6 @@ interface SubmissionsSectionProps {
 
 /** What the webhook has received, as the role-gated read API returns it. */
 export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSectionProps) {
-  const showToast = useToastStore((state) => state.show);
   const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(
     null
   );
@@ -93,28 +90,30 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
     offset: pageIndex * PAGE_SIZE,
   });
 
-  const columns = useMemo<ColumnDef<SubmissionDto>[]>(
+  const columns = useMemo<DataTableColumn<SubmissionDto>[]>(
     () => [
       {
         id: 'receivedAt',
         header: 'Received',
         enableSorting: false,
         cell: ({ row }) => (
-          <button
+          <McButton
             type="button"
+            variant="link"
+            size="sm"
             onClick={() => setOpenId(row.original.id)}
-            className="rounded-sm text-left text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus"
+            className="rounded-sm text-left font-normal no-underline hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             {formatDate(row.original.receivedAt) ?? row.original.receivedAt}
-          </button>
+          </McButton>
         ),
       },
-      ...selected.map<ColumnDef<SubmissionDto>>((path) => ({
+      ...selected.map<DataTableColumn<SubmissionDto>>((path) => ({
         id: path,
         header: path,
         enableSorting: false,
         cell: ({ row }) => (
-          <span className="font-mono text-code">
+          <span className="font-mono text-xs">
             {cellText(valueAtPath(row.original.payload, path))}
           </span>
         ),
@@ -166,67 +165,65 @@ export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSecti
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="submissions-from">From (UTC)</Label>
-            <Input
-              id="submissions-from"
-              type="date"
-              value={dateFrom}
-              onChange={(event) => changeDate(setDateFrom, event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="submissions-to">To (UTC)</Label>
-            <Input
-              id="submissions-to"
-              type="date"
-              value={dateTo}
-              onChange={(event) => changeDate(setDateTo, event.target.value)}
-            />
-          </div>
+          <McInput
+            id="submissions-from"
+            label="From (UTC)"
+            type="date"
+            value={dateFrom}
+            onChange={(event) => changeDate(setDateFrom, event.target.value)}
+          />
+          <McInput
+            id="submissions-to"
+            label="To (UTC)"
+            type="date"
+            value={dateTo}
+            onChange={(event) => changeDate(setDateTo, event.target.value)}
+          />
           {filtered ? (
-            <Button
+            <McButton
               type="button"
-              variant="ghost"
+              variant="tertiary"
               size="sm"
+              icon="leading"
+              iconDefinition={<X aria-hidden="true" />}
               onClick={() => {
                 setDateFrom('');
                 setDateTo('');
                 setPageIndex(0);
               }}
             >
-              <X aria-hidden="true" />
               Clear dates
-            </Button>
+            </McButton>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {exportProgress ? (
             <>
-              <span role="status" className="text-body text-text-muted">
+              <span role="status" className="paragraph-sm text-muted-foreground">
                 Exporting {exportProgress.done.toLocaleString()} of{' '}
                 {exportProgress.total.toLocaleString()}
               </span>
-              <Button
+              <McButton
                 type="button"
-                variant="ghost"
+                variant="tertiary"
                 size="sm"
                 onClick={() => exportController.current?.abort()}
               >
                 Cancel
-              </Button>
+              </McButton>
             </>
           ) : (
-            <Button
+            <McButton
               type="button"
               variant="secondary"
               size="sm"
+              icon="leading"
+              iconDefinition={<Download aria-hidden="true" />}
               disabled={total === 0}
               onClick={() => void exportCsv()}
             >
-              <Download aria-hidden="true" />
               Export CSV
-            </Button>
+            </McButton>
           )}
           <ColumnsMenu
             available={available}

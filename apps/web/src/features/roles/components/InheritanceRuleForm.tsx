@@ -1,26 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McCheckbox } from '@/shared/components/ui/mc-checkbox';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/shared/components/ui/dialog';
+  McDialog,
+  McDialogContent,
+  McDialogFooter,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
+import { McRadioGroup, McRadioGroupItem } from '@/shared/components/ui/mc-radio-group';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/components/ui/select';
-import { Checkbox } from '@/shared/components/ui/checkbox';
-import { Loader2 } from 'lucide-react';
+  McSelect,
+  McSelectContent,
+  McSelectItem,
+  McSelectTrigger,
+  McSelectValue,
+} from '@/shared/components/ui/mc-select';
 import type { RoleStatsView } from '@/features/roles/api/mappers';
 import type { CreateInheritanceRulePayload } from '@/features/roles/types';
 import { useServersQuery } from '@/features/servers';
+
+const LABEL_CLASS = 'text-sm font-medium text-muted-foreground';
 
 interface InheritanceRuleFormProps {
   open: boolean;
@@ -76,98 +78,86 @@ function InheritanceRuleForm({
     onOpenChange(false);
   }
 
+  const roleItems = roles.map((role) => ({ value: role.roleId, label: role.displayName }));
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="bg-surface-raised sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-text-primary">Create Inheritance Rule</DialogTitle>
-        </DialogHeader>
+    <McDialog open={open} onOpenChange={handleClose}>
+      <McDialogContent className="sm:min-h-0 sm:max-w-md">
+        <McDialogHeader>
+          <McDialogTitle>Create Inheritance Rule</McDialogTitle>
+        </McDialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-text-subtle">
+            <label htmlFor="inheritance-source-role" className={LABEL_CLASS}>
               Source Role (Main Server)
             </label>
-            <Select value={sourceRoleId} onValueChange={setSourceRoleId}>
-              <SelectTrigger className="bg-surface-base">
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {roles.map((role) => (
-                  <SelectItem key={role.roleId} value={role.roleId}>
-                    {role.displayName}
-                  </SelectItem>
+            <McSelect
+              items={roleItems}
+              value={sourceRoleId || null}
+              onValueChange={(value) => setSourceRoleId(value ?? '')}
+            >
+              <McSelectTrigger id="inheritance-source-role" className="w-full">
+                <McSelectValue placeholder="Select a role" />
+              </McSelectTrigger>
+              <McSelectContent className="h-auto max-h-80 w-(--anchor-width)">
+                {roleItems.map((item) => (
+                  <McSelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </McSelectItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </McSelectContent>
+            </McSelect>
           </div>
 
           <fieldset className="flex flex-col gap-1.5">
-            <legend className="text-xs font-medium text-text-subtle">Target Scope</legend>
-            <div className="flex gap-4">
-              {(['all', 'selected'] as const).map((scope) => (
-                <label key={scope} className="flex items-center gap-2 text-sm text-text-normal">
-                  <input
-                    type="radio"
-                    name="targetScope"
-                    value={scope}
-                    checked={targetScope === scope}
-                    onChange={() => setTargetScope(scope)}
-                    className="size-4 accent-brand"
-                  />
-                  {scope === 'all' ? 'All Servers' : 'Selected Servers'}
-                </label>
-              ))}
-            </div>
+            <legend className={LABEL_CLASS}>Target Scope</legend>
+            <McRadioGroup
+              value={targetScope}
+              onValueChange={(value) => setTargetScope(value === 'selected' ? 'selected' : 'all')}
+              className="flex gap-4"
+            >
+              <McRadioGroupItem value="all" text="All Servers" />
+              <McRadioGroupItem value="selected" text="Selected Servers" />
+            </McRadioGroup>
           </fieldset>
 
           {targetScope === 'selected' && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-text-subtle">Target Servers</label>
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className={LABEL_CLASS}>Target Servers</legend>
               <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
                 {servers
                   .filter((s) => s.isActive)
                   .map((server) => (
-                    <label
+                    <McCheckbox
                       key={server.id}
-                      className="flex items-center gap-2 text-sm text-text-normal"
-                    >
-                      <Checkbox
-                        checked={selectedServerIds.has(server.id)}
-                        onCheckedChange={() => handleToggleServer(server.id)}
-                      />
-                      {server.name}
-                    </label>
+                      text={server.name}
+                      checked={selectedServerIds.has(server.id)}
+                      onCheckedChange={() => handleToggleServer(server.id)}
+                    />
                   ))}
               </div>
-            </div>
+            </fieldset>
           )}
 
-          <label className="flex items-center gap-2 text-sm text-text-normal">
-            <Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(v === true)} />
-            Enabled
-          </label>
+          <McCheckbox text="Enabled" checked={enabled} onCheckedChange={setEnabled} />
         </div>
 
-        <DialogFooter>
-          <Button type="button" variant="secondary" onClick={handleClose} disabled={isSaving}>
+        <McDialogFooter className="pb-0">
+          <McButton type="button" variant="secondary" onClick={handleClose} disabled={isSaving}>
             Cancel
-          </Button>
-          <Button
+          </McButton>
+          <McButton
             type="button"
             onClick={handleSave}
-            disabled={
-              !sourceRoleId ||
-              isSaving ||
-              (targetScope === 'selected' && selectedServerIds.size === 0)
-            }
+            isLoading={isSaving}
+            disabled={!sourceRoleId || (targetScope === 'selected' && selectedServerIds.size === 0)}
           >
-            {isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
             Save Rule
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </McButton>
+        </McDialogFooter>
+      </McDialogContent>
+    </McDialog>
   );
 }
 

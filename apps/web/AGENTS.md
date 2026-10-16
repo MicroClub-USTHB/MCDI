@@ -12,7 +12,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 1. Project Overview & Tech Stack
 
-**MCID** (Micro Club Identity) is a full-stack admin platform for managing Micro Club's Discord infrastructure. This repo is the **frontend SPA** — a Next.js 16 app with a Discord-inspired dark-only design system.
+**MCID** (Micro Club Identity) is a full-stack admin platform for managing Micro Club's Discord infrastructure. This repo is the **frontend SPA**: a Next.js 16 app built with mcoli-ui, the Micro Club design system, in light and dark mode.
 
 | Layer | Stack |
 |---|---|
@@ -21,7 +21,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Styling | Tailwind CSS v4 (CSS-based `@theme`, no JS config) |
 | Server State | TanStack React Query v5 |
 | Client State | Zustand v5 (persist middleware) |
-| UI Primitives | Radix UI |
+| UI Components | mcoli-ui (shadcn registry on Base UI) |
 | Icons | Lucide React |
 | Validation | Zod v4 |
 | Testing | Vitest + RTL + MSW |
@@ -34,9 +34,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ```
 src/
 ├── app/                          # Next.js App Router
-│   ├── layout.tsx                # Root: DM Sans + JetBrains Mono
+│   ├── layout.tsx                # Root: DM Sans, Plus Jakarta Sans, JetBrains Mono
 │   ├── page.tsx                  # Landing
-│   ├── providers.tsx             # QueryProvider wrapper
+│   ├── providers.tsx             # Theme, query, tooltip and toast providers
 │   └── (dashboard)/              # Auth-guarded route group
 ├── features/                     # Feature-sliced modules (self-contained)
 │   ├── auth/                     # Has stores/ and api/
@@ -46,7 +46,7 @@ src/
 ├── shared/                       # Cross-cutting
 │   ├── components/common/        # ErrorBoundary, LoadingSkeleton
 │   ├── lib/                      # api-client, env, utils (cn)
-│   ├── styles/globals.css        # Design tokens (@theme)
+│   ├── styles/globals.css        # mcoli-ui theme tokens (light and dark)
 │   └── types/index.ts            # Shared interfaces
 └── proxy.ts                      # Cookie-based auth redirect
 ```
@@ -68,7 +68,7 @@ src/
 
 1. **Next.js 16**: Check `node_modules/next/dist/docs/` before using any Next.js API.
 2. **No `tailwind.config.ts`**: Tailwind v4 uses `@theme` in CSS. Don't recreate a JS config.
-3. **Dark-only**: No light mode, no `dark:` prefixed classes, no theme toggle, no `ThemeProvider`.
+3. **Light and dark**: `src/shared/lib/theme.ts` sets the `dark` class on `<html>` (an inline script in `app/layout.tsx` applies the stored choice before paint); the ThemeToggle lives in the top bar.
 4. **Auth singleton**: `apiClient` reads Zustand state via `getState()` — no React context needed. Never create a second instance.
 5. **Token refresh dedup**: Concurrent 401s share a single refresh promise. Don't bypass this.
 6. **Env validation**: `env.ts` throws at import time if vars are missing. Intentional.
@@ -76,27 +76,20 @@ src/
 
 ## 4. UI & Design System
 
-### V2 Design System — Discord-Inspired Dark Theme
+### mcoli-ui, the Micro Club design system
 
-All tokens defined in `src/shared/styles/globals.css` via `@theme`.
+Built on [mcoli-ui](https://mcoli-ui.microclub.info/docs/introduction) with the `primary` theme (deep blue primary, purple accents, DM Sans text, Plus Jakarta Sans headings). Components are copied into `src/shared/components/ui/mc-*.tsx` (Base UI based); the theme's light (`:root`) and dark (`.dark`) tokens live in `src/shared/styles/globals.css`, written by `npx mcoli-ui@latest init primary`.
 
-**Brand** (Discord Blurple): `brand` (#5865F2), `brand-hover` (#4752C4), `brand-active` (#3C45A5), `brand-light` (#8B9CFC), `brand-tint` (rgba)
+**Tokens**: `background`/`foreground`, `primary`, `secondary`, `accent`, `card`, `popover`, `muted`, `surface` (each with `-foreground`), state `success`/`warning`/`error`/`destructive`/`info`, `border`/`input`/`ring`, `sidebar-*`, `chart-1`…`chart-5`.
 
-**Surfaces** (Layered Dark): `surface-base` (#1E1F22), `surface-raised` (#2B2D31), `surface-main` (#313338), `surface-hover` (#35363C), `surface-active` (#404249), `surface-elevated` (#4E5058)
-
-**Text**: `text-primary` (#F2F3F5), `text-normal` (#DBDEE1), `text-muted` (#B5BAC1), `text-subtle` (#949BA4), `text-faint` (#6D6F78)
-
-**Semantic**: `success` (#23A559), `error` (#DA373C), `warning` (#F0B232), `info` (#5865F2), `accent` (#EB459E)
-
-**Border**: `border` (#3F4147), `border-hover` (#4E5058), `border-focus` (#5865F2)
-
-**Typography**: DM Sans (body/headings) + JetBrains Mono (code). 4px spacing grid.
+**Type**: `header-xl`…`header-xs` (headings), `paragraph-xl`…`paragraph-xs` (text), `font-mono` (JetBrains Mono).
 
 ### Rules
 
-- Use token names in Tailwind classes: `bg-surface-base`, `text-text-muted`, `border-border`
-- Never hardcode hex colors
-- Never use `dark:` classes
+- Build from the `Mc*` components; add one with `npx mcoli-ui@latest add <name>`.
+- Use token classes (`bg-card`, `text-muted-foreground`, `border-border`); never hardcode hex colours.
+- Light and dark mode both apply; tokens switch with the `dark` class set by `src/shared/lib/theme.ts`, so components do not need `dark:` classes for colour.
+- Base UI uses `render`, not `asChild`; style links as buttons with `buttonVariants` on `<Link>`.
 - Use `lucide-react` for all icons
 
 ## 5. Workflow & Commands
@@ -124,9 +117,9 @@ pnpm run test:ui          # Vitest UI
 
 ## 6. Agent Brief & Persona
 
-You are a **senior frontend engineer** building a Discord-inspired admin panel. Priorities:
+You are a **senior frontend engineer** building the MCID admin panel with mcoli-ui. Priorities:
 
-1. **Design system compliance** — every element uses V2 tokens
+1. **Design system compliance**: every element uses mcoli-ui components and tokens, in light and dark mode
 2. **Type safety** — strict TypeScript, no `any`, no unchecked access
 3. **Feature isolation** — self-contained modules, shared logic in `@/shared/`
 4. **Server state** — React Query for async, Zustand for client-only

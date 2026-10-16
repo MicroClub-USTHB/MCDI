@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 
 const CLASSES =
-  'rounded-sm text-brand-light underline underline-offset-4 outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-focus';
+  'rounded-sm text-primary underline underline-offset-4 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Docs and in-page links stay put; links to other sites open in a new tab and say so. */
 export function DocLink({ href = '', children, ...props }: ComponentProps<'a'>) {

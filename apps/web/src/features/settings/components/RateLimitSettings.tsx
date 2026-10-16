@@ -3,10 +3,9 @@
 import { useState } from 'react';
 import { Gauge } from 'lucide-react';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { SettingsSection } from '@/features/settings/components/SettingsSection';
 import {
   rateLimitSettingsSchema,
@@ -61,44 +60,46 @@ function RateLimitSettings({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-4 border-0 p-0">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="maxWebhooksPerProject">Max webhooks per project</Label>
-            <Input
-              id="maxWebhooksPerProject"
-              type="number"
-              value={values.maxWebhooksPerProject}
-              onChange={(event) => setValues({ maxWebhooksPerProject: Number(event.target.value) })}
-              aria-invalid={!!errors.maxWebhooksPerProject}
-            />
-            {errors.maxWebhooksPerProject && (
-              <p className="text-body text-error">{errors.maxWebhooksPerProject}</p>
-            )}
-          </div>
+          <McInput
+            id="maxWebhooksPerProject"
+            label="Max webhooks per project"
+            type="number"
+            value={values.maxWebhooksPerProject}
+            onChange={(event) => setValues({ maxWebhooksPerProject: Number(event.target.value) })}
+            error={errors.maxWebhooksPerProject}
+          />
 
-          <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-3">
-            <p className="text-overline text-text-faint uppercase">Environment-only</p>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Global rate limit window</span>
-              <span className="font-mono text-code text-text-normal">
+          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border p-3">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Environment-only
+            </p>
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Global rate limit window</span>
+              <span className="font-mono text-xs text-foreground">
                 {limits.globalTtlMs.value.toLocaleString()} ms
               </span>
             </div>
-            <div className="flex items-center justify-between gap-3 text-body">
-              <span className="text-text-muted">Global rate limit</span>
-              <span className="font-mono text-code text-text-normal">
+            <div className="flex items-center justify-between gap-3 paragraph-sm">
+              <span className="text-muted-foreground">Global rate limit</span>
+              <span className="font-mono text-xs text-foreground">
                 {limits.globalLimit.value.toLocaleString()} req/window
               </span>
             </div>
           </div>
 
           {readOnly ? (
-            <Badge variant="secondary" className="self-start">
+            <McBadge variant="outline" size="md" className="self-start">
               Read only
-            </Badge>
+            </McBadge>
           ) : (
-            <Button type="submit" size="sm" className="self-start" disabled={isSaving || !isDirty}>
+            <McButton
+              type="submit"
+              size="sm"
+              className="self-start"
+              disabled={isSaving || !isDirty}
+            >
               Save
-            </Button>
+            </McButton>
           )}
         </fieldset>
       </form>

@@ -58,8 +58,9 @@ describe('monitoring flow', () => {
 
     fireEvent.change(screen.getByLabelText('Date from'), { target: { value: '2026-04-01' } });
     fireEvent.change(screen.getByLabelText('Date to'), { target: { value: '2026-04-30' } });
-    await user.selectOptions(screen.getByLabelText('Severity'), 'error');
-    await user.click(screen.getByLabelText('Auth'));
+    await user.click(screen.getByRole('combobox', { name: 'Severity' }));
+    await user.click(await screen.findByRole('option', { name: 'Error' }));
+    await user.click(screen.getByRole('radio', { name: 'Auth' }));
     await user.click(screen.getByRole('button', { name: 'Export CSV' }));
 
     await waitFor(() => expect(clickSpy).toHaveBeenCalledOnce());

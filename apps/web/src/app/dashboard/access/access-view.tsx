@@ -10,7 +10,7 @@ import { RoleEditor } from '@/features/access/components/RoleEditor';
 import { RoleList } from '@/features/access/components/RoleList';
 import { LoadingSkeleton } from '@/shared/components/common';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
+import { McTabs, McTabsList, McTabsPanel, McTabsTrigger } from '@/shared/components/ui/mc-tabs';
 
 function RolesTab() {
   const roles = useAccessRolesQuery();
@@ -75,26 +75,26 @@ export function AccessView() {
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <header>
-        <p className="text-overline text-brand-light uppercase">System</p>
-        <h1 className="mt-1 text-hero text-text-primary">Access</h1>
-        <p className="mt-1 max-w-2xl text-body text-text-muted">
+        <p className="paragraph-xs font-semibold tracking-wide text-primary uppercase">System</p>
+        <h1 className="mt-1 header-xs font-bold text-foreground">Access</h1>
+        <p className="mt-1 max-w-2xl paragraph-sm text-muted-foreground">
           Give each role a level on every area of MCID, and override it for one person when needed.
           Changes apply on the next request.
         </p>
       </header>
 
-      <Tabs defaultValue="roles" className="flex flex-col gap-4">
-        <TabsList aria-label="Access sections">
-          <TabsTrigger value="roles">Roles</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-        </TabsList>
-        <TabsContent value="roles">
+      <McTabs defaultValue="roles" className="gap-4">
+        <McTabsList aria-label="Access sections">
+          <McTabsTrigger value="roles">Roles</McTabsTrigger>
+          <McTabsTrigger value="members">Members</McTabsTrigger>
+        </McTabsList>
+        <McTabsPanel value="roles">
           <RolesTab />
-        </TabsContent>
-        <TabsContent value="members">
+        </McTabsPanel>
+        <McTabsPanel value="members">
           <MembersTab />
-        </TabsContent>
-      </Tabs>
+        </McTabsPanel>
+      </McTabs>
     </div>
   );
 }

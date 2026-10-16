@@ -2,7 +2,8 @@
 
 import { QueryProvider } from '@/providers';
 import { SessionProvider } from '@/features/auth/components/SessionProvider';
-import { ToastContainer } from '@/shared/components/common';
+import { McSonner } from '@/shared/components/ui/mc-sonner';
+import { McTooltipProvider } from '@/shared/components/ui/mc-tooltip';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -11,8 +12,10 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <QueryProvider>
-      <SessionProvider>{children}</SessionProvider>
-      <ToastContainer />
+      <McTooltipProvider>
+        <SessionProvider>{children}</SessionProvider>
+      </McTooltipProvider>
+      <McSonner />
     </QueryProvider>
   );
 }

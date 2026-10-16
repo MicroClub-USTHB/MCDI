@@ -111,7 +111,11 @@ describe('Readers editor without statistics access', () => {
     signInAs({ permissions: { projects: 'read', inbound_webhooks: 'read', stats: 'read' } });
     render(<WebhookReadersSection webhook={webhook} />, { wrapper });
 
-    expect(await screen.findByLabelText('Member')).toBeDisabled();
+    // The Base UI checkbox is a span, so it reports its disabled state through aria-disabled.
+    expect(await screen.findByRole('checkbox', { name: 'Member' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
     expect(screen.queryByRole('button', { name: 'Save readers' })).not.toBeInTheDocument();
   });
 });

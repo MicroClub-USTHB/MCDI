@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import type { SortingState } from '@tanstack/react-table';
 
 import type { ProjectView } from '@/features/projects/api/mappers';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
 import { Pagination } from '@/shared/components/ui/pagination';
-import { Switch } from '@/shared/components/ui/switch';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
 import { useCan } from '@/shared/lib/use-access';
 
 type ProjectAction = 'deactivate' | 'reactivate' | 'delete';
@@ -16,7 +16,7 @@ type ProjectAction = 'deactivate' | 'reactivate' | 'delete';
 interface ProjectTableProps {
   /** The full filtered dataset — NOT pre-sliced to a page (see DataTable's `pagination` prop). */
   projects: ProjectView[];
-  columns?: ColumnDef<ProjectView>[];
+  columns?: DataTableColumn<ProjectView>[];
   isLoading?: boolean;
   onAction: (action: ProjectAction, project: ProjectView) => void;
   onRowClick?: (project: ProjectView) => void;
@@ -35,15 +35,15 @@ interface ColumnAccess {
 function buildDefaultColumns(
   onAction: (action: ProjectAction, project: ProjectView) => void,
   access: ColumnAccess
-): ColumnDef<ProjectView>[] {
-  const columns: ColumnDef<ProjectView>[] = [
+): DataTableColumn<ProjectView>[] {
+  const columns: DataTableColumn<ProjectView>[] = [
     {
       accessorKey: 'name',
       header: 'Name',
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <span className="font-medium text-text-primary">{row.original.name}</span>
-          {row.original.isInternal && <Badge variant="brand-light">Internal</Badge>}
+          <span className="font-medium text-foreground">{row.original.name}</span>
+          {row.original.isInternal && <McBadge variant="secondary">Internal</McBadge>}
         </div>
       ),
     },
@@ -52,9 +52,11 @@ function buildDefaultColumns(
       header: 'Status',
       cell: ({ row }) =>
         row.original.isActive ? (
-          <Badge variant="success">Active</Badge>
+          <McBadge variant="outline" className="border-success/30 bg-success/10 text-success">
+            Active
+          </McBadge>
         ) : (
-          <Badge variant="error">Deactivated</Badge>
+          <McBadge variant="destructive">Deactivated</McBadge>
         ),
       enableSorting: false,
     },
@@ -62,7 +64,7 @@ function buildDefaultColumns(
       accessorKey: 'apiKeyPrefix',
       header: 'API key',
       cell: ({ row }) => (
-        <code className="font-mono text-code text-text-muted">
+        <code className="font-mono text-xs text-muted-foreground">
           {row.original.apiKeyPrefix ?? '—'}
         </code>
       ),
@@ -84,7 +86,7 @@ function buildDefaultColumns(
       cell: ({ row }) => (
         <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
           {(row.original.isActive ? access.canDeactivate : access.canReactivate) && (
-            <Switch
+            <McSwitch
               checked={row.original.isActive}
               aria-label={
                 row.original.isActive
@@ -109,15 +111,15 @@ function buildDefaultColumns(
           onClick={(event) => event.stopPropagation()}
         >
           {access.canDelete && (
-            <Button
+            <McButton
               type="button"
-              variant="ghost"
+              variant="tertiary"
+              destructive
               size="sm"
-              className="text-error hover:bg-error/12"
               onClick={() => onAction('delete', row.original)}
             >
               Delete
-            </Button>
+            </McButton>
           )}
         </div>
       ),

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/shared/lib/utils';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
 
 interface LoadingSkeletonProps {
   className?: string;
@@ -12,8 +12,8 @@ interface LoadingSkeletonProps {
 }
 
 /**
- * Shape and animation presets over the shadcn `Skeleton` primitive. `Skeleton`
- * ships `animate-pulse`; `cn()`'s tailwind-merge drops it when a competing
+ * Shape and animation presets over the mcoli-ui `McSkeleton`. It ships
+ * `animate-pulse`; `cn()`'s tailwind-merge drops it when a competing
  * `animate-*` class is passed, so `wave` and `none` override cleanly.
  */
 export function LoadingSkeleton({
@@ -24,7 +24,8 @@ export function LoadingSkeleton({
   animation = 'pulse',
 }: LoadingSkeletonProps) {
   return (
-    <Skeleton
+    <McSkeleton
+      rectangle={variant !== 'circular'}
       className={cn(
         animation === 'wave' && 'animate-shimmer',
         animation === 'none' && 'animate-none',

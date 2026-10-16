@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McCard, McCardContent, McCardHeader } from '@/shared/components/ui/mc-card';
 import type { MemberRole } from '@/features/members/types';
 
 interface RoleListProps {
@@ -11,35 +11,34 @@ interface RoleListProps {
 
 export function RoleList({ roles, serverName }: RoleListProps) {
   return (
-    <Card>
-      <CardHeader className="pb-0">
-        <CardTitle>Roles on {serverName}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
+    <McCard>
+      <McCardHeader title={`Roles on ${serverName}`} />
+      <McCardContent className="flex flex-wrap gap-2">
         {roles.length > 0 ? (
           roles.map((role) =>
             role.color ? (
-              <Badge
+              <McBadge
                 key={role.id}
                 variant="outline"
-                className="border-transparent text-body"
+                size="md"
+                className="border-transparent"
                 style={{
                   color: role.color,
                   backgroundColor: `${role.color}1A`,
                 }}
               >
                 {role.name}
-              </Badge>
+              </McBadge>
             ) : (
-              <Badge key={role.id} variant="secondary">
+              <McBadge key={role.id} variant="outline" size="md">
                 {role.name}
-              </Badge>
+              </McBadge>
             )
           )
         ) : (
-          <p className="text-body text-text-muted">No roles on this server.</p>
+          <p className="paragraph-sm text-muted-foreground">No roles on this server.</p>
         )}
-      </CardContent>
-    </Card>
+      </McCardContent>
+    </McCard>
   );
 }

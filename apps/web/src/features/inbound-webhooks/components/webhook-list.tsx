@@ -2,24 +2,26 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import type { ColumnDef } from '@tanstack/react-table';
 
 import type { InboundWebhookView } from '@/features/inbound-webhooks/api/mappers';
 import { useAllowedRolesQuery } from '@/features/inbound-webhooks/api/queries';
-import { Badge } from '@/shared/components/ui/badge';
-import { DataTable } from '@/shared/components/ui/data-table';
+import { DataTable, type DataTableColumn } from '@/shared/components/ui/data-table';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 
 function Readers({ webhookId }: { webhookId: string }) {
   const roles = useAllowedRolesQuery(webhookId);
   return (
-    <span className="text-text-muted">
+    <span className="text-muted-foreground">
       {roles.data ? roles.data.map((role) => role.roleName).join(', ') || 'None' : '…'}
     </span>
   );
 }
 
+const SUCCESS_BADGE = 'border-success/30 bg-success/10 text-success';
+const WARNING_BADGE = 'border-warning/30 bg-warning/10 text-warning';
+
 // Defined once: the table treats a new cell function as a new component and would remount every cell.
-const columns: ColumnDef<InboundWebhookView>[] = [
+const columns: DataTableColumn<InboundWebhookView>[] = [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -27,11 +29,11 @@ const columns: ColumnDef<InboundWebhookView>[] = [
       <div className="flex flex-col">
         <Link
           href={`/dashboard/projects/${encodeURIComponent(row.original.projectId)}/inbound-webhooks/${encodeURIComponent(row.original.id)}`}
-          className="rounded-sm font-medium text-text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-border-focus"
+          className="rounded-sm font-medium text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           {row.original.name}
         </Link>
-        <span className="font-mono text-code text-text-subtle">{row.original.slug}</span>
+        <span className="font-mono text-xs text-muted-foreground">{row.original.slug}</span>
       </div>
     ),
   },
@@ -39,9 +41,12 @@ const columns: ColumnDef<InboundWebhookView>[] = [
     accessorKey: 'signatureLabel',
     header: 'Signature',
     cell: ({ row }) => (
-      <Badge variant={row.original.signatureLabel === 'Signed' ? 'success' : 'warning'}>
+      <McBadge
+        variant="outline"
+        className={row.original.signatureLabel === 'Signed' ? SUCCESS_BADGE : WARNING_BADGE}
+      >
         {row.original.signatureLabel}
-      </Badge>
+      </McBadge>
     ),
   },
   {
@@ -54,22 +59,24 @@ const columns: ColumnDef<InboundWebhookView>[] = [
     accessorKey: 'submissionCount',
     header: 'Submissions',
     cell: ({ row }) => (
-      <span className="font-mono text-code">{row.original.submissionCount.toLocaleString()}</span>
+      <span className="font-mono text-xs">{row.original.submissionCount.toLocaleString()}</span>
     ),
   },
   {
     accessorKey: 'lastSubmissionLabel',
     header: 'Last submission',
     enableSorting: false,
-    cell: ({ row }) => <span className="text-text-muted">{row.original.lastSubmissionLabel}</span>,
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{row.original.lastSubmissionLabel}</span>
+    ),
   },
   {
     accessorKey: 'isActive',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+      <McBadge variant="outline" className={row.original.isActive ? SUCCESS_BADGE : undefined}>
         {row.original.isActive ? 'Active' : 'Disabled'}
-      </Badge>
+      </McBadge>
     ),
   },
 ];

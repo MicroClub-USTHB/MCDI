@@ -3,12 +3,12 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { server } from '../../setup';
 import { WebhookView } from '@/app/dashboard/projects/[id]/inbound-webhooks/[webhookId]/webhook-view';
 import { downloadTextFile } from '@/shared/lib/download';
-import { useToastStore } from '@/shared/stores/toast';
+import { toastMessages } from '../../helpers/toasts';
 
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -112,7 +112,6 @@ beforeEach(() => {
   push.mockClear();
   vi.mocked(downloadTextFile).mockClear();
 });
-afterEach(() => useToastStore.setState({ toasts: [] }));
 
 describe('Export CSV', () => {
   it('downloads every submission as a CSV named after the webhook', async () => {
@@ -180,9 +179,7 @@ describe('Export CSV', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain('boom')
-    );
+    await waitFor(() => expect(toastMessages()).toContain('boom'));
     expect(downloadTextFile).not.toHaveBeenCalled();
   });
 });
@@ -192,7 +189,7 @@ describe('Delete', () => {
     render(<WebhookView webhookId={WEBHOOK_ID} />, { wrapper });
     await userEvent.click(await screen.findByRole('tab', { name: 'Settings' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete webhook' }));
-    return screen.findByRole('dialog');
+    return screen.findByRole('alertdialog');
   }
 
   it('asks for the slug, then deletes and goes back to the list', async () => {
@@ -239,9 +236,7 @@ describe('Delete', () => {
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete webhook' }));
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain('not allowed')
-    );
+    await waitFor(() => expect(toastMessages()).toContain('not allowed'));
     expect(push).not.toHaveBeenCalled();
   });
 });
@@ -260,7 +255,7 @@ describe('Rotate the signing secret', () => {
     await userEvent.click(await screen.findByRole('tab', { name: 'Settings' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Rotate secret' }));
-    const confirm = await screen.findByRole('dialog');
+    const confirm = await screen.findByRole('alertdialog');
     expect(confirm).toHaveTextContent(/old one are refused/);
     expect(rotated).toBe(0);
     await userEvent.click(within(confirm).getByRole('button', { name: 'Rotate secret' }));
@@ -386,11 +381,7 @@ describe('Readers', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Save readers' }));
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain(
-        'role not allowed'
-      )
-    );
+    await waitFor(() => expect(toastMessages()).toContain('role not allowed'));
   });
 });
 
@@ -456,7 +447,7 @@ describe('Schema', () => {
     await waitFor(() => expect(save).toBeEnabled());
     await userEvent.click(save);
 
-    const confirm = await screen.findByRole('dialog');
+    const confirm = await screen.findByRole('alertdialog');
     expect(confirm).toHaveTextContent(
       'Existing submissions are not re-checked; new submissions must match the new schema.'
     );
@@ -482,7 +473,7 @@ describe('Schema', () => {
     await userEvent.click(save);
 
     await waitFor(() => expect(patched).toEqual({ schema: NEXT_SCHEMA }));
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('will not save while the API reports problems, or the JSON is broken', async () => {
@@ -538,11 +529,7 @@ describe('Schema', () => {
 
     await userEvent.click(save);
 
-    await waitFor(() =>
-      expect(useToastStore.getState().toasts.map((toast) => toast.message)).toContain(
-        'schema refused'
-      )
-    );
+    await waitFor(() => expect(toastMessages()).toContain('schema refused'));
     expect(screen.getByRole('button', { name: 'Save schema' })).toBeInTheDocument();
   });
 });

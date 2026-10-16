@@ -5,21 +5,19 @@ import { useState } from 'react';
 import { parseOrigins } from '@/features/inbound-webhooks/api/mappers';
 import { useUpdateInboundWebhookMutation } from '@/features/inbound-webhooks/api/mutations';
 import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Switch } from '@/shared/components/ui/switch';
-import { Textarea } from '@/shared/components/ui/textarea';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton } from '@/shared/components/ui/mc-button';
+import { McInput } from '@/shared/components/ui/mc-input';
+import { McSwitch } from '@/shared/components/ui/mc-switch';
+import { McTextarea } from '@/shared/components/ui/mc-textarea';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const sameList = (a: string[], b: string[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
 /** The webhook's name and how it treats requests. Mount it with a key that changes on save so it restarts from the saved values. */
 export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto }) {
-  const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhook.id);
   const canWrite = useCan('inbound_webhooks', 'write');
 
@@ -54,67 +52,67 @@ export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto })
   return (
     <form onSubmit={submit} className="flex max-w-2xl flex-col gap-5">
       <fieldset disabled={!canWrite} className="flex min-w-0 flex-col gap-5 border-0 p-0">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="settings-name">Name</Label>
-          <Input
-            id="settings-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={255}
-          />
-        </div>
+        <McInput
+          id="settings-name"
+          label="Name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={255}
+        />
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="settings-signature" className="flex flex-col gap-1">
+          <label
+            htmlFor="settings-signature"
+            className="flex flex-col gap-1 text-sm font-medium text-foreground"
+          >
             Require a signature
-            <span className="text-text-muted">
+            <span className="font-normal text-muted-foreground">
               Turning it on rejects callers that don&apos;t sign their requests, from the moment you
               save.
             </span>
-          </Label>
-          <Switch
+          </label>
+          <McSwitch
             id="settings-signature"
             checked={requireSignature}
             onCheckedChange={setRequireSignature}
           />
         </div>
         <div className="flex items-center justify-between gap-4">
-          <Label htmlFor="settings-unknown" className="flex flex-col gap-1">
+          <label
+            htmlFor="settings-unknown"
+            className="flex flex-col gap-1 text-sm font-medium text-foreground"
+          >
             Reject unknown fields
-            <span className="text-text-muted">
+            <span className="font-normal text-muted-foreground">
               Off means fields outside the schema are dropped instead.
             </span>
-          </Label>
-          <Switch
+          </label>
+          <McSwitch
             id="settings-unknown"
             checked={rejectUnknownFields}
             onCheckedChange={setRejectUnknownFields}
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="settings-origins">Accepted origins</Label>
-          <Textarea
-            id="settings-origins"
-            value={origins}
-            onChange={(event) => setOrigins(event.target.value)}
-            placeholder="https://app.microclub.dz"
-            rows={3}
-          />
-          <p className="text-body text-text-muted">
-            One per line. Leave empty to accept requests from anywhere.
-          </p>
-        </div>
+        <McTextarea
+          id="settings-origins"
+          label="Accepted origins"
+          description="One per line. Leave empty to accept requests from anywhere."
+          value={origins}
+          onChange={(event) => setOrigins(event.target.value)}
+          placeholder="https://app.microclub.dz"
+          rows={3}
+        />
         {canWrite ? (
-          <Button
+          <McButton
             type="submit"
             className="self-end"
             disabled={!changed || name.trim() === '' || update.isPending}
           >
             {update.isPending ? 'Saving…' : 'Save'}
-          </Button>
+          </McButton>
         ) : (
-          <Badge variant="secondary" className="self-end">
+          <McBadge variant="secondary" className="self-end">
             Read only
-          </Badge>
+          </McBadge>
         )}
       </fieldset>
     </form>

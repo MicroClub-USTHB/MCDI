@@ -4,7 +4,7 @@ import { AlertTriangle, Info, Lightbulb } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 
 const TYPES = {
-  note: { label: 'Note', Icon: Info, box: 'border-info/30 bg-info/10', icon: 'text-brand-light' },
+  note: { label: 'Note', Icon: Info, box: 'border-info/30 bg-info/10', icon: 'text-primary' },
   tip: {
     label: 'Tip',
     Icon: Lightbulb,
@@ -31,8 +31,8 @@ export function Callout({ type = 'note', children }: CalloutProps) {
   return (
     <aside role="note" className={cn('my-6 flex gap-3 rounded-lg border p-4', box)}>
       <Icon className={cn('mt-0.5 size-4 shrink-0', icon)} aria-hidden="true" />
-      <div className="min-w-0 text-body text-text-normal">
-        <p className="m-0 text-subhead text-text-primary">{label}</p>
+      <div className="min-w-0 paragraph-sm text-foreground">
+        <p className="m-0 paragraph-sm font-semibold text-foreground">{label}</p>
         <div className="[&>p]:my-1">{children}</div>
       </div>
     </aside>

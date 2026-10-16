@@ -4,8 +4,8 @@ import { ShieldCheck } from 'lucide-react';
 
 import { useAccessAuditQuery } from '@/features/projects/api/queries';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { Badge } from '@/shared/components/ui/badge';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
+import { McBadge } from '@/shared/components/ui/mc-badge';
 import type {
   AccessAuditAction,
   AccessAuditEntry,
@@ -19,10 +19,13 @@ interface AccessAuditLogProps {
   isLoading?: boolean;
 }
 
-const ACTION_VARIANT: Record<AccessAuditAction, 'success' | 'warning' | 'error'> = {
-  GRANT: 'success',
-  UPDATE: 'warning',
-  REVOKE: 'error',
+const ACTION_BADGE: Record<
+  AccessAuditAction,
+  { variant: 'outline' | 'destructive'; className?: string }
+> = {
+  GRANT: { variant: 'outline', className: 'border-success/30 bg-success/10 text-success' },
+  UPDATE: { variant: 'outline', className: 'border-warning/30 bg-warning/10 text-warning' },
+  REVOKE: { variant: 'destructive' },
 };
 
 function describeOperations(operations: AccessOperations | null): string {
@@ -49,7 +52,7 @@ function AccessAuditLog({ projectId, entries, isLoading }: AccessAuditLogProps) 
       <ul className="flex flex-col gap-2">
         {Array.from({ length: 4 }).map((_, index) => (
           <li key={index}>
-            <Skeleton className="h-14 w-full" />
+            <McSkeleton rectangle className="h-14 w-full" />
           </li>
         ))}
       </ul>
@@ -71,17 +74,24 @@ function AccessAuditLog({ projectId, entries, isLoading }: AccessAuditLogProps) 
       {rows.map((entry) => (
         <li
           key={entry.id}
-          className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-main p-3"
+          className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3"
         >
           <div className="flex items-center justify-between gap-3">
-            <Badge variant={ACTION_VARIANT[entry.action]}>{entry.action}</Badge>
-            <span className="text-overline text-text-faint">{formatTime(entry.changedAt)}</span>
+            <McBadge
+              variant={ACTION_BADGE[entry.action].variant}
+              className={ACTION_BADGE[entry.action].className}
+            >
+              {entry.action}
+            </McBadge>
+            <span className="paragraph-xs text-muted-foreground">
+              {formatTime(entry.changedAt)}
+            </span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-body text-text-normal">
-              Server <code className="font-mono text-code">{entry.serverId}</code>
+            <p className="paragraph-sm text-foreground">
+              Server <code className="font-mono text-xs">{entry.serverId}</code>
             </p>
-            <p className="text-overline text-text-subtle">
+            <p className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
               by {entry.changedBy} · {describeOperations(entry.operationsBefore)} →{' '}
               {describeOperations(entry.operationsAfter)}
             </p>

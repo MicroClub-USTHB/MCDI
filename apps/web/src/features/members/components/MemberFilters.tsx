@@ -1,12 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Sparkles, X } from 'lucide-react';
+import { ChevronDown, Search, Sparkles, X } from 'lucide-react';
 import { useQueries } from '@tanstack/react-query';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
-import { Button } from '@/shared/components/ui/button';
-import { SearchInput } from '@/shared/components/ui/input';
+import { McBadge } from '@/shared/components/ui/mc-badge';
+import { McButton, buttonVariants } from '@/shared/components/ui/mc-button';
+import {
+  McDropdownMenu,
+  McDropdownMenuCheckboxItem,
+  McDropdownMenuContent,
+  McDropdownMenuGroup,
+  McDropdownMenuLabel,
+  McDropdownMenuTrigger,
+} from '@/shared/components/ui/mc-dropdown-menu';
+import { McInput } from '@/shared/components/ui/mc-input';
 import { cn } from '@/shared/lib/utils';
 import { useServersQuery } from '@/features/servers/api/queries';
 import { useCan } from '@/shared/lib/use-access';
@@ -70,12 +78,13 @@ function SearchFilterField({
   }, [onFilterChange, search, searchDraft]);
 
   return (
-    <SearchInput
+    <McInput
       id="member-search"
+      type="search"
       value={searchDraft}
       onChange={(event) => setSearchDraft(event.target.value)}
       placeholder="Search username or global name"
-      className="rounded-sm bg-surface-base"
+      addonStart={<Search aria-hidden="true" />}
     />
   );
 }
@@ -99,16 +108,22 @@ function SelectedFilterChips({
       aria-label={options.length > 0 ? `Selected ${type}s` : undefined}
     >
       {options.map((option) => (
-        <button
+        <McBadge
           key={option.id}
-          type="button"
-          onClick={() => onRemove(option.id)}
-          aria-label={`Remove ${type} ${option.label}`}
-          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-surface-active px-2 py-1 text-overline text-text-primary transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none"
+          variant="secondary"
+          icon={<X aria-hidden="true" />}
+          iconPosition="end"
+          className="cursor-pointer"
+          render={
+            <button
+              type="button"
+              onClick={() => onRemove(option.id)}
+              aria-label={`Remove ${type} ${option.label}`}
+            />
+          }
         >
-          <span>{option.label}</span>
-          <X className="size-3 text-text-muted" aria-hidden="true" />
-        </button>
+          {option.label}
+        </McBadge>
       ))}
     </div>
   );
@@ -162,86 +177,71 @@ function MultiSelectPicker({
 
   return (
     <div className="space-y-1">
-      <DropdownMenu.Root
+      <McDropdownMenu
         onOpenChange={(open) => {
           if (!open) setSearch('');
         }}
       >
-        <DropdownMenu.Trigger asChild>
-          <button
-            type="button"
-            disabled={disabled}
-            className={cn(
-              'inline-flex h-9 w-full items-center justify-between gap-3 rounded-md border border-border bg-surface-hover px-3 text-body text-text-normal transition-colors',
-              'hover:bg-surface-active focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:outline-none',
-              'disabled:pointer-events-none disabled:opacity-60'
-            )}
-          >
-            <span>
-              {selectedIds.length > 0 ? `${label} (${selectedIds.length} selected)` : label}
-            </span>
-            <ChevronDown className="size-4 text-text-muted" aria-hidden="true" />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            align="start"
-            sideOffset={8}
-            className="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface-raised p-2 text-text-normal shadow-xl outline-none"
-          >
-            <div className="border-b border-border pb-2">
-              <label className="sr-only" htmlFor={`${label.toLowerCase()}-filter-search`}>
-                Filter {label.toLowerCase()}
-              </label>
-              <input
-                id={`${label.toLowerCase()}-filter-search`}
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Escape') event.stopPropagation();
-                }}
-                placeholder={searchPlaceholder}
-                className="h-9 w-full rounded-md border border-border bg-surface-base px-3 text-body text-text-normal outline-none placeholder:text-text-faint focus-visible:border-border-focus focus-visible:ring-2 focus-visible:ring-brand/20"
-              />
-            </div>
+        <McDropdownMenuTrigger
+          disabled={disabled}
+          className={cn(
+            buttonVariants({ variant: 'secondary', size: 'sm' }),
+            'w-full justify-between gap-3 font-normal'
+          )}
+        >
+          <span>
+            {selectedIds.length > 0 ? `${label} (${selectedIds.length} selected)` : label}
+          </span>
+          <ChevronDown className="size-4" aria-hidden="true" />
+        </McDropdownMenuTrigger>
+        <McDropdownMenuContent sideOffset={8} className="w-[min(22rem,calc(100vw-2rem))] p-2">
+          <div className="border-b border-border pb-2">
+            <McInput
+              id={`${label.toLowerCase()}-filter-search`}
+              type="search"
+              aria-label={`Filter ${label.toLowerCase()}`}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape') event.stopPropagation();
+              }}
+              placeholder={searchPlaceholder}
+              addonStart={<Search aria-hidden="true" />}
+            />
+          </div>
 
-            <div className="max-h-72 overflow-y-auto pt-2">
-              {loading ? (
-                <p className="px-2 py-4 text-body text-text-muted">
-                  Loading {label.toLowerCase()}...
-                </p>
-              ) : filteredGroups.length === 0 ? (
-                <p className="px-2 py-4 text-body text-text-muted">{emptyMessage}</p>
-              ) : (
-                filteredGroups.map((group) => (
-                  <div key={group.id} className="space-y-1">
-                    {groups ? (
-                      <DropdownMenu.Label className="px-2 py-1 text-overline text-text-faint">
-                        {group.label}
-                      </DropdownMenu.Label>
-                    ) : null}
-                    {group.options.map((option) => (
-                      <DropdownMenu.CheckboxItem
-                        key={option.id}
-                        checked={selectedIds.includes(option.id)}
-                        onCheckedChange={() => onToggle(option.id)}
-                        onSelect={(event) => event.preventDefault()}
-                        className="relative flex cursor-pointer select-none items-center rounded-md py-2 pr-2 pl-9 text-body text-text-normal outline-none data-[highlighted]:bg-surface-hover"
-                      >
-                        <DropdownMenu.ItemIndicator className="absolute left-2 inline-flex items-center">
-                          <Check className="size-4 text-brand-light" aria-hidden="true" />
-                        </DropdownMenu.ItemIndicator>
-                        <span>{option.label}</span>
-                      </DropdownMenu.CheckboxItem>
-                    ))}
-                  </div>
-                ))
-              )}
-            </div>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+          <div className="max-h-72 overflow-y-auto pt-2">
+            {loading ? (
+              <p className="px-2 py-4 paragraph-sm text-muted-foreground">
+                Loading {label.toLowerCase()}...
+              </p>
+            ) : filteredGroups.length === 0 ? (
+              <p className="px-2 py-4 paragraph-sm text-muted-foreground">{emptyMessage}</p>
+            ) : (
+              filteredGroups.map((group) => (
+                <McDropdownMenuGroup key={group.id} className="gap-1">
+                  {groups ? (
+                    <McDropdownMenuLabel className="paragraph-xs font-semibold text-muted-foreground">
+                      {group.label}
+                    </McDropdownMenuLabel>
+                  ) : null}
+                  {group.options.map((option) => (
+                    <McDropdownMenuCheckboxItem
+                      key={option.id}
+                      checked={selectedIds.includes(option.id)}
+                      onCheckedChange={() => onToggle(option.id)}
+                      closeOnClick={false}
+                      className="text-foreground"
+                    >
+                      {option.label}
+                    </McDropdownMenuCheckboxItem>
+                  ))}
+                </McDropdownMenuGroup>
+              ))
+            )}
+          </div>
+        </McDropdownMenuContent>
+      </McDropdownMenu>
 
       <SelectedFilterChips type={selectionType} options={selectedOptions} onRemove={onToggle} />
     </div>
@@ -333,13 +333,13 @@ export function MemberFilters({
     filters.page !== 1;
 
   return (
-    <section
-      className="rounded-lg border border-border bg-surface-raised p-3"
-      aria-label="Member filters"
-    >
+    <section className="rounded-lg border border-border bg-card p-3" aria-label="Member filters">
       <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(16rem,1fr)_minmax(13rem,0.8fr)_minmax(13rem,0.8fr)_auto_auto]">
         <div className="min-w-0 space-y-1">
-          <label className="text-overline text-text-subtle" htmlFor="member-search">
+          <label
+            className="paragraph-xs font-semibold tracking-wide text-muted-foreground"
+            htmlFor="member-search"
+          >
             Search
           </label>
           <SearchFilterField
@@ -351,7 +351,9 @@ export function MemberFilters({
 
         {!lockServer && canServers && (
           <div className="min-w-0 space-y-1">
-            <span className="text-overline text-text-subtle">Servers</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              Servers
+            </span>
             <MultiSelectPicker
               label="Servers"
               selectionType="server"
@@ -372,7 +374,9 @@ export function MemberFilters({
 
         {canServers && canRoleStats ? (
           <div className="min-w-0 space-y-1">
-            <span className="text-overline text-text-subtle">Roles</span>
+            <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+              Roles
+            </span>
             <MultiSelectPicker
               label="Roles"
               selectionType="role"
@@ -397,48 +401,44 @@ export function MemberFilters({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-2 sm:col-span-2 xl:col-span-2 xl:pt-5">
-          <span className="text-overline text-text-subtle">Club</span>
+          <span className="paragraph-xs font-semibold tracking-wide text-muted-foreground">
+            Club
+          </span>
           <div
-            className="inline-flex rounded-md border border-border bg-surface-base p-0.5"
+            className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-0.5"
             role="group"
             aria-label="Club member filter"
           >
-            <button
+            <McButton
               type="button"
+              variant={filters.filter === 'all' ? 'secondary' : 'tertiary'}
+              size="sm"
               aria-pressed={filters.filter === 'all'}
               onClick={() => onFilterChange({ filter: 'all', page: 1 })}
-              className={cn(
-                'rounded-sm px-2.5 py-1.5 text-body transition-colors',
-                filters.filter === 'all'
-                  ? 'bg-surface-active text-text-primary'
-                  : 'bg-surface-hover text-text-muted hover:text-text-normal'
-              )}
+              className={cn('px-2.5 py-1.5', filters.filter !== 'all' && 'bg-transparent')}
             >
               All
-            </button>
-            <button
+            </McButton>
+            <McButton
               type="button"
+              variant={filters.filter === 'club' ? 'secondary' : 'tertiary'}
+              size="sm"
               aria-pressed={filters.filter === 'club'}
               onClick={() => onFilterChange({ filter: 'club', page: 1 })}
-              className={cn(
-                'rounded-sm px-2.5 py-1.5 text-body transition-colors',
-                filters.filter === 'club'
-                  ? 'bg-surface-active text-text-primary'
-                  : 'bg-surface-hover text-text-muted hover:text-text-normal'
-              )}
+              className={cn('px-2.5 py-1.5', filters.filter !== 'club' && 'bg-transparent')}
             >
               Club members
-            </button>
+            </McButton>
           </div>
-          <Button variant="secondary" size="sm" onClick={onClearFilters}>
+          <McButton variant="secondary" size="sm" onClick={onClearFilters}>
             Clear
-          </Button>
+          </McButton>
         </div>
       </div>
 
-      <div className="mt-2 flex items-center gap-2 text-text-muted">
+      <div className="mt-2 flex items-center gap-2 text-muted-foreground">
         <Sparkles className="size-3.5" aria-hidden="true" />
-        <span className="text-overline">
+        <span className="paragraph-xs font-semibold tracking-wide">
           {hasActiveFilters
             ? 'Filters are active.'
             : 'Use the selectors to narrow the member list.'}

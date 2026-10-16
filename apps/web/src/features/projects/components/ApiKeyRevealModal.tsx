@@ -2,14 +2,14 @@
 
 import { AlertTriangle } from 'lucide-react';
 
-import { Button } from '@/shared/components/ui/button';
+import { McButton } from '@/shared/components/ui/mc-button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
+  McDialog,
+  McDialogContent,
+  McDialogDescription,
+  McDialogHeader,
+  McDialogTitle,
+} from '@/shared/components/ui/mc-dialog';
 import { MaskedInput } from '@/shared/components/ui/masked-input';
 
 export interface InboundWebhookRevealInfo {
@@ -39,9 +39,9 @@ function ApiKeyRevealPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-3 rounded-md bg-warning/12 p-3">
+      <div className="flex items-start gap-3 rounded-lg bg-warning/10 p-3">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-        <p className="text-body text-warning">
+        <p className="paragraph-sm text-warning">
           {hasWebhook ? (
             <>
               This is the only time <strong>{projectName ? `${projectName}'s` : 'these'}</strong>{' '}
@@ -59,7 +59,7 @@ function ApiKeyRevealPanel({
 
       <div className="flex flex-col gap-1.5">
         {hasWebhook && (
-          <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+          <span className="paragraph-xs font-semibold tracking-wide uppercase text-muted-foreground">
             API key
           </span>
         )}
@@ -69,7 +69,7 @@ function ApiKeyRevealPanel({
       {hasWebhook && inboundWebhook && (
         <>
           <div className="flex flex-col gap-1.5">
-            <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+            <span className="paragraph-xs font-semibold tracking-wide uppercase text-muted-foreground">
               Webhook signing secret{' '}
               {inboundWebhook.webhookName ? `(${inboundWebhook.webhookName})` : ''}
             </span>
@@ -77,7 +77,7 @@ function ApiKeyRevealPanel({
           </div>
           {inboundWebhook.submitUrl && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-overline font-medium uppercase tracking-wider text-text-subtle">
+              <span className="paragraph-xs font-semibold tracking-wide uppercase text-muted-foreground">
                 Webhook submit URL
               </span>
               <MaskedInput value={inboundWebhook.submitUrl} aria-label="Submit URL" />
@@ -86,9 +86,9 @@ function ApiKeyRevealPanel({
         </>
       )}
 
-      <Button type="button" onClick={onContinue} className="self-end">
+      <McButton type="button" onClick={onContinue} className="self-end">
         {confirmLabel === "I've saved the key" ? defaultConfirm : confirmLabel}
-      </Button>
+      </McButton>
     </div>
   );
 }
@@ -114,12 +114,12 @@ function ApiKeyRevealModal({
   inboundWebhook,
 }: ApiKeyRevealModalProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>API key generated</DialogTitle>
-          <DialogDescription>Copy it now — it won&apos;t be shown again.</DialogDescription>
-        </DialogHeader>
+    <McDialog open={open} onOpenChange={onOpenChange}>
+      <McDialogContent className="sm:min-h-0" showCloseButton={false}>
+        <McDialogHeader>
+          <McDialogTitle>API key generated</McDialogTitle>
+          <McDialogDescription>Copy it now — it won&apos;t be shown again.</McDialogDescription>
+        </McDialogHeader>
         {apiKey ? (
           <ApiKeyRevealPanel
             apiKey={apiKey}
@@ -132,10 +132,10 @@ function ApiKeyRevealModal({
             }}
           />
         ) : (
-          <p className="text-body text-text-muted">Waiting for the new key…</p>
+          <p className="paragraph-sm text-muted-foreground">Waiting for the new key…</p>
         )}
-      </DialogContent>
-    </Dialog>
+      </McDialogContent>
+    </McDialog>
   );
 }
 

@@ -1,15 +1,16 @@
 import * as React from 'react';
 
 import { cn } from '@/shared/lib/utils';
-import { Button } from './button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from './dialog';
+  McAlertDialog,
+  McAlertDialogAction,
+  McAlertDialogCancel,
+  McAlertDialogContent,
+  McAlertDialogDescription,
+  McAlertDialogFooter,
+  McAlertDialogHeader,
+  McAlertDialogTitle,
+} from '@/shared/components/ui/mc-alert-dialog';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface ConfirmDialogProps {
   className?: string;
 }
 
+/** Asks before an action that changes or removes data; an mcoli-ui alert dialog. */
 function ConfirmDialog({
   open,
   onOpenChange,
@@ -41,35 +43,30 @@ function ConfirmDialog({
   className,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn('sm:max-w-sm', className)}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
+    <McAlertDialog open={open} onOpenChange={onOpenChange}>
+      <McAlertDialogContent className={cn('p-6', className)}>
+        <McAlertDialogHeader>
+          <McAlertDialogTitle>{title}</McAlertDialogTitle>
+          {description && <McAlertDialogDescription>{description}</McAlertDialogDescription>}
+        </McAlertDialogHeader>
         {children}
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={isConfirming}
-            onClick={() => onOpenChange(false)}
-          >
+        <McAlertDialogFooter className="m-0 mt-2">
+          <McAlertDialogCancel size="sm" disabled={isConfirming}>
             {cancelLabel}
-          </Button>
-          <Button
+          </McAlertDialogCancel>
+          <McAlertDialogAction
             type="button"
-            variant={variant === 'destructive' ? 'danger' : 'primary'}
             size="sm"
-            disabled={isConfirming || confirmDisabled}
+            destructive={variant === 'destructive'}
+            isLoading={isConfirming}
+            disabled={confirmDisabled}
             onClick={() => void onConfirm()}
           >
             {confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </McAlertDialogAction>
+        </McAlertDialogFooter>
+      </McAlertDialogContent>
+    </McAlertDialog>
   );
 }
 

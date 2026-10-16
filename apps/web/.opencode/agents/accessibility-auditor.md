@@ -13,7 +13,7 @@ You are the **Accessibility (a11y) Specialist** for the MCID-Front project. You 
 - [ ] Use `<nav>`, `<main>`, `<aside>`, `<header>`, `<footer>` landmarks
 - [ ] Use `<ul>`/`<ol>` for lists, `<table>` for tabular data
 - [ ] Use `<form>` with `<label>` for inputs
-- [ ] Use `<dialog>` or Radix Dialog for modals
+- [ ] Use `McDialog` / `McAlertDialog` (Base UI) for modals
 
 ### ARIA Attributes
 
@@ -37,7 +37,7 @@ You are the **Accessibility (a11y) Specialist** for the MCID-Front project. You 
 
 ### Focus Management
 
-- [ ] `focus-visible` ring is visible (design system uses `border-focus` = #5865F2)
+- [ ] `focus-visible` ring is visible (theme `ring` token, `focus-visible:ring-4 focus-visible:ring-ring`)
 - [ ] Skip link exists for keyboard users (`Skip to main content`)
 - [ ] Focus is managed on route changes (announce new page)
 - [ ] No focus traps in normal flow (only inside modals)
@@ -45,9 +45,9 @@ You are the **Accessibility (a11y) Specialist** for the MCID-Front project. You 
 ### Color & Contrast
 
 - [ ] Text contrast ratio ≥ 4.5:1 for normal text, ≥ 3:1 for large text
-- [ ] `text-primary` (#F2F3F5) on `surface-base` (#1E1F22) = 13.7:1 ✓
-- [ ] `text-muted` (#B5BAC1) on `surface-base` (#1E1F22) = 8.1:1 ✓
-- [ ] `text-faint` (#6D6F78) on `surface-base` (#1E1F22) = 3.4:1 ⚠️ (only for decorative/disabled)
+- [ ] Check contrast in **both** modes: `foreground` on `background` (light `#000350` on `#FFFFFF`, dark `#FAFAFA` on `#0A0A0A`)
+- [ ] `muted-foreground` on `background` and on `card` (light `#54588B`, dark `#A1A1A1`) stays at or above 4.5:1 for body text
+- [ ] Text on `primary` uses `primary-foreground`
 - [ ] Information not conveyed by color alone (add icons, patterns, or text)
 - [ ] Error states include icon + text, not just red color
 

@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Server as ServerIcon } from 'lucide-react';
 
 import { Can } from '@/shared/components/common';
-import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { useToastStore } from '@/shared/stores/toast';
+import { McButton, buttonVariants } from '@/shared/components/ui/mc-button';
+import { McSkeleton } from '@/shared/components/ui/mc-skeleton';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 import {
   DeleteServerModal,
@@ -33,7 +33,6 @@ interface ServerDetailViewProps {
 
 function ServerDetailView({ id }: ServerDetailViewProps) {
   const router = useRouter();
-  const showToast = useToastStore((state) => state.show);
 
   const { data: server, isPending, isError, error, refetch } = useServerQuery(id);
   const { data: serverStats, isPending: isStatsPending } = useServerStatsQuery();
@@ -51,16 +50,16 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex items-center gap-3">
-          <Skeleton className="size-14 rounded-[10px]" />
+          <McSkeleton rectangle className="size-14 rounded-lg" />
           <div className="flex flex-col gap-2">
-            <Skeleton className="h-6 w-40" />
-            <Skeleton className="h-4 w-24" />
+            <McSkeleton rectangle className="h-6 w-40" />
+            <McSkeleton rectangle className="h-4 w-24" />
           </div>
         </div>
         <Can resource="stats" level="read">
           <ServerStatsCard stats={undefined} isLoading />
         </Can>
-        <Skeleton className="h-64 w-full" />
+        <McSkeleton rectangle className="h-64 w-full" />
       </div>
     );
   }
@@ -75,20 +74,23 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
           title="Server not found"
           description="This server may have been deleted or the link is incorrect."
           action={
-            <Button variant="secondary" size="sm" asChild>
-              <Link href="/dashboard/servers">Back to servers</Link>
-            </Button>
+            <Link
+              href="/dashboard/servers"
+              className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+            >
+              Back to servers
+            </Link>
           }
         />
       );
     }
 
     return (
-      <div className="flex flex-col items-start gap-3 rounded-lg bg-error/12 p-4 text-error">
-        <p className="text-body">{apiError.message || 'Failed to load server.'}</p>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
+      <div className="flex flex-col items-start gap-3 rounded-lg bg-error/10 p-4 text-error">
+        <p className="paragraph-sm">{apiError.message || 'Failed to load server.'}</p>
+        <McButton type="button" variant="secondary" size="sm" onClick={() => void refetch()}>
           Retry
-        </Button>
+        </McButton>
       </div>
     );
   }
@@ -99,7 +101,7 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
         <div className="flex items-center gap-3">
           <ServerAvatar name={server.name} icon={server.icon} size="lg" />
           <div className="flex flex-col gap-1">
-            <h1 className="text-hero text-text-primary">{server.name}</h1>
+            <h1 className="header-xs font-bold text-foreground">{server.name}</h1>
             <div className="flex items-center gap-2">
               <ServerStatusBadge isActive={server.isActive} isMain={server.isMain} />
               <ServerTypeBadge type={server.type} />
@@ -108,7 +110,7 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
         </div>
         <div className="flex items-center gap-2">
           <Can resource="servers" level="write">
-            <Button
+            <McButton
               type="button"
               variant="secondary"
               size="sm"
@@ -127,19 +129,20 @@ function ServerDetailView({ id }: ServerDetailViewProps) {
               }}
             >
               {server.isActive ? 'Disable' : 'Enable'}
-            </Button>
+            </McButton>
           </Can>
           <Can resource="servers" level="manage">
-            <Button
+            <McButton
               type="button"
-              variant="danger"
+              variant="primary"
+              destructive
               size="sm"
               disabled={server.isMain}
               title={server.isMain ? 'The main server cannot be deleted' : undefined}
               onClick={() => setDeleteOpen(true)}
             >
               Delete
-            </Button>
+            </McButton>
           </Can>
         </div>
       </div>
