@@ -586,7 +586,7 @@ Specialized AI personas that audit your code from different angles:
 
 | Agent | What it checks |
 |---|---|
-| **ui-ux-guardian** | Design token compliance, surface hierarchy, CLS prevention, hover/focus states |
+| **ui-ux-guardian** | mcoli-ui component and token compliance in light and dark mode, CLS prevention, hover/focus states |
 | **state-architect** | Correct state tool selection (React Query vs Zustand vs useState) |
 | **accessibility-auditor** | WCAG 2.1 AA compliance, ARIA labels, keyboard navigation, focus management |
 | **security-auditor** | XSS prevention, auth token handling, input validation, dependency security |
@@ -610,7 +610,7 @@ Reference guides that agents consult during implementation:
 
 | Skill | Content |
 |---|---|
-| **tailwind-design-system** | Full V2 token reference, component recipes, surface hierarchy rules |
+| **tailwind-design-system** | mcoli-ui theme tokens, component catalogue and usage rules |
 | **tailwind-css-patterns** | Responsive layouts, flexbox/grid, mobile-first patterns (adapted for MCID tokens) |
 | **vercel-react-best-practices** | 64 performance rules: waterfalls, bundle size, re-renders, SSR |
 | **tanstack-query-best-practices** | 21 rules: query keys, caching, mutations, prefetching, SSR, offline |
