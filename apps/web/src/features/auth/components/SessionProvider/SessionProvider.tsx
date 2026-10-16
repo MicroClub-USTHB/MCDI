@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentAdminQuery } from '@/features/auth/api/queries';
 import { useAuthStore } from '@/features/auth/stores/auth';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 interface SessionProviderProps {
   children: ReactNode;
@@ -25,7 +25,6 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
-  const showToast = useToastStore((state) => state.show);
   const router = useRouter();
   const hasHandledExpiry = useRef(false);
 

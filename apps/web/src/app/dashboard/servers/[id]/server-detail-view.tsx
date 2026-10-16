@@ -9,7 +9,7 @@ import { Can } from '@/shared/components/common';
 import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 import {
   DeleteServerModal,
@@ -33,7 +33,6 @@ interface ServerDetailViewProps {
 
 function ServerDetailView({ id }: ServerDetailViewProps) {
   const router = useRouter();
-  const showToast = useToastStore((state) => state.show);
 
   const { data: server, isPending, isError, error, refetch } = useServerQuery(id);
   const { data: serverStats, isPending: isStatsPending } = useServerStatsQuery();

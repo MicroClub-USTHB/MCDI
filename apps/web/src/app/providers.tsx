@@ -1,8 +1,10 @@
 'use client';
 
+import { ThemeProvider } from 'next-themes';
 import { QueryProvider } from '@/providers';
 import { SessionProvider } from '@/features/auth/components/SessionProvider';
-import { ToastContainer } from '@/shared/components/common';
+import { McSonner } from '@/shared/components/ui/mc-sonner';
+import { McTooltipProvider } from '@/shared/components/ui/mc-tooltip';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -10,9 +12,13 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <QueryProvider>
-      <SessionProvider>{children}</SessionProvider>
-      <ToastContainer />
-    </QueryProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryProvider>
+        <McTooltipProvider>
+          <SessionProvider>{children}</SessionProvider>
+        </McTooltipProvider>
+        <McSonner />
+      </QueryProvider>
+    </ThemeProvider>
   );
 }

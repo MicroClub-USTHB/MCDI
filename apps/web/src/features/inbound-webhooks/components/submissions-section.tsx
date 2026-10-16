@@ -26,7 +26,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Pagination } from '@/shared/components/ui/pagination';
 import { downloadTextFile } from '@/shared/lib/download';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 
 const PAGE_SIZE = 50;
@@ -67,7 +67,6 @@ interface SubmissionsSectionProps {
 
 /** What the webhook has received, as the role-gated read API returns it. */
 export function SubmissionsSection({ webhookId, slug, schema }: SubmissionsSectionProps) {
-  const showToast = useToastStore((state) => state.show);
   const [exportProgress, setExportProgress] = useState<{ done: number; total: number } | null>(
     null
   );

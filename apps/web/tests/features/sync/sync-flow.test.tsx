@@ -14,8 +14,7 @@ vi.mock('next/navigation', () => ({
 
 import { SyncView } from '@/app/dashboard/servers/[id]/sync/sync-view';
 import { ServersView } from '@/app/dashboard/servers/servers-view';
-import { ToastContainer } from '@/shared/components/common';
-import { useToastStore } from '@/shared/stores/toast';
+import { toastMessages } from '../../helpers/toasts';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -44,7 +43,6 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 afterEach(() => {
-  useToastStore.setState({ toasts: [] });
   pushMock.mockClear();
 });
 
@@ -126,13 +124,7 @@ describe('sync flow', () => {
     );
 
     const user = userEvent.setup();
-    render(
-      <>
-        <SyncView serverId="s-main" />
-        <ToastContainer />
-      </>,
-      { wrapper }
-    );
+    render(<SyncView serverId="s-main" />, { wrapper });
 
     await screen.findByRole('heading', { name: 'Main Server' });
     expect(screen.queryByRole('heading', { name: 'Events Server' })).toBeNull();
@@ -141,7 +133,7 @@ describe('sync flow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Sync now' }));
     await waitFor(() => expect(syncBody).toEqual({ serverIds: ['s-main'] }));
-    expect(await screen.findByText('Sync started')).toBeInTheDocument();
+    await waitFor(() => expect(toastMessages()).toContain('Sync started'));
 
     await waitFor(() => expect(logsQuery?.get('serverId')).toBe('s-main'));
     expect(logsQuery?.get('limit')).toBe('20');
@@ -176,16 +168,10 @@ describe('sync flow', () => {
     );
     const user = userEvent.setup();
 
-    render(
-      <>
-        <ServersView />
-        <ToastContainer />
-      </>,
-      { wrapper }
-    );
+    render(<ServersView />, { wrapper });
 
     await user.click(await screen.findByRole('button', { name: 'Sync all servers' }));
     await waitFor(() => expect(syncBody).toEqual({ target: 'all' }));
-    expect(await screen.findByText('Sync started')).toBeInTheDocument();
+    await waitFor(() => expect(toastMessages()).toContain('Sync started'));
   });
 });

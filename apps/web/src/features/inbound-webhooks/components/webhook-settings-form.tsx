@@ -12,14 +12,13 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const sameList = (a: string[], b: string[]) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
 /** The webhook's name and how it treats requests. Mount it with a key that changes on save so it restarts from the saved values. */
 export function WebhookSettingsForm({ webhook }: { webhook: InboundWebhookDto }) {
-  const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhook.id);
   const canWrite = useCan('inbound_webhooks', 'write');
 

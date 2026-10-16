@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../../../setup';
 import { WebhookDetail } from '@/features/webhooks/components';
 import type { WebhookView } from '@/features/webhooks';
-import { useToastStore } from '@/shared/stores/toast';
+import { shownToasts } from '../../../helpers/toasts';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -32,12 +32,10 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 function toasts() {
-  return useToastStore.getState().toasts;
+  return shownToasts;
 }
 
-afterEach(() => {
-  useToastStore.setState({ toasts: [] });
-});
+afterEach(() => {});
 
 describe('WebhookDetail', () => {
   it('shows the usage stats and where the webhook posts', () => {

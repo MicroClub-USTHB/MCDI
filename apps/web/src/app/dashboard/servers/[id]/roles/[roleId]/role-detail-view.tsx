@@ -29,7 +29,7 @@ import { SkeletonCard } from '@/shared/components/common/LoadingSkeleton';
 import { Button } from '@/shared/components/ui/button';
 import { useCan } from '@/shared/lib/use-access';
 import { cn } from '@/shared/lib/utils';
-import { useToastStore } from '@/shared/stores';
+import { showToast } from '@/shared/stores';
 
 interface RoleDetailViewProps {
   roleId: string;
@@ -69,7 +69,6 @@ function Panel({
 
 function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
   const router = useRouter();
-  const toast = useToastStore((s) => s.show);
   const canWrite = useCan('roles', 'write');
   const canManage = useCan('roles', 'manage');
 
@@ -156,11 +155,11 @@ function RoleDetailView({ roleId, serverId }: RoleDetailViewProps) {
       for (const id of removeIds) await removeMutation.mutateAsync(id);
       await rolePermissionsQuery.refetch();
       setStaged(new Map());
-      toast(`Applied ${total} permission change${total === 1 ? '' : 's'}.`, 'success');
+      showToast(`Applied ${total} permission change${total === 1 ? '' : 's'}.`, 'success');
     } catch {
       await rolePermissionsQuery.refetch();
       setStaged(new Map());
-      toast('Some changes could not be applied. Review and retry.', 'error');
+      showToast('Some changes could not be applied. Review and retry.', 'error');
     } finally {
       setIsApplying(false);
     }

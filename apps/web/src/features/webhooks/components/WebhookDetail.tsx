@@ -9,7 +9,7 @@ import { WebhookStatsCard } from '@/features/webhooks/components/WebhookStatsCar
 import { Can } from '@/shared/components/common';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 interface WebhookDetailProps {
   webhook: WebhookView;
@@ -27,7 +27,6 @@ function errorMessage(error: unknown): string {
 export function WebhookDetail({ webhook, onDeleted }: WebhookDetailProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const deleteMutation = useDeleteWebhookMutation();
-  const showToast = useToastStore((state) => state.show);
 
   function handleConfirm() {
     deleteMutation.mutate(webhook.id, {

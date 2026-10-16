@@ -17,11 +17,10 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Switch } from '@/shared/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/tabs';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 
 function ActiveSwitch({ webhookId, isActive }: { webhookId: string; isActive: boolean }) {
-  const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhookId);
   const canWrite = useCan('inbound_webhooks', 'write');
 

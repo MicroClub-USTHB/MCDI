@@ -25,7 +25,7 @@ import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import type { ApiError } from '@/shared/types';
 
 type Choice = 'inherit' | 'none' | 'read' | 'write' | 'manage';
@@ -56,7 +56,6 @@ function sourceLabel(source: EffectiveSourceDto, roleNames: Map<string, string>)
  * for each. Inherit leaves a resource out of the save, because the API replaces the whole set.
  */
 export function MemberAccessEditor({ memberId }: { memberId: string }) {
-  const showToast = useToastStore((state) => state.show);
   const effective = useMemberEffectiveQuery(memberId);
   const overrides = useMemberOverridesQuery(memberId);
   const roles = useAccessRolesQuery();

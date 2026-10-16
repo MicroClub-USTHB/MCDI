@@ -90,4 +90,4 @@ const McSonner = ({ toastOptions, ...props }: ToasterProps) => {
   );
 };
 
-export default McSonner;
+export { McSonner };

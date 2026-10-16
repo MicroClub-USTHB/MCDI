@@ -21,10 +21,9 @@ import { Card, CardContent } from '@/shared/components/ui/card';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { SkeletonCard } from '@/shared/components/common';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 function SettingsPage() {
-  const showToast = useToastStore((state) => state.show);
   const [resetOpen, setResetOpen] = useState(false);
 
   const settingsQuery = useSettingsQuery();

@@ -10,7 +10,7 @@ import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const SchemaEditor = dynamic(
   () =>
@@ -28,7 +28,6 @@ const SchemaEditor = dynamic(
  * stands, and with submissions already stored it asks first, since those are not re-checked.
  */
 export function WebhookSchemaSection({ webhook }: { webhook: InboundWebhookDto }) {
-  const showToast = useToastStore((state) => state.show);
   const update = useUpdateInboundWebhookMutation(webhook.id);
   const canWrite = useCan('inbound_webhooks', 'write');
   const stored = useMemo(() => JSON.stringify(webhook.schema, null, 2), [webhook.schema]);

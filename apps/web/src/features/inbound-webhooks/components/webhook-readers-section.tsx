@@ -13,7 +13,7 @@ import type { InboundWebhookDto } from '@/features/inbound-webhooks/types';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 /** Shown in place of the role list when the member cannot read the statistics it is built from. */
 const ROLES_NEED_STATISTICS =
@@ -21,7 +21,6 @@ const ROLES_NEED_STATISTICS =
 
 /** Who may read the submissions. The list is replaced as a whole and may not be empty. */
 export function WebhookReadersSection({ webhook }: { webhook: InboundWebhookDto }) {
-  const showToast = useToastStore((state) => state.show);
   const granted = useAllowedRolesQuery(webhook.id);
   const roles = useProjectRoleOptions(webhook.projectId);
   const replace = useReplaceAllowedRolesMutation(webhook.id);

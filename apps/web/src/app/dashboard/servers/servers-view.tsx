@@ -9,7 +9,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 import {
   CreateServerButton,
   DeleteServerModal,
@@ -36,7 +36,6 @@ const PAGE_SIZE = 20;
 function ServersView() {
   const router = useRouter();
   const { data: servers, isPending, isError, error, refetch } = useServersQuery();
-  const showToast = useToastStore((state) => state.show);
   const canWrite = useCan('servers', 'write');
 
   const [search, setSearch] = useState('');

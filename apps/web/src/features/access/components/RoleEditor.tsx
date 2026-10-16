@@ -18,7 +18,7 @@ import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { RESOURCE_TITLES } from '@/shared/lib/access-labels';
 import { describeUnreachable, unreachableGrants } from '@/shared/lib/reachability';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const OPTIONS: LevelOption<Draft[keyof Draft]>[] = [
   { value: 'none', label: 'None' },
@@ -32,7 +32,6 @@ const OPTIONS: LevelOption<Draft[keyof Draft]>[] = [
  * another role is picked. The save replaces every grant of the role in one request.
  */
 export function RoleEditor({ role, catalog }: { role: AccessRoleDto; catalog: AccessCatalogDto }) {
-  const showToast = useToastStore((state) => state.show);
   const mutation = useSetRoleGrantsMutation();
 
   const saved = useMemo(() => draftFromGrants(role.grants), [role.grants]);

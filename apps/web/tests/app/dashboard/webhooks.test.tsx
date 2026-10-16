@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { server } from '../../setup';
 import { WebhooksView } from '@/app/dashboard/projects/[id]/webhooks/webhooks-view';
-import { useToastStore } from '@/shared/stores/toast';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -52,9 +51,7 @@ function withProjects(...projects: ReturnType<typeof projectDto>[]) {
   server.use(http.get(`${API_URL}/admin/projects`, () => HttpResponse.json(projects)));
 }
 
-afterEach(() => {
-  useToastStore.setState({ toasts: [] });
-});
+afterEach(() => {});
 
 describe('Webhooks page', () => {
   it("lists the project's webhooks and details the first one", async () => {

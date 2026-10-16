@@ -14,11 +14,10 @@ import { Button } from '@/shared/components/ui/button';
 import { EmptyState } from '@/shared/components/ui/empty-state';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 /** The roles every new inbound webhook starts with. Changing them leaves existing webhooks alone. */
 export function DefaultReadersSettings() {
-  const showToast = useToastStore((state) => state.show);
   const settings = useInboundSettingsQuery();
   const roles = useAllRoleOptions();
   const update = useUpdateInboundSettingsMutation();

@@ -9,12 +9,11 @@ import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { Input } from '@/shared/components/ui/input';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 /** Deletes the webhook and every submission it holds, after the slug is typed back. */
 export function WebhookDeleteSection({ webhook }: { webhook: InboundWebhookDto }) {
   const router = useRouter();
-  const showToast = useToastStore((state) => state.show);
   const remove = useDeleteInboundWebhookMutation(webhook.id, webhook.projectId);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');

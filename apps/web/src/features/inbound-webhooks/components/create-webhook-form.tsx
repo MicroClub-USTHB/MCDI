@@ -22,7 +22,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Switch } from '@/shared/components/ui/switch';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 const SchemaEditor = dynamic(
   () =>
@@ -40,7 +40,6 @@ const stringify = (schema: Record<string, unknown>) => JSON.stringify(schema, nu
 
 export function CreateWebhookForm({ projectId }: { projectId: string }) {
   const router = useRouter();
-  const showToast = useToastStore((state) => state.show);
   const create = useCreateInboundWebhookMutation();
   const roles = useProjectRoleOptions(projectId);
   // The role list comes from the statistics; without it only the default readers can be used.

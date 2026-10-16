@@ -5,12 +5,17 @@ import { Providers } from '@/app/providers';
 import { env } from '@/shared/lib/env';
 import { cn } from '@/shared/lib/utils';
 
-const plusJakartaSansPlusJakartaSans = Plus_Jakarta_Sans({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-plus-jakarta-sans',
+  variable: '--font-dm-sans',
+  display: 'swap',
 });
 
-const dmSansDmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans' });
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-plus-jakarta-sans',
+  display: 'swap',
+});
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -33,10 +38,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(dmSansDmSans.variable, plusJakartaSansPlusJakartaSans.variable)}>
-      <body
-        className={`${dmSansDmSans.variable} ${jetbrainsMono.variable} min-h-screen antialiased`}
-      >
+    // next-themes sets the `dark` class on <html> before React hydrates.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={cn(dmSans.variable, plusJakartaSans.variable, jetbrainsMono.variable)}
+    >
+      <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

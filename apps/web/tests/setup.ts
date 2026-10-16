@@ -6,6 +6,12 @@ import { http, HttpResponse } from 'msw';
 
 configure({ asyncUtilTimeout: 5000 });
 
+// Toasts go to a recorder instead of the Sonner toaster; see tests/helpers/toasts.ts.
+vi.mock('@/shared/stores/toast', async () => {
+  const { recordToast } = await import('./helpers/toasts');
+  return { showToast: recordToast };
+});
+
 const env = process.env as Record<string, string>;
 env['NEXT_PUBLIC_API_URL'] = 'http://localhost:3000/api';
 env['NEXT_PUBLIC_APP_URL'] = 'http://localhost:3002';
@@ -26,6 +32,8 @@ afterEach(async () => {
   // under a mounted tree would re-render it (and re-run its effects) after the test has ended.
   cleanup();
   server.resetHandlers();
+  const { shownToasts } = await import('./helpers/toasts');
+  shownToasts.length = 0;
   localStorage.clear();
   sessionStorage.clear();
 

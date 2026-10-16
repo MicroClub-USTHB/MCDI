@@ -7,11 +7,10 @@ import { SigningSecretDialog } from '@/features/inbound-webhooks/components/sign
 import { Button } from '@/shared/components/ui/button';
 import { ConfirmDialog } from '@/shared/components/ui/confirm-dialog';
 import { useCan } from '@/shared/lib/use-access';
-import { useToastStore } from '@/shared/stores/toast';
+import { showToast } from '@/shared/stores';
 
 /** Issues a new signing secret and shows it once. The old one stops working at once. */
 export function WebhookSecretSection({ webhookId }: { webhookId: string }) {
-  const showToast = useToastStore((state) => state.show);
   const rotate = useRotateSecretMutation(webhookId);
   const [confirming, setConfirming] = useState(false);
   const [secret, setSecret] = useState<string | null>(null);
